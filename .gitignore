@@ -1,0 +1,15 @@
+build/
+
+cmake-build-*/
+
+out/
+
+.idea/
+
+.cache/
+
+*.pyc
+
+*.exe
+
+scripts/manager.py
