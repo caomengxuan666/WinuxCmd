@@ -29,28 +29,13 @@ module;
 #include <cstdio>
 
 #include "core/command_macros.h"
+#include "core/auto_flags.h"
 export module commands.cat;
 
 import std;
 import core.dispatcher;
 import core.cmd_meta;
-
-/**
- * @brief Concatenate files and print on the standard output
- * @param args Command-line arguments
- * @return Exit code (0 on success, non-zero on error)
- *
- * Options:
- *  -b, --number-nonblank    Number non-empty output lines
- *  -n, --number             Number all output lines
- *  -s, --squeeze-blank      Squeeze multiple adjacent empty lines
- *  -E, --show-ends          Display $ at end of each line
- *  -T, --show-tabs          Display TAB characters as ^I
- *  -v, --show-nonprinting   Use ^ and M- notation, except for LFD and TAB
- *  -e                       Equivalent to -vE
- *  -A, --show-all           Equivalent to -vET
- *  -u                       Disable output buffering
- */
+import core.opt;
 
 constexpr auto CAT_OPTIONS = std::array{
     OPTION("-A", "--show-all", "equivalent to -vET"),
@@ -65,6 +50,20 @@ constexpr auto CAT_OPTIONS = std::array{
     OPTION("-u", "", "(ignored, for POSIX compatibility)"),
     OPTION("-v", "--show-nonprinting",
            "use ^ and M- notation, except for LFD and TAB")};
+
+// Auto-generated lookup table for options from CAT_OPTIONS
+constexpr auto OPTION_HANDLERS = generate_option_handlers(CAT_OPTIONS);
+
+CREATE_AUTO_FLAGS_CLASS(CatOptions,
+    // Define all flags
+    DEFINE_FLAG(number_lines, 0)          // -n, --number
+    DEFINE_FLAG(number_nonblank, 1)       // -b, --number-nonblank
+    DEFINE_FLAG(show_end, 2)              // -E, --show-ends
+    DEFINE_FLAG(squeeze_empty, 3)         // -s, --squeeze-blank
+    DEFINE_FLAG(show_nonprinting, 4)      // -v, --show-nonprinting
+    DEFINE_FLAG(show_tabs, 5)             // -T, --show-tabs
+    DEFINE_FLAG(unbuffered, 6)            // -u, --unbuffered
+)
 
 REGISTER_COMMAND(
     cat,
@@ -91,16 +90,6 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     CAT_OPTIONS) {
-  // Option flags for cat command
-  struct CatOptions {
-    bool number_lines = false;      // -n, --number
-    bool number_nonblank = false;   // -b, --number-nonblank
-    bool show_end = false;          // -E, --show-ends
-    bool squeeze_empty = false;     // -s, --squeeze-blank
-    bool show_nonprinting = false;  // -v, --show-nonprinting
-    bool show_tabs = false;         // -T, --show-tabs
-    bool unbuffered = false;        // -u, --unbuffered
-  };
 
   /**
    * @brief Parse command line options for cat
@@ -118,27 +107,27 @@ REGISTER_COMMAND(
       if (arg.starts_with("--")) {
         // This is a long option
         if (arg == "--number-nonblank") {
-          options.number_nonblank = true;
-          options.number_lines = false;  // -b overrides -n
+          options.set_number_nonblank(true);
+          options.set_number_lines(false);  // -b overrides -n
         } else if (arg == "--number") {
-          options.number_lines = true;
-          options.number_nonblank = false;  // -n overrides -b
+          options.set_number_lines(true);
+          options.set_number_nonblank(false);  // -n overrides -b
         } else if (arg == "--squeeze-blank") {
-          options.squeeze_empty = true;
+          options.set_squeeze_empty(true);
         } else if (arg == "--show-nonprinting") {
-          options.show_nonprinting = true;
+          options.set_show_nonprinting(true);
         } else if (arg == "--show-ends") {
-          options.show_end = true;
+          options.set_show_end(true);
         } else if (arg == "--show-tabs") {
-          options.show_tabs = true;
+          options.set_show_tabs(true);
         } else if (arg == "--show-all") {
-          options.show_nonprinting = true;
-          options.show_end = true;
-          options.show_tabs = true;
+          options.set_show_nonprinting(true);
+          options.set_show_end(true);
+          options.set_show_tabs(true);
         } else if (arg == "--unbuffered") {
-          options.unbuffered = true;
+          options.set_unbuffered(true);
         } else {
-          fprintf(stderr, "cat: invalid option -- '%.*s'\n",
+          fwprintf(stderr, L"cat: invalid option -- '%.*s'\n",
                   static_cast<int>(arg.size() - 2), arg.data() + 2);
           return false;
         }
@@ -154,43 +143,43 @@ REGISTER_COMMAND(
         for (size_t j = 1; j < arg.size(); ++j) {
           switch (arg[j]) {
             case 'b':
-              options.number_nonblank = true;
-              options.number_lines = false;  // -b overrides -n
+              options.set_number_nonblank(true);
+              options.set_number_lines(false);  // -b overrides -n
               break;
             case 'n':
-              options.number_lines = true;
-              options.number_nonblank = false;  // -n overrides -b
+              options.set_number_lines(true);
+              options.set_number_nonblank(false);  // -n overrides -b
               break;
             case 's':
-              options.squeeze_empty = true;
+              options.set_squeeze_empty(true);
               break;
             case 'v':
-              options.show_nonprinting = true;
+              options.set_show_nonprinting(true);
               break;
             case 'E':
-              options.show_end = true;
+              options.set_show_end(true);
               break;
             case 'T':
-              options.show_tabs = true;
+              options.set_show_tabs(true);
               break;
             case 'A':
-              options.show_nonprinting = true;
-              options.show_end = true;
-              options.show_tabs = true;
+              options.set_show_nonprinting(true);
+              options.set_show_end(true);
+              options.set_show_tabs(true);
               break;
             case 'e':
-              options.show_nonprinting = true;
-              options.show_end = true;
+              options.set_show_nonprinting(true);
+              options.set_show_end(true);
               break;
             case 't':
-              options.show_nonprinting = true;
-              options.show_tabs = true;
+              options.set_show_nonprinting(true);
+              options.set_show_tabs(true);
               break;
             case 'u':
-              options.unbuffered = true;
+              options.set_unbuffered(true);
               break;
             default:
-              fprintf(stderr, "cat: invalid option -- '%c'\n", arg[j]);
+              fwprintf(stderr, L"cat: invalid option -- '%c'\n", arg[j]);
               return false;
           }
         }
@@ -214,38 +203,38 @@ REGISTER_COMMAND(
    * @param options cat command options
    */
   auto processCharacter = [](unsigned char c, const CatOptions &options) {
-    if (options.show_nonprinting) {
+    if (options.get_show_nonprinting()) {
       if (c < 0x20) {
         // Control characters (except newline, tab, form feed)
         if (c == '\n') {
-          putchar('\n');
+          putwchar('\n');
         } else if (c == '\t') {
-          if (options.show_tabs) {
-            printf("^I");
+          if (options.get_show_tabs()) {
+            wprintf(L"^I");
           } else {
-            putchar('\t');
+            putwchar('\t');
           }
         } else if (c == '\f') {
-          printf("^L");
+          wprintf(L"^L");
         } else {
-          printf("^%c", c + 0x40);  // Convert to ^A, ^B, etc.
+          wprintf(L"^%c", c + 0x40);  // Convert to ^A, ^B, etc.
         }
       } else if (c == 0x7f) {
         // DEL character
-        printf("^?");
+        wprintf(L"^?");
       } else if (c >= 0x80) {
         // Non-ASCII characters
-        printf("M-%c", c - 0x80);
+        wprintf(L"M-%c", c - 0x80);
       } else {
         // Printable ASCII characters
-        putchar(c);
+        putwchar(c);
       }
-    } else if (options.show_tabs && c == '\t') {
+    } else if (options.get_show_tabs() && c == '\t') {
       // Only show tabs when requested
-      printf("^I");
+      wprintf(L"^I");
     } else {
       // Normal character output
-      putchar(c);
+      putwchar(c);
     }
   };
 
@@ -268,10 +257,10 @@ REGISTER_COMMAND(
         (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
 
     // Handle line numbering
-    if (options.number_lines) {
-      printf("%6zu  ", line_num++);
-    } else if (options.number_nonblank && !is_empty) {
-      printf("%6zu  ", line_num++);
+    if (options.get_number_lines()) {
+      wprintf(L"%6zu  ", line_num++);
+    } else if (options.get_number_nonblank() && !is_empty) {
+      wprintf(L"%6zu  ", line_num++);
     }
 
     // Process each character in the line
@@ -280,12 +269,12 @@ REGISTER_COMMAND(
     }
 
     // Show end of line marker if requested
-    if (options.show_end) {
-      putchar('$');
+    if (options.get_show_end()) {
+      putwchar('$');
     }
 
     // End with newline
-    putchar('\n');
+    putwchar('\n');
   };
 
   /**
@@ -309,7 +298,7 @@ REGISTER_COMMAND(
             (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
 
         // Handle squeeze empty lines option
-        if (options.squeeze_empty && is_empty && last_line_empty) {
+        if (options.get_squeeze_empty() && is_empty && last_line_empty) {
           continue;
         }
 
@@ -338,7 +327,7 @@ REGISTER_COMMAND(
             (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
 
         // Handle squeeze empty lines option
-        if (options.squeeze_empty && is_empty && last_line_empty) {
+        if (options.get_squeeze_empty() && is_empty && last_line_empty) {
           continue;
         }
 

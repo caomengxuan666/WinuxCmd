@@ -26,23 +26,16 @@
 // Use global module fragment for C standard library
 module;
 #include <cstdio>
+#include <cwchar>
 
 #include "core/command_macros.h"
+#include "core/auto_flags.h"
 export module commands.mkdir;
 
 import std;
 import core.dispatcher;
 import core.cmd_meta;
-
-/**
- * @brief Make directories
- * @param args Command-line arguments
- * @return Exit code (0 on success, non-zero on error)
- *
- * Options:
- *  -p, --parents            No error if existing, make parent directories as
- * needed -v, --verbose            Print a message for each created directory
- */
+import core.opt;
 
 constexpr auto MKDIR_OPTIONS = std::array{
     OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask"),
@@ -52,6 +45,18 @@ constexpr auto MKDIR_OPTIONS = std::array{
     OPTION("-Z", "",
            "set SELinux security context of each created directory to the "
            "default type")};
+
+// Auto-generated lookup table for options from MKDIR_OPTIONS
+constexpr auto OPTION_HANDLERS = generate_option_handlers(MKDIR_OPTIONS, "--mode");
+
+CREATE_AUTO_FLAGS_CLASS(MkdirOptions,
+    DECLARE_STRING_OPTION(mode, "")  // -m, --mode
+    
+    // Define all flags
+    DEFINE_FLAG(parents, 0)          // -p, --parents
+    DEFINE_FLAG(verbose, 1)          // -v, --verbose
+    DEFINE_FLAG(selinux_context, 2)  // -Z
+)
 
 REGISTER_COMMAND(
     mkdir,
@@ -73,13 +78,6 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     MKDIR_OPTIONS) {
-  // Option flags for mkdir command
-  struct MkdirOptions {
-    bool parents = false;          // -p, --parents
-    bool verbose = false;          // -v, --verbose
-    std::string mode;              // -m, --mode
-    bool selinux_context = false;  // -Z
-  };
 
   /**
    * @brief Parse command line options for mkdir
@@ -97,23 +95,23 @@ REGISTER_COMMAND(
       if (arg.starts_with("--")) {
         // This is a long option
         if (arg == "--parents") {
-          options.parents = true;
+          options.set_parents(true);
         } else if (arg == "--verbose") {
-          options.verbose = true;
+          options.set_verbose(true);
         } else if (arg == "--mode") {
           if (i + 1 < args.size()) {
-            options.mode = args[i + 1];
+            options.set_mode(args[i + 1]);
             ++i;
           } else {
-            fprintf(stderr, "mkdir: option '--mode' requires an argument\n");
+            fwprintf(stderr, L"mkdir: option '--mode' requires an argument\n");
             return false;
           }
         } else {
-          fprintf(stderr, "mkdir: invalid option -- '%.*s'\n",
-                  static_cast<int>(arg.size() - 2), arg.data() + 2);
+          fwprintf(stderr, L"mkdir: invalid option -- '%.*s'\n",
+                  static_cast<int>(arg.size() - 2), reinterpret_cast<const wchar_t*>(arg.data() + 2));
           return false;
         }
-      } else if (arg.starts_with('-')) {
+      } else if (arg.starts_with("-")) {
         // This is a short option
         if (arg == "-") {
           // Single dash, treat as path
@@ -125,28 +123,28 @@ REGISTER_COMMAND(
         for (size_t j = 1; j < arg.size(); ++j) {
           switch (arg[j]) {
             case 'p':
-              options.parents = true;
+              options.set_parents(true);
               break;
             case 'v':
-              options.verbose = true;
+              options.set_verbose(true);
               break;
             case 'm':
               if (j + 1 < arg.size()) {
-                options.mode = arg.substr(j + 1);
+                options.set_mode(arg.substr(j + 1));
                 j = arg.size() - 1;
               } else if (i + 1 < args.size()) {
-                options.mode = args[i + 1];
+                options.set_mode(args[i + 1]);
                 ++i;
                 break;
               } else {
-                fprintf(stderr, "mkdir: option requires an argument -- 'm'\n");
+                fwprintf(stderr, L"mkdir: option requires an argument -- 'm'\n");
                 return false;
               }
             case 'Z':
-              options.selinux_context = true;
+              options.set_selinux_context(true);
               break;
             default:
-              fprintf(stderr, "mkdir: invalid option -- '%c'\n", arg[j]);
+              fwprintf(stderr, L"mkdir: invalid option -- '%c'\n", arg[j]);
               return false;
           }
         }
@@ -157,7 +155,7 @@ REGISTER_COMMAND(
     }
 
     if (paths.empty()) {
-      fprintf(stderr, "mkdir: missing operand\n");
+      fwprintf(stderr, L"mkdir: missing operand\n");
       return false;
     }
 
@@ -174,20 +172,20 @@ REGISTER_COMMAND(
                             const MkdirOptions& options) -> bool {
     try {
       std::filesystem::path fsPath(path);
-      if (options.parents) {
+      if (options.get_parents()) {
         std::filesystem::create_directories(fsPath);
-        if (options.verbose)
-          printf("mkdir: created directory '%s'\n", path.data());
+        if (options.get_verbose())
+          wprintf(L"mkdir: created directory '%ls'\n", fsPath.c_str());
       } else {
         bool created = std::filesystem::create_directory(fsPath);
         if (created) {
-          if (options.verbose)
-            printf("mkdir: created directory '%s'\n", path.data());
+          if (options.get_verbose())
+            wprintf(L"mkdir: created directory '%ls'\n", fsPath.c_str());
         } else {
           if (std::filesystem::exists(fsPath)) {
-            fprintf(stderr,
-                    "mkdir: cannot create directory '%s': File exists\n",
-                    path.data());
+            fwprintf(stderr,
+                    L"mkdir: cannot create directory '%ls': File exists\n",
+                    fsPath.c_str());
             return false;
           } else {
             throw std::filesystem::filesystem_error(
@@ -197,11 +195,11 @@ REGISTER_COMMAND(
       }
       return true;
     } catch (const std::filesystem::filesystem_error& e) {
-      fprintf(stderr, "mkdir: cannot create directory '%s': %s\n", path.data(),
+      fwprintf(stderr, L"mkdir: cannot create directory '%hs': %hs\n", path.data(),
               e.what());
       return false;
     } catch (const std::exception& e) {
-      fprintf(stderr, "mkdir: error: %s\n", e.what());
+      fwprintf(stderr, L"mkdir: error: %hs\n", e.what());
       return false;
     }
   };

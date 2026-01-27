@@ -31,11 +31,13 @@ module;
 #include <windows.h>
 #pragma comment(lib, "shlwapi.lib")
 #include "core/command_macros.h"
+#include "core/auto_flags.h"
 export module commands.cp;
 
 import std;
 import core.dispatcher;
 import core.cmd_meta;
+import core.opt;
 
 /**
  * @brief Copy files and directories
@@ -47,7 +49,6 @@ import core.cmd_meta;
  *  -i, --interactive        Prompt before overwrite
  *  -v, --verbose            Explain what is being done
  */
-
 constexpr auto CP_OPTIONS = std::array{
     OPTION("-a", "--archive", "same as -dR --preserve=all"),
     OPTION("-b", "", "like --backup but does not accept an argument"),
@@ -76,50 +77,59 @@ constexpr auto CP_OPTIONS = std::array{
     OPTION("-Z", "",
            "set SELinux security context of destination file to default type")};
 
+// Auto-generated lookup table for options from CP_OPTIONS
+constexpr auto OPTION_HANDLERS = generate_option_handlers(CP_OPTIONS, "--suffix", "--target-directory");
+
+CREATE_AUTO_FLAGS_CLASS(CpOptions,
+    DECLARE_STRING_OPTION(backup_suffix, "~")  // --suffix
+    DECLARE_STRING_OPTION(target_dir, "")      // --target-directory
+    
+    // Define all flags
+    DEFINE_FLAG(recursive, 0)            // -r, -R, --recursive
+    DEFINE_FLAG(interactive, 1)          // -i, --interactive
+    DEFINE_FLAG(verbose, 2)              // -v, --verbose
+    DEFINE_FLAG(archive, 3)              // -a, --archive
+    DEFINE_FLAG(backup, 4)               // -b
+    DEFINE_FLAG(no_dereference, 5)       // -d, --no-dereference
+    DEFINE_FLAG(force, 6)                // -f, --force
+    DEFINE_FLAG(follow_symlinks, 7)      // -H
+    DEFINE_FLAG(hard_link, 8)            // -l, --link
+    DEFINE_FLAG(always_dereference, 9)   // -L, --dereference
+    DEFINE_FLAG(no_clobber, 10)          // -n, --no-clobber
+    DEFINE_FLAG(preserve, 11)            // -p
+    DEFINE_FLAG(symbolic_link, 12)       // -s, --symbolic-link
+    DEFINE_FLAG(suffix, 13)              // -S, --suffix
+    DEFINE_FLAG(target_directory, 14)    // -t, --target-directory
+    DEFINE_FLAG(no_target_directory, 15) // -T, --no-target-directory
+    DEFINE_FLAG(update, 16)              // -u
+    DEFINE_FLAG(one_file_system, 17)     // -x, --one-file-system
+    DEFINE_FLAG(selinux_context, 18)     // -Z
+)
+
 REGISTER_COMMAND(
     cp,
     /* cmd_name */ "cp",
+
     /* cmd_synopsis */ "copy files and directories",
+
     /* cmd_desc */
     "Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.\n"
     "\n"
     "In the first form, copy SOURCE to DEST.\n"
     "In the second form, copy each SOURCE to DIRECTORY.\n",
+
     /* examples */
     "  cp file1.txt file2.txt       Copy file1.txt to file2.txt\n"
     "  cp -r dir1 dir2              Recursively copy dir1 to dir2\n"
     "  cp -v file.txt dir/           Verbose copy file.txt to dir/\n"
     "  cp -i file.txt file.txt       Interactive copy (prompt before "
     "overwrite)",
+
     /* see_also */ "mv(1), rm(1), ln(1)",
     /* author */ "caomengxuan666",
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     CP_OPTIONS) {
-  // Option flags for cp command
-  struct CpOptions {
-    bool recursive = false;            // -r, -R, --recursive
-    bool interactive = false;          // -i, --interactive
-    bool verbose = false;              // -v, --verbose
-    bool archive = false;              // -a, --archive
-    bool backup = false;               // -b
-    bool no_dereference = false;       // -d, --no-dereference
-    bool force = false;                // -f, --force
-    bool follow_symlinks = false;      // -H
-    bool hard_link = false;            // -l, --link
-    bool always_dereference = false;   // -L, --dereference
-    bool no_clobber = false;           // -n, --no-clobber
-    bool preserve = false;             // -p
-    bool symbolic_link = false;        // -s, --symbolic-link
-    bool suffix = false;               // -S, --suffix
-    bool target_directory = false;     // -t, --target-directory
-    bool no_target_directory = false;  // -T, --no-target-directory
-    bool update = false;               // -u
-    bool one_file_system = false;      // -x, --one-file-system
-    bool selinux_context = false;      // -Z
-    std::string backup_suffix = "~";   // --suffix
-    std::string target_dir;            // --target-directory
-  };
 
   /**
    * @brief Parse command line options for cp
@@ -138,50 +148,50 @@ REGISTER_COMMAND(
       if (arg.starts_with("--")) {
         // This is a long option
         if (arg == "--recursive") {
-          options.recursive = true;
+          options.set_recursive(true);
         } else if (arg == "--interactive") {
-          options.interactive = true;
+          options.set_interactive(true);
         } else if (arg == "--verbose") {
-          options.verbose = true;
+          options.set_verbose(true);
         } else if (arg == "--archive") {
-          options.archive = true;
+          options.set_archive(true);
         } else if (arg == "--force") {
-          options.force = true;
+          options.set_force(true);
         } else if (arg == "--link") {
-          options.hard_link = true;
+          options.set_hard_link(true);
         } else if (arg == "--dereference") {
-          options.always_dereference = true;
+          options.set_always_dereference(true);
         } else if (arg == "--no-clobber") {
-          options.no_clobber = true;
+          options.set_no_clobber(true);
         } else if (arg == "--no-dereference") {
-          options.no_dereference = true;
+          options.set_no_dereference(true);
         } else if (arg == "--symbolic-link") {
-          options.symbolic_link = true;
+          options.set_symbolic_link(true);
         } else if (arg == "--suffix") {
           if (i + 1 < args.size()) {
-            options.backup_suffix = args[i + 1];
-            options.suffix = true;
+            options.set_backup_suffix(args[i + 1]);
+            options.set_suffix(true);
             ++i;
           } else {
-            fprintf(stderr, "cp: option '--suffix' requires an argument\n");
+            fwprintf(stderr, L"cp: option '--suffix' requires an argument\n");
             return false;
           }
         } else if (arg == "--target-directory") {
           if (i + 1 < args.size()) {
-            options.target_dir = args[i + 1];
-            options.target_directory = true;
+            options.set_target_dir(args[i + 1]);
+            options.set_target_directory(true);
             ++i;
           } else {
-            fprintf(stderr,
-                    "cp: option '--target-directory' requires an argument\n");
+            fwprintf(stderr,
+                    L"cp: option '--target-directory' requires an argument\n");
             return false;
           }
         } else if (arg == "--no-target-directory") {
-          options.no_target_directory = true;
+          options.set_no_target_directory(true);
         } else if (arg == "--one-file-system") {
-          options.one_file_system = true;
+          options.set_one_file_system(true);
         } else {
-          fprintf(stderr, "cp: invalid option -- '%.*s'\n",
+          fwprintf(stderr, L"cp: invalid option -- '%.*s'\n",
                   static_cast<int>(arg.size() - 2), arg.data() + 2);
           return false;
         }
@@ -198,89 +208,89 @@ REGISTER_COMMAND(
           switch (arg[j]) {
             case 'r':
             case 'R':
-              options.recursive = true;
+              options.set_recursive(true);
               break;
             case 'i':
-              options.interactive = true;
+              options.set_interactive(true);
               break;
             case 'v':
-              options.verbose = true;
+              options.set_verbose(true);
               break;
             case 'a':
-              options.archive = true;
+              options.set_archive(true);
               break;
             case 'b':
-              options.backup = true;
+              options.set_backup(true);
               break;
             case 'd':
-              options.no_dereference = true;
+              options.set_no_dereference(true);
               break;
             case 'f':
-              options.force = true;
+              options.set_force(true);
               break;
             case 'H':
-              options.follow_symlinks = true;
+              options.set_follow_symlinks(true);
               break;
             case 'l':
-              options.hard_link = true;
+              options.set_hard_link(true);
               break;
             case 'L':
-              options.always_dereference = true;
+              options.set_always_dereference(true);
               break;
             case 'n':
-              options.no_clobber = true;
+              options.set_no_clobber(true);
               break;
             case 'P':
-              options.no_dereference = true;
+              options.set_no_dereference(true);
               break;
             case 'p':
-              options.preserve = true;
+              options.set_preserve(true);
               break;
             case 's':
-              options.symbolic_link = true;
+              options.set_symbolic_link(true);
               break;
             case 'S':
               if (j + 1 < arg.size()) {
-                options.backup_suffix = arg.substr(j + 1);
-                options.suffix = true;
+                options.set_backup_suffix(arg.substr(j + 1));
+                options.set_suffix(true);
                 j = arg.size() - 1;
               } else if (i + 1 < args.size()) {
-                options.backup_suffix = args[i + 1];
-                options.suffix = true;
+                options.set_backup_suffix(args[i + 1]);
+                options.set_suffix(true);
                 ++i;
                 break;
               } else {
-                fprintf(stderr, "cp: option requires an argument -- 'S'\n");
+                fwprintf(stderr, L"cp: option requires an argument -- 'S'\n");
                 return false;
               }
             case 't':
               if (j + 1 < arg.size()) {
-                options.target_dir = arg.substr(j + 1);
-                options.target_directory = true;
+                options.set_target_dir(arg.substr(j + 1));
+                options.set_target_directory(true);
                 j = arg.size() - 1;
               } else if (i + 1 < args.size()) {
-                options.target_dir = args[i + 1];
-                options.target_directory = true;
+                options.set_target_dir(args[i + 1]);
+                options.set_target_directory(true);
                 ++i;
                 break;
               } else {
-                fprintf(stderr, "cp: option requires an argument -- 't'\n");
+                fwprintf(stderr, L"cp: option requires an argument -- 't'\n");
                 return false;
               }
             case 'T':
-              options.no_target_directory = true;
+              options.set_no_target_directory(true);
               break;
             case 'u':
-              options.update = true;
+              options.set_update(true);
               break;
             case 'x':
-              options.one_file_system = true;
+              options.set_one_file_system(true);
               break;
             case 'Z':
-              options.selinux_context = true;
+              options.set_selinux_context(true);
               break;
             default:
-              fprintf(stderr, "cp: invalid option -- '%c'\n", arg[j]);
+              fwprintf(stderr, L"cp: invalid option -- '%c'\n", arg[j]);
               return false;
           }
         }
@@ -290,15 +300,15 @@ REGISTER_COMMAND(
       }
     }
 
-    if (options.target_directory) {
+    if (options.get_target_directory()) {
       if (sourcePaths.empty()) {
-        fprintf(stderr, "cp: missing file operand\n");
+        fwprintf(stderr, L"cp: missing file operand\n");
         return false;
       }
-      destPath = options.target_dir;
+      destPath = options.get_target_dir();
     } else {
       if (sourcePaths.size() < 2) {
-        fprintf(stderr, "cp: missing file operand\n");
+        fwprintf(stderr, L"cp: missing file operand\n");
         return false;
       }
       destPath = sourcePaths.back();
@@ -380,112 +390,112 @@ REGISTER_COMMAND(
           std::string destItemPath = destPath + "\\" + fileName;
 
           // Check if it's a directory
-          if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            // Recursively copy subdirectory
-            if (!copyDirectory(srcItemPath, destItemPath, options)) {
-              success = false;
-            }
-          } else {
-            // Copy file
-            try {
-              if (options.interactive) {
-                std::ifstream destTest(destItemPath);
-                if (destTest.good()) {
-                  printf("cp: overwrite '%s'? (y/n) ", destItemPath.c_str());
-                  char response;
-                  std::cin.get(response);
-                  if (response != 'y' && response != 'Y') {
-                    // Skip this file
-                  } else {
-                    // Copy the file
-                    std::ifstream srcFile(srcItemPath, std::ios::binary);
-                    if (!srcFile) {
-                      fprintf(stderr, "cp: cannot open '%s' for reading\n",
-                              srcItemPath.data());
-                      success = false;
-                      continue;
-                    }
-                    std::ofstream destFile(destItemPath, std::ios::binary);
-                    if (!destFile) {
-                      fprintf(stderr, "cp: cannot open '%s' for writing\n",
-                              destItemPath.c_str());
-                      success = false;
-                      continue;
-                    }
-                    destFile << srcFile.rdbuf();
-                    if (!destFile) {
-                      fprintf(stderr, "cp: error writing to '%s'\n",
-                              destItemPath.c_str());
-                      success = false;
-                      continue;
-                    }
-                    if (options.verbose) {
-                      printf("'%s' -> '%s'\n", srcItemPath.data(),
-                             destItemPath.c_str());
-                    }
-                  }
-                } else {
-                  // Destination doesn't exist, just copy
-                  std::ifstream srcFile(srcItemPath, std::ios::binary);
-                  if (!srcFile) {
-                    fprintf(stderr, "cp: cannot open '%s' for reading\n",
-                            srcItemPath.data());
-                    success = false;
-                    continue;
-                  }
-                  std::ofstream destFile(destItemPath, std::ios::binary);
-                  if (!destFile) {
-                    fprintf(stderr, "cp: cannot open '%s' for writing\n",
-                            destItemPath.c_str());
-                    success = false;
-                    continue;
-                  }
-                  destFile << srcFile.rdbuf();
-                  if (!destFile) {
-                    fprintf(stderr, "cp: error writing to '%s'\n",
-                            destItemPath.c_str());
-                    success = false;
-                    continue;
-                  }
-                  if (options.verbose) {
-                    printf("'%s' -> '%s'\n", srcItemPath.data(),
-                           destItemPath.c_str());
-                  }
-                }
+      if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        // Recursively copy subdirectory
+        if (!copyDirectory(srcItemPath, destItemPath, options)) {
+          success = false;
+        }
+      } else {
+        // Copy file
+        try {
+          if (options.get_interactive()) {
+            std::ifstream destTest(destItemPath);
+            if (destTest.good()) {
+              wprintf(L"cp: overwrite '%s'? (y/n) ", destItemPath.c_str());
+              char response;
+              std::cin.get(response);
+              if (response != 'y' && response != 'Y') {
+                // Skip this file
               } else {
-                // Non-interactive mode, just copy
+                // Copy the file
                 std::ifstream srcFile(srcItemPath, std::ios::binary);
                 if (!srcFile) {
-                  fprintf(stderr, "cp: cannot open '%s' for reading\n",
+                  fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
                           srcItemPath.data());
                   success = false;
                   continue;
                 }
                 std::ofstream destFile(destItemPath, std::ios::binary);
                 if (!destFile) {
-                  fprintf(stderr, "cp: cannot open '%s' for writing\n",
+                  fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
                           destItemPath.c_str());
                   success = false;
                   continue;
                 }
                 destFile << srcFile.rdbuf();
                 if (!destFile) {
-                  fprintf(stderr, "cp: error writing to '%s'\n",
+                  fwprintf(stderr, L"cp: error writing to '%s'\n",
                           destItemPath.c_str());
                   success = false;
                   continue;
                 }
-                if (options.verbose) {
-                  printf("'%s' -> '%s'\n", srcItemPath.data(),
+                if (options.get_verbose()) {
+                  wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
                          destItemPath.c_str());
                 }
               }
-            } catch (const std::exception& e) {
-              fprintf(stderr, "cp: error copying '%s' to '%s': %s\n",
-                      srcItemPath.data(), destItemPath.c_str(), e.what());
+            } else {
+              // Destination doesn't exist, just copy
+              std::ifstream srcFile(srcItemPath, std::ios::binary);
+              if (!srcFile) {
+                fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
+                        srcItemPath.data());
+                success = false;
+                continue;
+              }
+              std::ofstream destFile(destItemPath, std::ios::binary);
+              if (!destFile) {
+                fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
+                        destItemPath.c_str());
+                success = false;
+                continue;
+              }
+              destFile << srcFile.rdbuf();
+              if (!destFile) {
+                fwprintf(stderr, L"cp: error writing to '%s'\n",
+                        destItemPath.c_str());
+                success = false;
+                continue;
+              }
+              if (options.get_verbose()) {
+                wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
+                       destItemPath.c_str());
+              }
+            }
+          } else {
+            // Non-interactive mode, just copy
+            std::ifstream srcFile(srcItemPath, std::ios::binary);
+            if (!srcFile) {
+              fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
+                      srcItemPath.data());
               success = false;
+              continue;
+            }
+            std::ofstream destFile(destItemPath, std::ios::binary);
+            if (!destFile) {
+              fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
+                      destItemPath.c_str());
+              success = false;
+              continue;
+            }
+            destFile << srcFile.rdbuf();
+            if (!destFile) {
+              fwprintf(stderr, L"cp: error writing to '%s'\n",
+                      destItemPath.c_str());
+              success = false;
+              continue;
+            }
+            if (options.get_verbose()) {
+              wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
+                     destItemPath.c_str());
             }
           }
+        } catch (const std::exception& e) {
+          fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n",
+                  srcItemPath.data(), destItemPath.c_str(), e.what());
+          success = false;
+        }
+      }
         }
       } while (FindNextFileW(hFind, &findData));
     }
@@ -504,10 +514,10 @@ REGISTER_COMMAND(
   auto copyFile = [](const std::string& srcPath, const std::string& destPath,
                      const CpOptions& options) -> bool {
     try {
-      if (options.interactive) {
+      if (options.get_interactive()) {
         std::ifstream destTest(destPath);
         if (destTest.good()) {
-          printf("cp: overwrite '%s'? (y/n) ", destPath.c_str());
+          wprintf(L"cp: overwrite '%s'? (y/n) ", destPath.c_str());
           char response;
           std::cin.get(response);
           if (response != 'y' && response != 'Y') {
@@ -517,25 +527,25 @@ REGISTER_COMMAND(
       }
       std::ifstream src(srcPath, std::ios::binary);
       if (!src) {
-        fprintf(stderr, "cp: cannot open '%s' for reading\n", srcPath.data());
+        fwprintf(stderr, L"cp: cannot open '%s' for reading\n", srcPath.data());
         return false;
       }
       std::ofstream dest(destPath, std::ios::binary);
       if (!dest) {
-        fprintf(stderr, "cp: cannot open '%s' for writing\n", destPath.c_str());
+        fwprintf(stderr, L"cp: cannot open '%s' for writing\n", destPath.c_str());
         return false;
       }
       dest << src.rdbuf();
       if (!dest) {
-        fprintf(stderr, "cp: error writing to '%s'\n", destPath.c_str());
+        fwprintf(stderr, L"cp: error writing to '%s'\n", destPath.c_str());
         return false;
       }
-      if (options.verbose) {
-        printf("'%s' -> '%s'\n", srcPath.data(), destPath.c_str());
+      if (options.get_verbose()) {
+        wprintf(L"'%s' -> '%s'\n", srcPath.data(), destPath.c_str());
       }
       return true;
     } catch (const std::exception& e) {
-      fprintf(stderr, "cp: error copying '%s' to '%s': %s\n", srcPath.data(),
+      fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n", srcPath.data(),
               destPath.c_str(), e.what());
       return false;
     }
@@ -576,7 +586,7 @@ REGISTER_COMMAND(
   bool destIsDir = pathExistsAndIsDirectory(destPath);
 
   if (sourcePaths.size() > 1 && !destIsDir) {
-    fprintf(stderr, "cp: target '%s' is not a directory\n", destPath.c_str());
+    fwprintf(stderr, L"cp: target '%s' is not a directory\n", destPath.c_str());
     return 1;
   }
 
@@ -584,7 +594,7 @@ REGISTER_COMMAND(
 
   for (const auto& srcPath : sourcePaths) {
     if (!pathExists(srcPath)) {
-      fprintf(stderr, "cp: cannot stat '%s': No such file or directory\n",
+      fwprintf(stderr, L"cp: cannot stat '%s': No such file or directory\n",
               srcPath.data());
       success = false;
       continue;
@@ -606,12 +616,12 @@ REGISTER_COMMAND(
     }
 
     if (srcIsDir) {
-      if (options.recursive) {
+      if (options.get_recursive()) {
         if (!copyDirectory(srcPath, finalDestPath, options)) {
           success = false;
         }
       } else {
-        fprintf(stderr, "cp: omitting directory '%s'\n", srcPath.data());
+        fwprintf(stderr, L"cp: omitting directory '%s'\n", srcPath.data());
         success = false;
       }
     } else {

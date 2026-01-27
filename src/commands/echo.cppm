@@ -1,176 +1,157 @@
-/*
- *  Copyright © 2026 [caomengxuan666]
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the “Software”), to
- * deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- *
- *  - File: echo.cppm
- *  - Username: Administrator
- *  - CopyrightYear: 2026
- */
+/// @Author: TODO: fill in your name
+/// @contributors: 
+///   - contributor1 <email1@example.com>
+///   - contributor2 <email2@example.com>
+///   - contributor3 <email3@example.com>
+///   - description
+/// @Description: TODO: Add command description
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
 module;
 
-#include <algorithm>
 #include <cstdio>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <iterator>
-#include <string>
-#include <vector>
-
 #include "core/command_macros.h"
+#include "core/auto_flags.h"
 
 export module commands.echo;
 
 import std;
 import core.dispatcher;
 import core.cmd_meta;
+import core.opt;
 
 namespace fs = std::filesystem;
 
 using namespace std;
 
-constexpr auto echo_OPTIONS = std::array{
+constexpr auto ECHO_OPTIONS = std::array{
     OPTION("-v", "--verbose", "explain what is being done"),
     // Add more options here
 };
+
+// Auto-generated lookup table for options from ECHO_OPTIONS
+constexpr auto OPTION_HANDLERS = generate_option_handlers(ECHO_OPTIONS);
+
+CREATE_AUTO_FLAGS_CLASS(EchoOptions,
+    // Define all flags
+    DEFINE_FLAG(verbose, 0)  // -v, --verbose
+)
 
 REGISTER_COMMAND(
     echo,
     /* cmd_name */ "echo",
     /* cmd_synopsis */ "TODO: Add command synopsis",
-    /* cmd_desc */
-    "TODO: Add command description. With no arguments, this command does "
-    "nothing. With arguments, this command processes them.",
-    /* examples */
-    "  echo                      TODO: Add example\n  echo -v                  "
-    " TODO: Add example with verbose",
+    /* cmd_desc */ "TODO: Add command description. With no arguments, this command does nothing. With arguments, this command processes them.",
+    /* examples */ "  echo                      TODO: Add example\n  echo -v                   TODO: Add example with verbose",
     /* see_also */ "TODO: Add see also",
     /* author */ "TODO: Add your name",
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
-    echo_OPTIONS) {
-  // Option flags for echo command
-  struct echoOptions {
-    bool verbose = false;  // -v, --verbose
-                           // Add more options here
-  };
+    ECHO_OPTIONS
+){
 
-  // Parse command options
-  auto parseOptions = [&](std::span<std::string_view> args) -> echoOptions {
-    echoOptions options;
-    size_t pos = 1;  // Skip command name
-
-    while (pos < args.size()) {
-      std::string arg = std::string(args[pos]);
-
-      if (arg == "--") {
-        ++pos;
-        break;
-      }
-
-      if (arg.starts_with("-")) {
-        bool found = false;
-
-        // Check short options
-        if (arg.size() == 2 && arg[0] == '-') {
-          char opt = arg[1];
-
-          for (const auto& option : echo_OPTIONS) {
-            if (!option.short_name.empty() && option.short_name[1] == opt) {
-              found = true;
-
-              if (opt == 'v') {
-                options.verbose = true;
-              }
-              // Handle more options here
-
-              break;
+    // Parse command options
+    auto parseOptions = [&](std::span<std::string_view> args) -> EchoOptions {
+        EchoOptions options;
+        size_t pos = 1; // Skip command name
+        
+        while (pos < args.size()) {
+            std::string arg = std::string(args[pos]);
+            
+            if (arg == "--") {
+                ++pos;
+                break;
             }
-          }
-        }
-
-        // Check long options
-        if (!found && arg.starts_with("--")) {
-          std::string longOpt = arg.substr(2);
-
-          for (const auto& option : echo_OPTIONS) {
-            if (!option.long_name.empty() &&
-                option.long_name.substr(2) == longOpt) {
-              found = true;
-
-              if (longOpt == "verbose") {
-                options.verbose = true;
-              }
-              // Handle more options here
-
-              break;
+            
+            if (arg.starts_with("--")) {
+                // Check long options
+                bool found = false;
+                for (const auto& handler : OPTION_HANDLERS) {
+                    if (handler.long_opt && arg == handler.long_opt) {
+                        found = true;
+                        
+                        if (arg == "--verbose") {
+                            options.set_verbose(true);
+                        }
+                        // Handle more options here
+                        
+                        break;
+                    }
+                }
+                
+                if (!found) {
+                    fwprintf(stderr, L"echo: invalid option '%s'\n", arg.c_str());
+                    return options;
+                }
+                
+                ++pos;
+            } else if (arg.starts_with("-")) {
+                // Check short options
+                for (size_t j = 1; j < arg.size(); ++j) {
+                    char opt_char = arg[j];
+                    bool found = false;
+                    
+                    for (const auto& handler : OPTION_HANDLERS) {
+                        if (handler.short_opt == opt_char) {
+                            found = true;
+                            
+                            if (opt_char == 'v') {
+                                options.set_verbose(true);
+                            }
+                            // Handle more options here
+                            
+                            break;
+                        }
+                    }
+                    
+                    if (!found) {
+                        fwprintf(stderr, L"echo: invalid option -- '%c'\n", opt_char);
+                        return options;
+                    }
+                }
+                
+                ++pos;
+            } else {
+                break;
             }
-          }
         }
+        
+        return options;
+    };
 
-        if (!found) {
-          fprintf(stderr, "echo: invalid option '%s'\n", arg.c_str());
-          return options;
+    // Get remaining arguments (files/directories)
+    std::vector<std::string> paths;
+    for (size_t i = 1; i < args.size(); ++i) {
+        std::string arg = std::string(args[i]);
+        if (arg == "--") {
+            for (size_t j = i + 1; j < args.size(); ++j) {
+                paths.push_back(std::string(args[j]));
+            }
+            break;
         }
-
-        ++pos;
-      } else {
-        break;
-      }
+        if (!arg.starts_with("-")) {
+            paths.push_back(arg);
+        }
     }
 
-    return options;
-  };
+    // Parse options
+    auto options = parseOptions(args);
 
-  // Get remaining arguments (files/directories)
-  std::vector<std::string> paths;
-  for (size_t i = 1; i < args.size(); ++i) {
-    std::string arg = std::string(args[i]);
-    if (arg == "--") {
-      for (size_t j = i + 1; j < args.size(); ++j) {
-        paths.push_back(std::string(args[j]));
-      }
-      break;
+    // TODO: Implement command logic here
+
+    if (paths.empty()) {
+        fwprintf(stderr, L"echo: missing operand\n");
+        return 1;
     }
-    if (!arg.starts_with("-")) {
-      paths.push_back(arg);
+
+    // Example: Print paths
+    for (const auto& path : paths) {
+        if (options.get_verbose()) {
+            wprintf(L"Processing: %s\n", path.c_str());
+        }
+        // TODO: Process path
     }
-  }
 
-  // Parse options
-  auto options = parseOptions(args);
-
-  // TODO: Implement command logic here
-
-  if (paths.empty()) {
-    fprintf(stderr, "echo: missing operand\n");
-    return 1;
-  }
-
-  // Example: Print paths
-  for (const auto& path : paths) {
-    if (options.verbose) {
-      std::cout << "Processing: " << path << std::endl;
-    }
-    // TODO: Process path
-  }
-
-  return 0;
+    return 0;
 }

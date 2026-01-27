@@ -6,6 +6,8 @@ out/
 
 .idea/
 
+.vscode/
+
 .cache/
 
 *.pyc

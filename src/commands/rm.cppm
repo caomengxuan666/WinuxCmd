@@ -26,28 +26,19 @@
 // Use global module fragment for C standard library
 module;
 #include <cstdio>
+#include <cwchar>
 #define WIN32_LEAN_AND_MEAN
 #include <shlwapi.h>
 #include <windows.h>
 #pragma comment(lib, "shlwapi.lib")
 #include "core/command_macros.h"
+#include "core/auto_flags.h"
 export module commands.rm;
 
 import std;
 import core.dispatcher;
 import core.cmd_meta;
-
-/**
- * @brief Remove files or directories
- * @param args Command-line arguments
- * @return Exit code (0 on success, non-zero on error)
- *
- * Options:
- *  -r, --recursive          Remove directories and their contents recursively
- *  -i, --interactive        Prompt before every removal
- *  -f, --force              Ignore nonexistent files and arguments, never
- * prompt -v, --verbose            Explain what is being done
- */
+import core.opt;
 
 constexpr auto RM_OPTIONS = std::array{
     OPTION("-f", "--force",
@@ -71,6 +62,9 @@ constexpr auto RM_OPTIONS = std::array{
     OPTION("--no-preserve-root", "", "do not treat '/' specially"),
     OPTION("--preserve-root", "", "do not remove '/' (default)")};
 
+// Auto-generated lookup table for options from RM_OPTIONS
+constexpr auto OPTION_HANDLERS = generate_option_handlers(RM_OPTIONS, "--interactive");
+
 REGISTER_COMMAND(
     rm,
     /* cmd_name */ "rm",
@@ -92,17 +86,17 @@ REGISTER_COMMAND(
     /* options */
     RM_OPTIONS) {
   // Option flags for rm command
-  struct RmOptions {
-    bool recursive = false;         // -r, -R, --recursive
-    bool interactive = false;       // -i, --interactive
-    bool force = false;             // -f, --force
-    bool verbose = false;           // -v, --verbose
-    bool remove_dir = false;        // -d, --dir
-    bool prompt_once = false;       // -I
-    bool one_file_system = false;   // --one-file-system
-    bool no_preserve_root = false;  // --no-preserve-root
-    bool preserve_root = true;      // --preserve-root
-  };
+  CREATE_AUTO_FLAGS_CLASS(RmOptions,
+      DEFINE_FLAG(recursive, 0)         // -r, -R, --recursive
+      DEFINE_FLAG(interactive, 1)       // -i, --interactive
+      DEFINE_FLAG(force, 2)             // -f, --force
+      DEFINE_FLAG(verbose, 3)           // -v, --verbose
+      DEFINE_FLAG(remove_dir, 4)        // -d, --dir
+      DEFINE_FLAG(prompt_once, 5)       // -I
+      DEFINE_FLAG(one_file_system, 6)   // --one-file-system
+      DEFINE_FLAG(no_preserve_root, 7)  // --no-preserve-root
+      DEFINE_FLAG(preserve_root, 8)     // --preserve-root
+  )
 
   /**
    * @brief Parse command line options for rm
@@ -119,25 +113,25 @@ REGISTER_COMMAND(
       if (arg.starts_with("--")) {
         // This is a long option
         if (arg == "--recursive") {
-          options.recursive = true;
+          options.set_recursive(true);
         } else if (arg == "--interactive") {
-          options.interactive = true;
+          options.set_interactive(true);
         } else if (arg == "--force") {
-          options.force = true;
+          options.set_force(true);
         } else if (arg == "--verbose") {
-          options.verbose = true;
+          options.set_verbose(true);
         } else if (arg == "--dir") {
-          options.remove_dir = true;
+          options.set_remove_dir(true);
         } else if (arg == "--one-file-system") {
-          options.one_file_system = true;
+          options.set_one_file_system(true);
         } else if (arg == "--no-preserve-root") {
-          options.no_preserve_root = true;
-          options.preserve_root = false;
+          options.set_no_preserve_root(true);
+          options.set_preserve_root(false);
         } else if (arg == "--preserve-root") {
-          options.preserve_root = true;
-          options.no_preserve_root = false;
+          options.set_preserve_root(true);
+          options.set_no_preserve_root(false);
         } else {
-          fprintf(stderr, "rm: invalid option -- '%.*s'\n",
+          fwprintf(stderr, L"rm: invalid option -- '%.*hs'\n",
                   static_cast<int>(arg.size() - 2), arg.data() + 2);
           return false;
         }
@@ -154,25 +148,25 @@ REGISTER_COMMAND(
           switch (arg[j]) {
             case 'r':
             case 'R':
-              options.recursive = true;
+              options.set_recursive(true);
               break;
             case 'i':
-              options.interactive = true;
+              options.set_interactive(true);
               break;
             case 'f':
-              options.force = true;
+              options.set_force(true);
               break;
             case 'v':
-              options.verbose = true;
+              options.set_verbose(true);
               break;
             case 'd':
-              options.remove_dir = true;
+              options.set_remove_dir(true);
               break;
             case 'I':
-              options.prompt_once = true;
+              options.set_prompt_once(true);
               break;
             default:
-              fprintf(stderr, "rm: invalid option -- '%c'\n", arg[j]);
+              fwprintf(stderr, L"rm: invalid option -- '%c'\n", arg[j]);
               return false;
           }
         }
@@ -183,7 +177,7 @@ REGISTER_COMMAND(
     }
 
     if (paths.empty()) {
-      fprintf(stderr, "rm: missing file operand\n");
+      fwprintf(stderr, L"rm: missing file operand\n");
       return false;
     }
 
@@ -219,17 +213,17 @@ REGISTER_COMMAND(
     DWORD attr = GetFileAttributesW(wpath.c_str());
 
     if (attr == INVALID_FILE_ATTRIBUTES) {
-      if (options.force) {
+      if (options.get_force()) {
         return true;
       } else {
-        fprintf(stderr, "rm: cannot remove '%s': No such file or directory\n",
+        fwprintf(stderr, L"rm: cannot remove '%hs': No such file or directory\n",
                 path.data());
         return false;
       }
     }
 
-    if (options.interactive) {
-      printf("rm: remove '%s'? (y/n) ", path.data());
+    if (options.get_interactive()) {
+      wprintf(L"rm: remove '%hs? (y/n) ", path.data());
       char response;
       std::cin.get(response);
       if (response != 'y' && response != 'Y') {
@@ -237,8 +231,8 @@ REGISTER_COMMAND(
       }
     }
 
-    if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !options.recursive) {
-      fprintf(stderr, "rm: cannot remove '%s': Is a directory\n", path.data());
+    if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !options.get_recursive()) {
+      fwprintf(stderr, L"rm: cannot remove '%hs': Is a directory\n", path.data());
       return false;
     }
 
@@ -275,12 +269,12 @@ REGISTER_COMMAND(
                 FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0,
                                errorMsg, sizeof(errorMsg), NULL);
                 std::string itemPathStr = wstringToUtf8(itemPath);
-                fprintf(stderr, "rm: cannot remove file '%s': %s\n",
+                fwprintf(stderr, L"rm: cannot remove file '%hs': %hs\n",
                         itemPathStr.c_str(), errorMsg);
                 success = false;
-              } else if (options.verbose) {
+              } else if (options.get_verbose()) {
                 std::string itemPathStr = wstringToUtf8(itemPath);
-                printf("removed '%s'\n", itemPathStr.c_str());
+                wprintf(L"removed '%hs'\n", itemPathStr.c_str());
               }
             }
           }
@@ -307,14 +301,14 @@ REGISTER_COMMAND(
           FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                          sizeof(errorMsg), NULL);
           std::string dirPathStr = wstringToUtf8(dirPath);
-          fprintf(stderr, "rm: cannot remove directory '%s': %s\n",
+          fwprintf(stderr, L"rm: cannot remove directory '%hs': %hs\n",
                   dirPathStr.c_str(), errorMsg);
           return false;
         }
 
-        if (options.verbose) {
+        if (options.get_verbose()) {
           std::string dirPathStr = wstringToUtf8(dirPath);
-          printf("removed '%s'\n", dirPathStr.c_str());
+          wprintf(L"removed '%hs'\n", dirPathStr.c_str());
         }
 
         return true;
@@ -330,13 +324,13 @@ REGISTER_COMMAND(
         char errorMsg[256];
         FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                        sizeof(errorMsg), NULL);
-        fprintf(stderr, "rm: cannot remove file '%s': %s\n", path.data(),
+        fwprintf(stderr, L"rm: cannot remove file '%hs': %hs\n", path.data(),
                 errorMsg);
         return false;
       }
 
-      if (options.verbose) {
-        printf("removed '%s'\n", path.data());
+      if (options.get_verbose()) {
+        wprintf(L"removed '%hs'\n", path.data());
       }
     }
 

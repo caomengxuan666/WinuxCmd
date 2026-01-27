@@ -29,25 +29,18 @@ module;
 #include <windows.h>
 
 #include <cstdio>
+#include <fcntl.h>
+#include <io.h>
 
 #include "core/command_macros.h"
+#include "core/auto_flags.h"
 export module commands.ls;
 
 import std;
 import core.dispatcher;
 import core.cmd_meta;
-
-/**
- * @brief List directory contents
- * @param args Command-line arguments
- * @return Exit code (0 on success, non-zero on error)
- *
- * Options:
- *  -l, --long-list          Use a long listing format
- *  -a, --all                Do not ignore entries starting with .
- *  -h, --human-readable     With -l, print sizes in human readable format
- *  -r, --reverse            Reverse order while sorting
- */
+import core.opt;
+import utils;
 
 constexpr auto LS_OPTIONS = std::array{
     OPTION("-a", "--all", "do not ignore entries starting with ."),
@@ -101,6 +94,50 @@ constexpr auto LS_OPTIONS = std::array{
     OPTION("-Z", "--context", "print any security context of each file"),
     OPTION("-1", "", "list one file per line")};
 
+// Auto-generated lookup table for options from LS_OPTIONS
+constexpr auto OPTION_HANDLERS = generate_option_handlers(LS_OPTIONS, "--tabsize", "--width");
+
+CREATE_AUTO_FLAGS_CLASS(LsOptions,
+    DECLARE_NUMERIC_OPTION(int, tab_size, 8)
+    DECLARE_NUMERIC_OPTION(int, width, 0)
+    
+    // Define all flags
+    DEFINE_FLAG(long_format, 0)
+    DEFINE_FLAG(show_all, 1)
+    DEFINE_FLAG(almost_all, 2)
+    DEFINE_FLAG(escape, 3)
+    DEFINE_FLAG(ignore_backups, 4)
+    DEFINE_FLAG(sort_by_ctime, 5)
+    DEFINE_FLAG(columns, 6)
+    DEFINE_FLAG(directory, 7)
+    DEFINE_FLAG(directory_order, 8)
+    DEFINE_FLAG(classify, 9)
+    DEFINE_FLAG(no_owner, 10)
+    DEFINE_FLAG(human_readable, 11)
+    DEFINE_FLAG(show_inode, 12)
+    DEFINE_FLAG(kibibytes, 13)
+    DEFINE_FLAG(dereference, 14)
+    DEFINE_FLAG(comma_separated, 15)
+    DEFINE_FLAG(numeric_uid_gid, 16)
+    DEFINE_FLAG(literal, 17)
+    DEFINE_FLAG(no_group, 18)
+    DEFINE_FLAG(indicator_slash, 19)
+    DEFINE_FLAG(hide_control_chars, 20)
+    DEFINE_FLAG(quote_name, 21)
+    DEFINE_FLAG(reverse_order, 22)
+    DEFINE_FLAG(recursive, 23)
+    DEFINE_FLAG(show_size, 24)
+    DEFINE_FLAG(sort_by_size, 25)
+    DEFINE_FLAG(sort_by_time, 26)
+    DEFINE_FLAG(sort_by_atime, 27)
+    DEFINE_FLAG(no_sort, 28)
+    DEFINE_FLAG(natural_sort, 29)
+    DEFINE_FLAG(lines, 30)
+    DEFINE_FLAG(sort_by_extension, 31)
+    DEFINE_FLAG(show_context, 32)
+    DEFINE_FLAG(one_per_line, 33)
+)
+
 REGISTER_COMMAND(
     ls,
     /* cmd_name */ "ls",
@@ -123,45 +160,6 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     LS_OPTIONS) {
-  // Option flags for ls command
-  struct LsOptions {
-    bool long_format = false;         // -l, --long-list
-    bool show_all = false;            // -a, --all
-    bool almost_all = false;          // -A, --almost-all
-    bool escape = false;              // -b, --escape
-    bool ignore_backups = false;      // -B, --ignore-backups
-    bool sort_by_ctime = false;       // -c
-    bool columns = false;             // -C
-    bool directory = false;           // -d, --directory
-    bool directory_order = false;     // -f
-    bool classify = false;            // -F, --classify
-    bool no_owner = false;            // -g
-    bool human_readable = false;      // -h, --human-readable
-    bool show_inode = false;          // -i, --inode
-    bool kibibytes = false;           // -k, --kibibytes
-    bool dereference = false;         // -L, --dereference
-    bool comma_separated = false;     // -m
-    bool numeric_uid_gid = false;     // -n, --numeric-uid-gid
-    bool literal = false;             // -N, --literal
-    bool no_group = false;            // -o
-    bool indicator_slash = false;     // -p
-    bool hide_control_chars = false;  // -q, --hide-control-chars
-    bool quote_name = false;          // -Q, --quote-name
-    bool reverse_order = false;       // -r, --reverse
-    bool recursive = false;           // -R, --recursive
-    bool show_size = false;           // -s, --size
-    bool sort_by_size = false;        // -S
-    bool sort_by_time = false;        // -t
-    int tab_size = 8;                 // -T, --tabsize
-    bool sort_by_atime = false;       // -u
-    bool no_sort = false;             // -U
-    bool natural_sort = false;        // -v
-    int width = 0;                    // -w, --width
-    bool lines = false;               // -x
-    bool sort_by_extension = false;   // -X
-    bool show_context = false;        // -Z, --context
-    bool one_per_line = false;        // -1
-  };
 
   /**
    * @brief Parse command line options for ls
@@ -177,63 +175,68 @@ REGISTER_COMMAND(
 
       if (arg.starts_with("--")) {
         // This is a long option
-        if (arg == "--long-list") {
-          options.long_format = true;
-        } else if (arg == "--all") {
-          options.show_all = true;
-        } else if (arg == "--almost-all") {
-          options.almost_all = true;
-        } else if (arg == "--escape") {
-          options.escape = true;
-        } else if (arg == "--ignore-backups") {
-          options.ignore_backups = true;
-        } else if (arg == "--directory") {
-          options.directory = true;
-        } else if (arg == "--classify") {
-          options.classify = true;
-        } else if (arg == "--human-readable") {
-          options.human_readable = true;
-        } else if (arg == "--inode") {
-          options.show_inode = true;
-        } else if (arg == "--kibibytes") {
-          options.kibibytes = true;
-        } else if (arg == "--dereference") {
-          options.dereference = true;
-        } else if (arg == "--numeric-uid-gid") {
-          options.numeric_uid_gid = true;
-        } else if (arg == "--literal") {
-          options.literal = true;
-        } else if (arg == "--hide-control-chars") {
-          options.hide_control_chars = true;
-        } else if (arg == "--quote-name") {
-          options.quote_name = true;
-        } else if (arg == "--reverse") {
-          options.reverse_order = true;
-        } else if (arg == "--recursive") {
-          options.recursive = true;
-        } else if (arg == "--size") {
-          options.show_size = true;
-        } else if (arg == "--tabsize") {
-          if (i + 1 < args.size()) {
-            options.tab_size = std::stoi(std::string(args[i + 1]));
-            ++i;
-          } else {
-            fprintf(stderr, "ls: option '--tabsize' requires an argument\n");
-            return false;
+        bool found = false;
+        for (const auto& handler : OPTION_HANDLERS) {
+          if (handler.long_opt && arg == handler.long_opt) {
+            if (handler.requires_arg) {
+              if (i + 1 < args.size()) {
+                if (handler.short_opt == 'T') {
+                  options.tab_size = std::stoi(std::string(args[i + 1]));
+                } else if (handler.short_opt == 'w') {
+                  options.width = std::stoi(std::string(args[i + 1]));
+                }
+                ++i;
+              } else {
+                std::wstring warg(arg.begin(), arg.end());
+                fwprintf(stderr, L"ls: option '%ls' requires an argument\n", warg.c_str());
+                return false;
+              }
+            } else {
+              // Set boolean option based on short_opt
+              switch (handler.short_opt) {
+                case 'l': options.set_long_format(true); break;
+                case 'a': options.set_show_all(true); break;
+                case 'A': options.set_almost_all(true); break;
+                case 'b': options.set_escape(true); break;
+                case 'B': options.set_ignore_backups(true); break;
+                case 'c': options.set_sort_by_ctime(true); break;
+                case 'C': options.set_columns(true); break;
+                case 'd': options.set_directory(true); break;
+                case 'f': options.set_directory_order(true); break;
+                case 'F': options.set_classify(true); break;
+                case 'g': options.set_no_owner(true); break;
+                case 'h': options.set_human_readable(true); break;
+                case 'i': options.set_show_inode(true); break;
+                case 'k': options.set_kibibytes(true); break;
+                case 'L': options.set_dereference(true); break;
+                case 'm': options.set_comma_separated(true); break;
+                case 'n': options.set_numeric_uid_gid(true); break;
+                case 'N': options.set_literal(true); break;
+                case 'o': options.set_no_group(true); break;
+                case 'p': options.set_indicator_slash(true); break;
+                case 'q': options.set_hide_control_chars(true); break;
+                case 'Q': options.set_quote_name(true); break;
+                case 'r': options.set_reverse_order(true); break;
+                case 'R': options.set_recursive(true); break;
+                case 's': options.set_show_size(true); break;
+                case 'S': options.set_sort_by_size(true); break;
+                case 't': options.set_sort_by_time(true); break;
+                case 'u': options.set_sort_by_atime(true); break;
+                case 'U': options.set_no_sort(true); break;
+                case 'v': options.set_natural_sort(true); break;
+                case 'x': options.set_lines(true); break;
+                case 'X': options.set_sort_by_extension(true); break;
+                case 'Z': options.set_show_context(true); break;
+                case '1': options.set_one_per_line(true); break;
+              }
+            }
+            found = true;
+            break;
           }
-        } else if (arg == "--width") {
-          if (i + 1 < args.size()) {
-            options.width = std::stoi(std::string(args[i + 1]));
-            ++i;
-          } else {
-            fprintf(stderr, "ls: option '--width' requires an argument\n");
-            return false;
-          }
-        } else if (arg == "--context") {
-          options.show_context = true;
-        } else {
-          fprintf(stderr, "ls: invalid option -- '%.*s'\n",
-                  static_cast<int>(arg.size() - 2), arg.data() + 2);
+        }
+        if (!found) {
+          std::wstring warg(arg.begin(), arg.end());
+          fwprintf(stderr, L"ls: invalid option -- '%ls'\n", warg.c_str() + 2);
           return false;
         }
       } else if (arg.starts_with('-')) {
@@ -246,136 +249,78 @@ REGISTER_COMMAND(
 
         // Process option characters
         for (size_t j = 1; j < arg.size(); ++j) {
-          switch (arg[j]) {
-            case 'l':
-              options.long_format = true;
-              break;
-            case 'a':
-              options.show_all = true;
-              break;
-            case 'A':
-              options.almost_all = true;
-              break;
-            case 'b':
-              options.escape = true;
-              break;
-            case 'B':
-              options.ignore_backups = true;
-              break;
-            case 'c':
-              options.sort_by_ctime = true;
-              break;
-            case 'C':
-              options.columns = true;
-              break;
-            case 'd':
-              options.directory = true;
-              break;
-            case 'f':
-              options.directory_order = true;
-              break;
-            case 'F':
-              options.classify = true;
-              break;
-            case 'g':
-              options.no_owner = true;
-              break;
-            case 'h':
-              options.human_readable = true;
-              break;
-            case 'i':
-              options.show_inode = true;
-              break;
-            case 'k':
-              options.kibibytes = true;
-              break;
-            case 'L':
-              options.dereference = true;
-              break;
-            case 'm':
-              options.comma_separated = true;
-              break;
-            case 'n':
-              options.numeric_uid_gid = true;
-              break;
-            case 'N':
-              options.literal = true;
-              break;
-            case 'o':
-              options.no_group = true;
-              break;
-            case 'p':
-              options.indicator_slash = true;
-              break;
-            case 'q':
-              options.hide_control_chars = true;
-              break;
-            case 'Q':
-              options.quote_name = true;
-              break;
-            case 'r':
-              options.reverse_order = true;
-              break;
-            case 'R':
-              options.recursive = true;
-              break;
-            case 's':
-              options.show_size = true;
-              break;
-            case 'S':
-              options.sort_by_size = true;
-              break;
-            case 't':
-              options.sort_by_time = true;
-              break;
-            case 'T':
-              if (j + 1 < arg.size()) {
-                options.tab_size = std::stoi(std::string(arg.substr(j + 1)));
-                j = arg.size() - 1;
-              } else if (i + 1 < args.size()) {
-                options.tab_size = std::stoi(std::string(args[i + 1]));
-                ++i;
-                break;
+          char opt_char = arg[j];
+          bool found = false;
+          
+          for (const auto& handler : OPTION_HANDLERS) {
+            if (handler.short_opt == opt_char) {
+              if (handler.requires_arg) {
+                if (j + 1 < arg.size()) {
+                  if (handler.short_opt == 'T') {
+                    options.tab_size = std::stoi(std::string(arg.substr(j + 1)));
+                  } else if (handler.short_opt == 'w') {
+                    options.width = std::stoi(std::string(arg.substr(j + 1)));
+                  }
+                  j = arg.size() - 1;
+                } else if (i + 1 < args.size()) {
+                  if (handler.short_opt == 'T') {
+                    options.tab_size = std::stoi(std::string(args[i + 1]));
+                  } else if (handler.short_opt == 'w') {
+                    options.width = std::stoi(std::string(args[i + 1]));
+                  }
+                  ++i;
+                  break;
+                } else {
+                  fwprintf(stderr, L"ls: option requires an argument -- '%c'\n", opt_char);
+                  return false;
+                }
               } else {
-                fprintf(stderr, "ls: option requires an argument -- 'T'\n");
-                return false;
+                // Set boolean option based on opt_char
+              switch (opt_char) {
+                case 'l': options.set_long_format(true); break;
+                case 'a': options.set_show_all(true); break;
+                case 'A': options.set_almost_all(true); break;
+                case 'b': options.set_escape(true); break;
+                case 'B': options.set_ignore_backups(true); break;
+                case 'c': options.set_sort_by_ctime(true); break;
+                case 'C': options.set_columns(true); break;
+                case 'd': options.set_directory(true); break;
+                case 'f': options.set_directory_order(true); break;
+                case 'F': options.set_classify(true); break;
+                case 'g': options.set_no_owner(true); break;
+                case 'h': options.set_human_readable(true); break;
+                case 'i': options.set_show_inode(true); break;
+                case 'k': options.set_kibibytes(true); break;
+                case 'L': options.set_dereference(true); break;
+                case 'm': options.set_comma_separated(true); break;
+                case 'n': options.set_numeric_uid_gid(true); break;
+                case 'N': options.set_literal(true); break;
+                case 'o': options.set_no_group(true); break;
+                case 'p': options.set_indicator_slash(true); break;
+                case 'q': options.set_hide_control_chars(true); break;
+                case 'Q': options.set_quote_name(true); break;
+                case 'r': options.set_reverse_order(true); break;
+                case 'R': options.set_recursive(true); break;
+                case 's': options.set_show_size(true); break;
+                case 'S': options.set_sort_by_size(true); break;
+                case 't': options.set_sort_by_time(true); break;
+                case 'u': options.set_sort_by_atime(true); break;
+                case 'U': options.set_no_sort(true); break;
+                case 'v': options.set_natural_sort(true); break;
+                case 'x': options.set_lines(true); break;
+                case 'X': options.set_sort_by_extension(true); break;
+                case 'Z': options.set_show_context(true); break;
+                case '1': options.set_one_per_line(true); break;
               }
-            case 'u':
-              options.sort_by_atime = true;
-              break;
-            case 'U':
-              options.no_sort = true;
-              break;
-            case 'v':
-              options.natural_sort = true;
-              break;
-            case 'w':
-              if (j + 1 < arg.size()) {
-                options.width = std::stoi(std::string(arg.substr(j + 1)));
-                j = arg.size() - 1;
-              } else if (i + 1 < args.size()) {
-                options.width = std::stoi(std::string(args[i + 1]));
-                ++i;
-                break;
-              } else {
-                fprintf(stderr, "ls: option requires an argument -- 'w'\n");
-                return false;
               }
-            case 'x':
-              options.lines = true;
+              found = true;
               break;
-            case 'X':
-              options.sort_by_extension = true;
-              break;
-            case 'Z':
-              options.show_context = true;
-              break;
-            case '1':
-              options.one_per_line = true;
-              break;
-            default:
-              fprintf(stderr, "ls: invalid option -- '%c'\n", arg[j]);
-              return false;
+            }
+          }
+          
+          if (!found) {
+            fwprintf(stderr, L"ls: invalid option -- '%c'\n", opt_char);
+            return false;
           }
         }
       } else {
@@ -400,39 +345,39 @@ REGISTER_COMMAND(
    */
   auto listDirectory = [](std::string_view path,
                           const LsOptions& options) -> bool {
-    std::wstring wpath(path.begin(), path.end());
+    std::wstring wpath = utf8_to_wstring(path);
     WIN32_FIND_DATAW find_data;
     HANDLE hFind = FindFirstFileW((wpath + L"\\*").c_str(), &find_data);
     if (hFind == INVALID_HANDLE_VALUE) {
-      fprintf(stderr, "ls: cannot access '%s': No such file or directory\n",
-              path.data());
+      std::wstring wpath_str = utf8_to_wstring(path);
+      fwprintf(stderr, L"ls: cannot access '%ls': No such file or directory\n",
+              wpath_str.c_str());
       return false;
     }
 
     std::vector<std::wstring> files;
     do {
       std::wstring filename(find_data.cFileName);
-      if (!options.show_all && (filename == L"." || filename == L".."))
+      if (!options.get_show_all() && (filename == L"." || filename == L".."))
         continue;
       files.push_back(std::move(filename));
     } while (FindNextFileW(hFind, &find_data) != 0);
     FindClose(hFind);
 
-    if (options.reverse_order) {
+    if (options.get_reverse_order()) {
       std::sort(files.rbegin(), files.rend());
     } else {
-      std::sort(files.begin(), files.end());
+      std::ranges::sort(files.begin(), files.end());
     }
 
     for (const auto& file : files) {
-      std::string filename(file.begin(), file.end());
-      if (options.long_format) {
-        printf("-rwxr-xr-x 1 user group 0 %s\n", filename.c_str());
+      if (options.get_long_format()) {
+        wprintf(L"-rwxr-xr-x 1 user group 0 %s\n", file.c_str());
       } else {
-        printf("%s ", filename.c_str());
+        wprintf(L"%s ", file.c_str());
       }
     }
-    if (!options.long_format) printf("\n");
+    if (!options.get_long_format()) wprintf(L"\n");
 
     return true;
   };
@@ -440,6 +385,10 @@ REGISTER_COMMAND(
   // Main implementation
   LsOptions options;
   std::vector<std::string_view> paths;
+
+  // Set console to wide character mode to support Chinese characters
+  setConsoleToWideCharMode();
+
   if (!parseLsOptions(args, options, paths)) {
     return 2;  // Invalid option error code
   }
@@ -448,11 +397,14 @@ REGISTER_COMMAND(
 
   // Process each path
   for (size_t i = 0; i < paths.size(); ++i) {
-    if (paths.size() > 1) printf("%s:\n", paths[i].data());
+    if (paths.size() > 1) {
+      std::wstring wpath_str = utf8_to_wstring(paths[i]);
+      wprintf(L"%s:\n", wpath_str.c_str());
+    }
     if (!listDirectory(paths[i], options)) {
       result = 1;  // Directory listing error
     }
-    if (i < paths.size() - 1) printf("\n");
+    if (i < paths.size() - 1) wprintf(L"\n");
   }
 
   return result;

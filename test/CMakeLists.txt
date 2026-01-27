@@ -16,7 +16,6 @@ target_include_directories(test_commands PRIVATE ${CMAKE_SOURCE_DIR}/src)
 if(MSVC)
     target_compile_options(test_commands PRIVATE
             /std:c++latest        # Enable latest C++23 features including modules
-            /EHsc
             /GR-
     )
 endif()
