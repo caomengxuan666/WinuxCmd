@@ -13,7 +13,7 @@ Provide Windows-native, lightweight, AI-agnostic compatible Linux command set fo
 ### Quantitative Objectives
 
 - Support hundreds high-frequency Linux commands with core parameters (1:1 compatible with Linux behavior)
-- Combined main program `winuxcmd.exe` size ≤ 1MB
+- Combined main program `winuxcmd.exe` size < 1MB
 - Individual command executable (e.g., `ls.exe`) size ≤ 2KB per file
 - Implemented with pure Windows API, no third-party library dependencies
 - Developed in C++23 with modern module system architecture
@@ -31,16 +31,19 @@ Provide Windows-native, lightweight, AI-agnostic compatible Linux command set fo
 This project demonstrates modern C++23 module architecture with separate interface and implementation files:
 
 ### Module Interface (`.cppm` files)
+
 - Define module exports using `export module`
 - Declare public API with `export` keyword
 - Example: `src/commands/ls.cppm`
 
 ### Module Implementation (`.cpp` files)
+
 - Implement module functionality using `module` (no `export`)
 - Access module interface declarations automatically
 - Example: `src/commands/ls.cpp`
 
 ### CMake Configuration
+
 - Uses CMake's CXX_MODULES support
 - Automatically handles module dependencies
 - Configures module output directory
@@ -85,15 +88,18 @@ int exit_code = CommandRegistry::dispatch("ls", args);
 ## Features
 
 ### Command Compatibility
+
 - Each command implements only Linux core parameters (e.g., `ls` supports `-l/-a/-h/-r`)
 - Command output format 1:1 aligned with Linux native output
 - Linux-style error message format
 
 ### Dual-Mode Execution
+
 - **Individual Command Mode**: Each command compiled as separate .exe (e.g., `ls.exe`)
 - **Combined Mode**: Main program `winuxcmd.exe` with built-in all commands (e.g., `winuxcmd ls -l`)
 
 ### Performance Optimizations
+
 - RTTI and exceptions disabled for size optimization
 - Windows native API prioritized (FindFirstFileW, WriteConsoleA, etc.)
 - Stack memory prioritized over heap allocation
@@ -157,7 +163,8 @@ winuxcmd/
 ├── TODO.md           # Project TODO list (English)
 └── DOCS/
     ├── README_zh.md  # Project documentation (Chinese)
-    └── TODO_zh.md    # Project TODO list (Chinese)
+    ├── TODO_zh.md    # Project TODO list (Chinese)
+    ├── scaffold_and_dsl_en.md  # Scaffold and DSL design documentation (English)
 ```
 
 ## Build Instructions

@@ -1,6 +1,5 @@
 export module core.opt;
 
-
 import std;
 import core.cmd_meta;
 

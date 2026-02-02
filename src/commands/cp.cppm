@@ -30,8 +30,8 @@ module;
 #include <shlwapi.h>
 #include <windows.h>
 #pragma comment(lib, "shlwapi.lib")
-#include "core/command_macros.h"
 #include "core/auto_flags.h"
+#include "core/command_macros.h"
 export module commands.cp;
 
 import std;
@@ -40,14 +40,34 @@ import core.cmd_meta;
 import core.opt;
 
 /**
- * @brief Copy files and directories
- * @param args Command-line arguments
- * @return Exit code (0 on success, non-zero on error)
- *
- * Options:
- *  -r, --recursive          Copy directories recursively
- *  -i, --interactive        Prompt before overwrite
- *  -v, --verbose            Explain what is being done
+ * @brief CP command options definition
+ * 
+ * This array defines all the options supported by the cp command.
+ * Each option is described with its short form, long form, and description.
+ * The implementation status is also indicated for each option.
+ * 
+ * @par Options:
+ * - @a -a, @a --archive: Same as -dR --preserve=all [TODO]
+ * - @a -b: Like --backup but does not accept an argument [TODO]
+ * - @a -d: Same as --no-dereference --preserve=links [TODO]
+ * - @a -f, @a --force: If an existing destination file cannot be opened, remove it and try again [TODO]
+ * - @a -i, @a --interactive: Prompt before overwrite [IMPLEMENTED]
+ * - @a -H: Follow command-line symbolic links in SOURCE [TODO]
+ * - @a -l, @a --link: Hard link files instead of copying [TODO]
+ * - @a -L, @a --dereference: Always follow symbolic links in SOURCE [TODO]
+ * - @a -n, @a --no-clobber: Do not overwrite an existing file and do not fail [TODO]
+ * - @a -P, @a --no-dereference: Never follow symbolic links in SOURCE [TODO]
+ * - @a -p: Same as --preserve=mode,ownership,timestamps [TODO]
+ * - @a -R, @a --recursive: Copy directories recursively [IMPLEMENTED]
+ * - @a -r, @a --recursive: Copy directories recursively [IMPLEMENTED]
+ * - @a -s, @a --symbolic-link: Make symbolic links instead of copying [TODO]
+ * - @a -S, @a --suffix: Override the usual backup suffix [TODO]
+ * - @a -t, @a --target-directory: Copy all SOURCE arguments into DIRECTORY [IMPLEMENTED]
+ * - @a -T, @a --no-target-directory: Treat DEST as a normal file [TODO]
+ * - @a -u: Equivalent to --update[=older] [TODO]
+ * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
+ * - @a -x, @a --one-file-system: Stay on this file system [TODO]
+ * - @a -Z: Set SELinux security context of destination file to default type [TODO]
  */
 constexpr auto CP_OPTIONS = std::array{
     OPTION("-a", "--archive", "same as -dR --preserve=all"),
@@ -78,32 +98,33 @@ constexpr auto CP_OPTIONS = std::array{
            "set SELinux security context of destination file to default type")};
 
 // Auto-generated lookup table for options from CP_OPTIONS
-constexpr auto OPTION_HANDLERS = generate_option_handlers(CP_OPTIONS, "--suffix", "--target-directory");
+constexpr auto OPTION_HANDLERS =
+    generate_option_handlers(CP_OPTIONS, "--suffix", "--target-directory");
 
-CREATE_AUTO_FLAGS_CLASS(CpOptions,
-    DECLARE_STRING_OPTION(backup_suffix, "~")  // --suffix
-    DECLARE_STRING_OPTION(target_dir, "")      // --target-directory
-    
+CREATE_AUTO_FLAGS_CLASS(
+    CpOptions, DECLARE_STRING_OPTION(backup_suffix, "~")  // --suffix
+    DECLARE_STRING_OPTION(target_dir, "")                 // --target-directory
+
     // Define all flags
-    DEFINE_FLAG(recursive, 0)            // -r, -R, --recursive
-    DEFINE_FLAG(interactive, 1)          // -i, --interactive
-    DEFINE_FLAG(verbose, 2)              // -v, --verbose
-    DEFINE_FLAG(archive, 3)              // -a, --archive
-    DEFINE_FLAG(backup, 4)               // -b
-    DEFINE_FLAG(no_dereference, 5)       // -d, --no-dereference
-    DEFINE_FLAG(force, 6)                // -f, --force
-    DEFINE_FLAG(follow_symlinks, 7)      // -H
-    DEFINE_FLAG(hard_link, 8)            // -l, --link
-    DEFINE_FLAG(always_dereference, 9)   // -L, --dereference
-    DEFINE_FLAG(no_clobber, 10)          // -n, --no-clobber
-    DEFINE_FLAG(preserve, 11)            // -p
-    DEFINE_FLAG(symbolic_link, 12)       // -s, --symbolic-link
-    DEFINE_FLAG(suffix, 13)              // -S, --suffix
-    DEFINE_FLAG(target_directory, 14)    // -t, --target-directory
-    DEFINE_FLAG(no_target_directory, 15) // -T, --no-target-directory
-    DEFINE_FLAG(update, 16)              // -u
-    DEFINE_FLAG(one_file_system, 17)     // -x, --one-file-system
-    DEFINE_FLAG(selinux_context, 18)     // -Z
+    DEFINE_FLAG(recursive, 0)             // -r, -R, --recursive
+    DEFINE_FLAG(interactive, 1)           // -i, --interactive
+    DEFINE_FLAG(verbose, 2)               // -v, --verbose
+    DEFINE_FLAG(archive, 3)               // -a, --archive
+    DEFINE_FLAG(backup, 4)                // -b
+    DEFINE_FLAG(no_dereference, 5)        // -d, --no-dereference
+    DEFINE_FLAG(force, 6)                 // -f, --force
+    DEFINE_FLAG(follow_symlinks, 7)       // -H
+    DEFINE_FLAG(hard_link, 8)             // -l, --link
+    DEFINE_FLAG(always_dereference, 9)    // -L, --dereference
+    DEFINE_FLAG(no_clobber, 10)           // -n, --no-clobber
+    DEFINE_FLAG(preserve, 11)             // -p
+    DEFINE_FLAG(symbolic_link, 12)        // -s, --symbolic-link
+    DEFINE_FLAG(suffix, 13)               // -S, --suffix
+    DEFINE_FLAG(target_directory, 14)     // -t, --target-directory
+    DEFINE_FLAG(no_target_directory, 15)  // -T, --no-target-directory
+    DEFINE_FLAG(update, 16)               // -u
+    DEFINE_FLAG(one_file_system, 17)      // -x, --one-file-system
+    DEFINE_FLAG(selinux_context, 18)      // -Z
 )
 
 REGISTER_COMMAND(
@@ -130,69 +151,164 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     CP_OPTIONS) {
-
   /**
    * @brief Parse command line options for cp
-   * @param args Command arguments
+   * @param args Command
+   * arguments
    * @param options Output parameter for parsed options
+   *
    * @param sourcePaths Output parameter for source paths
-   * @param destPath Output parameter for destination path
-   * @return true if parsing succeeded, false on error
+   * @param destPath
+   * Output parameter for destination path
+   * @return true if parsing
+   * succeeded, false on error
    */
   auto parseCpOptions = [](std::span<std::string_view> args, CpOptions& options,
                            std::vector<std::string>& sourcePaths,
                            std::string& destPath) -> bool {
+    // Helper function to find option handler by long option or short option
+    auto find_handler = [](std::string_view arg,
+                           char opt_char = '\0') -> const OptionHandler* {
+      for (const auto& handler : OPTION_HANDLERS) {
+        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
+            (opt_char && handler.short_opt == opt_char)) {
+          return &handler;
+        }
+      }
+      return nullptr;
+    };
+
+    // Helper function to print option error
+    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
+      if (!arg.empty()) {
+        fwprintf(stderr, L"cp: invalid option -- '%.*s'\n",
+                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+      } else {
+        fwprintf(stderr, L"cp: invalid option -- '%c'\n", opt_char);
+      }
+    };
+
+    // Helper function to handle argument options
+    auto handle_arg_option = [&options, &args](char opt_char, size_t& i,
+                                               size_t j,
+                                               std::string_view arg) -> bool {
+      if (j + 1 < arg.size()) {
+        // Argument is part of the same string
+        if (opt_char == 'S') {
+          options.set_backup_suffix(arg.substr(j + 1));
+          options.set_suffix(true);
+        } else if (opt_char == 't') {
+          options.set_target_dir(arg.substr(j + 1));
+          options.set_target_directory(true);
+        }
+      } else if (i + 1 < args.size()) {
+        // Argument is the next string
+        if (opt_char == 'S') {
+          options.set_backup_suffix(args[i + 1]);
+          options.set_suffix(true);
+        } else if (opt_char == 't') {
+          options.set_target_dir(args[i + 1]);
+          options.set_target_directory(true);
+        }
+        ++i;
+      } else {
+        // No argument provided
+        fwprintf(stderr, L"cp: option requires an argument -- '%c'\n",
+                 opt_char);
+        return false;
+      }
+      return true;
+    };
+
+    // Helper function to set boolean option
+    auto set_boolean_option = [&options](char opt_char) {
+      switch (opt_char) {
+        case 'r':
+        case 'R':
+          options.set_recursive(true);
+          break;
+        case 'i':
+          options.set_interactive(true);
+          break;
+        case 'v':
+          options.set_verbose(true);
+          break;
+        case 'a':
+          options.set_archive(true);
+          break;
+        case 'b':
+          options.set_backup(true);
+          break;
+        case 'd':
+          options.set_no_dereference(true);
+          break;
+        case 'f':
+          options.set_force(true);
+          break;
+        case 'H':
+          options.set_follow_symlinks(true);
+          break;
+        case 'l':
+          options.set_hard_link(true);
+          break;
+        case 'L':
+          options.set_always_dereference(true);
+          break;
+        case 'n':
+          options.set_no_clobber(true);
+          break;
+        case 'P':
+          options.set_no_dereference(true);
+          break;
+        case 'p':
+          options.set_preserve(true);
+          break;
+        case 's':
+          options.set_symbolic_link(true);
+          break;
+        case 'T':
+          options.set_no_target_directory(true);
+          break;
+        case 'u':
+          options.set_update(true);
+          break;
+        case 'x':
+          options.set_one_file_system(true);
+          break;
+        case 'Z':
+          options.set_selinux_context(true);
+          break;
+      }
+    };
+
     for (size_t i = 0; i < args.size(); ++i) {
       auto arg = args[i];
 
       if (arg.starts_with("--")) {
         // This is a long option
-        if (arg == "--recursive") {
-          options.set_recursive(true);
-        } else if (arg == "--interactive") {
-          options.set_interactive(true);
-        } else if (arg == "--verbose") {
-          options.set_verbose(true);
-        } else if (arg == "--archive") {
-          options.set_archive(true);
-        } else if (arg == "--force") {
-          options.set_force(true);
-        } else if (arg == "--link") {
-          options.set_hard_link(true);
-        } else if (arg == "--dereference") {
-          options.set_always_dereference(true);
-        } else if (arg == "--no-clobber") {
-          options.set_no_clobber(true);
-        } else if (arg == "--no-dereference") {
-          options.set_no_dereference(true);
-        } else if (arg == "--symbolic-link") {
-          options.set_symbolic_link(true);
-        } else if (arg == "--suffix") {
-          if (i + 1 < args.size()) {
-            options.set_backup_suffix(args[i + 1]);
-            options.set_suffix(true);
-            ++i;
+        const auto* handler = find_handler(arg);
+        if (handler) {
+          if (handler->requires_arg) {
+            // Handle options that require arguments
+            if (i + 1 < args.size()) {
+              if (handler->short_opt == 'S') {
+                options.set_backup_suffix(args[i + 1]);
+                options.set_suffix(true);
+              } else if (handler->short_opt == 't') {
+                options.set_target_dir(args[i + 1]);
+                options.set_target_directory(true);
+              }
+              ++i;
+            } else {
+              fwprintf(stderr, L"cp: option '%s' requires an argument\n",
+                       arg.data());
+              return false;
+            }
           } else {
-            fwprintf(stderr, L"cp: option '--suffix' requires an argument\n");
-            return false;
+            set_boolean_option(handler->short_opt);
           }
-        } else if (arg == "--target-directory") {
-          if (i + 1 < args.size()) {
-            options.set_target_dir(args[i + 1]);
-            options.set_target_directory(true);
-            ++i;
-          } else {
-            fwprintf(stderr,
-                    L"cp: option '--target-directory' requires an argument\n");
-            return false;
-          }
-        } else if (arg == "--no-target-directory") {
-          options.set_no_target_directory(true);
-        } else if (arg == "--one-file-system") {
-          options.set_one_file_system(true);
         } else {
-          fwprintf(stderr, L"cp: invalid option -- '%.*s'\n",
-                  static_cast<int>(arg.size() - 2), arg.data() + 2);
+          print_option_error(arg);
           return false;
         }
       } else if (arg.starts_with('-')) {
@@ -205,93 +321,23 @@ REGISTER_COMMAND(
 
         // Process option characters
         for (size_t j = 1; j < arg.size(); ++j) {
-          switch (arg[j]) {
-            case 'r':
-            case 'R':
-              options.set_recursive(true);
-              break;
-            case 'i':
-              options.set_interactive(true);
-              break;
-            case 'v':
-              options.set_verbose(true);
-              break;
-            case 'a':
-              options.set_archive(true);
-              break;
-            case 'b':
-              options.set_backup(true);
-              break;
-            case 'd':
-              options.set_no_dereference(true);
-              break;
-            case 'f':
-              options.set_force(true);
-              break;
-            case 'H':
-              options.set_follow_symlinks(true);
-              break;
-            case 'l':
-              options.set_hard_link(true);
-              break;
-            case 'L':
-              options.set_always_dereference(true);
-              break;
-            case 'n':
-              options.set_no_clobber(true);
-              break;
-            case 'P':
-              options.set_no_dereference(true);
-              break;
-            case 'p':
-              options.set_preserve(true);
-              break;
-            case 's':
-              options.set_symbolic_link(true);
-              break;
-            case 'S':
-              if (j + 1 < arg.size()) {
-                options.set_backup_suffix(arg.substr(j + 1));
-                options.set_suffix(true);
-                j = arg.size() - 1;
-              } else if (i + 1 < args.size()) {
-                options.set_backup_suffix(args[i + 1]);
-                options.set_suffix(true);
-                ++i;
-                break;
-              } else {
-                fwprintf(stderr, L"cp: option requires an argument -- 'S'\n");
+          char opt_char = arg[j];
+          const auto* handler = find_handler("", opt_char);
+          if (handler) {
+            if (handler->requires_arg) {
+              // Handle options that require arguments
+              if (!handle_arg_option(opt_char, i, j, arg)) {
                 return false;
               }
-            case 't':
               if (j + 1 < arg.size()) {
-                options.set_target_dir(arg.substr(j + 1));
-                options.set_target_directory(true);
                 j = arg.size() - 1;
-              } else if (i + 1 < args.size()) {
-                options.set_target_dir(args[i + 1]);
-                options.set_target_directory(true);
-                ++i;
-                break;
-              } else {
-                fwprintf(stderr, L"cp: option requires an argument -- 't'\n");
-                return false;
               }
-            case 'T':
-              options.set_no_target_directory(true);
-              break;
-            case 'u':
-              options.set_update(true);
-              break;
-            case 'x':
-              options.set_one_file_system(true);
-              break;
-            case 'Z':
-              options.set_selinux_context(true);
-              break;
-            default:
-              fwprintf(stderr, L"cp: invalid option -- '%c'\n", arg[j]);
-              return false;
+            } else {
+              set_boolean_option(opt_char);
+            }
+          } else {
+            print_option_error("", opt_char);
+            return false;
           }
         }
       } else {
@@ -390,112 +436,112 @@ REGISTER_COMMAND(
           std::string destItemPath = destPath + "\\" + fileName;
 
           // Check if it's a directory
-      if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        // Recursively copy subdirectory
-        if (!copyDirectory(srcItemPath, destItemPath, options)) {
-          success = false;
-        }
-      } else {
-        // Copy file
-        try {
-          if (options.get_interactive()) {
-            std::ifstream destTest(destItemPath);
-            if (destTest.good()) {
-              wprintf(L"cp: overwrite '%s'? (y/n) ", destItemPath.c_str());
-              char response;
-              std::cin.get(response);
-              if (response != 'y' && response != 'Y') {
-                // Skip this file
+          if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // Recursively copy subdirectory
+            if (!copyDirectory(srcItemPath, destItemPath, options)) {
+              success = false;
+            }
+          } else {
+            // Copy file
+            try {
+              if (options.get_interactive()) {
+                std::ifstream destTest(destItemPath);
+                if (destTest.good()) {
+                  wprintf(L"cp: overwrite '%s'? (y/n) ", destItemPath.c_str());
+                  char response;
+                  std::cin.get(response);
+                  if (response != 'y' && response != 'Y') {
+                    // Skip this file
+                  } else {
+                    // Copy the file
+                    std::ifstream srcFile(srcItemPath, std::ios::binary);
+                    if (!srcFile) {
+                      fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
+                               srcItemPath.data());
+                      success = false;
+                      continue;
+                    }
+                    std::ofstream destFile(destItemPath, std::ios::binary);
+                    if (!destFile) {
+                      fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
+                               destItemPath.c_str());
+                      success = false;
+                      continue;
+                    }
+                    destFile << srcFile.rdbuf();
+                    if (!destFile) {
+                      fwprintf(stderr, L"cp: error writing to '%s'\n",
+                               destItemPath.c_str());
+                      success = false;
+                      continue;
+                    }
+                    if (options.get_verbose()) {
+                      wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
+                              destItemPath.c_str());
+                    }
+                  }
+                } else {
+                  // Destination doesn't exist, just copy
+                  std::ifstream srcFile(srcItemPath, std::ios::binary);
+                  if (!srcFile) {
+                    fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
+                             srcItemPath.data());
+                    success = false;
+                    continue;
+                  }
+                  std::ofstream destFile(destItemPath, std::ios::binary);
+                  if (!destFile) {
+                    fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
+                             destItemPath.c_str());
+                    success = false;
+                    continue;
+                  }
+                  destFile << srcFile.rdbuf();
+                  if (!destFile) {
+                    fwprintf(stderr, L"cp: error writing to '%s'\n",
+                             destItemPath.c_str());
+                    success = false;
+                    continue;
+                  }
+                  if (options.get_verbose()) {
+                    wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
+                            destItemPath.c_str());
+                  }
+                }
               } else {
-                // Copy the file
+                // Non-interactive mode, just copy
                 std::ifstream srcFile(srcItemPath, std::ios::binary);
                 if (!srcFile) {
                   fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
-                          srcItemPath.data());
+                           srcItemPath.data());
                   success = false;
                   continue;
                 }
                 std::ofstream destFile(destItemPath, std::ios::binary);
                 if (!destFile) {
                   fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                          destItemPath.c_str());
+                           destItemPath.c_str());
                   success = false;
                   continue;
                 }
                 destFile << srcFile.rdbuf();
                 if (!destFile) {
                   fwprintf(stderr, L"cp: error writing to '%s'\n",
-                          destItemPath.c_str());
+                           destItemPath.c_str());
                   success = false;
                   continue;
                 }
                 if (options.get_verbose()) {
                   wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
-                         destItemPath.c_str());
+                          destItemPath.c_str());
                 }
               }
-            } else {
-              // Destination doesn't exist, just copy
-              std::ifstream srcFile(srcItemPath, std::ios::binary);
-              if (!srcFile) {
-                fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
-                        srcItemPath.data());
-                success = false;
-                continue;
-              }
-              std::ofstream destFile(destItemPath, std::ios::binary);
-              if (!destFile) {
-                fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                        destItemPath.c_str());
-                success = false;
-                continue;
-              }
-              destFile << srcFile.rdbuf();
-              if (!destFile) {
-                fwprintf(stderr, L"cp: error writing to '%s'\n",
-                        destItemPath.c_str());
-                success = false;
-                continue;
-              }
-              if (options.get_verbose()) {
-                wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
-                       destItemPath.c_str());
-              }
-            }
-          } else {
-            // Non-interactive mode, just copy
-            std::ifstream srcFile(srcItemPath, std::ios::binary);
-            if (!srcFile) {
-              fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
-                      srcItemPath.data());
+            } catch (const std::exception& e) {
+              fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n",
+                       srcItemPath.data(), destItemPath.c_str(), e.what());
               success = false;
-              continue;
-            }
-            std::ofstream destFile(destItemPath, std::ios::binary);
-            if (!destFile) {
-              fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                      destItemPath.c_str());
-              success = false;
-              continue;
-            }
-            destFile << srcFile.rdbuf();
-            if (!destFile) {
-              fwprintf(stderr, L"cp: error writing to '%s'\n",
-                      destItemPath.c_str());
-              success = false;
-              continue;
-            }
-            if (options.get_verbose()) {
-              wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
-                     destItemPath.c_str());
             }
           }
-        } catch (const std::exception& e) {
-          fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n",
-                  srcItemPath.data(), destItemPath.c_str(), e.what());
-          success = false;
-        }
-      }
         }
       } while (FindNextFileW(hFind, &findData));
     }
@@ -532,7 +578,8 @@ REGISTER_COMMAND(
       }
       std::ofstream dest(destPath, std::ios::binary);
       if (!dest) {
-        fwprintf(stderr, L"cp: cannot open '%s' for writing\n", destPath.c_str());
+        fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
+                 destPath.c_str());
         return false;
       }
       dest << src.rdbuf();
@@ -546,7 +593,7 @@ REGISTER_COMMAND(
       return true;
     } catch (const std::exception& e) {
       fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n", srcPath.data(),
-              destPath.c_str(), e.what());
+               destPath.c_str(), e.what());
       return false;
     }
   };
@@ -595,7 +642,7 @@ REGISTER_COMMAND(
   for (const auto& srcPath : sourcePaths) {
     if (!pathExists(srcPath)) {
       fwprintf(stderr, L"cp: cannot stat '%s': No such file or directory\n",
-              srcPath.data());
+               srcPath.data());
       success = false;
       continue;
     }

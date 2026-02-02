@@ -13,7 +13,7 @@ WinuxCmd是一个轻量级的Windows可执行程序，为Windows系统提供了�
 ### 量化目标
 
 - 支持数百个个高频Linux命令及其核心参数（与Linux行为1:1兼容）
-- 组合主程序 `winuxcmd.exe` 大小 ≤ 1MB
+- 组合主程序 `winuxcmd.exe` 大小 < 1MB
 - 单个命令可执行文件（如 `ls.exe`）每个文件大小 ≤ 2KB
 - 纯Windows API实现，无第三方库依赖
 - 使用C++23现代模块系统架构开发
@@ -86,7 +86,8 @@ winuxcmd/
 ├── TODO.md           # 项目待办列表（英文）
 └── DOCS/
     ├── README_zh.md  # 项目文档（中文）
-    └── TODO_zh.md    # 项目待办列表（中文）
+    ├── TODO_zh.md    # 项目待办列表（中文）
+    ├── scaffold_and_dsl.md  # 脚手架和DSL设计文档（中文）
 ```
 
 ## 构建说明

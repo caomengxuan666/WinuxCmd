@@ -35,24 +35,24 @@ std::string generateCommandModule(const std::string& cmdName) {
   // Add Author Infomation
   moduleContent += "/// @Author: TODO: fill in your name\n";
   moduleContent += "/// @contributors: \n";
-  moduleContent += "///   - contributor1 <email1@example.com>\n";
-  moduleContent += "///   - contributor2 <email2@example.com>\n";
-  moduleContent += "///   - contributor3 <email3@example.com>\n";
-  moduleContent += "///   - description\n";
+  moduleContent += "///   - contributor1 <name> <email2@example.com>\n";
+  moduleContent += "///   - contributor2 <name> <email2@example.com>\n";
+  moduleContent += "///   - contributor3 <name> <email3@example.com>\n";
+  moduleContent += "///   - description: \n";
   moduleContent += "/// @Description: TODO: Add command description\n";
   moduleContent += "/// @Version: 0.1.0\n";
   moduleContent += "/// @License: MIT\n";
   moduleContent += "/// @Copyright: Copyright © 2026 WinuxCmd\n";
   moduleContent += "module;\n\n";
   moduleContent += "#include <cstdio>\n";
-  moduleContent += "#include \"core/command_macros.h\"\n\n";
+  moduleContent += "#include \"core/command_macros.h\"\n";
+  moduleContent += "#include \"core/auto_flags.h\"\n\n";
   moduleContent += "export module commands." + cmdName + ";\n\n";
   moduleContent += "import std;\n";
   moduleContent += "import core.dispatcher;\n";
   moduleContent += "import core.cmd_meta;\n";
   moduleContent += "import core.opt;\n\n";
   moduleContent += "namespace fs = std::filesystem;\n\n";
-  moduleContent += "using namespace std;\n\n";
 
   // Convert command name to uppercase for constant name
   std::string upperCmdName = cmdName;
@@ -66,8 +66,16 @@ std::string generateCommandModule(const std::string& cmdName) {
       "    OPTION(\"-v\", \"--verbose\", \"explain what is being done\"),\n";
   moduleContent += "    // Add more options here\n";
   moduleContent += "};\n\n";
-  moduleContent += "// Auto-generated lookup table for options from " + upperCmdName + "_OPTIONS\n";
-  moduleContent += "constexpr auto OPTION_HANDLERS = generate_option_handlers(" + upperCmdName + "_OPTIONS);\n\n";
+  moduleContent += "// Auto-generated lookup table for options from " +
+                   upperCmdName + "_OPTIONS\n";
+  moduleContent +=
+      "constexpr auto OPTION_HANDLERS = generate_option_handlers(" +
+      upperCmdName + "_OPTIONS);\n\n";
+  moduleContent += "CREATE_AUTO_FLAGS_CLASS(" + cmdName + "Options,\n";
+  moduleContent += "    // Define all flags\n";
+  moduleContent += "    DEFINE_FLAG(verbose, 0)          // -v, --verbose\n";
+  moduleContent += "    // Add more flags here\n";
+  moduleContent += ")\n\n";
   moduleContent += "REGISTER_COMMAND(\n";
   moduleContent += "    " + cmdName + ",\n";
   moduleContent += "    /* cmd_name */ \"" + cmdName + "\",\n";
@@ -85,114 +93,144 @@ std::string generateCommandModule(const std::string& cmdName) {
   moduleContent += "    /* options */\n";
   moduleContent += "    " + upperCmdName + "_OPTIONS\n";
   moduleContent += ") {\n";
-  moduleContent += "    // Option flags for " + cmdName + " command\n";
-  moduleContent += "    struct " + cmdName + "Options {\n";
-  moduleContent += "        bool verbose = false; // -v, --verbose\n";
-  moduleContent += "        // Add more options here\n";
-  moduleContent += "    };\n\n";
-  moduleContent += "    // Parse command options\n";
+  moduleContent += "  /**\n";
   moduleContent +=
-      "    auto parseOptions = [&](std::span<std::string_view> args) -> " +
-      cmdName + "Options {\n";
-  moduleContent += "        " + cmdName + "Options options;\n";
-  moduleContent += "        size_t pos = 1; // Skip command name\n";
-  moduleContent += "        \n";
-  moduleContent += "        while (pos < args.size()) {\n";
-  moduleContent += "            std::string arg = std::string(args[pos]);\n";
-  moduleContent += "            \n";
-  moduleContent += "            if (arg == \"--\") {\n";
-  moduleContent += "                ++pos;\n";
-  moduleContent += "                break;\n";
-  moduleContent += "            }\n";
-  moduleContent += "            \n";
-  moduleContent += "            if (arg.starts_with(\"--\")) {\n";
-  moduleContent += "                // Check long options\n";
-  moduleContent += "                bool found = false;\n";
-  moduleContent += "                for (const auto& handler : OPTION_HANDLERS) {\n";
-  moduleContent += "                    if (handler.long_opt && arg == handler.long_opt) {\n";
-  moduleContent += "                        found = true;\n";
-  moduleContent += "                        \n";
-  moduleContent += "                        if (arg == \"--verbose\") {\n";
-  moduleContent += "                            options.verbose = true;\n";
-  moduleContent += "                        }\n";
-  moduleContent += "                        // Handle more options here\n";
-  moduleContent += "                        \n";
-  moduleContent += "                        break;\n";
-  moduleContent += "                    }\n";
-  moduleContent += "                }\n";
-  moduleContent += "                \n";
-  moduleContent += "                if (!found) {\n";
-  moduleContent += "                    fprintf(stderr, \"" + cmdName + ": invalid option '%s'\\\\n\", arg.c_str());\n";
-  moduleContent += "                    return options;\n";
-  moduleContent += "                }\n";
-  moduleContent += "                \n";
-  moduleContent += "                ++pos;\n";
-  moduleContent += "            } else if (arg.starts_with(\"-\")) {\n";
-  moduleContent += "                // Check short options\n";
-  moduleContent += "                for (size_t j = 1; j < arg.size(); ++j) {\n";
-  moduleContent += "                    char opt_char = arg[j];\n";
-  moduleContent += "                    bool found = false;\n";
-  moduleContent += "                    \n";
-  moduleContent += "                    for (const auto& handler : OPTION_HANDLERS) {\n";
-  moduleContent += "                        if (handler.short_opt == opt_char) {\n";
-  moduleContent += "                            found = true;\n";
-  moduleContent += "                            \n";
-  moduleContent += "                            if (opt_char == 'v') {\n";
-  moduleContent += "                                options.verbose = true;\n";
-  moduleContent += "                            }\n";
-  moduleContent += "                            // Handle more options here\n";
-  moduleContent += "                            \n";
-  moduleContent += "                            break;\n";
-  moduleContent += "                        }\n";
-  moduleContent += "                    }\n";
-  moduleContent += "                    \n";
-  moduleContent += "                    if (!found) {\n";
-  moduleContent += "                        fprintf(stderr, \"" + cmdName + ": invalid option -- '%c'\\\\n\", opt_char);\n";
-  moduleContent += "                        return options;\n";
-  moduleContent += "                    }\n";
-  moduleContent += "                }\n";
-  moduleContent += "                \n";
-  moduleContent += "                ++pos;\n";
-  moduleContent += "            } else {\n";
-  moduleContent += "                break;\n";
-  moduleContent += "            }\n";
-  moduleContent += "        }\n";
-  moduleContent += "        \n";
-  moduleContent += "        return options;\n";
-  moduleContent += "    }\n";
-  moduleContent += "\n";
-  moduleContent += "    // Get remaining arguments (files/directories)\n";
-  moduleContent += "    std::vector<std::string> paths;\n";
-  moduleContent += "    for (size_t i = 1; i < args.size(); ++i) {\n";
-  moduleContent += "        std::string arg = std::string(args[i]);\n";
-  moduleContent += "        if (arg == \"--\") {\n";
+      "   * @brief Parse command line options for " + cmdName + "\n";
+  moduleContent += "   * @param args Command arguments\n";
+  moduleContent += "   * @param options Output parameter for parsed options\n";
+  moduleContent += "   * @param paths Output parameter for paths to process\n";
+  moduleContent += "   * @return true if parsing succeeded, false on error\n";
+  moduleContent += "   */\n";
   moduleContent +=
-      "            for (size_t j = i + 1; j < args.size(); ++j) {\n";
-  moduleContent += "                paths.push_back(std::string(args[j]));\n";
-  moduleContent += "            }\n";
-  moduleContent += "            break;\n";
+      "  auto parse" + upperCmdName +
+      "Options = [](std::span<std::string_view> args, " + cmdName +
+      "Options& options, std::vector<std::string>& paths) -> bool {\n";
+  moduleContent +=
+      "    // Helper function to find option handler by long option or short "
+      "option\n";
+  moduleContent +=
+      "    auto find_handler = [](std::string_view arg, char opt_char = '\\0') "
+      "-> const OptionHandler* {\n";
+  moduleContent += "      for (const auto& handler : OPTION_HANDLERS) {\n";
+  moduleContent +=
+      "        if ((!arg.empty() && handler.long_opt && arg == "
+      "handler.long_opt) ||\n";
+  moduleContent +=
+      "            (opt_char && handler.short_opt == opt_char)) {\n";
+  moduleContent += "          return &handler;\n";
   moduleContent += "        }\n";
-  moduleContent += "        if (!arg.starts_with(\"-\")) {\n";
-  moduleContent += "            paths.push_back(arg);\n";
-  moduleContent += "        }\n";
+  moduleContent += "      }\n";
+  moduleContent += "      return nullptr;\n";
   moduleContent += "    }\n\n";
-  moduleContent += "    // Parse options\n";
-  moduleContent += "    auto options = parseOptions(args);\n\n";
-  moduleContent += "    // TODO: Implement command logic here\n\n";
+  moduleContent += "    // Helper function to print option error\n";
+  moduleContent +=
+      "    auto print_option_error = [](std::string_view arg, char opt_char = "
+      "'\\0') {\n";
+  moduleContent += "      if (!arg.empty()) {\n";
+  moduleContent += "        fwprintf(stderr, L\"" + cmdName +
+                   ": invalid option -- '%.*s'\\n\",\n";
+  moduleContent +=
+      "                static_cast<int>(arg.size() - 2), arg.data() + 2);\n";
+  moduleContent += "      } else {\n";
+  moduleContent += "        fwprintf(stderr, L\"" + cmdName +
+                   ": invalid option -- '%c'\\n\", opt_char);\n";
+  moduleContent += "      }\n";
+  moduleContent += "    }\n\n";
+  moduleContent += "    // Helper function to set boolean option\n";
+  moduleContent +=
+      "    auto set_boolean_option = [&options](char opt_char) {\n";
+  moduleContent += "      switch (opt_char) {\n";
+  moduleContent += "        case 'v':\n";
+  moduleContent += "          options.set_verbose(true);\n";
+  moduleContent += "          break;\n";
+  moduleContent += "        // Add more options here\n";
+  moduleContent += "      }\n";
+  moduleContent += "    }\n\n";
+  moduleContent += "    for (size_t i = 0; i < args.size(); ++i) {\n";
+  moduleContent += "      auto arg = args[i];\n\n";
+  moduleContent += "      if (arg.starts_with(\"--\")) {\n";
+  moduleContent += "        // This is a long option\n";
+  moduleContent += "        const auto* handler = find_handler(arg);\n";
+  moduleContent += "        if (handler) {\n";
+  moduleContent += "          if (handler->requires_arg) {\n";
+  moduleContent += "            // Handle options that require arguments\n";
+  moduleContent += "            if (i + 1 < args.size()) {\n";
+  moduleContent += "              // TODO: Handle argument options\n";
+  moduleContent += "              ++i;\n";
+  moduleContent += "            } else {\n";
+  moduleContent += "              fwprintf(stderr, L\"" + cmdName +
+                   ": option '%s' requires an argument\\n\", arg.data());\n";
+  moduleContent += "              return false;\n";
+  moduleContent += "            }\n";
+  moduleContent += "          } else {\n";
+  moduleContent += "            set_boolean_option(handler->short_opt);\n";
+  moduleContent += "          }\n";
+  moduleContent += "        } else {\n";
+  moduleContent += "          print_option_error(arg);\n";
+  moduleContent += "          return false;\n";
+  moduleContent += "        }\n";
+  moduleContent += "      } else if (arg.starts_with(\"-\")) {\n";
+  moduleContent += "        // This is a short option\n";
+  moduleContent += "        if (arg == \"-\") {\n";
+  moduleContent += "          // Single dash, treat as path\n";
+  moduleContent += "          paths.push_back(std::string(arg));\n";
+  moduleContent += "          continue;\n";
+  moduleContent += "        }\n\n";
+  moduleContent += "        // Process option characters\n";
+  moduleContent += "        for (size_t j = 1; j < arg.size(); ++j) {\n";
+  moduleContent += "          char opt_char = arg[j];\n";
+  moduleContent +=
+      "          const auto* handler = find_handler(\"\", opt_char);\n";
+  moduleContent += "          if (handler) {\n";
+  moduleContent += "            if (handler->requires_arg) {\n";
+  moduleContent += "              // Handle options that require arguments\n";
+  moduleContent += "              if (j + 1 < arg.size()) {\n";
+  moduleContent += "                // TODO: Handle argument options\n";
+  moduleContent += "                j = arg.size() - 1;\n";
+  moduleContent += "              } else if (i + 1 < args.size()) {\n";
+  moduleContent += "                // TODO: Handle argument options\n";
+  moduleContent += "                ++i;\n";
+  moduleContent += "              } else {\n";
+  moduleContent += "                fwprintf(stderr, L\"" + cmdName +
+                   ": option requires an argument -- '%c'\\n\", opt_char);\n";
+  moduleContent += "                return false;\n";
+  moduleContent += "              }\n";
+  moduleContent += "            } else {\n";
+  moduleContent += "              set_boolean_option(opt_char);\n";
+  moduleContent += "            }\n";
+  moduleContent += "          } else {\n";
+  moduleContent += "            print_option_error(\"\", opt_char);\n";
+  moduleContent += "            return false;\n";
+  moduleContent += "          }\n";
+  moduleContent += "        }\n";
+  moduleContent += "      } else {\n";
+  moduleContent += "        // This is a path\n";
+  moduleContent += "        paths.push_back(std::string(arg));\n";
+  moduleContent += "      }\n";
+  moduleContent += "    }\n\n";
   moduleContent += "    if (paths.empty()) {\n";
   moduleContent +=
-      "        fprintf(stderr, \"" + cmdName + ": missing operand\\\\n\");\n";
-  moduleContent += "        return 1;\n";
+      "      fwprintf(stderr, L\"" + cmdName + ": missing operand\\n\");\n";
+  moduleContent += "      return false;\n";
   moduleContent += "    }\n\n";
-  moduleContent += "    // Example: Print paths\n";
-  moduleContent += "    for (const auto& path : paths) {\n";
-  moduleContent += "        if (options.verbose) {\n";
+  moduleContent += "    return true;\n";
+  moduleContent += "  }\n\n";
+  moduleContent += "  // Main implementation\n";
+  moduleContent += "  " + cmdName + "Options options;\n";
+  moduleContent += "  std::vector<std::string> paths;\n\n";
   moduleContent +=
-      "            std::cout << \"Processing: \" << path << std::endl;\n";
-  moduleContent += "        }\n";
-  moduleContent += "        // TODO: Process path\n";
-  moduleContent += "    }\n\n";
-  moduleContent += "    return 0;\n";
+      "  if (!parse" + upperCmdName + "Options(args, options, paths)) {\n";
+  moduleContent += "    return 2;  // Invalid option error code\n";
+  moduleContent += "  }\n\n";
+  moduleContent += "  // TODO: Implement command logic here\n\n";
+  moduleContent += "  // Example: Print paths\n";
+  moduleContent += "  for (const auto& path : paths) {\n";
+  moduleContent += "    if (options.get_verbose()) {\n";
+  moduleContent += "      wprintf(L\"Processing: %s\\n\", path.c_str());\n";
+  moduleContent += "    }\n";
+  moduleContent += "    // TODO: Process path\n";
+  moduleContent += "  }\n\n";
+  moduleContent += "  return 0;\n";
   moduleContent += "}\n";
 
   return moduleContent;

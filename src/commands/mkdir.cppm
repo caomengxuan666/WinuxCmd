@@ -28,8 +28,8 @@ module;
 #include <cstdio>
 #include <cwchar>
 
-#include "core/command_macros.h"
 #include "core/auto_flags.h"
+#include "core/command_macros.h"
 export module commands.mkdir;
 
 import std;
@@ -37,6 +37,19 @@ import core.dispatcher;
 import core.cmd_meta;
 import core.opt;
 
+/**
+ * @brief MKDIR command options definition
+ * 
+ * This array defines all the options supported by the mkdir command.
+ * Each option is described with its short form, long form, and description.
+ * The implementation status is also indicated for each option.
+ * 
+ * @par Options:
+ * - @a -m, @a --mode: Set file mode (as in chmod), not a=rwx - umask [TODO]
+ * - @a -p, @a --parents: No error if existing, make parent directories as needed [IMPLEMENTED]
+ * - @a -v, @a --verbose: Print a message for each created directory [IMPLEMENTED]
+ * - @a -Z: Set SELinux security context of each created directory to the default type [TODO]
+ */
 constexpr auto MKDIR_OPTIONS = std::array{
     OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask"),
     OPTION("-p", "--parents",
@@ -47,15 +60,16 @@ constexpr auto MKDIR_OPTIONS = std::array{
            "default type")};
 
 // Auto-generated lookup table for options from MKDIR_OPTIONS
-constexpr auto OPTION_HANDLERS = generate_option_handlers(MKDIR_OPTIONS, "--mode");
+constexpr auto OPTION_HANDLERS =
+    generate_option_handlers(MKDIR_OPTIONS, "--mode");
 
 CREATE_AUTO_FLAGS_CLASS(MkdirOptions,
-    DECLARE_STRING_OPTION(mode, "")  // -m, --mode
-    
-    // Define all flags
-    DEFINE_FLAG(parents, 0)          // -p, --parents
-    DEFINE_FLAG(verbose, 1)          // -v, --verbose
-    DEFINE_FLAG(selinux_context, 2)  // -Z
+                        DECLARE_STRING_OPTION(mode, "")  // -m, --mode
+
+                        // Define all flags
+                        DEFINE_FLAG(parents, 0)          // -p, --parents
+                        DEFINE_FLAG(verbose, 1)          // -v, --verbose
+                        DEFINE_FLAG(selinux_context, 2)  // -Z
 )
 
 REGISTER_COMMAND(
@@ -78,7 +92,6 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     MKDIR_OPTIONS) {
-
   /**
    * @brief Parse command line options for mkdir
    * @param args Command arguments
@@ -89,26 +102,91 @@ REGISTER_COMMAND(
   auto parseMkdirOptions = [](std::span<std::string_view> args,
                               MkdirOptions& options,
                               std::vector<std::string>& paths) -> bool {
+    // Helper function to find option handler by long option or short option
+    auto find_handler = [](std::string_view arg,
+                           char opt_char = '\0') -> const OptionHandler* {
+      for (const auto& handler : OPTION_HANDLERS) {
+        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
+            (opt_char && handler.short_opt == opt_char)) {
+          return &handler;
+        }
+      }
+      return nullptr;
+    };
+
+    // Helper function to print option error
+    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
+      if (!arg.empty()) {
+        fwprintf(stderr, L"mkdir: invalid option -- '%.*s'\n",
+                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+      } else {
+        fwprintf(stderr, L"mkdir: invalid option -- '%c'\n", opt_char);
+      }
+    };
+
+    // Helper function to handle argument options
+    auto handle_arg_option = [&options, &args](char opt_char, size_t& i,
+                                               size_t j,
+                                               std::string_view arg) -> bool {
+      if (j + 1 < arg.size()) {
+        // Argument is part of the same string
+        if (opt_char == 'm') {
+          options.set_mode(arg.substr(j + 1));
+        }
+      } else if (i + 1 < args.size()) {
+        // Argument is the next string
+        if (opt_char == 'm') {
+          options.set_mode(args[i + 1]);
+        }
+        ++i;
+      } else {
+        // No argument provided
+        fwprintf(stderr, L"mkdir: option requires an argument -- '%c'\n",
+                 opt_char);
+        return false;
+      }
+      return true;
+    };
+
+    // Helper function to set boolean option
+    auto set_boolean_option = [&options](char opt_char) {
+      switch (opt_char) {
+        case 'p':
+          options.set_parents(true);
+          break;
+        case 'v':
+          options.set_verbose(true);
+          break;
+        case 'Z':
+          options.set_selinux_context(true);
+          break;
+      }
+    };
+
     for (size_t i = 0; i < args.size(); ++i) {
       auto arg = args[i];
 
       if (arg.starts_with("--")) {
         // This is a long option
-        if (arg == "--parents") {
-          options.set_parents(true);
-        } else if (arg == "--verbose") {
-          options.set_verbose(true);
-        } else if (arg == "--mode") {
-          if (i + 1 < args.size()) {
-            options.set_mode(args[i + 1]);
-            ++i;
+        const auto* handler = find_handler(arg);
+        if (handler) {
+          if (handler->requires_arg) {
+            // Handle options that require arguments
+            if (i + 1 < args.size()) {
+              if (handler->short_opt == 'm') {
+                options.set_mode(args[i + 1]);
+              }
+              ++i;
+            } else {
+              fwprintf(stderr, L"mkdir: option '%s' requires an argument\n",
+                       arg.data());
+              return false;
+            }
           } else {
-            fwprintf(stderr, L"mkdir: option '--mode' requires an argument\n");
-            return false;
+            set_boolean_option(handler->short_opt);
           }
         } else {
-          fwprintf(stderr, L"mkdir: invalid option -- '%.*s'\n",
-                  static_cast<int>(arg.size() - 2), reinterpret_cast<const wchar_t*>(arg.data() + 2));
+          print_option_error(arg);
           return false;
         }
       } else if (arg.starts_with("-")) {
@@ -121,31 +199,23 @@ REGISTER_COMMAND(
 
         // Process option characters
         for (size_t j = 1; j < arg.size(); ++j) {
-          switch (arg[j]) {
-            case 'p':
-              options.set_parents(true);
-              break;
-            case 'v':
-              options.set_verbose(true);
-              break;
-            case 'm':
-              if (j + 1 < arg.size()) {
-                options.set_mode(arg.substr(j + 1));
-                j = arg.size() - 1;
-              } else if (i + 1 < args.size()) {
-                options.set_mode(args[i + 1]);
-                ++i;
-                break;
-              } else {
-                fwprintf(stderr, L"mkdir: option requires an argument -- 'm'\n");
+          char opt_char = arg[j];
+          const auto* handler = find_handler("", opt_char);
+          if (handler) {
+            if (handler->requires_arg) {
+              // Handle options that require arguments
+              if (!handle_arg_option(opt_char, i, j, arg)) {
                 return false;
               }
-            case 'Z':
-              options.set_selinux_context(true);
-              break;
-            default:
-              fwprintf(stderr, L"mkdir: invalid option -- '%c'\n", arg[j]);
-              return false;
+              if (j + 1 < arg.size()) {
+                j = arg.size() - 1;
+              }
+            } else {
+              set_boolean_option(opt_char);
+            }
+          } else {
+            print_option_error("", opt_char);
+            return false;
           }
         }
       } else {
@@ -184,8 +254,8 @@ REGISTER_COMMAND(
         } else {
           if (std::filesystem::exists(fsPath)) {
             fwprintf(stderr,
-                    L"mkdir: cannot create directory '%ls': File exists\n",
-                    fsPath.c_str());
+                     L"mkdir: cannot create directory '%ls': File exists\n",
+                     fsPath.c_str());
             return false;
           } else {
             throw std::filesystem::filesystem_error(
@@ -195,8 +265,8 @@ REGISTER_COMMAND(
       }
       return true;
     } catch (const std::filesystem::filesystem_error& e) {
-      fwprintf(stderr, L"mkdir: cannot create directory '%hs': %hs\n", path.data(),
-              e.what());
+      fwprintf(stderr, L"mkdir: cannot create directory '%hs': %hs\n",
+               path.data(), e.what());
       return false;
     } catch (const std::exception& e) {
       fwprintf(stderr, L"mkdir: error: %hs\n", e.what());

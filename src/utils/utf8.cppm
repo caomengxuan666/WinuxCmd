@@ -23,11 +23,13 @@ import std;
  * @return Wide string
  */
 export std::wstring utf8_to_wstring(const std::string_view& utf8) {
-    if (utf8.empty()) return {};
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
-    std::wstring wide(size_needed, 0);
-    MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), wide.data(), size_needed);
-    return wide;
+  if (utf8.empty()) return {};
+  int size_needed = MultiByteToWideChar(
+      CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
+  std::wstring wide(size_needed, 0);
+  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()),
+                      wide.data(), size_needed);
+  return wide;
 }
 
 /**
@@ -36,9 +38,12 @@ export std::wstring utf8_to_wstring(const std::string_view& utf8) {
  * @return UTF-8 string
  */
 export std::string wstring_to_utf8(const std::wstring_view& wide) {
-    if (wide.empty()) return {};
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
-    std::string utf8(size_needed, 0);
-    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()), utf8.data(), size_needed, nullptr, nullptr);
-    return utf8;
+  if (wide.empty()) return {};
+  int size_needed = WideCharToMultiByte(CP_UTF8, 0, wide.data(),
+                                        static_cast<int>(wide.size()), nullptr,
+                                        0, nullptr, nullptr);
+  std::string utf8(size_needed, 0);
+  WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
+                      utf8.data(), size_needed, nullptr, nullptr);
+  return utf8;
 }

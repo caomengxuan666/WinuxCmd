@@ -23,13 +23,22 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-// Use global module fragment for C standard library
+/// @Author: TODO: fill in your name
+/// @contributors:
+///   - contributor1 caomengxuan666 2507560089@qq.com
+///   - contributor2 <email2@example.com>
+///   - contributor3 <email3@example.com>
+///   - description: 
+/// @Description: Implemention for cat.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
 module;
 #include <cctype>
 #include <cstdio>
 
-#include "core/command_macros.h"
 #include "core/auto_flags.h"
+#include "core/command_macros.h"
 export module commands.cat;
 
 import std;
@@ -37,6 +46,25 @@ import core.dispatcher;
 import core.cmd_meta;
 import core.opt;
 
+/**
+ * @brief CAT command options definition
+ * 
+ * This array defines all the options supported by the cat command.
+ * Each option is described with its short form, long form, and description.
+ * The implementation status is also indicated for each option.
+ * 
+ * @par Options:
+ * - @a -A, @a --show-all: Equivalent to -vET [IMPLEMENTED]
+ * - @a -b, @a --number-nonblank: Number nonempty output lines, overrides -n [IMPLEMENTED]
+ * - @a -e: Equivalent to -vE [IMPLEMENTED]
+ * - @a -E, @a --show-ends: Display $ at end of each line [IMPLEMENTED]
+ * - @a -n, @a --number: Number all output lines [IMPLEMENTED]
+ * - @a -s, @a --squeeze-blank: Suppress repeated empty output lines [IMPLEMENTED]
+ * - @a -t: Equivalent to -vT [IMPLEMENTED]
+ * - @a -T, @a --show-tabs: Display TAB characters as ^I [IMPLEMENTED]
+ * - @a -u: (ignored, for POSIX compatibility) [IMPLEMENTED]
+ * - @a -v, @a --show-nonprinting: Use ^ and M- notation, except for LFD and TAB [IMPLEMENTED]
+ */
 constexpr auto CAT_OPTIONS = std::array{
     OPTION("-A", "--show-all", "equivalent to -vET"),
     OPTION("-b", "--number-nonblank",
@@ -54,15 +82,16 @@ constexpr auto CAT_OPTIONS = std::array{
 // Auto-generated lookup table for options from CAT_OPTIONS
 constexpr auto OPTION_HANDLERS = generate_option_handlers(CAT_OPTIONS);
 
-CREATE_AUTO_FLAGS_CLASS(CatOptions,
+CREATE_AUTO_FLAGS_CLASS(
+    CatOptions,
     // Define all flags
-    DEFINE_FLAG(number_lines, 0)          // -n, --number
-    DEFINE_FLAG(number_nonblank, 1)       // -b, --number-nonblank
-    DEFINE_FLAG(show_end, 2)              // -E, --show-ends
-    DEFINE_FLAG(squeeze_empty, 3)         // -s, --squeeze-blank
-    DEFINE_FLAG(show_nonprinting, 4)      // -v, --show-nonprinting
-    DEFINE_FLAG(show_tabs, 5)             // -T, --show-tabs
-    DEFINE_FLAG(unbuffered, 6)            // -u, --unbuffered
+    DEFINE_FLAG(number_lines, 0)      // -n, --number
+    DEFINE_FLAG(number_nonblank, 1)   // -b, --number-nonblank
+    DEFINE_FLAG(show_end, 2)          // -E, --show-ends
+    DEFINE_FLAG(squeeze_empty, 3)     // -s, --squeeze-blank
+    DEFINE_FLAG(show_nonprinting, 4)  // -v, --show-nonprinting
+    DEFINE_FLAG(show_tabs, 5)         // -T, --show-tabs
+    DEFINE_FLAG(unbuffered, 6)        // -u, --unbuffered
 )
 
 REGISTER_COMMAND(
@@ -90,7 +119,6 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     CAT_OPTIONS) {
-
   /**
    * @brief Parse command line options for cat
    * @param args Command arguments
@@ -101,34 +129,86 @@ REGISTER_COMMAND(
   auto parseCatOptions = [](std::span<std::string_view> args,
                             CatOptions &options,
                             std::vector<std::string_view> &files) -> bool {
+    // Helper function to find option handler by long option or short option
+    auto find_handler = [](std::string_view arg,
+                           char opt_char = '\0') -> const OptionHandler * {
+      for (const auto &handler : OPTION_HANDLERS) {
+        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
+            (opt_char && handler.short_opt == opt_char)) {
+          return &handler;
+        }
+      }
+      return nullptr;
+    };
+
+    // Helper function to print option error
+    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
+      if (!arg.empty()) {
+        fwprintf(stderr, L"cat: invalid option -- '%.*s'\n",
+                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+      } else {
+        fwprintf(stderr, L"cat: invalid option -- '%c'\n", opt_char);
+      }
+    };
+
+    // Helper function to set boolean option
+    auto set_boolean_option = [&options](char opt_char) {
+      switch (opt_char) {
+        case 'b':
+          options.set_number_nonblank(true);
+          options.set_number_lines(false);  // -b overrides -n
+          break;
+        case 'n':
+          options.set_number_lines(true);
+          options.set_number_nonblank(false);  // -n overrides -b
+          break;
+        case 's':
+          options.set_squeeze_empty(true);
+          break;
+        case 'v':
+          options.set_show_nonprinting(true);
+          break;
+        case 'E':
+          options.set_show_end(true);
+          break;
+        case 'T':
+          options.set_show_tabs(true);
+          break;
+        case 'A':
+          options.set_show_nonprinting(true);
+          options.set_show_end(true);
+          options.set_show_tabs(true);
+          break;
+        case 'e':
+          options.set_show_nonprinting(true);
+          options.set_show_end(true);
+          break;
+        case 't':
+          options.set_show_nonprinting(true);
+          options.set_show_tabs(true);
+          break;
+        case 'u':
+          options.set_unbuffered(true);
+          break;
+      }
+    };
+
     for (size_t i = 0; i < args.size(); ++i) {
       auto arg = args[i];
 
       if (arg.starts_with("--")) {
         // This is a long option
-        if (arg == "--number-nonblank") {
-          options.set_number_nonblank(true);
-          options.set_number_lines(false);  // -b overrides -n
-        } else if (arg == "--number") {
-          options.set_number_lines(true);
-          options.set_number_nonblank(false);  // -n overrides -b
-        } else if (arg == "--squeeze-blank") {
-          options.set_squeeze_empty(true);
-        } else if (arg == "--show-nonprinting") {
-          options.set_show_nonprinting(true);
-        } else if (arg == "--show-ends") {
-          options.set_show_end(true);
-        } else if (arg == "--show-tabs") {
-          options.set_show_tabs(true);
-        } else if (arg == "--show-all") {
-          options.set_show_nonprinting(true);
-          options.set_show_end(true);
-          options.set_show_tabs(true);
-        } else if (arg == "--unbuffered") {
-          options.set_unbuffered(true);
+        const auto *handler = find_handler(arg);
+        if (handler) {
+          if (handler->requires_arg) {
+            // cat command has no options that require arguments
+            print_option_error(arg);
+            return false;
+          } else {
+            set_boolean_option(handler->short_opt);
+          }
         } else {
-          fwprintf(stderr, L"cat: invalid option -- '%.*s'\n",
-                  static_cast<int>(arg.size() - 2), arg.data() + 2);
+          print_option_error(arg);
           return false;
         }
       } else if (arg.starts_with('-')) {
@@ -141,46 +221,19 @@ REGISTER_COMMAND(
 
         // Process option characters
         for (size_t j = 1; j < arg.size(); ++j) {
-          switch (arg[j]) {
-            case 'b':
-              options.set_number_nonblank(true);
-              options.set_number_lines(false);  // -b overrides -n
-              break;
-            case 'n':
-              options.set_number_lines(true);
-              options.set_number_nonblank(false);  // -n overrides -b
-              break;
-            case 's':
-              options.set_squeeze_empty(true);
-              break;
-            case 'v':
-              options.set_show_nonprinting(true);
-              break;
-            case 'E':
-              options.set_show_end(true);
-              break;
-            case 'T':
-              options.set_show_tabs(true);
-              break;
-            case 'A':
-              options.set_show_nonprinting(true);
-              options.set_show_end(true);
-              options.set_show_tabs(true);
-              break;
-            case 'e':
-              options.set_show_nonprinting(true);
-              options.set_show_end(true);
-              break;
-            case 't':
-              options.set_show_nonprinting(true);
-              options.set_show_tabs(true);
-              break;
-            case 'u':
-              options.set_unbuffered(true);
-              break;
-            default:
-              fwprintf(stderr, L"cat: invalid option -- '%c'\n", arg[j]);
+          char opt_char = arg[j];
+          const auto *handler = find_handler("", opt_char);
+          if (handler) {
+            if (handler->requires_arg) {
+              // cat command has no options that require arguments
+              print_option_error("", opt_char);
               return false;
+            } else {
+              set_boolean_option(opt_char);
+            }
+          } else {
+            print_option_error("", opt_char);
+            return false;
           }
         }
       } else {

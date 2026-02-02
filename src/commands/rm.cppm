@@ -31,8 +31,8 @@ module;
 #include <shlwapi.h>
 #include <windows.h>
 #pragma comment(lib, "shlwapi.lib")
-#include "core/command_macros.h"
 #include "core/auto_flags.h"
+#include "core/command_macros.h"
 export module commands.rm;
 
 import std;
@@ -40,6 +40,26 @@ import core.dispatcher;
 import core.cmd_meta;
 import core.opt;
 
+/**
+ * @brief RM command options definition
+ * 
+ * This array defines all the options supported by the rm command.
+ * Each option is described with its short form, long form, and description.
+ * The implementation status is also indicated for each option.
+ * 
+ * @par Options:
+ * - @a -f, @a --force: Ignore nonexistent files and arguments, never prompt [IMPLEMENTED]
+ * - @a -i: Prompt before every removal [IMPLEMENTED]
+ * - @a -I: Prompt once before removing more than three files, or when removing recursively [IMPLEMENTED]
+ * - @a -d, @a --dir: Remove empty directories [IMPLEMENTED]
+ * - @a -r, @a --recursive: Remove directories and their contents recursively [IMPLEMENTED]
+ * - @a -R, @a --recursive: Remove directories and their contents recursively [IMPLEMENTED]
+ * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
+ * - @a --interactive: Prompt according to WHEN: never, once (-I), or always (-i) [IMPLEMENTED]
+ * - @a --one-file-system: When removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument [TODO]
+ * - @a --no-preserve-root: Do not treat '/' specially [IMPLEMENTED]
+ * - @a --preserve-root: Do not remove '/' (default) [IMPLEMENTED]
+ */
 constexpr auto RM_OPTIONS = std::array{
     OPTION("-f", "--force",
            "ignore nonexistent files and arguments, never prompt"),
@@ -63,7 +83,8 @@ constexpr auto RM_OPTIONS = std::array{
     OPTION("--preserve-root", "", "do not remove '/' (default)")};
 
 // Auto-generated lookup table for options from RM_OPTIONS
-constexpr auto OPTION_HANDLERS = generate_option_handlers(RM_OPTIONS, "--interactive");
+constexpr auto OPTION_HANDLERS =
+    generate_option_handlers(RM_OPTIONS, "--interactive");
 
 REGISTER_COMMAND(
     rm,
@@ -86,16 +107,16 @@ REGISTER_COMMAND(
     /* options */
     RM_OPTIONS) {
   // Option flags for rm command
-  CREATE_AUTO_FLAGS_CLASS(RmOptions,
-      DEFINE_FLAG(recursive, 0)         // -r, -R, --recursive
-      DEFINE_FLAG(interactive, 1)       // -i, --interactive
-      DEFINE_FLAG(force, 2)             // -f, --force
-      DEFINE_FLAG(verbose, 3)           // -v, --verbose
-      DEFINE_FLAG(remove_dir, 4)        // -d, --dir
-      DEFINE_FLAG(prompt_once, 5)       // -I
-      DEFINE_FLAG(one_file_system, 6)   // --one-file-system
-      DEFINE_FLAG(no_preserve_root, 7)  // --no-preserve-root
-      DEFINE_FLAG(preserve_root, 8)     // --preserve-root
+  CREATE_AUTO_FLAGS_CLASS(
+      RmOptions, DEFINE_FLAG(recursive, 0)  // -r, -R, --recursive
+      DEFINE_FLAG(interactive, 1)           // -i, --interactive
+      DEFINE_FLAG(force, 2)                 // -f, --force
+      DEFINE_FLAG(verbose, 3)               // -v, --verbose
+      DEFINE_FLAG(remove_dir, 4)            // -d, --dir
+      DEFINE_FLAG(prompt_once, 5)           // -I
+      DEFINE_FLAG(one_file_system, 6)       // --one-file-system
+      DEFINE_FLAG(no_preserve_root, 7)      // --no-preserve-root
+      DEFINE_FLAG(preserve_root, 8)         // --preserve-root
   )
 
   /**
@@ -107,32 +128,86 @@ REGISTER_COMMAND(
    */
   auto parseRmOptions = [](std::span<std::string_view> args, RmOptions& options,
                            std::vector<std::string>& paths) -> bool {
+    // Helper function to find option handler by long option or short option
+    auto find_handler = [](std::string_view arg,
+                           char opt_char = '\0') -> const OptionHandler* {
+      for (const auto& handler : OPTION_HANDLERS) {
+        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
+            (opt_char && handler.short_opt == opt_char)) {
+          return &handler;
+        }
+      }
+      return nullptr;
+    };
+
+    // Helper function to print option error
+    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
+      if (!arg.empty()) {
+        fwprintf(stderr, L"rm: invalid option -- '%.*s'\n",
+                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+      } else {
+        fwprintf(stderr, L"rm: invalid option -- '%c'\n", opt_char);
+      }
+    };
+
+    // Helper function to set boolean option
+    auto set_boolean_option = [&options](char opt_char) {
+      switch (opt_char) {
+        case 'r':
+        case 'R':
+          options.set_recursive(true);
+          break;
+        case 'i':
+          options.set_interactive(true);
+          break;
+        case 'f':
+          options.set_force(true);
+          break;
+        case 'v':
+          options.set_verbose(true);
+          break;
+        case 'd':
+          options.set_remove_dir(true);
+          break;
+        case 'I':
+          options.set_prompt_once(true);
+          break;
+      }
+    };
+
     for (size_t i = 0; i < args.size(); ++i) {
       auto arg = args[i];
 
       if (arg.starts_with("--")) {
         // This is a long option
-        if (arg == "--recursive") {
-          options.set_recursive(true);
-        } else if (arg == "--interactive") {
-          options.set_interactive(true);
-        } else if (arg == "--force") {
-          options.set_force(true);
-        } else if (arg == "--verbose") {
-          options.set_verbose(true);
-        } else if (arg == "--dir") {
-          options.set_remove_dir(true);
-        } else if (arg == "--one-file-system") {
-          options.set_one_file_system(true);
-        } else if (arg == "--no-preserve-root") {
-          options.set_no_preserve_root(true);
-          options.set_preserve_root(false);
-        } else if (arg == "--preserve-root") {
-          options.set_preserve_root(true);
-          options.set_no_preserve_root(false);
+        const auto* handler = find_handler(arg);
+        if (handler) {
+          if (handler->requires_arg) {
+            // Handle options that require arguments
+            if (i + 1 < args.size()) {
+              // rm command has no options that require arguments
+              ++i;
+            } else {
+              fwprintf(stderr, L"rm: option '%s' requires an argument\n",
+                       arg.data());
+              return false;
+            }
+          } else {
+            // Special case for --no-preserve-root and --preserve-root
+            if (arg == "--no-preserve-root") {
+              options.set_no_preserve_root(true);
+              options.set_preserve_root(false);
+            } else if (arg == "--preserve-root") {
+              options.set_preserve_root(true);
+              options.set_no_preserve_root(false);
+            } else if (arg == "--one-file-system") {
+              options.set_one_file_system(true);
+            } else {
+              set_boolean_option(handler->short_opt);
+            }
+          }
         } else {
-          fwprintf(stderr, L"rm: invalid option -- '%.*hs'\n",
-                  static_cast<int>(arg.size() - 2), arg.data() + 2);
+          print_option_error(arg);
           return false;
         }
       } else if (arg.starts_with('-')) {
@@ -145,29 +220,20 @@ REGISTER_COMMAND(
 
         // Process option characters
         for (size_t j = 1; j < arg.size(); ++j) {
-          switch (arg[j]) {
-            case 'r':
-            case 'R':
-              options.set_recursive(true);
-              break;
-            case 'i':
-              options.set_interactive(true);
-              break;
-            case 'f':
-              options.set_force(true);
-              break;
-            case 'v':
-              options.set_verbose(true);
-              break;
-            case 'd':
-              options.set_remove_dir(true);
-              break;
-            case 'I':
-              options.set_prompt_once(true);
-              break;
-            default:
-              fwprintf(stderr, L"rm: invalid option -- '%c'\n", arg[j]);
+          char opt_char = arg[j];
+          const auto* handler = find_handler("", opt_char);
+          if (handler) {
+            if (handler->requires_arg) {
+              // rm command has no options that require arguments
+              fwprintf(stderr, L"rm: option requires an argument -- '%c'\n",
+                       opt_char);
               return false;
+            } else {
+              set_boolean_option(opt_char);
+            }
+          } else {
+            print_option_error("", opt_char);
+            return false;
           }
         }
       } else {
@@ -216,8 +282,9 @@ REGISTER_COMMAND(
       if (options.get_force()) {
         return true;
       } else {
-        fwprintf(stderr, L"rm: cannot remove '%hs': No such file or directory\n",
-                path.data());
+        fwprintf(stderr,
+                 L"rm: cannot remove '%hs': No such file or directory\n",
+                 path.data());
         return false;
       }
     }
@@ -232,7 +299,8 @@ REGISTER_COMMAND(
     }
 
     if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !options.get_recursive()) {
-      fwprintf(stderr, L"rm: cannot remove '%hs': Is a directory\n", path.data());
+      fwprintf(stderr, L"rm: cannot remove '%hs': Is a directory\n",
+               path.data());
       return false;
     }
 
@@ -270,7 +338,7 @@ REGISTER_COMMAND(
                                errorMsg, sizeof(errorMsg), NULL);
                 std::string itemPathStr = wstringToUtf8(itemPath);
                 fwprintf(stderr, L"rm: cannot remove file '%hs': %hs\n",
-                        itemPathStr.c_str(), errorMsg);
+                         itemPathStr.c_str(), errorMsg);
                 success = false;
               } else if (options.get_verbose()) {
                 std::string itemPathStr = wstringToUtf8(itemPath);
@@ -302,7 +370,7 @@ REGISTER_COMMAND(
                          sizeof(errorMsg), NULL);
           std::string dirPathStr = wstringToUtf8(dirPath);
           fwprintf(stderr, L"rm: cannot remove directory '%hs': %hs\n",
-                  dirPathStr.c_str(), errorMsg);
+                   dirPathStr.c_str(), errorMsg);
           return false;
         }
 
@@ -325,7 +393,7 @@ REGISTER_COMMAND(
         FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                        sizeof(errorMsg), NULL);
         fwprintf(stderr, L"rm: cannot remove file '%hs': %hs\n", path.data(),
-                errorMsg);
+                 errorMsg);
         return false;
       }
 

@@ -2,10 +2,15 @@ cmake_minimum_required(VERSION 4.1)
 
 # Runtime Library Configuration
 # Option to choose between static (MT) and dynamic (MD) CRT
-option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" OFF)
+option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" ON)
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
-option(GENERATE_EXPAND_MACRO_FILE "Generate sourcefile.i file to show the macro" ON)
+# Allow users to debug by the .i file.
+option(GENERATE_EXPAND_MACRO_FILE "Generate sourcefile.i file to show the macro" OFF)
+# Option to use hardlinks for commands instead of separate executables
+option(USE_HARDLINKS "Use hardlinks for commands instead of separate executables" ON)
+# Option to enable UPX compression
+option(ENABLE_UPX "Enable UPX compression for executables" OFF)
 
 if (USE_STATIC_CRT)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
@@ -15,12 +20,14 @@ endif ()
 
 if (GENERATE_EXPAND_MACRO_FILE)
     if (MSVC)
-        target_compile_options(ls PRIVATE /P)  # 生成 .i 文件
+        target_compile_options(ls PRIVATE /P)
     endif ()
 endif ()
 
-# Include UPX compression configuration
-include(cmake/FetchUpx.cmake)
+# Include UPX compression configuration if enabled
+if (ENABLE_UPX)
+    include(cmake/FetchUpx.cmake)
+endif()
 
 if (NOT CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON)
@@ -36,6 +43,7 @@ if (MSVC)
     # use Ehsc- instead to disable Exception handlers.
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc-")
     add_compile_options(/wd9025)
+    add_compile_definitions(NOMINMAX)
 endif ()
 
 project(WinuxCmd
@@ -89,8 +97,10 @@ target_link_options(winuxcmd PRIVATE
         $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
 )
 
-# Add UPX compression for main executable
-add_upx_compression(winuxcmd)
+# Add UPX compression for main executable if enabled
+if (ENABLE_UPX)
+    add_upx_compression(winuxcmd)
+endif()
 
 # Add include directories for main executable
 target_include_directories(winuxcmd PRIVATE ${SRC_DIR})
@@ -178,18 +188,38 @@ macro(create_command_executable CMD)
                 /OPT:ICF      # Enable identical COMDAT folding
                 >)
 
-        # Add UPX compression for individual command executable
-        add_upx_compression(${CMD})
+        # Add UPX compression for individual command executable if enabled
+        if (ENABLE_UPX)
+            add_upx_compression(${CMD})
+        endif()
     endif ()
 endmacro()
 
-# Create individual command executables
-create_command_executable(ls)
-create_command_executable(cat)
-create_command_executable(cp)
-create_command_executable(mv)
-create_command_executable(rm)
-create_command_executable(mkdir)
+# Automatically collect commands from src/commands directory
+file(GLOB COMMAND_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/*.cppm")
+set(COMMANDS)
+foreach(CMD_FILE ${COMMAND_FILES})
+    # Extract command name from filename (without extension)
+    get_filename_component(CMD_NAME "${CMD_FILE}" NAME_WE)
+    list(APPEND COMMANDS ${CMD_NAME})
+endforeach()
+
+# Create individual command executables or hardlinks
+if (NOT USE_HARDLINKS)
+    foreach(CMD ${COMMANDS})
+        create_command_executable(${CMD})
+    endforeach()
+else()
+    # Create hardlinks after winuxcmd is built
+    foreach(CMD ${COMMANDS})
+        add_custom_command(TARGET winuxcmd POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E create_hardlink
+            $<TARGET_FILE:winuxcmd>
+            "$<TARGET_FILE_DIR:winuxcmd>/${CMD}.exe"
+            COMMENT "Creating hardlink for ${CMD}"
+        )
+    endforeach()
+endif()
 
 # Scaffold tool for generating new command modules
 add_executable(scaffold
@@ -244,10 +274,39 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif ()
 
 # Install executables (exclude scaffold)
-install(TARGETS winuxcmd ls cat cp mv rm mkdir
-        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-        COMPONENT Runtime
-)
+if (NOT USE_HARDLINKS)
+    install(TARGETS winuxcmd ls cat cp mv rm mkdir
+            RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            COMPONENT Runtime
+    )
+else()
+    # Install winuxcmd and create hardlinks in install directory
+    install(TARGETS winuxcmd
+            RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            COMPONENT Runtime
+    )
+    
+    # Create hardlinks for commands in install directory
+    foreach(CMD ${COMMANDS})
+        install(CODE "
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} -E create_hardlink
+                ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/winuxcmd.exe
+                ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMD}.exe
+                RESULT_VARIABLE result
+                ERROR_QUIET
+            )
+            # If hardlink creation fails (e.g., on some filesystems), create a copy instead
+            if(result)
+                execute_process(
+                    COMMAND ${CMAKE_COMMAND} -E copy
+                    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/winuxcmd.exe
+                    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMD}.exe
+                )
+            endif()
+        " COMPONENT Runtime)
+    endforeach()
+endif()
 
 # Install activation script
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux-activate.ps1"
