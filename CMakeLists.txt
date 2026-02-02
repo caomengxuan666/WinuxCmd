@@ -355,18 +355,19 @@ else ()
 endif ()
 
 set(CPACK_IGNORE_FILES
-        "${CMAKE_SOURCE_DIR}/scaffold\\.exe$"
+        "${CMAKE_SOURCE_DIR}/scaffold.exe$"
         "${CMAKE_SOURCE_DIR}/scaffold"
-        "${CMAKE_SOURCE_DIR}/CMakeLists\\.txt$"
-        "${CMAKE_SOURCE_DIR}/\\.clang.*$"
-        "${CMAKE_SOURCE_DIR}/\\.git.*$"
-        "${CMAKE_SOURCE_DIR}/\\.vs/"
-        "${CMAKE_SOURCE_DIR}/\\.idea/"
+        "${CMAKE_SOURCE_DIR}/CMakeLists.txt$"
+        "${CMAKE_SOURCE_DIR}/.clang.*$"
+        "${CMAKE_SOURCE_DIR}/.git.*$"
+        "${CMAKE_SOURCE_DIR}/.vs/"
+        "${CMAKE_SOURCE_DIR}/.idea/"
         "${CMAKE_SOURCE_DIR}/src/"
         "${CMAKE_SOURCE_DIR}/test/"
         "${CMAKE_SOURCE_DIR}/cmake-build-.*/"
         "${CMAKE_SOURCE_DIR}/out/"
-        "${CMAKE_SOURCE_DIR}/TemplateLicense\\.lict$"
+        "${CMAKE_SOURCE_DIR}/TemplateLicense.lict$"
 )
+
 # Include CPack
 include(CPack)
