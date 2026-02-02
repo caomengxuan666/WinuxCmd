@@ -23,50 +23,18 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
 
-      - name: Install CMake 4.1.5 (Matching Architecture)
-        shell: powershell
-        run: |
-          $cmakeVersion = "4.1.5"
-          $arch = "${{ matrix.arch }}"
-          
-          if ($arch -eq "x64") {
-              $cmakePlatform = "windows-x86_64"
-              $cmakeDownloadUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-$cmakePlatform.zip"
-          } elseif ($arch -eq "arm64") {
-              $cmakePlatform = "windows-arm64"
-              $cmakeDownloadUrl = "https://github.com/Kitware/CMake/releases/download/v$cmakeVersion/cmake-$cmakeVersion-$cmakePlatform.zip"
-          } else {
-              throw "Unsupported architecture: $arch"
-          }
-          
-          $cmakeZipPath = "$env:TEMP/cmake-$cmakeVersion-$cmakePlatform.zip"
-          $cmakeExtractPath = "$env:ProgramFiles/CMake"
-          $cmakeBinPath = "$cmakeExtractPath/cmake-$cmakeVersion-$cmakePlatform/bin"
-          
-          Write-Host "Downloading CMake $cmakeVersion for $cmakePlatform from: $cmakeDownloadUrl"
-          Invoke-WebRequest -Uri $cmakeDownloadUrl -OutFile $cmakeZipPath -UseBasicParsing
-          
-          Write-Host "Extracting CMake to: $cmakeExtractPath"
-          Expand-Archive -Path $cmakeZipPath -DestinationPath $cmakeExtractPath -Force
-          
-          Write-Host "Adding CMake bin directory to PATH: $cmakeBinPath"
-          echo "$cmakeBinPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          
-          Write-Host "Verifying CMake version"
-          cmake --version
-
       - name: Create Architecture-Specific Build Directory
         shell: cmd
-        run: if not exist build-%{{ matrix.arch }} mkdir build-%{{ matrix.arch }}
+        run: if not exist build-${{ matrix.arch }} mkdir build-${{ matrix.arch }}
 
       - name: Configure CMake
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
+        working-directory: ./build-${{ matrix.arch }}
         run: |
           cmake -B . ^
             -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_SYSTEM_PROCESSOR=%{{ matrix.arch }} ^
+            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} ^
             -DUSE_STATIC_CRT=ON ^
             -DENABLE_TESTS=OFF ^
             -DGENERATE_EXPAND_MACRO_FILE=OFF ^
@@ -77,22 +45,22 @@ jobs:
 
       - name: Build Project
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
+        working-directory: ./build-${{ matrix.arch }}
         run: cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
       - name: Install Project
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
+        working-directory: ./build-${{ matrix.arch }}
         run: cmake --install . --component Runtime
 
       - name: Package Project
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
+        working-directory: ./build-${{ matrix.arch }}
         run: cpack -G ZIP
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WinuxCmd-win-%{{ matrix.arch }}-Release-StaticCRT
-          path: ./build-%{{ matrix.arch }}/*.zip
+          name: WinuxCmd-win-${{ matrix.arch }}-Release-StaticCRT
+          path: ./build-${{ matrix.arch }}/*.zip
           retention-days: 0
