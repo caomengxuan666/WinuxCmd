@@ -108,7 +108,6 @@ target_include_directories(winuxcmd PRIVATE ${SRC_DIR})
 # MSVC-specific configuration - common settings
 if (MSVC)
     # Fix Windows SDK architecture errors
-    add_compile_definitions(_AMD64_)
 
     # Enable linker optimizations
     set(CMAKE_LINKER_FLAGS_RELEASE "${CMAKE_LINKER_FLAGS_RELEASE} /LTCG")
