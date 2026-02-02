@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 3.30.0)
+# CMake Module start from 3.30.0
 
 # Runtime Library Configuration
 # Option to choose between static (MT) and dynamic (MD) CRT
 option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" ON)
 # Option to enable tests
-option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_TESTS "Enable tests" OFF)
 # Allow users to debug by the .i file.
 option(GENERATE_EXPAND_MACRO_FILE "Generate sourcefile.i file to show the macro" OFF)
 # Option to use hardlinks for commands instead of separate executables
@@ -33,9 +34,14 @@ if (NOT CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON)
 endif ()
 
-# C++23 modules configuration - KEEP THIS
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
-set(CMAKE_CXX_MODULE_STD ON)
+include(cmake/enable_import_std.cmake)
+
+project(WinuxCmd
+        VERSION 0.1.0
+        DESCRIPTION "Windows Compatible Linux Command Set"
+        LANGUAGES CXX
+)
+
 
 if (MSVC)
     # remove default Ehsc
@@ -45,12 +51,6 @@ if (MSVC)
     add_compile_options(/wd9025)
     add_compile_definitions(NOMINMAX)
 endif ()
-
-project(WinuxCmd
-        VERSION 0.1.0
-        DESCRIPTION "Windows Compatible Linux Command Set"
-        LANGUAGES CXX
-)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
