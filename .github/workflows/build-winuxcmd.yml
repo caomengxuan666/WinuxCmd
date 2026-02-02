@@ -20,17 +20,23 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v4
-
-      - name: Configure CMake
+      - name: Configure CMake with MSVC
         shell: cmd
         working-directory: .
         run: |
+          # 确定架构对应的Visual Studio平台
+          if "${{ matrix.arch }}"=="x64" (
+            set VS_ARCH=x64
+            set VS_ARCH_ARG=x64
+          ) else (
+            set VS_ARCH=ARM64
+            set VS_ARCH_ARG=arm64
+          )
+          
           cmake -B build-${{ matrix.arch }} ^
-            -G "Ninja" ^
+            -G "Visual Studio 17 2022" ^
+            -A %VS_ARCH% ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} ^
             -DUSE_STATIC_CRT=ON ^
             -DENABLE_TESTS=OFF ^
             -DGENERATE_EXPAND_MACRO_FILE=OFF ^
@@ -47,12 +53,12 @@ jobs:
       - name: Install Project
         shell: cmd
         working-directory: ./build-${{ matrix.arch }}
-        run: cmake --install . --component Runtime
+        run: cmake --install . --config Release --component Runtime
 
       - name: Package Project
         shell: cmd
         working-directory: ./build-${{ matrix.arch }}
-        run: cpack -G ZIP
+        run: cpack -G ZIP -C Release
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
