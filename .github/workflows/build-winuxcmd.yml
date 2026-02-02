@@ -3,8 +3,12 @@ name: CMake Windows Multi-Arch CI
 on:
   push:
     branches: [ "main", "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main", "master" ]
+
+permissions:
+  contents: write
 
 jobs:
   build-windows:
@@ -12,7 +16,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [ x64, arm64 ]
+        include:
+          - arch: x64
+            vcvars_arg: x64
+            package_arch: x64
+          - arch: arm64
+            vcvars_arg: x64_arm64
+            package_arch: arm64
 
     steps:
       - name: Checkout Repository
@@ -20,52 +30,134 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Install Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v4
-
-      - name: Install CMake 4.1.5
-        uses: lukka/get-cmake@v3.27.7
-        with:
-          cmakeVersion: "4.1.5"
-
-      - name: Create Architecture-Specific Build Directory
-        shell: cmd
-        run: if not exist build-%{{ matrix.arch }} mkdir build-%{{ matrix.arch }}
+      - name: Extract Version
+        id: extract_version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -match "^refs/tags/v(\d+\.\d+\.\d+)") {
+            $version = $matches[1]
+          } else {
+            $version = (Select-String -Path "CMakeLists.txt" -Pattern "VERSION (\d+\.\d+\.\d+)").Matches.Groups[1].Value
+          }
+          echo "project_version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Configure CMake
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
         run: |
-          cmake -B . ^
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
+          cmake -B build-${{ matrix.package_arch }} ^
             -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_SYSTEM_PROCESSOR=%{{ matrix.arch }} ^
+            -DCMAKE_C_COMPILER_TARGET=${{ matrix.arch }} ^
+            -DCMAKE_CXX_COMPILER_TARGET=${{ matrix.arch }} ^
             -DUSE_STATIC_CRT=ON ^
             -DENABLE_TESTS=OFF ^
             -DGENERATE_EXPAND_MACRO_FILE=OFF ^
             -DUSE_HARDLINKS=ON ^
             -DENABLE_UPX=OFF ^
             -DCMAKE_CXX_STANDARD=23 ^
-            -DCMAKE_CXX_STANDARD_REQUIRED=ON
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON ^
+            -DCMAKE_EXPERIMENTAL_CXX_MODULE_STD=ON ^
+            -DCMAKE_CXX_MODULE_STD=ON ^
+            -DCMAKE_CXX_FLAGS="/std:c++latest /EHsc"
 
       - name: Build Project
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
-        run: cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
+        working-directory: build-${{ matrix.package_arch }}
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
+          cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
-      - name: Install Project
+      - name: Package with CPack (7Z + ZIP)
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
-        run: cmake --install . --component Runtime
+        working-directory: build-${{ matrix.package_arch }}
+        run: |
+          cpack -G 7Z -C Release
+          cpack -G ZIP -C Release
 
-      - name: Package Project
+      - name: Rename Packages
         shell: cmd
-        working-directory: ./build-%{{ matrix.arch }}
-        run: cpack -G ZIP
+        run: |
+          set "VER=${{ steps.extract_version.outputs.project_version }}"
+          set "ARCH=${{ matrix.package_arch }}"
+          set "BUILD_DIR=build-%ARCH%"
+          
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.7z") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.7z"
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.zip") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.zip"
 
-      - name: Upload Build Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: WinuxCmd-win-%{{ matrix.arch }}-Release-StaticCRT
-          path: ./build-%{{ matrix.arch }}/*.zip
-          retention-days: 0
+          name: WinuxCmd-${{ steps.extract_version.outputs.project_version }}-${{ matrix.package_arch }}
+          path: |
+            build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.7z
+            build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.zip
+          retention-days: 1
+          if-no-files-found: error
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build-windows
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Extract Version from Tag
+        id: final_version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download x64 Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: WinuxCmd-${{ steps.final_version.outputs.version }}-x64
+          path: artifacts/x64
+
+      - name: Download ARM64 Packages
+        uses: actions/download-artifact@v4
+        with:
+          name: WinuxCmd-${{ steps.final_version.outputs.version }}-arm64
+          path: artifacts/arm64
+
+      - name: Verify Packages
+        run: |
+          echo "=== Valid Packages ==="
+          find artifacts -type f \( -name "*.7z" -o -name "*.zip" \) | sort || exit 1
+          echo "======================"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/x64/*.7z
+            artifacts/x64/*.zip
+            artifacts/arm64/*.7z
+            artifacts/arm64/*.zip
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            Windows binaries for ${{ github.ref_name }}
+            
+            ### Architectures:
+            - **x64**: Windows 64-bit
+            - **ARM64**: Windows ARM64 (cross-compiled)
+            
+            ### Files included:
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.7z
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.zip
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.7z
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.zip
+            
+            ### Usage:
+            1. Download the appropriate package for your architecture
+            2. Extract to your desired directory
+            3. Add the extracted `bin` directory to PATH
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          overwrite_files: 'true'
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

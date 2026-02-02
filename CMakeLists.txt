@@ -1,10 +1,11 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 3.30.0)
+# CMake Module start from 3.30.0
 
 # Runtime Library Configuration
 # Option to choose between static (MT) and dynamic (MD) CRT
 option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" ON)
 # Option to enable tests
-option(ENABLE_TESTS "Enable tests" ON)
+option(ENABLE_TESTS "Enable tests" OFF)
 # Allow users to debug by the .i file.
 option(GENERATE_EXPAND_MACRO_FILE "Generate sourcefile.i file to show the macro" OFF)
 # Option to use hardlinks for commands instead of separate executables
@@ -27,15 +28,20 @@ endif ()
 # Include UPX compression configuration if enabled
 if (ENABLE_UPX)
     include(cmake/FetchUpx.cmake)
-endif()
+endif ()
 
 if (NOT CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
     set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON)
 endif ()
 
-# C++23 modules configuration - KEEP THIS
-set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
-set(CMAKE_CXX_MODULE_STD ON)
+include(cmake/enable_import_std.cmake)
+
+project(WinuxCmd
+        VERSION 0.1.0
+        DESCRIPTION "Windows Compatible Linux Command Set"
+        LANGUAGES CXX
+)
+
 
 if (MSVC)
     # remove default Ehsc
@@ -45,12 +51,6 @@ if (MSVC)
     add_compile_options(/wd9025)
     add_compile_definitions(NOMINMAX)
 endif ()
-
-project(WinuxCmd
-        VERSION 0.1.0
-        DESCRIPTION "Windows Compatible Linux Command Set"
-        LANGUAGES CXX
-)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -100,7 +100,7 @@ target_link_options(winuxcmd PRIVATE
 # Add UPX compression for main executable if enabled
 if (ENABLE_UPX)
     add_upx_compression(winuxcmd)
-endif()
+endif ()
 
 # Add include directories for main executable
 target_include_directories(winuxcmd PRIVATE ${SRC_DIR})
@@ -108,7 +108,6 @@ target_include_directories(winuxcmd PRIVATE ${SRC_DIR})
 # MSVC-specific configuration - common settings
 if (MSVC)
     # Fix Windows SDK architecture errors
-    add_compile_definitions(_AMD64_)
 
     # Enable linker optimizations
     set(CMAKE_LINKER_FLAGS_RELEASE "${CMAKE_LINKER_FLAGS_RELEASE} /LTCG")
@@ -191,35 +190,35 @@ macro(create_command_executable CMD)
         # Add UPX compression for individual command executable if enabled
         if (ENABLE_UPX)
             add_upx_compression(${CMD})
-        endif()
+        endif ()
     endif ()
 endmacro()
 
 # Automatically collect commands from src/commands directory
 file(GLOB COMMAND_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/*.cppm")
 set(COMMANDS)
-foreach(CMD_FILE ${COMMAND_FILES})
+foreach (CMD_FILE ${COMMAND_FILES})
     # Extract command name from filename (without extension)
     get_filename_component(CMD_NAME "${CMD_FILE}" NAME_WE)
     list(APPEND COMMANDS ${CMD_NAME})
-endforeach()
+endforeach ()
 
 # Create individual command executables or hardlinks
 if (NOT USE_HARDLINKS)
-    foreach(CMD ${COMMANDS})
+    foreach (CMD ${COMMANDS})
         create_command_executable(${CMD})
-    endforeach()
-else()
+    endforeach ()
+else ()
     # Create hardlinks after winuxcmd is built
-    foreach(CMD ${COMMANDS})
+    foreach (CMD ${COMMANDS})
         add_custom_command(TARGET winuxcmd POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E create_hardlink
-            $<TARGET_FILE:winuxcmd>
-            "$<TARGET_FILE_DIR:winuxcmd>/${CMD}.exe"
-            COMMENT "Creating hardlink for ${CMD}"
+                COMMAND ${CMAKE_COMMAND} -E create_hardlink
+                $<TARGET_FILE:winuxcmd>
+                "$<TARGET_FILE_DIR:winuxcmd>/${CMD}.exe"
+                COMMENT "Creating hardlink for ${CMD}"
         )
-    endforeach()
-endif()
+    endforeach ()
+endif ()
 
 # Scaffold tool for generating new command modules
 add_executable(scaffold
@@ -265,56 +264,50 @@ if (ENABLE_TESTS)
     add_subdirectory(test)
 endif ()
 
-# Install configuration
 include(GNUInstallDirs)
 
-# Set installation prefix
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/install" CACHE PATH "Installation prefix" FORCE)
 endif ()
 
-# Install executables (exclude scaffold)
 if (NOT USE_HARDLINKS)
     install(TARGETS winuxcmd ls cat cp mv rm mkdir
             RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
             COMPONENT Runtime
     )
-else()
-    # Install winuxcmd and create hardlinks in install directory
+else ()
     install(TARGETS winuxcmd
             RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
             COMPONENT Runtime
     )
-    
-    # Create hardlinks for commands in install directory
-    foreach(CMD ${COMMANDS})
+
+    foreach (CMD ${COMMANDS})
         install(CODE "
             execute_process(
-                COMMAND ${CMAKE_COMMAND} -E create_hardlink
-                ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/winuxcmd.exe
-                ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMD}.exe
+                COMMAND \${CMAKE_COMMAND} -E create_hardlink
+                winuxcmd.exe
+                ${CMD}.exe
+                WORKING_DIRECTORY \${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}
                 RESULT_VARIABLE result
-                ERROR_QUIET
             )
-            # If hardlink creation fails (e.g., on some filesystems), create a copy instead
             if(result)
+                message(WARNING \"Failed to create hardlink for ${CMD}, copying instead\")
                 execute_process(
-                    COMMAND ${CMAKE_COMMAND} -E copy
-                    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/winuxcmd.exe
-                    ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/${CMD}.exe
+                    COMMAND \${CMAKE_COMMAND} -E copy
+                    winuxcmd.exe
+                    ${CMD}.exe
+                    WORKING_DIRECTORY \${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}
                 )
             endif()
         " COMPONENT Runtime)
-    endforeach()
-endif()
+    endforeach ()
+endif ()
 
-# Install activation script
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux-activate.ps1"
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
         COMPONENT Runtime
 )
 
-# Install documentation
 install(FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
         "${CMAKE_CURRENT_SOURCE_DIR}/README-ZH.md"
@@ -323,47 +316,46 @@ install(FILES
         COMPONENT Documentation
 )
 
-# CPack configuration
 set(CPACK_PACKAGE_NAME "WinuxCmd")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Windows Compatible Linux Command Set")
 set(CPACK_PACKAGE_VENDOR "WinuxCmd Project")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "WinuxCmd")
 
-# Set package components
 set(CPACK_COMPONENTS_ALL Runtime Documentation)
 set(CPACK_COMPONENT_RUNTIME_DISPLAY_NAME "Runtime")
 set(CPACK_COMPONENT_DOCUMENTATION_DISPLAY_NAME "Documentation")
-
-# Set component groups
 set(CPACK_COMPONENT_RUNTIME_GROUP "Core")
 set(CPACK_COMPONENT_DOCUMENTATION_GROUP "Documentation")
-
 set(CPACK_COMPONENT_GROUP_CORE_DISPLAY_NAME "Core Components")
 set(CPACK_COMPONENT_GROUP_DOCUMENTATION_DISPLAY_NAME "Documentation")
 
-# Windows-specific settings
 if (WIN32)
-    set(CPACK_GENERATOR "ZIP")
-    set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win64")
+    set(CPACK_GENERATOR "7Z")
+    set(CPACK_ARCHIVE_SEVEN_ZIP_OPTIONS "-mx=9")
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+        set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win-arm64")
+    else ()
+        set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win-x64")
+    endif ()
 else ()
     set(CPACK_GENERATOR "TGZ")
     set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-linux")
 endif ()
 
 set(CPACK_IGNORE_FILES
-        "${CMAKE_SOURCE_DIR}/scaffold\\.exe$"
+        "${CMAKE_SOURCE_DIR}/scaffold.exe$"
         "${CMAKE_SOURCE_DIR}/scaffold"
-        "${CMAKE_SOURCE_DIR}/CMakeLists\\.txt$"
-        "${CMAKE_SOURCE_DIR}/\\.clang.*$"
-        "${CMAKE_SOURCE_DIR}/\\.git.*$"
-        "${CMAKE_SOURCE_DIR}/\\.vs/"
-        "${CMAKE_SOURCE_DIR}/\\.idea/"
+        "${CMAKE_SOURCE_DIR}/CMakeLists.txt$"
+        "${CMAKE_SOURCE_DIR}/.clang.*$"
+        "${CMAKE_SOURCE_DIR}/.git.*$"
+        "${CMAKE_SOURCE_DIR}/.vs/"
+        "${CMAKE_SOURCE_DIR}/.idea/"
         "${CMAKE_SOURCE_DIR}/src/"
         "${CMAKE_SOURCE_DIR}/test/"
         "${CMAKE_SOURCE_DIR}/cmake-build-.*/"
         "${CMAKE_SOURCE_DIR}/out/"
-        "${CMAKE_SOURCE_DIR}/TemplateLicense\\.lict$"
+        "${CMAKE_SOURCE_DIR}/TemplateLicense.lict$"
 )
-# Include CPack
+
 include(CPack)
