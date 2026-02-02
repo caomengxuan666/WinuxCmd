@@ -61,7 +61,7 @@ jobs:
         working-directory: build-${{ matrix.arch }}
         run: cmake --install . --config Release --component Runtime
 
-      - name: Package Project with 7Z (直接打包构建目录的Release，文件齐全)
+      - name: Package Project with 7Z
         shell: cmd
         working-directory: build-${{ matrix.arch }}
         run: |
