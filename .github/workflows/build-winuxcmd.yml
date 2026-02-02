@@ -88,7 +88,6 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          # 移除 'v' 前缀获取版本号
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}"
