@@ -61,23 +61,19 @@ jobs:
         working-directory: build-${{ matrix.arch }}
         run: cmake --install . --config Release --component Runtime
 
-      - name: Package Project
+      - name: Package Project with 7Z (replace ZIP)
         shell: cmd
         working-directory: build-${{ matrix.arch }}
-        run: cpack -G ZIP -C Release
-
-      - name: Rename ZIP for artifact
-        shell: cmd
         run: |
-          for %%f in (build-${{ matrix.arch }}\*.zip) do (
-            ren "%%f" "WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}.zip"
-          )
+          set "7Z_NAME=WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}.7z"
+          cd install
+          7z a -t7z -mx9 -r "../%7Z_NAME%" bin\*
 
-      - name: Upload Build Artifact
+      - name: Upload Build Artifact (7Z)
         uses: actions/upload-artifact@v4
         with:
           name: WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}
-          path: build-${{ matrix.arch }}/*.zip
+          path: build-${{ matrix.arch }}/*.7z
           retention-days: 1
           if-no-files-found: error
 
@@ -97,33 +93,33 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Version: ${VERSION}"
 
-      - name: Download x64 Artifact
+      - name: Download x64 Artifact (7Z)
         uses: actions/download-artifact@v4
         with:
           name: WinuxCmd-${{ github.run_id }}-x64
           path: artifacts/x64
 
-      - name: Download ARM64 Artifact
+      - name: Download ARM64 Artifact (7Z)
         uses: actions/download-artifact@v4
         with:
           name: WinuxCmd-${{ github.run_id }}-arm64
           path: artifacts/arm64
 
-      - name: Verify downloaded artifacts
+      - name: Verify downloaded artifacts (7Z)
         run: |
           echo "=== Downloaded files ==="
-          find artifacts -type f -name "*.zip" | sort
+          find artifacts -type f -name "*.7z" | sort
           echo "========================="
-          for file in $(find artifacts -type f -name "*.zip"); do
+          for file in $(find artifacts -type f -name "*.7z"); do
             echo "File: $(basename $file) | Size: $(stat -c%s $file) bytes"
           done
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (7Z)
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/x64/*.zip
-            artifacts/arm64/*.zip
+            artifacts/x64/*.7z
+            artifacts/arm64/*.7z
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: |
@@ -134,12 +130,12 @@ jobs:
             - **ARM64**: Windows ARM64 (cross-compiled)
             
             ### Files included:
-            - WinuxCmd-${{ steps.version.outputs.version }}-win-x64.zip
-            - WinuxCmd-${{ steps.version.outputs.version }}-win-arm64.zip
+            - WinuxCmd-${{ steps.version.outputs.version }}-win-x64.7z
+            - WinuxCmd-${{ steps.version.outputs.version }}-win-arm64.7z
             
             ### Usage:
-            1. Download the appropriate zip for your architecture
-            2. Extract to a directory
+            1. Download the appropriate 7z for your architecture
+            2. Extract to a directory (use 7-Zip, WinRAR or other 7z-compatible tools)
             3. Add to PATH or run directly
           draft: false
           prerelease: false
