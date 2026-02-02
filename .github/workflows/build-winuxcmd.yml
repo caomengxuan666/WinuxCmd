@@ -65,9 +65,17 @@ jobs:
         shell: cmd
         working-directory: build-${{ matrix.arch }}
         run: |
-          set "7Z_NAME=WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}.7z"
+          set "7Z_NAME=WinuxCmd-temp-${{ matrix.arch }}.7z"
           cd install
           7z a -t7z -mx9 -r "../%7Z_NAME%" bin\*
+          cd ..
+
+      - name: Rename 7Z for artifact
+        shell: cmd
+        run: |
+          for %%f in (build-${{ matrix.arch }}\*.7z) do (
+            ren "%%f" "WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}.7z"
+          )
 
       - name: Upload Build Artifact (7Z)
         uses: actions/upload-artifact@v4
@@ -104,6 +112,12 @@ jobs:
         with:
           name: WinuxCmd-${{ github.run_id }}-arm64
           path: artifacts/arm64
+
+      - name: Rename 7Z to standard version name
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mv artifacts/x64/WinuxCmd-${{ github.run_id }}-x64.7z artifacts/x64/WinuxCmd-${VERSION}-win-x64.7z
+          mv artifacts/arm64/WinuxCmd-${{ github.run_id }}-arm64.7z artifacts/arm64/WinuxCmd-${VERSION}-win-arm64.7z
 
       - name: Verify downloaded artifacts (7Z)
         run: |
