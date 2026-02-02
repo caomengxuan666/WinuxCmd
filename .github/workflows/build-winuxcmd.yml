@@ -1,0 +1,71 @@
+name: CMake Windows Multi-Arch CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ x64, arm64 ]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v4
+
+      - name: Install CMake 4.1.5
+        uses: lukka/get-cmake@v3.27.7
+        with:
+          cmakeVersion: "4.1.5"
+
+      - name: Create Architecture-Specific Build Directory
+        shell: cmd
+        run: if not exist build-%{{ matrix.arch }} mkdir build-%{{ matrix.arch }}
+
+      - name: Configure CMake
+        shell: cmd
+        working-directory: ./build-%{{ matrix.arch }}
+        run: |
+          cmake -B . ^
+            -G "Ninja" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_SYSTEM_PROCESSOR=%{{ matrix.arch }} ^
+            -DUSE_STATIC_CRT=ON ^
+            -DENABLE_TESTS=OFF ^
+            -DGENERATE_EXPAND_MACRO_FILE=OFF ^
+            -DUSE_HARDLINKS=ON ^
+            -DENABLE_UPX=OFF ^
+            -DCMAKE_CXX_STANDARD=23 ^
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON
+
+      - name: Build Project
+        shell: cmd
+        working-directory: ./build-%{{ matrix.arch }}
+        run: cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
+
+      - name: Install Project
+        shell: cmd
+        working-directory: ./build-%{{ matrix.arch }}
+        run: cmake --install . --component Runtime
+
+      - name: Package Project
+        shell: cmd
+        working-directory: ./build-%{{ matrix.arch }}
+        run: cpack -G ZIP
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinuxCmd-win-%{{ matrix.arch }}-Release-StaticCRT
+          path: ./build-%{{ matrix.arch }}/*.zip
+          retention-days: 0

@@ -15,3 +15,5 @@ out/
 *.exe
 
 scripts/manager.py
+
+.vs/
