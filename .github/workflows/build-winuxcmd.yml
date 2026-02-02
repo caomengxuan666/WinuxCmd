@@ -19,10 +19,8 @@ jobs:
         include:
           - arch: x64
             vcvars_arg: x64
-            artifact_suffix: x64
           - arch: arm64
             vcvars_arg: x64_arm64
-            artifact_suffix: arm64
 
     steps:
       - name: Checkout Repository
@@ -68,10 +66,17 @@ jobs:
         working-directory: build-${{ matrix.arch }}
         run: cpack -G ZIP -C Release
 
+      - name: Rename ZIP for artifact
+        shell: cmd
+        run: |
+          for %%f in (build-${{ matrix.arch }}\*.zip) do (
+            ren "%%f" "WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}.zip"
+          )
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WinuxCmd-${{ github.run_id }}-${{ matrix.artifact_suffix }}
+          name: WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}
           path: build-${{ matrix.arch }}/*.zip
           retention-days: 1
           if-no-files-found: error
@@ -139,5 +144,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          replace: true
+          overwrite_files: true
           fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
