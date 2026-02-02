@@ -23,15 +23,11 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v4
 
-      - name: Create Architecture-Specific Build Directory
-        shell: cmd
-        run: if not exist build-${{ matrix.arch }} mkdir build-${{ matrix.arch }}
-
       - name: Configure CMake
         shell: cmd
-        working-directory: ./build-${{ matrix.arch }}
+        working-directory: .
         run: |
-          cmake -B . ^
+          cmake -B build-${{ matrix.arch }} ^
             -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} ^
