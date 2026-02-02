@@ -20,23 +20,17 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Configure CMake with MSVC
+      - name: Configure CMake with MSVC via Ninja
         shell: cmd
         working-directory: .
         run: |
-          # 确定架构对应的Visual Studio平台
-          if "${{ matrix.arch }}"=="x64" (
-            set VS_ARCH=x64
-            set VS_ARCH_ARG=x64
-          ) else (
-            set VS_ARCH=ARM64
-            set VS_ARCH_ARG=arm64
-          )
+          REM Activate Cl env
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
           
           cmake -B build-${{ matrix.arch }} ^
-            -G "Visual Studio 17 2022" ^
-            -A %VS_ARCH% ^
+            -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} ^
             -DUSE_STATIC_CRT=ON ^
             -DENABLE_TESTS=OFF ^
             -DGENERATE_EXPAND_MACRO_FILE=OFF ^
@@ -48,7 +42,10 @@ jobs:
       - name: Build Project
         shell: cmd
         working-directory: ./build-${{ matrix.arch }}
-        run: cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
+        run: |
+          REM Activate Cl env
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.arch }}
+          cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
       - name: Install Project
         shell: cmd
