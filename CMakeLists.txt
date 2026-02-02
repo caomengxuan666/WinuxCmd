@@ -315,12 +315,10 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux-activate.ps1"
 )
 
 # Install documentation
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
-        DESTINATION "${CMAKE_INSTALL_DOCDIR}"
-        COMPONENT Documentation
-)
-
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+install(FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
+        "${CMAKE_CURRENT_SOURCE_DIR}/README-ZH.md"
+        "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
         DESTINATION "${CMAKE_INSTALL_DOCDIR}"
         COMPONENT Documentation
 )
@@ -353,5 +351,19 @@ else ()
     set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-linux")
 endif ()
 
+set(CPACK_IGNORE_FILES
+        "${CMAKE_SOURCE_DIR}/scaffold\\.exe$"
+        "${CMAKE_SOURCE_DIR}/scaffold"
+        "${CMAKE_SOURCE_DIR}/CMakeLists\\.txt$"
+        "${CMAKE_SOURCE_DIR}/\\.clang.*$"
+        "${CMAKE_SOURCE_DIR}/\\.git.*$"
+        "${CMAKE_SOURCE_DIR}/\\.vs/"
+        "${CMAKE_SOURCE_DIR}/\\.idea/"
+        "${CMAKE_SOURCE_DIR}/src/"
+        "${CMAKE_SOURCE_DIR}/test/"
+        "${CMAKE_SOURCE_DIR}/cmake-build-.*/"
+        "${CMAKE_SOURCE_DIR}/out/"
+        "${CMAKE_SOURCE_DIR}/TemplateLicense\\.lict$"
+)
 # Include CPack
 include(CPack)
