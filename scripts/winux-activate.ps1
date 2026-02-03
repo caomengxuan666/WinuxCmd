@@ -13,14 +13,17 @@ When this script is loaded, it will automatically:
 Only affects the current PowerShell session, automatically restored when window is closed
 #>
 
-# Configuration
-$WinuxCmdPath = "D:\codespace\WinuxCmd\cmake-build-release"
+# Configuration - Auto-detect installation path
+$ScriptPath = $MyInvocation.MyCommand.Path
+$WinuxCmdPath = Split-Path $ScriptPath -Parent
+Write-Host "WinuxCmd path detected: $WinuxCmdPath" -ForegroundColor Yellow
+
 $CommandsToOverride = @('ls', 'cat', 'cp', 'mv', 'rm', 'mkdir', 'echo')
 
 # Check if WinuxCmd path exists
-if (-not (Test-Path $WinuxCmdPath)) {
-    Write-Host "Error: WinuxCmd path does not exist: $WinuxCmdPath" -ForegroundColor Red
-    Write-Host "Please modify the `$WinuxCmdPath variable in the script" -ForegroundColor Yellow
+if (-not (Test-Path "$WinuxCmdPath\winuxcmd.exe")) {
+    Write-Host "Error: winuxcmd.exe not found in: $WinuxCmdPath" -ForegroundColor Red
+    Write-Host "Please make sure WinuxCmd is installed correctly" -ForegroundColor Yellow
     return
 }
 
@@ -39,7 +42,7 @@ if (-not $global:WinuxBackup) {
 function Backup-CommandState {
     foreach ($cmd in $CommandsToOverride) {
         $command = Get-Command $cmd -ErrorAction SilentlyContinue
-        
+
         if ($command) {
             switch ($command.CommandType) {
                 'Alias' {
@@ -64,7 +67,7 @@ function Backup-CommandState {
 function Remove-Commands {
     foreach ($cmd in $CommandsToOverride) {
         $command = Get-Command $cmd -ErrorAction SilentlyContinue
-        
+
         if ($command) {
             switch ($command.CommandType) {
                 'Alias' {
@@ -89,7 +92,7 @@ function Remove-Commands {
                 }
             }
         }
-        
+
         # Ensure command points to WinuxCmd
         if (Test-Path "$WinuxCmdPath\$cmd.exe") {
             Set-Alias $cmd "$WinuxCmdPath\$cmd.exe" -Force -Scope Global -ErrorAction SilentlyContinue
@@ -101,10 +104,10 @@ function Remove-Commands {
 function Update-Path {
     # Ensure WinuxCmdPath is at the front of PATH
     $pathParts = $env:PATH -split ';'
-    
+
     # Remove existing WinuxCmd path (avoid duplicates)
     $pathParts = $pathParts | Where-Object { $_ -ne $WinuxCmdPath }
-    
+
     # Add to the front
     $newPath = $WinuxCmdPath + ';' + ($pathParts -join ';')
     $env:PATH = $newPath
@@ -115,16 +118,16 @@ function Enable-WinuxCmdAuto {
     if ($global:WinuxBackup.Activated) {
         return  # Already activated
     }
-    
+
     # Backup
     Backup-CommandState
-    
+
     # Process commands
     Remove-Commands
-    
+
     # Update PATH
     Update-Path
-    
+
     # Set activation state
     $global:WinuxBackup.Activated = $true
     $global:WinuxBackup.ActivationTime = Get-Date
@@ -135,10 +138,10 @@ function winux-deactivate {
     if (-not $global:WinuxBackup.Activated) {
         return
     }
-    
+
     # Restore PATH
     $env:PATH = $global:WinuxBackup.OriginalPath
-    
+
     # Restore aliases
     foreach ($cmd in $global:WinuxBackup.Aliases.Keys) {
         $aliasInfo = $global:WinuxBackup.Aliases[$cmd]
@@ -152,7 +155,7 @@ function winux-deactivate {
             # Ignore restore errors
         }
     }
-    
+
     # Restore functions
     foreach ($cmd in $global:WinuxBackup.Functions.Keys) {
         $funcInfo = $global:WinuxBackup.Functions[$cmd]
@@ -162,7 +165,7 @@ function winux-deactivate {
             # Ignore restore errors
         }
     }
-    
+
     # Clear activation state
     $global:WinuxBackup.Activated = $false
 }
@@ -171,14 +174,14 @@ function winux-deactivate {
 function winux-status {
     Write-Host "WinuxCmd Status" -ForegroundColor Cyan
     Write-Host "=" * 50 -ForegroundColor DarkGray
-    
+
     Write-Host "Activation status: $(if ($global:WinuxBackup.Activated) { '✅ Activated' } else { '❌ Not activated' })" -ForegroundColor $(if ($global:WinuxBackup.Activated) { 'Green' } else { 'Red' })
-    
+
     if ($global:WinuxBackup.Activated) {
         Write-Host "Activation time: $($global:WinuxBackup.ActivationTime.ToString('HH:mm:ss'))" -ForegroundColor Gray
         Write-Host "Duration: $((Get-Date) - $global:WinuxBackup.ActivationTime)" -ForegroundColor Gray
     }
-    
+
     Write-Host "" -ForegroundColor Gray
     Write-Host "Command status:" -ForegroundColor Cyan
     foreach ($cmd in $CommandsToOverride) {
@@ -191,7 +194,7 @@ function winux-status {
             Write-Host "  $cmd : ❌ Not found" -ForegroundColor Red
         }
     }
-    
+
     Write-Host "=" * 50 -ForegroundColor DarkGray
 }
 
@@ -216,7 +219,7 @@ function winux-test {
 function winux-help {
     Write-Host "WinuxCmd Help" -ForegroundColor Cyan
     Write-Host "=" * 50 -ForegroundColor DarkGray
-    
+
     Write-Host "Available commands:" -ForegroundColor Cyan
     Write-Host "  winux-deactivate     Restore original state" -ForegroundColor Gray
     Write-Host "  winux-status         Check activation status" -ForegroundColor Gray
@@ -225,7 +228,7 @@ function winux-help {
     Write-Host "" -ForegroundColor Gray
     Write-Host "Overridden commands:" -ForegroundColor Cyan
     Write-Host "  ls, cat, cp, mv, rm, mkdir, echo" -ForegroundColor Gray
-    
+
     Write-Host "=" * 50 -ForegroundColor DarkGray
 }
 
