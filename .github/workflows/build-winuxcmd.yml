@@ -19,14 +19,28 @@ jobs:
         include:
           - arch: x64
             vcvars_arg: x64
+            package_arch: x64
           - arch: arm64
             vcvars_arg: x64_arm64
+            package_arch: arm64
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Extract Version (from Tag or CMake)
+        id: extract_version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -match "^refs/tags/v(\d+\.\d+\.\d+)") {
+            $version = $matches[1]
+          } else {
+            $version = (Select-String -Path "CMakeLists.txt" -Pattern "VERSION (\d+\.\d+\.\d+)").Matches.Groups[1].Value
+          }
+          echo "project_version=$version" >> $env:GITHUB_OUTPUT
+          echo "Extracted version: $version"
 
       - name: Configure CMake with MSVC via Ninja
         shell: cmd
@@ -35,7 +49,6 @@ jobs:
           cmake -B build-${{ matrix.arch }} ^
             -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch }} ^
             -DCMAKE_C_COMPILER_TARGET=${{ matrix.arch }} ^
             -DCMAKE_CXX_COMPILER_TARGET=${{ matrix.arch }} ^
             -DUSE_STATIC_CRT=ON ^
@@ -56,77 +69,80 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
-      - name: Package Project with 7Z
+      - name: Package Project with CPack (7Z + ZIP)
         shell: cmd
         working-directory: build-${{ matrix.arch }}
-        run: |
-          set 7Z_NAME=WinuxCmd-temp-${{ matrix.arch }}.7z
-          7z a -t7z -mx9 -r "%7Z_NAME%" *.exe install/bin/winux-activate.ps1
+        run: cpack -G 7Z -G ZIP -C Release
 
-      - name: Rename 7Z for artifact
+      - name: Rename Packages (Version + Architecture)
         shell: cmd
         run: |
-          for %%f in (build-${{ matrix.arch }}\*.7z) do (
-            ren "%%f" "WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}.7z"
+          set "VERSION=${{ steps.extract_version.outputs.project_version }}"
+          set "ARCH=${{ matrix.package_arch }}"
+          set "BUILD_DIR=build-%ARCH%"
+          
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.7z") do (
+            ren "%%f" "WinuxCmd-%VERSION%-win-%ARCH%.7z"
+          )
+          
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.zip") do (
+            ren "%%f" "WinuxCmd-%VERSION%-win-%ARCH%.zip"
           )
 
-      - name: Upload Build Artifact (7Z)
+      - name: Upload Build Artifacts (7Z + ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: WinuxCmd-${{ github.run_id }}-${{ matrix.arch }}
-          path: build-${{ matrix.arch }}/*.7z
+          name: WinuxCmd-${{ matrix.package_arch }}
+          path: |
+            build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.7z
+            build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.zip
           retention-days: 1
           if-no-files-found: error
 
   release:
     runs-on: ubuntu-latest
     needs: build-windows
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v*')
 
     permissions:
       contents: write
 
     steps:
-      - name: Extract version from tag
-        id: version
+      - name: Extract Version from Tag
+        id: final_version
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version: ${VERSION}"
 
-      - name: Download x64 Artifact (7Z)
+      - name: Download x64 Artifacts (7Z + ZIP)
         uses: actions/download-artifact@v4
         with:
-          name: WinuxCmd-${{ github.run_id }}-x64
+          name: WinuxCmd-x64
           path: artifacts/x64
 
-      - name: Download ARM64 Artifact (7Z)
+      - name: Download ARM64 Artifacts (7Z + ZIP)
         uses: actions/download-artifact@v4
         with:
-          name: WinuxCmd-${{ github.run_id }}-arm64
+          name: WinuxCmd-arm64
           path: artifacts/arm64
 
-      - name: Rename 7Z to standard version name
+      - name: Verify Final Artifacts
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          mv artifacts/x64/WinuxCmd-${{ github.run_id }}-x64.7z artifacts/x64/WinuxCmd-${VERSION}-win-x64.7z
-          mv artifacts/arm64/WinuxCmd-${{ github.run_id }}-arm64.7z artifacts/arm64/WinuxCmd-${VERSION}-win-arm64.7z
-
-      - name: Verify downloaded artifacts (7Z)
-        run: |
-          echo "=== Downloaded files ==="
-          find artifacts -type f -name "*.7z" | sort
-          echo "========================="
-          for file in $(find artifacts -type f -name "*.7z"); do
+          echo "=== Final Release Files ==="
+          find artifacts -type f \( -name "*.7z" -o -name "*.zip" \) | sort
+          echo "==========================="
+          for file in $(find artifacts -type f \( -name "*.7z" -o -name "*.zip" \)); do
             echo "File: $(basename $file) | Size: $(stat -c%s $file) bytes"
           done
 
-      - name: Create GitHub Release (7Z)
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/x64/*.7z
+            artifacts/x64/*.zip
             artifacts/arm64/*.7z
+            artifacts/arm64/*.zip
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: |
@@ -137,13 +153,15 @@ jobs:
             - **ARM64**: Windows ARM64 (cross-compiled)
             
             ### Files included:
-            - WinuxCmd-${{ steps.version.outputs.version }}-win-x64.7z
-            - WinuxCmd-${{ steps.version.outputs.version }}-win-arm64.7z
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.7z
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.zip
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.7z
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.zip
             
             ### Usage:
-            1. Download the appropriate 7z package for your architecture
+            1. Download the appropriate package (7Z/ZIP) for your architecture
             2. Extract the package to your desired directory
-            3. Add the extracted directory to your system PATH
+            3. Add the extracted `bin` directory to your system PATH
           draft: false
           prerelease: false
           generate_release_notes: true
