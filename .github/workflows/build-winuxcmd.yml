@@ -68,10 +68,12 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
-      - name: Package with CPack
+      - name: Package with CPack (7Z + ZIP)
         shell: cmd
         working-directory: build-${{ matrix.package_arch }}
-        run: cpack -G 7Z -G ZIP -C Release
+        run: |
+          cpack -G 7Z -C Release
+          cpack -G ZIP -C Release
 
       - name: Rename Packages
         shell: cmd
