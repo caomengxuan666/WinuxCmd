@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Extract Version (from Tag or CMake)
+      - name: Extract Version
         id: extract_version
         shell: pwsh
         run: |
@@ -40,13 +40,12 @@ jobs:
             $version = (Select-String -Path "CMakeLists.txt" -Pattern "VERSION (\d+\.\d+\.\d+)").Matches.Groups[1].Value
           }
           echo "project_version=$version" >> $env:GITHUB_OUTPUT
-          echo "Extracted version: $version"
 
-      - name: Configure CMake with MSVC via Ninja
+      - name: Configure CMake
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
-          cmake -B build-${{ matrix.arch }} ^
+          cmake -B build-${{ matrix.package_arch }} ^
             -G "Ninja" ^
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_C_COMPILER_TARGET=${{ matrix.arch }} ^
@@ -64,35 +63,30 @@ jobs:
 
       - name: Build Project
         shell: cmd
-        working-directory: build-${{ matrix.arch }}
+        working-directory: build-${{ matrix.package_arch }}
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
-      - name: Package Project with CPack (7Z + ZIP)
+      - name: Package with CPack
         shell: cmd
-        working-directory: build-${{ matrix.arch }}
+        working-directory: build-${{ matrix.package_arch }}
         run: cpack -G 7Z -G ZIP -C Release
 
-      - name: Rename Packages (Version + Architecture)
+      - name: Rename Packages
         shell: cmd
         run: |
-          set "VERSION=${{ steps.extract_version.outputs.project_version }}"
+          set "VER=${{ steps.extract_version.outputs.project_version }}"
           set "ARCH=${{ matrix.package_arch }}"
           set "BUILD_DIR=build-%ARCH%"
           
-          for %%f in ("%BUILD_DIR%\WinuxCmd-*.7z") do (
-            ren "%%f" "WinuxCmd-%VERSION%-win-%ARCH%.7z"
-          )
-          
-          for %%f in ("%BUILD_DIR%\WinuxCmd-*.zip") do (
-            ren "%%f" "WinuxCmd-%VERSION%-win-%ARCH%.zip"
-          )
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.7z") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.7z"
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.zip") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.zip"
 
-      - name: Upload Build Artifacts (7Z + ZIP)
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: WinuxCmd-${{ matrix.package_arch }}
+          name: WinuxCmd-${{ steps.extract_version.outputs.project_version }}-${{ matrix.package_arch }}
           path: |
             build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.7z
             build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.zip
@@ -102,8 +96,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: build-windows
-    if: startsWith(github.ref, 'refs/tags/v*')
-
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     permissions:
       contents: write
 
@@ -114,26 +107,23 @@ jobs:
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Download x64 Artifacts (7Z + ZIP)
+      - name: Download x64 Packages
         uses: actions/download-artifact@v4
         with:
-          name: WinuxCmd-x64
+          name: WinuxCmd-${{ steps.final_version.outputs.version }}-x64
           path: artifacts/x64
 
-      - name: Download ARM64 Artifacts (7Z + ZIP)
+      - name: Download ARM64 Packages
         uses: actions/download-artifact@v4
         with:
-          name: WinuxCmd-arm64
+          name: WinuxCmd-${{ steps.final_version.outputs.version }}-arm64
           path: artifacts/arm64
 
-      - name: Verify Final Artifacts
+      - name: Verify Packages
         run: |
-          echo "=== Final Release Files ==="
-          find artifacts -type f \( -name "*.7z" -o -name "*.zip" \) | sort
-          echo "==========================="
-          for file in $(find artifacts -type f \( -name "*.7z" -o -name "*.zip" \)); do
-            echo "File: $(basename $file) | Size: $(stat -c%s $file) bytes"
-          done
+          echo "=== Valid Packages ==="
+          find artifacts -type f \( -name "*.7z" -o -name "*.zip" \) | sort || exit 1
+          echo "======================"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -159,13 +149,13 @@ jobs:
             - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.zip
             
             ### Usage:
-            1. Download the appropriate package (7Z/ZIP) for your architecture
-            2. Extract the package to your desired directory
-            3. Add the extracted `bin` directory to your system PATH
+            1. Download the appropriate package for your architecture
+            2. Extract to your desired directory
+            3. Add the extracted `bin` directory to PATH
           draft: false
           prerelease: false
           generate_release_notes: true
-          overwrite_files: true
+          overwrite_files: 'true'
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
