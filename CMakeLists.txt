@@ -303,7 +303,7 @@ else ()
     endforeach ()
 endif ()
 
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux-activate.ps1"
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux.ps1"
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
         COMPONENT Runtime
 )
