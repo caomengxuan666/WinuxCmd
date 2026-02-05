@@ -148,8 +148,7 @@ function Invoke-Activate {
 
         $functionString = @"
 function global:$cmd {
-    param([string[]]`$argsArray)
-    & '$exePath' @argsArray
+    & '$exePath' @args
 }
 "@
 
