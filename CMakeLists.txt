@@ -37,7 +37,7 @@ endif ()
 include(cmake/enable_import_std.cmake)
 
 project(WinuxCmd
-        VERSION 0.1.3
+        VERSION 0.1.4
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
