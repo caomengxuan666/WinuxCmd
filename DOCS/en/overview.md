@@ -191,24 +191,36 @@ cmake --build . --config Release
 
 ## Usage Examples
 
-### Individual Command Mode
+### Direct Usage (No Activation Required)
 
 ```bash
-# List directory contents with long format
-ls -la
+# Use winux prefix for direct command access
+winux ls -la
+winux grep "pattern" file.txt
+winux cp source.txt dest.txt
+```
 
-# Find files containing specific text
+### With Activation
+
+```bash
+# Activate for direct command access
+winux activate
+
+# Now use commands directly
+ls -la
 grep "pattern" file.txt
+cp source.txt dest.txt
+
+# Deactivate when done
+winux deactivate
 ```
 
 ### Combined Mode
 
 ```bash
-# List directory contents with human-readable sizes
+# Use main executable directly
 winuxcmd ls -lh
-
-# Replace text in file
-tsed "s/old/new/g" file.txt
+winuxcmd grep "pattern" file.txt
 ```
 
 ## Versioning
