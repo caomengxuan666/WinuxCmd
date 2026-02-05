@@ -102,6 +102,9 @@ jobs:
     permissions:
       contents: write
 
+    outputs:
+      version: ${{ steps.final_version.outputs.version }}
+
     steps:
       - name: Extract Version from Tag
         id: final_version
@@ -161,3 +164,39 @@ jobs:
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cache-and-notify:
+    runs-on: windows-latest
+    needs: release  # Depends on release job
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')  # Only run on tag releases
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Refresh WinuxCmd Server Cache
+        id: refresh-cache
+        continue-on-error: true  # Cache refresh failure won't break the job
+        env:
+          CACHE_REFRESH_TOKEN: ${{ secrets.CACHE_REFRESH_TOKEN }}
+        run: |
+          .\.github\scripts\refresh-cache.ps1
+        shell: pwsh
+
+      - name: Send Notification
+        id: notify
+        continue-on-error: true  # Notification failure won't break the job
+        env:
+          CACHE_RESULT: ${{ steps.refresh-cache.outputs.cache-refresh-result || 'skipped' }}
+          CACHE_MESSAGE: ${{ steps.refresh-cache.outputs.cache-message || '' }}
+          CACHE_ERROR: ${{ steps.refresh-cache.outputs.cache-error || '' }}
+          VERSION: ${{ needs.release.outputs.version || '' }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          .\.github\scripts\notify-cache-result.ps1 `
+            -Result "$env:CACHE_RESULT" `
+            -Message "$env:CACHE_MESSAGE" `
+            -Error "$env:CACHE_ERROR" `
+            -Version "$env:VERSION" `
+            -TagName "$env:TAG_NAME"
+        shell: pwsh
