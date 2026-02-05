@@ -1,5 +1,47 @@
 # Linux Command Implementation Plan
 
+## Usage Methods
+
+### Direct Usage (No Activation Required)
+
+```bash
+# Use winux prefix to access commands directly
+winux ls -la
+winux cat file.txt
+winux cp source.txt dest.txt
+```
+
+### With Activation
+
+```bash
+# Activate for direct command access
+winux activate
+
+# Now use commands directly
+ls -la
+cat file.txt
+cp source.txt dest.txt
+
+# Deactivate when done
+winux deactivate
+```
+
+### Help Information
+
+```bash
+# View available commands
+winux list
+
+# Check activation status
+winux status
+
+# View version information
+winux version
+
+# View main executable help
+winuxcmd --help
+```
+
 ## Description
 
 This is the Linux command implementation plan document for the WinuxCmd project. We will implement Linux common commands one by one and record the implementation status.
@@ -86,6 +128,10 @@ This is the Linux command implementation plan document for the WinuxCmd project.
 2. Then implement medium-priority commands
 3. Finally implement low-priority commands
 4. After each command is implemented, update the status and implementation description in the document
+
+## Note on Help Command
+
+The `help` command has been removed from the winux.ps1 script to avoid conflicts with the main executable's help system. Users should use `winuxcmd --help` for help information.
 
 ## Development Specifications
 

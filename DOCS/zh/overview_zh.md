@@ -114,24 +114,36 @@ cmake --build . --config Release
 
 ## 使用示例
 
-### 独立命令模式
+### 直接使用（无需激活）
 
 ```bash
-# 以长格式列出目录内容
-ls -la
+# 使用winux前缀直接访问命令
+winux ls -la
+winux grep "pattern" file.txt
+winux cp source.txt dest.txt
+```
 
-# 查找包含特定文本的文件
+### 激活后使用
+
+```bash
+# 激活以直接使用命令
+winux activate
+
+# 现在可以直接使用命令
+ls -la
 grep "pattern" file.txt
+cp source.txt dest.txt
+
+# 使用完毕后取消激活
+winux deactivate
 ```
 
 ### 组合模式
 
 ```bash
-# 以人类可读大小列出目录内容
+# 直接使用主可执行文件
 winuxcmd ls -lh
-
-# 在文件中替换文本
-tsed "s/old/new/g" file.txt
+winuxcmd grep "pattern" file.txt
 ```
 
 ## 版本控制

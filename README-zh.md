@@ -17,7 +17,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 1. 从 Releases 下载
 2. 解压到任意目录
-3. 将该目录添加到 PATH 环境变量
+3. 运行设置脚本：`winux-activate.ps1`
 
 ## 📦 已实现的命令 (v0.1.0)
 
@@ -129,18 +129,28 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
 ### 基本使用
 
 ```bash
-# 和 Linux 上完全一样
+# 直接使用（无需激活）
+winux ls -lah
+winux cat -n file.txt
+winux cp -rv source/ dest/
+winux rm -rf node_modules/
+winux mkdir -p path/to/new/dir
+
+# 或者激活后直接使用命令
+winux activate
 ls -lah
 cat -n file.txt
-cp -rv source/ dest/
-rm -rf node_modules/
-mkdir -p path/to/new/dir
 ```
 
 ### 与 PowerShell 集成
 
 ```powershell
-# 与 PowerShell 命令一起使用
+# 直接使用
+winux ls -la | Select-Object -First 10
+Get-Process | winux grep "chrome"
+
+# 激活后使用
+winux activate
 ls -la | Select-Object -First 10
 Get-Process | grep "chrome"
 ```

@@ -1,5 +1,47 @@
 # Linux命令实现计划
 
+## 使用方式
+
+### 直接使用（无需激活）
+
+```bash
+# 使用winux前缀直接访问命令
+winux ls -la
+winux cat file.txt
+winux cp source.txt dest.txt
+```
+
+### 激活后使用
+
+```bash
+# 激活以直接使用命令
+winux activate
+
+# 现在可以直接使用命令
+ls -la
+cat file.txt
+cp source.txt dest.txt
+
+# 使用完毕后取消激活
+winux deactivate
+```
+
+### 帮助信息
+
+```bash
+# 查看可用命令
+winux list
+
+# 检查激活状态
+winux status
+
+# 查看版本信息
+winux version
+
+# 查看主可执行文件帮助
+winuxcmd --help
+```
+
 ## 说明
 
 这是WinuxCmd项目的Linux命令实现计划文档。我们将逐个实现Linux常用命令，并记录实现状态。
@@ -86,6 +128,10 @@
 2. 然后实现中优先级的命令
 3. 最后实现低优先级的命令
 4. 每个命令实现后，更新文档中的状态和实现说明
+
+## 关于帮助命令的说明
+
+`help` 命令已从 winux.ps1 脚本中移除，以避免与主可执行文件的帮助系统冲突。用户应使用 `winuxcmd --help` 来获取帮助信息。
 
 ## 开发规范
 

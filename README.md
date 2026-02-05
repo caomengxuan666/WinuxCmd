@@ -17,7 +17,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 1. Download from Releases
 2. Extract to any directory
-3. Add the directory to your PATH
+3. Run the setup script: `winux-activate.ps1`
 
 ## 📦 Currently Implemented Commands (v0.1.0)
 
@@ -129,18 +129,28 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
 ### Basic Usage
 
 ```bash
-# Works exactly like Linux
+# Direct usage (no activation needed)
+winux ls -lah
+winux cat -n file.txt
+winux cp -rv source/ dest/
+winux rm -rf node_modules/
+winux mkdir -p path/to/new/dir
+
+# Or activate for direct command access
+winux activate
 ls -lah
 cat -n file.txt
-cp -rv source/ dest/
-rm -rf node_modules/
-mkdir -p path/to/new/dir
 ```
 
 ### Integration with PowerShell
 
 ```powershell
-# Use alongside PowerShell commands
+# Direct usage
+winux ls -la | Select-Object -First 10
+Get-Process | winux grep "chrome"
+
+# With activation
+winux activate
 ls -la | Select-Object -First 10
 Get-Process | grep "chrome"
 ```
