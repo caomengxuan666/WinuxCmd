@@ -23,10 +23,10 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-export module core.dispatcher;
+export module core:dispatcher;
 
 import std;
-import core.cmd_meta;
+import :cmd_meta;
 
 export using CommandFunc = int (*)(std::span<std::string_view>) noexcept;
 
@@ -36,12 +36,13 @@ export class CommandRegistry {
   struct CommandEntry {
     cmd::meta::CommandMetaHandle meta;
     CommandFunc handler;
+    std::string_view brief_desc;  // Brief description for help listing
 
     CommandEntry() = default;
 
     // Constructor with parameters
     CommandEntry(cmd::meta::CommandMetaHandle m, CommandFunc h)
-        : meta(std::move(m)), handler(h) {}
+        : meta(std::move(m)), handler(h), brief_desc(meta.brief_desc()) {}
   };
 
   // Internal registry implementation class
@@ -84,6 +85,17 @@ export class CommandRegistry {
     void printHelp(std::string_view cmdName) {
       cmd::meta::Registry::print_help(cmdName);
     }
+
+    // Get all registered command names
+    std::vector<std::pair<std::string_view, std::string_view>>
+    getAllCommands() {
+      std::vector<std::pair<std::string_view, std::string_view>> commands;
+      commands.reserve(registry_.size());
+      for (const auto &[name, entry] : registry_) {
+        commands.push_back({name, entry.brief_desc});
+      }
+      return commands;
+    }
   };
 
   // Get singleton instance
@@ -124,6 +136,20 @@ export class CommandRegistry {
       std::cerr << "winuxcmd: help error: " << e.what() << std::endl;
     } catch (...) {
       std::cerr << "winuxcmd: unknown help error" << std::endl;
+    }
+  }
+
+  // Get all registered command names (public interface)
+  static std::vector<std::pair<std::string_view, std::string_view>>
+  getAllCommands() noexcept {
+    try {
+      return getImpl().getAllCommands();
+    } catch (const std::exception &e) {
+      std::cerr << "winuxcmd: getAllCommands error: " << e.what() << std::endl;
+      return {};
+    } catch (...) {
+      std::cerr << "winuxcmd: unknown getAllCommands error" << std::endl;
+      return {};
     }
   }
 };

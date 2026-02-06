@@ -23,51 +23,59 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-// Use global module fragment for C standard library
+
+/// @contributors:
+///   - @contributor1 caomengxuan666 2507560089@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
+/// @Description: Implemention for cp.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
+
 module;
-#include <cstdio>
-#define WIN32_LEAN_AND_MEAN
-#include <shlwapi.h>
-#include <windows.h>
+#include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
 #include "core/auto_flags.h"
 #include "core/command_macros.h"
 export module commands.cp;
 
 import std;
-import core.dispatcher;
-import core.cmd_meta;
-import core.opt;
-
+import core;
+import utils;
 /**
  * @brief CP command options definition
- * 
+ *
  * This array defines all the options supported by the cp command.
  * Each option is described with its short form, long form, and description.
  * The implementation status is also indicated for each option.
- * 
+ *
  * @par Options:
  * - @a -a, @a --archive: Same as -dR --preserve=all [TODO]
  * - @a -b: Like --backup but does not accept an argument [TODO]
  * - @a -d: Same as --no-dereference --preserve=links [TODO]
- * - @a -f, @a --force: If an existing destination file cannot be opened, remove it and try again [TODO]
+ * - @a -f, @a --force: If an existing destination file cannot be opened, remove
+ * it and try again [TODO]
  * - @a -i, @a --interactive: Prompt before overwrite [IMPLEMENTED]
  * - @a -H: Follow command-line symbolic links in SOURCE [TODO]
  * - @a -l, @a --link: Hard link files instead of copying [TODO]
  * - @a -L, @a --dereference: Always follow symbolic links in SOURCE [TODO]
- * - @a -n, @a --no-clobber: Do not overwrite an existing file and do not fail [TODO]
+ * - @a -n, @a --no-clobber: Do not overwrite an existing file and do not fail
+ * [TODO]
  * - @a -P, @a --no-dereference: Never follow symbolic links in SOURCE [TODO]
  * - @a -p: Same as --preserve=mode,ownership,timestamps [TODO]
  * - @a -R, @a --recursive: Copy directories recursively [IMPLEMENTED]
  * - @a -r, @a --recursive: Copy directories recursively [IMPLEMENTED]
  * - @a -s, @a --symbolic-link: Make symbolic links instead of copying [TODO]
  * - @a -S, @a --suffix: Override the usual backup suffix [TODO]
- * - @a -t, @a --target-directory: Copy all SOURCE arguments into DIRECTORY [IMPLEMENTED]
+ * - @a -t, @a --target-directory: Copy all SOURCE arguments into DIRECTORY
+ * [IMPLEMENTED]
  * - @a -T, @a --no-target-directory: Treat DEST as a normal file [TODO]
  * - @a -u: Equivalent to --update[=older] [TODO]
  * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
  * - @a -x, @a --one-file-system: Stay on this file system [TODO]
- * - @a -Z: Set SELinux security context of destination file to default type [TODO]
+ * - @a -Z: Set SELinux security context of destination file to default type
+ * [TODO]
  */
 constexpr auto CP_OPTIONS = std::array{
     OPTION("-a", "--archive", "same as -dR --preserve=all"),
@@ -163,13 +171,13 @@ REGISTER_COMMAND(
    * @return true if parsing
    * succeeded, false on error
    */
-  auto parseCpOptions = [](std::span<std::string_view> args, CpOptions& options,
-                           std::vector<std::string>& sourcePaths,
-                           std::string& destPath) -> bool {
+  auto parseCpOptions = [](std::span<std::string_view> args, CpOptions &options,
+                           std::vector<std::string> &sourcePaths,
+                           std::string &destPath) -> bool {
     // Helper function to find option handler by long option or short option
     auto find_handler = [](std::string_view arg,
-                           char opt_char = '\0') -> const OptionHandler* {
-      for (const auto& handler : OPTION_HANDLERS) {
+                           char opt_char = '\0') -> const OptionHandler * {
+      for (const auto &handler : OPTION_HANDLERS) {
         if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
             (opt_char && handler.short_opt == opt_char)) {
           return &handler;
@@ -181,15 +189,16 @@ REGISTER_COMMAND(
     // Helper function to print option error
     auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
       if (!arg.empty()) {
-        fwprintf(stderr, L"cp: invalid option -- '%.*s'\n",
-                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+        std::wstring warg(arg.begin(), arg.end());
+        safeErrorPrintLn(L"cp: invalid option -- '" + warg.substr(2) + L"'");
       } else {
-        fwprintf(stderr, L"cp: invalid option -- '%c'\n", opt_char);
+        safeErrorPrintLn(L"cp: invalid option -- '" +
+                         std::wstring(1, opt_char) + L"'");
       }
     };
 
     // Helper function to handle argument options
-    auto handle_arg_option = [&options, &args](char opt_char, size_t& i,
+    auto handle_arg_option = [&options, &args](char opt_char, size_t &i,
                                                size_t j,
                                                std::string_view arg) -> bool {
       if (j + 1 < arg.size()) {
@@ -213,8 +222,9 @@ REGISTER_COMMAND(
         ++i;
       } else {
         // No argument provided
-        fwprintf(stderr, L"cp: option requires an argument -- '%c'\n",
-                 opt_char);
+        std::wostringstream oss;
+        oss << L"cp: option requires an argument -- '" << opt_char << L"'";
+        safeErrorPrintLn(oss.str());
         return false;
       }
       return true;
@@ -286,7 +296,7 @@ REGISTER_COMMAND(
 
       if (arg.starts_with("--")) {
         // This is a long option
-        const auto* handler = find_handler(arg);
+        const auto *handler = find_handler(arg);
         if (handler) {
           if (handler->requires_arg) {
             // Handle options that require arguments
@@ -300,8 +310,9 @@ REGISTER_COMMAND(
               }
               ++i;
             } else {
-              fwprintf(stderr, L"cp: option '%s' requires an argument\n",
-                       arg.data());
+              std::wostringstream oss;
+              oss << L"cp: option '" << arg.data() << L"' requires an argument";
+              safeErrorPrintLn(oss.str());
               return false;
             }
           } else {
@@ -322,7 +333,7 @@ REGISTER_COMMAND(
         // Process option characters
         for (size_t j = 1; j < arg.size(); ++j) {
           char opt_char = arg[j];
-          const auto* handler = find_handler("", opt_char);
+          const auto *handler = find_handler("", opt_char);
           if (handler) {
             if (handler->requires_arg) {
               // Handle options that require arguments
@@ -348,13 +359,13 @@ REGISTER_COMMAND(
 
     if (options.get_target_directory()) {
       if (sourcePaths.empty()) {
-        fwprintf(stderr, L"cp: missing file operand\n");
+        safeErrorPrintLn(L"cp: missing file operand");
         return false;
       }
       destPath = options.get_target_dir();
     } else {
       if (sourcePaths.size() < 2) {
-        fwprintf(stderr, L"cp: missing file operand\n");
+        safeErrorPrintLn(L"cp: missing file operand");
         return false;
       }
       destPath = sourcePaths.back();
@@ -369,9 +380,9 @@ REGISTER_COMMAND(
    * @param path Directory path to create
    * @return true if directory was created successfully, false on error
    */
-  std::function<bool(const std::string&)> createDirectoryRecursive;
+  std::function<bool(const std::string &)> createDirectoryRecursive;
   createDirectoryRecursive =
-      [&createDirectoryRecursive](const std::string& path) -> bool {
+      [&createDirectoryRecursive](const std::string &path) -> bool {
     std::wstring wpath(path.begin(), path.end());
     if (CreateDirectoryW(wpath.c_str(), NULL) ||
         GetLastError() == ERROR_ALREADY_EXISTS) {
@@ -397,14 +408,16 @@ REGISTER_COMMAND(
    * @param options cp command options
    * @return true if directory was copied successfully, false on error
    */
-  std::function<bool(const std::string&, const std::string&, const CpOptions&)>
+  std::function<bool(const std::string &, const std::string &,
+                     const CpOptions &)>
       copyDirectory;
   copyDirectory = [&copyDirectory, &createDirectoryRecursive](
-                      const std::string& srcPath, const std::string& destPath,
-                      const CpOptions& options) -> bool {
+                      const std::string &srcPath, const std::string &destPath,
+                      const CpOptions &options) -> bool {
     // Create destination directory if it doesn't exist
     if (!createDirectoryRecursive(destPath)) {
-      fprintf(stderr, "cp: cannot create directory '%s'\n", destPath.c_str());
+      std::wstring wdestPath = utf8_to_wstring(destPath);
+      safeErrorPrintLn(L"cp: cannot create directory '" + wdestPath + L"'");
       return false;
     }
 
@@ -414,7 +427,8 @@ REGISTER_COMMAND(
     WIN32_FIND_DATAW findData;
     HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
     if (hFind == INVALID_HANDLE_VALUE) {
-      fprintf(stderr, "cp: cannot open directory '%s'\n", srcPath.c_str());
+      std::wstring wsrcPath = utf8_to_wstring(srcPath);
+      safeErrorPrintLn(L"cp: cannot open directory '" + wsrcPath + L"'");
       return false;
     }
 
@@ -447,7 +461,8 @@ REGISTER_COMMAND(
               if (options.get_interactive()) {
                 std::ifstream destTest(destItemPath);
                 if (destTest.good()) {
-                  wprintf(L"cp: overwrite '%s'? (y/n) ", destItemPath.c_str());
+                  safeErrorPrint(L"cp: overwrite '" +
+                                 utf8_to_wstring(destItemPath) + L"'? (y/n) ");
                   char response;
                   std::cin.get(response);
                   if (response != 'y' && response != 'Y') {
@@ -456,89 +471,104 @@ REGISTER_COMMAND(
                     // Copy the file
                     std::ifstream srcFile(srcItemPath, std::ios::binary);
                     if (!srcFile) {
-                      fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
-                               srcItemPath.data());
+                      safeErrorPrintLn(L"cp: cannot open '" +
+                                       utf8_to_wstring(srcItemPath) +
+                                       L"' for reading");
                       success = false;
                       continue;
                     }
                     std::ofstream destFile(destItemPath, std::ios::binary);
                     if (!destFile) {
-                      fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                               destItemPath.c_str());
+                      safeErrorPrintLn(L"cp: cannot open '" +
+                                       utf8_to_wstring(destItemPath) +
+                                       L"' for writing");
                       success = false;
                       continue;
                     }
                     destFile << srcFile.rdbuf();
                     if (!destFile) {
-                      fwprintf(stderr, L"cp: error writing to '%s'\n",
-                               destItemPath.c_str());
+                      safeErrorPrintLn(L"cp: error writing to '" +
+                                       utf8_to_wstring(destItemPath) + L"'");
                       success = false;
                       continue;
                     }
                     if (options.get_verbose()) {
-                      wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
-                              destItemPath.c_str());
+                      safePrintLn(L"'" + utf8_to_wstring(srcItemPath) +
+                                  L"' -> '" + utf8_to_wstring(destItemPath) +
+                                  L"'");
                     }
                   }
                 } else {
                   // Destination doesn't exist, just copy
                   std::ifstream srcFile(srcItemPath, std::ios::binary);
                   if (!srcFile) {
-                    fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
-                             srcItemPath.data());
+                    std::wostringstream oss;
+                    oss << L"cp: cannot open '" << srcItemPath.data()
+                        << L"' for reading";
+                    safeErrorPrintLn(oss.str());
                     success = false;
                     continue;
                   }
                   std::ofstream destFile(destItemPath, std::ios::binary);
                   if (!destFile) {
-                    fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                             destItemPath.c_str());
+                    std::wostringstream oss;
+                    oss << L"cp: cannot open '" << destItemPath.c_str()
+                        << L"' for writing";
+                    safeErrorPrintLn(oss.str());
                     success = false;
                     continue;
                   }
                   destFile << srcFile.rdbuf();
                   if (!destFile) {
-                    fwprintf(stderr, L"cp: error writing to '%s'\n",
-                             destItemPath.c_str());
+                    std::wostringstream oss;
+                    oss << L"cp: error writing to '" << destItemPath.c_str()
+                        << L"'";
+                    safeErrorPrintLn(oss.str());
                     success = false;
                     continue;
                   }
                   if (options.get_verbose()) {
-                    wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
-                            destItemPath.c_str());
+                    safePrintLn(L"'" + utf8_to_wstring(srcItemPath) +
+                                L"' -> '" + utf8_to_wstring(destItemPath) +
+                                L"'");
                   }
                 }
               } else {
                 // Non-interactive mode, just copy
                 std::ifstream srcFile(srcItemPath, std::ios::binary);
                 if (!srcFile) {
-                  fwprintf(stderr, L"cp: cannot open '%s' for reading\n",
-                           srcItemPath.data());
+                  std::wstring wpath_str = utf8_to_wstring(srcItemPath);
+                  safeErrorPrintLn(L"cp: cannot open '" + wpath_str +
+                                   L"' for reading");
                   success = false;
                   continue;
                 }
                 std::ofstream destFile(destItemPath, std::ios::binary);
                 if (!destFile) {
-                  fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                           destItemPath.c_str());
+                  safeErrorPrintLn(L"cp: cannot open '" +
+                                   utf8_to_wstring(destItemPath) +
+                                   L"' for writing");
                   success = false;
                   continue;
                 }
                 destFile << srcFile.rdbuf();
                 if (!destFile) {
-                  fwprintf(stderr, L"cp: error writing to '%s'\n",
-                           destItemPath.c_str());
+                  std::wstring wpath_str = utf8_to_wstring(destItemPath);
+                  safeErrorPrintLn(L"cp: error writing to '" + wpath_str +
+                                   L"'");
                   success = false;
                   continue;
                 }
                 if (options.get_verbose()) {
-                  wprintf(L"'%s' -> '%s'\n", srcItemPath.data(),
-                          destItemPath.c_str());
+                  safePrintLn(L"'" + utf8_to_wstring(srcItemPath) + L"' -> '" +
+                              utf8_to_wstring(destItemPath) + L"'");
                 }
               }
-            } catch (const std::exception& e) {
-              fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n",
-                       srcItemPath.data(), destItemPath.c_str(), e.what());
+            } catch (const std::exception &e) {
+              std::wostringstream oss;
+              oss << L"cp: error copying '" << srcItemPath.data() << L"' to '"
+                  << destItemPath.c_str() << L"': " << e.what();
+              safeErrorPrintLn(oss.str());
               success = false;
             }
           }
@@ -557,13 +587,14 @@ REGISTER_COMMAND(
    * @param options cp command options
    * @return true if file was copied successfully, false on error
    */
-  auto copyFile = [](const std::string& srcPath, const std::string& destPath,
-                     const CpOptions& options) -> bool {
+  auto copyFile = [](const std::string &srcPath, const std::string &destPath,
+                     const CpOptions &options) -> bool {
     try {
       if (options.get_interactive()) {
         std::ifstream destTest(destPath);
         if (destTest.good()) {
-          wprintf(L"cp: overwrite '%s'? (y/n) ", destPath.c_str());
+          safeErrorPrint(L"cp: overwrite '" + utf8_to_wstring(destPath) +
+                         L"'? (y/n) ");
           char response;
           std::cin.get(response);
           if (response != 'y' && response != 'Y') {
@@ -573,27 +604,32 @@ REGISTER_COMMAND(
       }
       std::ifstream src(srcPath, std::ios::binary);
       if (!src) {
-        fwprintf(stderr, L"cp: cannot open '%s' for reading\n", srcPath.data());
+        safeErrorPrintLn(L"cp: cannot open '" + utf8_to_wstring(srcPath) +
+                         L"' for reading");
         return false;
       }
       std::ofstream dest(destPath, std::ios::binary);
       if (!dest) {
-        fwprintf(stderr, L"cp: cannot open '%s' for writing\n",
-                 destPath.c_str());
+        safeErrorPrintLn(L"cp: cannot open '" + utf8_to_wstring(destPath) +
+                         L"' for writing");
         return false;
       }
       dest << src.rdbuf();
       if (!dest) {
-        fwprintf(stderr, L"cp: error writing to '%s'\n", destPath.c_str());
+        safeErrorPrintLn(L"cp: error writing to '" + utf8_to_wstring(destPath) +
+                         L"'");
         return false;
       }
       if (options.get_verbose()) {
-        wprintf(L"'%s' -> '%s'\n", srcPath.data(), destPath.c_str());
+        safePrintLn(L"'" + utf8_to_wstring(srcPath) + L"' -> '" +
+                    utf8_to_wstring(destPath) + L"'");
       }
       return true;
-    } catch (const std::exception& e) {
-      fwprintf(stderr, L"cp: error copying '%s' to '%s': %s\n", srcPath.data(),
-               destPath.c_str(), e.what());
+    } catch (const std::exception &e) {
+      std::wostringstream oss;
+      oss << L"cp: error copying '" << srcPath.data() << L"' to '"
+          << destPath.c_str() << L"': " << e.what();
+      safeErrorPrintLn(oss.str());
       return false;
     }
   };
@@ -603,7 +639,7 @@ REGISTER_COMMAND(
    * @param path Path to check
    * @return true if path exists and is a directory, false otherwise
    */
-  auto pathExistsAndIsDirectory = [](const std::string& path) -> bool {
+  auto pathExistsAndIsDirectory = [](const std::string &path) -> bool {
     std::wstring wpath(path.begin(), path.end());
     DWORD attr = GetFileAttributesW(wpath.c_str());
     return (attr != INVALID_FILE_ATTRIBUTES) &&
@@ -615,7 +651,7 @@ REGISTER_COMMAND(
    * @param path Path to check
    * @return true if path exists, false otherwise
    */
-  auto pathExists = [](const std::string& path) -> bool {
+  auto pathExists = [](const std::string &path) -> bool {
     std::wstring wpath(path.begin(), path.end());
     DWORD attr = GetFileAttributesW(wpath.c_str());
     return attr != INVALID_FILE_ATTRIBUTES;
@@ -633,16 +669,20 @@ REGISTER_COMMAND(
   bool destIsDir = pathExistsAndIsDirectory(destPath);
 
   if (sourcePaths.size() > 1 && !destIsDir) {
-    fwprintf(stderr, L"cp: target '%s' is not a directory\n", destPath.c_str());
+    std::wostringstream oss;
+    oss << L"cp: target '" << destPath.c_str() << L"' is not a directory";
+    safeErrorPrintLn(oss.str());
     return 1;
   }
 
   bool success = true;
 
-  for (const auto& srcPath : sourcePaths) {
+  for (const auto &srcPath : sourcePaths) {
     if (!pathExists(srcPath)) {
-      fwprintf(stderr, L"cp: cannot stat '%s': No such file or directory\n",
-               srcPath.data());
+      std::wostringstream oss;
+      oss << L"cp: cannot stat '" << srcPath.data()
+          << L"': No such file or directory";
+      safeErrorPrintLn(oss.str());
       success = false;
       continue;
     }
@@ -668,7 +708,8 @@ REGISTER_COMMAND(
           success = false;
         }
       } else {
-        fwprintf(stderr, L"cp: omitting directory '%s'\n", srcPath.data());
+        std::wstring wpath_str = utf8_to_wstring(std::string(srcPath));
+        safeErrorPrintLn(L"cp: omitting directory '" + wpath_str + L"'");
         success = false;
       }
     } else {

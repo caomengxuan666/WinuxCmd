@@ -23,51 +23,64 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-// Use global module fragment for C standard library
+/// @contributors:
+///   - @contributor1 caomengxuan666 2507560089@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
+///   - @description:
+/// @Description: Implemention for mv.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
+
 module;
-#include <cstdio>
-#define WIN32_LEAN_AND_MEAN
-#include <shlwapi.h>
-#include <windows.h>
+#include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
 #include "core/auto_flags.h"
 #include "core/command_macros.h"
 export module commands.mv;
 
 import std;
-import core.dispatcher;
-import core.cmd_meta;
-import core.opt;
+import core;
+import utils;
 
 /**
  * @brief MV command options definition
- * 
+ *
  * This array defines all the options supported by the mv command.
  * Each option is described with its short form, long form, and description.
  * The implementation status is also indicated for each option.
- * 
+ *
  * @par Options:
  * - @a -b: Like --backup but does not accept an argument [TODO]
  * - @a -f, @a --force: Do not prompt before overwriting [IMPLEMENTED]
  * - @a -i: Prompt before overwrite [IMPLEMENTED]
  * - @a -n, @a --no-clobber: Do not overwrite an existing file [IMPLEMENTED]
- * - @a --strip-trailing-slashes: Remove any trailing slashes from each SOURCE argument [TODO]
+ * - @a --strip-trailing-slashes: Remove any trailing slashes from each SOURCE
+ * argument [TODO]
  * - @a -S, @a --suffix: Override the usual backup suffix [TODO]
- * - @a -t, @a --target-directory: Move all SOURCE arguments into DIRECTORY [IMPLEMENTED]
+ * - @a -t, @a --target-directory: Move all SOURCE arguments into DIRECTORY
+ * [IMPLEMENTED]
  * - @a -T, @a --no-target-directory: Treat DEST as a normal file [IMPLEMENTED]
- * - @a -u: Move only when the SOURCE file is newer than the destination file or when the destination file is missing [TODO]
+ * - @a -u: Move only when the SOURCE file is newer than the destination file or
+ * when the destination file is missing [TODO]
  * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
- * - @a -Z, @a --context: Set SELinux security context of destination file to default type [TODO]
+ * - @a -Z, @a --context: Set SELinux security context of destination file to
+ * default type [TODO]
  * - @a --backup: Make a backup of each existing destination file [TODO]
  * - @a --force: Do not prompt before overwriting [IMPLEMENTED]
- * - @a --interactive: Prompt according to WHEN: never, once (-I), or always (-i) [IMPLEMENTED]
+ * - @a --interactive: Prompt according to WHEN: never, once (-I), or always
+ * (-i) [IMPLEMENTED]
  * - @a --no-clobber: Do not overwrite an existing file [IMPLEMENTED]
  * - @a --suffix: Override the usual backup suffix [TODO]
- * - @a --target-directory: Move all SOURCE arguments into DIRECTORY [IMPLEMENTED]
+ * - @a --target-directory: Move all SOURCE arguments into DIRECTORY
+ * [IMPLEMENTED]
  * - @a --no-target-directory: Treat DEST as a normal file [IMPLEMENTED]
- * - @a --update: Move only when the SOURCE file is newer than the destination file or when the destination file is missing [TODO]
+ * - @a --update: Move only when the SOURCE file is newer than the destination
+ * file or when the destination file is missing [TODO]
  * - @a --verbose: Explain what is being done [IMPLEMENTED]
- * - @a --context: Set SELinux security context of destination file to default type [TODO]
+ * - @a --context: Set SELinux security context of destination file to default
+ * type [TODO]
  * - @a --help: Display this help and exit [TODO]
  * - @a --version: Output version information and exit [TODO]
  */
@@ -175,7 +188,7 @@ REGISTER_COMMAND(
             options.set_suffix(true);
             ++i;
           } else {
-            fwprintf(stderr, L"mv: option '--suffix' requires an argument\n");
+            safeErrorPrintLn(L"mv: option '--suffix' requires an argument");
             return false;
           }
         } else if (arg == "--target-directory") {
@@ -184,8 +197,8 @@ REGISTER_COMMAND(
             options.set_target_directory(true);
             ++i;
           } else {
-            fwprintf(stderr,
-                     L"mv: option '--target-directory' requires an argument\n");
+            safeErrorPrintLn(
+                L"mv: option '--target-directory' requires an argument");
             return false;
           }
         } else if (arg == "--no-target-directory") {
@@ -193,8 +206,8 @@ REGISTER_COMMAND(
         } else if (arg == "--context") {
           options.set_context(true);
         } else {
-          fwprintf(stderr, L"mv: invalid option -- '%.*s'\n",
-                   static_cast<int>(arg.size() - 2), arg.data() + 2);
+          std::wstring warg(arg.begin(), arg.end());
+          safeErrorPrintLn(L"mv: invalid option -- '" + warg.substr(2) + L"'");
           return false;
         }
       } else if (arg.starts_with('-')) {
@@ -232,8 +245,9 @@ REGISTER_COMMAND(
                   }
                   ++i;
                 } else {
-                  fwprintf(stderr, L"mv: option requires an argument -- '%c'\n",
-                           opt_char);
+                  safeErrorPrintLn(
+                      L"mv: option requires an argument -- '" +
+                      std::wstring(1, static_cast<wchar_t>(opt_char)) + L"'");
                   return false;
                 }
               } else {
@@ -271,7 +285,9 @@ REGISTER_COMMAND(
           }
 
           if (!found) {
-            fwprintf(stderr, L"mv: invalid option -- '%c'\n", opt_char);
+            safeErrorPrintLn(L"mv: invalid option -- '" +
+                             std::wstring(1, static_cast<wchar_t>(opt_char)) +
+                             L"'");
             return false;
           }
         }
@@ -283,13 +299,13 @@ REGISTER_COMMAND(
 
     if (options.get_target_directory()) {
       if (sourcePaths.empty()) {
-        fwprintf(stderr, L"mv: missing file operand\n");
+        safeErrorPrintLn(L"mv: missing file operand");
         return false;
       }
       destPath = options.get_target_dir();
     } else {
       if (sourcePaths.size() < 2) {
-        fwprintf(stderr, L"mv: missing file operand\n");
+        safeErrorPrintLn(L"mv: missing file operand");
         return false;
       }
       destPath = sourcePaths.back();
@@ -314,7 +330,8 @@ REGISTER_COMMAND(
 
       if (options.get_interactive()) {
         if (std::filesystem::exists(destFsPath)) {
-          wprintf(L"mv: overwrite '%s'? (y/n) ", destPath.c_str());
+          safeErrorPrint(L"mv: overwrite '" + utf8_to_wstring(destPath) +
+                         L"'? (y/n) ");
           char response;
           std::cin.get(response);
 
@@ -340,16 +357,21 @@ REGISTER_COMMAND(
       }
 
       if (options.get_verbose()) {
-        wprintf(L"'%s' -> '%s'\n", srcPath.data(), destPath.c_str());
+        safePrintLn(L"'" + utf8_to_wstring(srcPath) + L"' -> '" +
+                    utf8_to_wstring(destPath) + L"'");
       }
 
       return true;
     } catch (const std::filesystem::filesystem_error& e) {
-      fwprintf(stderr, L"mv: cannot move '%s' to '%s': %s\n", srcPath.data(),
-               destPath.c_str(), e.what());
+      std::wstring wsrcPath = utf8_to_wstring(srcPath);
+      std::wstring wdestPath = utf8_to_wstring(destPath);
+      std::wstring errorMsg = utf8_to_wstring(e.what());
+      safeErrorPrintLn(L"mv: cannot move '" + wsrcPath + L"' to '" + wdestPath +
+                       L"': " + errorMsg);
       return false;
     } catch (const std::exception& e) {
-      fwprintf(stderr, L"mv: error: %s\n", e.what());
+      std::wstring errorMsg = utf8_to_wstring(e.what());
+      safeErrorPrintLn(L"mv: error: " + errorMsg);
       return false;
     }
   };
@@ -388,7 +410,8 @@ REGISTER_COMMAND(
   bool destIsDir = pathExistsAndIsDirectory(destPath);
 
   if (sourcePaths.size() > 1 && !destIsDir) {
-    fwprintf(stderr, L"mv: target '%s' is not a directory\n", destPath.c_str());
+    std::wstring wdestPath = utf8_to_wstring(destPath);
+    safeErrorPrintLn(L"mv: target '" + wdestPath + L"' is not a directory");
     return 1;
   }
 
@@ -396,8 +419,9 @@ REGISTER_COMMAND(
 
   for (const auto& srcPath : sourcePaths) {
     if (!pathExists(srcPath)) {
-      fwprintf(stderr, L"mv: cannot stat '%s': No such file or directory\n",
-               srcPath.data());
+      std::wstring wpath_str = utf8_to_wstring(std::string(srcPath));
+      safeErrorPrintLn(L"mv: cannot stat '" + wpath_str +
+                       L"': No such file or directory");
       success = false;
       continue;
     }

@@ -1,3 +1,13 @@
+/// @contributors:
+///   - contributor1 caomengxuan666 2507560089@qq.com
+///   - contributor2 <email2@example.com>
+///   - contributor3 <email3@example.com>
+///   - description:
+/// @Description: Implemention for cat.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
+
 #pragma once
 #include <cstdint>
 #include <string>
@@ -22,6 +32,7 @@
   void set_##name(const std::string& value) noexcept { m_##name = value; }   \
   void set_##name(std::string_view value) noexcept { m_##name = value; }
 // Main macro: Create auto flags class
+// NOLINTBEGIN
 #define CREATE_AUTO_FLAGS_CLASS(ClassName, ...)                     \
   class ClassName {                                                 \
    private:                                                         \
@@ -62,6 +73,7 @@
     /* Custom members and flags */                                  \
     __VA_ARGS__                                                     \
   };
+// NOLINTEND
 
 // Macro for defining single flags
 #define DEFINE_FLAG(name, shift)                                      \
