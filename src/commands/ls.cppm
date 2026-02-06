@@ -197,6 +197,88 @@ CREATE_AUTO_FLAGS_CLASS(LsOptions,
 )
 // clang-format on
 
+// DEFINE_OPTION_APPLIER(apply_ls_option, LsOptions)
+//     OPTION_CASE('l', long_format)
+//     OPTION_CASE('a', show_all)
+//     OPTION_CASE('A', almost_all)
+//     OPTION_CASE('b', escape)
+//     OPTION_CASE('B', ignore_backups)
+//     OPTION_CASE('c', sort_by_ctime)
+//     OPTION_CASE('C', columns)
+//     OPTION_CASE('d', directory)
+//     OPTION_CASE('f', directory_order)
+//     OPTION_CASE('F', classify)
+//     OPTION_CASE('g', no_owner)
+//     OPTION_CASE('h', human_readable)
+//     OPTION_CASE('i', show_inode)
+//     OPTION_CASE('k', kibibytes)
+//     OPTION_CASE('L', dereference)
+//     OPTION_CASE('m', comma_separated)
+//     OPTION_CASE('n', numeric_uid_gid)
+//     OPTION_CASE('N', literal)
+//     OPTION_CASE('o', no_group)
+//     OPTION_CASE('p', indicator_slash)
+//     OPTION_CASE('q', hide_control_chars)
+//     OPTION_CASE('Q', quote_name)
+//     OPTION_CASE('r', reverse_order)
+//     OPTION_CASE('R', recursive)
+//     OPTION_CASE('s', show_size)
+//     OPTION_CASE('S', sort_by_size)
+//     OPTION_CASE('t', sort_by_time)
+//     OPTION_CASE('u', sort_by_atime)
+//     OPTION_CASE('U', no_sort)
+//     OPTION_CASE('v', natural_sort)
+//     OPTION_CASE('x', lines)
+//     OPTION_CASE('X', sort_by_extension)
+//     OPTION_CASE('Z', show_context)
+//     OPTION_CASE('1', one_per_line)
+// END_OPTION_APPLIER
+
+DEFINE_BOOL_OPTION_HANDLER(apply_ls_bool_option, LsOptions)
+    BOOL_CASE('l', long_format)
+    BOOL_CASE('a', show_all)
+    BOOL_CASE('A', almost_all)
+    BOOL_CASE('b', escape)
+    BOOL_CASE('B', ignore_backups)
+    BOOL_CASE('c', sort_by_ctime)
+    BOOL_CASE('C', columns)
+    BOOL_CASE('d', directory)
+    BOOL_CASE('f', directory_order)
+    BOOL_CASE('F', classify)
+    BOOL_CASE('g', no_owner)
+    BOOL_CASE('h', human_readable)
+    BOOL_CASE('i', show_inode)
+    BOOL_CASE('k', kibibytes)
+    BOOL_CASE('L', dereference)
+    BOOL_CASE('m', comma_separated)
+    BOOL_CASE('n', numeric_uid_gid)
+    BOOL_CASE('N', literal)
+    BOOL_CASE('o', no_group)
+    BOOL_CASE('p', indicator_slash)
+    BOOL_CASE('q', hide_control_chars)
+    BOOL_CASE('Q', quote_name)
+    BOOL_CASE('r', reverse_order)
+    BOOL_CASE('R', recursive)
+    BOOL_CASE('s', show_size)
+    BOOL_CASE('S', sort_by_size)
+    BOOL_CASE('t', sort_by_time)
+    BOOL_CASE('u', sort_by_atime)
+    BOOL_CASE('U', no_sort)
+    BOOL_CASE('v', natural_sort)
+    BOOL_CASE('x', lines)
+    BOOL_CASE('X', sort_by_extension)
+    BOOL_CASE('Z', show_context)
+    BOOL_CASE('1', one_per_line)
+END_BOOL_HANDLER
+
+// 参数选项处理器
+DEFINE_ARG_OPTION_HANDLER(apply_ls_arg_option, LsOptions)
+    ARG_CASE('T', tab_size, 1, 100)
+    ARG_CASE('w', width, 0, 10000)
+END_ARG_HANDLER
+
+DEFINE_OPTION_WRAPPER(apply_ls_option, apply_ls_bool_option, apply_ls_arg_option)
+
 REGISTER_COMMAND(
     ls,
     /* cmd_name */ "ls",
@@ -219,13 +301,13 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     LS_OPTIONS) {
-    /**
-     * @brief Parse command line options for ls
-     * @param args Command arguments
-     * @param options Output parameter for parsed options
-     * @param paths Output parameter for paths to process
-     * @return true if parsing succeeded, false on error
-     */
+    // /**
+    //  * @brief Parse command line options for ls
+    //  * @param args Command arguments
+    //  * @param options Output parameter for parsed options
+    //  * @param paths Output parameter for paths to process
+    //  * @return true if parsing succeeded, false on error
+    //  */
     auto parseLsOptions = [](std::span<std::string_view> args, LsOptions &options,
                              std::vector<std::string> &paths) -> bool {
         // Helper functions for code reuse
@@ -238,6 +320,22 @@ REGISTER_COMMAND(
                 }
             }
             return nullptr;
+        };
+
+        // auto set_boolean_option = [&options](char opt_char) {
+        //     return apply_ls_option(opt_char, options);
+        // };
+
+        // auto handle_option = [&](char opt_char, std::optional<std::string_view> arg = std::nullopt) -> bool {
+        //     if (arg) {
+        //         return apply_ls_option(opt_char, options, *arg);
+        //     } else {
+        //         return apply_ls_option(opt_char, options);
+        //     }
+        // };
+
+        auto handle_option = [&](char opt_char, std::optional<std::string_view> arg = std::nullopt) -> bool {
+            return apply_ls_option(opt_char, options, arg);
         };
 
         auto handle_arg_option = [&options](char opt_char, int value) {
@@ -257,112 +355,6 @@ REGISTER_COMMAND(
             }
         };
 
-        auto set_boolean_option = [&options](char opt_char) {
-            switch (opt_char) {
-                case 'l':
-                    options.set_long_format(true);
-                    break;
-                case 'a':
-                    options.set_show_all(true);
-                    break;
-                case 'A':
-                    options.set_almost_all(true);
-                    break;
-                case 'b':
-                    options.set_escape(true);
-                    break;
-                case 'B':
-                    options.set_ignore_backups(true);
-                    break;
-                case 'c':
-                    options.set_sort_by_ctime(true);
-                    break;
-                case 'C':
-                    options.set_columns(true);
-                    break;
-                case 'd':
-                    options.set_directory(true);
-                    break;
-                case 'f':
-                    options.set_directory_order(true);
-                    break;
-                case 'F':
-                    options.set_classify(true);
-                    break;
-                case 'g':
-                    options.set_no_owner(true);
-                    break;
-                case 'h':
-                    options.set_human_readable(true);
-                    break;
-                case 'i':
-                    options.set_show_inode(true);
-                    break;
-                case 'k':
-                    options.set_kibibytes(true);
-                    break;
-                case 'L':
-                    options.set_dereference(true);
-                    break;
-                case 'm':
-                    options.set_comma_separated(true);
-                    break;
-                case 'n':
-                    options.set_numeric_uid_gid(true);
-                    break;
-                case 'N':
-                    options.set_literal(true);
-                    break;
-                case 'o':
-                    options.set_no_group(true);
-                    break;
-                case 'p':
-                    options.set_indicator_slash(true);
-                    break;
-                case 'q':
-                    options.set_hide_control_chars(true);
-                    break;
-                case 'Q':
-                    options.set_quote_name(true);
-                    break;
-                case 'r':
-                    options.set_reverse_order(true);
-                    break;
-                case 'R':
-                    options.set_recursive(true);
-                    break;
-                case 's':
-                    options.set_show_size(true);
-                    break;
-                case 'S':
-                    options.set_sort_by_size(true);
-                    break;
-                case 't':
-                    options.set_sort_by_time(true);
-                    break;
-                case 'u':
-                    options.set_sort_by_atime(true);
-                    break;
-                case 'U':
-                    options.set_no_sort(true);
-                    break;
-                case 'v':
-                    options.set_natural_sort(true);
-                    break;
-                case 'x':
-                    options.set_lines(true);
-                    break;
-                case 'X':
-                    options.set_sort_by_extension(true);
-                    break;
-                case 'Z':
-                    options.set_show_context(true);
-                    break;
-                case '1':
-                    options.set_one_per_line(true);
-                    break;
-            }
-        };
 
         for (size_t i = 0; i < args.size(); ++i) {
             auto arg = args[i];
@@ -382,7 +374,7 @@ REGISTER_COMMAND(
                             return false;
                         }
                     } else {
-                        set_boolean_option(handler->short_opt);
+                        handle_option(handler->short_opt);
                     }
                 } else {
                     print_option_error(arg);
@@ -416,7 +408,7 @@ REGISTER_COMMAND(
                                 return false;
                             }
                         } else {
-                            set_boolean_option(opt_char);
+                            handle_option(opt_char);
                         }
                     } else {
                         print_option_error("", opt_char);

@@ -237,56 +237,40 @@ REGISTER_COMMAND(
         case 'R':
           options.set_recursive(true);
           break;
-        case 'i':
-          options.set_interactive(true);
+        OPTION_CASE('i', interactive)
           break;
-        case 'v':
-          options.set_verbose(true);
+        OPTION_CASE('v', verbose)
           break;
-        case 'a':
-          options.set_archive(true);
+        OPTION_CASE('a', archive)
           break;
-        case 'b':
-          options.set_backup(true);
+        OPTION_CASE('b', backup)
           break;
-        case 'd':
-          options.set_no_dereference(true);
+        OPTION_CASE('d', no_dereference)
           break;
-        case 'f':
-          options.set_force(true);
+        OPTION_CASE('f', force)
           break;
-        case 'H':
-          options.set_follow_symlinks(true);
+        OPTION_CASE('H', follow_symlinks)
           break;
-        case 'l':
-          options.set_hard_link(true);
+        OPTION_CASE('l', hard_link)
           break;
-        case 'L':
-          options.set_always_dereference(true);
+        OPTION_CASE('L', always_dereference)
           break;
-        case 'n':
-          options.set_no_clobber(true);
+        OPTION_CASE('n', no_clobber)
           break;
         case 'P':
           options.set_no_dereference(true);
+          break;  // Note: -P sets no_dereference, same as -d
+        OPTION_CASE('p', preserve)
           break;
-        case 'p':
-          options.set_preserve(true);
+        OPTION_CASE('s', symbolic_link)
           break;
-        case 's':
-          options.set_symbolic_link(true);
+        OPTION_CASE('T', no_target_directory)
           break;
-        case 'T':
-          options.set_no_target_directory(true);
+        OPTION_CASE('u', update)
           break;
-        case 'u':
-          options.set_update(true);
+        OPTION_CASE('x', one_file_system)
           break;
-        case 'x':
-          options.set_one_file_system(true);
-          break;
-        case 'Z':
-          options.set_selinux_context(true);
+        OPTION_CASE('Z', selinux_context)
           break;
       }
     };

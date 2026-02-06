@@ -113,3 +113,119 @@
 #undef OPTION
 #define OPTION(s, l, d) \
   cmd::meta::OptionMeta { s, l, d }
+
+// #define OPTION_CASE(opt_char, field_name) \
+// case opt_char: options.set_##field_name(true); return true;
+//
+// #define BEGIN_OPTION_SWITCH(opt_char_var, options_var) \
+// switch (opt_char_var) {
+//
+// #define END_OPTION_SWITCH \
+// default: return false; \
+// } \
+// return true;
+//
+// #define DEFINE_OPTION_APPLIER(func_name, class_name) \
+// static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
+// BEGIN_OPTION_SWITCH(opt_char, options)
+//
+// #define END_OPTION_APPLIER \
+// END_OPTION_SWITCH \
+// }
+//
+// #define DEFINE_OPTION_HANDLER(func_name, class_name) \
+// template<typename Arg = void> \
+// static __forceinline bool func_name(char opt_char, class_name &options, Arg&& arg = {}) noexcept { \
+// if constexpr (std::is_same_v<Arg, void>) { \
+// switch (opt_char) {
+//
+// #define BOOL_CASE(opt, field) \
+// case opt: options.set_##field(true); break;
+//
+// #define ARG_CASE(opt, field, min, max) \
+// case opt: \
+// if constexpr (!std::is_same_v<Arg, void>) { \
+// try { \
+// int value = std::stoi(std::string(arg)); \
+// if (value >= min && value <= max) { \
+// options.set_##field(value); \
+// return true; \
+// } \
+// } catch (...) {} \
+// return false; \
+// } \
+// break;
+//
+// #define END_OPTION_HANDLER \
+// default: \
+// return false; \
+// } \
+// return true; \
+// } \
+// }
+
+#define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name) \
+static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
+switch (opt_char) {
+
+#define BOOL_CASE(opt, field) \
+case opt: options.set_##field(true); break;
+
+#define END_BOOL_HANDLER \
+default: \
+return false; \
+} \
+return true; \
+}
+
+
+
+#define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name) \
+static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
+switch (opt_char) {
+
+#define BOOL_CASE(opt, field) \
+case opt: { options.set_##field(true); } break;
+
+#define END_BOOL_HANDLER \
+default: return false; \
+} \
+return true; \
+}
+
+#define DEFINE_ARG_OPTION_HANDLER(func_name, class_name) \
+static __forceinline bool func_name(char opt_char, class_name &options, std::string_view arg_str) noexcept { \
+bool result = false; \
+try { \
+switch (opt_char) { \
+case 0: ;
+
+#define ARG_CASE(opt, field, min, max) \
+case opt: { \
+int value = std::stoi(std::string(arg_str)); \
+if (value >= min && value <= max) { \
+options.set_##field(value); \
+result = true; \
+} \
+break; \
+}
+
+#define END_ARG_HANDLER \
+default: result = false; break; \
+} \
+} catch (...) { \
+result = false; \
+} \
+return result; \
+}
+
+#define DEFINE_OPTION_WRAPPER(wrapper_name, bool_func, arg_func) \
+template<typename... Args> \
+static __forceinline bool wrapper_name(char opt_char, auto& options, Args&&... args) noexcept { \
+if constexpr (sizeof...(Args) == 0) { \
+return bool_func(opt_char, options); \
+} else { \
+static_assert(sizeof...(Args) == 1, "Only one argument expected for option"); \
+return arg_func(opt_char, options, std::forward<Args>(args)...); \
+} \
+}

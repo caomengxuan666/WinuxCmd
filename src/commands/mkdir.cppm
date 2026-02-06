@@ -163,14 +163,11 @@ REGISTER_COMMAND(
     // Helper function to set boolean option
     auto set_boolean_option = [&options](char opt_char) {
       switch (opt_char) {
-        case 'p':
-          options.set_parents(true);
+        OPTION_CASE('p', parents)
           break;
-        case 'v':
-          options.set_verbose(true);
+        OPTION_CASE('v', verbose)
           break;
-        case 'Z':
-          options.set_selinux_context(true);
+        OPTION_CASE('Z', selinux_context)
           break;
       }
     };
