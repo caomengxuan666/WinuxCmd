@@ -168,20 +168,15 @@ REGISTER_COMMAND(
         case 'R':
           options.set_recursive(true);
           break;
-        case 'i':
-          options.set_interactive(true);
+        OPTION_CASE('i', interactive)
           break;
-        case 'f':
-          options.set_force(true);
+        OPTION_CASE('f', force)
           break;
-        case 'v':
-          options.set_verbose(true);
+        OPTION_CASE('v', verbose)
           break;
-        case 'd':
-          options.set_remove_dir(true);
+        OPTION_CASE('d', remove_dir)
           break;
-        case 'I':
-          options.set_prompt_once(true);
+        OPTION_CASE('I', prompt_once)
           break;
       }
     };

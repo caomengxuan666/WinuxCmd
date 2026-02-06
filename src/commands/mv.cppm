@@ -253,29 +253,21 @@ REGISTER_COMMAND(
               } else {
                 // Set boolean option based on opt_char
                 switch (opt_char) {
-                  case 'i':
-                    options.set_interactive(true);
+                  OPTION_CASE('i', interactive)
                     break;
-                  case 'v':
-                    options.set_verbose(true);
+                  OPTION_CASE('v', verbose)
                     break;
-                  case 'b':
-                    options.set_backup(true);
+                  OPTION_CASE('b', backup)
                     break;
-                  case 'f':
-                    options.set_force(true);
+                  OPTION_CASE('f', force)
                     break;
-                  case 'n':
-                    options.set_no_clobber(true);
+                  OPTION_CASE('n', no_clobber)
                     break;
-                  case 'T':
-                    options.set_no_target_directory(true);
+                  OPTION_CASE('T', no_target_directory)
                     break;
-                  case 'u':
-                    options.set_update(true);
+                  OPTION_CASE('u', update)
                     break;
-                  case 'Z':
-                    options.set_context(true);
+                  OPTION_CASE('Z', context)
                     break;
                 }
               }
