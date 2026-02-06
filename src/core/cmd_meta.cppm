@@ -24,8 +24,8 @@
  *  - CopyrightYear: 2026
  */
 module;
-#include <cstdio>
-export module core.cmd_meta;
+#include "pch/pch.h"
+export module core:cmd_meta;
 import std;
 
 namespace cmd::meta {
@@ -52,6 +52,7 @@ class CommandMeta {
   std::string_view m_see_also;
   std::string_view m_author;
   std::string_view m_copyright;
+  std::string_view m_brief_desc;  // Brief description for help listing
 
  public:
   // constexpr constructor
@@ -60,7 +61,8 @@ class CommandMeta {
       std::string_view description, std::array<OptionMeta, OptionCount> options,
       std::string_view examples = "", std::string_view see_also = "",
       std::string_view author = "WinuxCmd Project",
-      std::string_view copyright = "Copyright © 2026 WinuxCmd")
+      std::string_view copyright = "Copyright © 2026 WinuxCmd",
+      std::string_view brief_desc = "")
       : m_name(name),
         m_synopsis(synopsis),
         m_description(description),
@@ -68,7 +70,8 @@ class CommandMeta {
         m_examples(examples),
         m_see_also(see_also),
         m_author(author),
-        m_copyright(copyright) {}
+        m_copyright(copyright),
+        m_brief_desc(brief_desc) {}
 
   // Accessors
   constexpr std::string_view name() const { return m_name; }
@@ -80,6 +83,9 @@ class CommandMeta {
   constexpr std::string_view see_also() const { return m_see_also; }
   constexpr std::string_view author() const { return m_author; }
   constexpr std::string_view copyright() const { return m_copyright; }
+  constexpr std::string_view brief_desc() const {
+    return m_brief_desc;
+  }  // Brief description getter
 
   // Generate help text
   std::string get_help() const {
@@ -378,6 +384,8 @@ export class CommandMetaBase {
   virtual std::string get_help() const = 0;
 
   virtual std::string get_man() const = 0;
+
+  virtual std::string_view brief_desc() const = 0;
 };
 
 export template <size_t N>
@@ -390,6 +398,7 @@ class CommandMetaWrapper : public CommandMetaBase {
   std::string_view name() const override { return m_meta.name(); }
   std::string get_help() const override { return m_meta.get_help(); }
   std::string get_man() const override { return m_meta.get_man(); }
+  std::string_view brief_desc() const override { return m_meta.brief_desc(); }
 };
 
 // Type-erased runtime handle
@@ -406,6 +415,7 @@ export class CommandMetaHandle {
   std::string_view name() const { return m_ptr->name(); }
   std::string get_help() const { return m_ptr->get_help(); }
   std::string get_man() const { return m_ptr->get_man(); }
+  std::string_view brief_desc() const { return m_ptr->brief_desc(); }
 };
 
 // Registry for metadata

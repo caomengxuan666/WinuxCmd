@@ -10,9 +10,7 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 module;
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
+#include "pch/pch.h"
 export module utils:utf8;
 
 import std;

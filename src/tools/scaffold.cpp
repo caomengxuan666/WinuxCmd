@@ -30,7 +30,7 @@
 
 namespace fs = std::filesystem;
 
-std::string generateCommandModule(const std::string& cmdName) {
+std::string generateCommandModule(const std::string &cmdName) {
   std::string moduleContent = "";
   // Add Author Infomation
   moduleContent += "/// @Author: TODO: fill in your name\n";
@@ -44,19 +44,18 @@ std::string generateCommandModule(const std::string& cmdName) {
   moduleContent += "/// @License: MIT\n";
   moduleContent += "/// @Copyright: Copyright © 2026 WinuxCmd\n";
   moduleContent += "module;\n\n";
-  moduleContent += "#include <cstdio>\n";
+  moduleContent += "#include \"pch/pch.h\"\n";
   moduleContent += "#include \"core/command_macros.h\"\n";
   moduleContent += "#include \"core/auto_flags.h\"\n\n";
   moduleContent += "export module commands." + cmdName + ";\n\n";
   moduleContent += "import std;\n";
-  moduleContent += "import core.dispatcher;\n";
-  moduleContent += "import core.cmd_meta;\n";
-  moduleContent += "import core.opt;\n\n";
+  moduleContent += "import core;\n";
+  moduleContent += "import utils;\n";
   moduleContent += "namespace fs = std::filesystem;\n\n";
 
   // Convert command name to uppercase for constant name
   std::string upperCmdName = cmdName;
-  for (auto& c : upperCmdName) {
+  for (auto &c : upperCmdName) {
     c = std::toupper(c);
   }
 
@@ -127,13 +126,12 @@ std::string generateCommandModule(const std::string& cmdName) {
       "    auto print_option_error = [](std::string_view arg, char opt_char = "
       "'\\0') {\n";
   moduleContent += "      if (!arg.empty()) {\n";
-  moduleContent += "        fwprintf(stderr, L\"" + cmdName +
-                   ": invalid option -- '%.*s'\\n\",\n";
-  moduleContent +=
-      "                static_cast<int>(arg.size() - 2), arg.data() + 2);\n";
+  moduleContent += "        std::wstring warg(arg.begin(), arg.end());\n";
+  moduleContent += "        safeErrorPrintLn(L\"" + cmdName +
+                   ": invalid option -- '\" + warg.substr(2) + L\"'\");\n";
   moduleContent += "      } else {\n";
-  moduleContent += "        fwprintf(stderr, L\"" + cmdName +
-                   ": invalid option -- '%c'\\n\", opt_char);\n";
+  moduleContent += "        safeErrorPrintLn(L\"" + cmdName +
+                   ": invalid option -- '\" + std::wstring(1, opt_char) + L\"'\");\n";
   moduleContent += "      }\n";
   moduleContent += "    }\n\n";
   moduleContent += "    // Helper function to set boolean option\n";
@@ -158,8 +156,9 @@ std::string generateCommandModule(const std::string& cmdName) {
   moduleContent += "              // TODO: Handle argument options\n";
   moduleContent += "              ++i;\n";
   moduleContent += "            } else {\n";
-  moduleContent += "              fwprintf(stderr, L\"" + cmdName +
-                   ": option '%s' requires an argument\\n\", arg.data());\n";
+  moduleContent += "              std::wostringstream oss;\n";
+  moduleContent += "              oss << L\"" + cmdName + ": option '\" << arg.data() << L\"' requires an argument\";\n";
+  moduleContent += "              safeErrorPrintLn(oss.str());\n";
   moduleContent += "              return false;\n";
   moduleContent += "            }\n";
   moduleContent += "          } else {\n";
@@ -191,8 +190,9 @@ std::string generateCommandModule(const std::string& cmdName) {
   moduleContent += "                // TODO: Handle argument options\n";
   moduleContent += "                ++i;\n";
   moduleContent += "              } else {\n";
-  moduleContent += "                fwprintf(stderr, L\"" + cmdName +
-                   ": option requires an argument -- '%c'\\n\", opt_char);\n";
+  moduleContent += "                std::wostringstream oss;\n";
+  moduleContent += "                oss << L\"" + cmdName + ": option requires an argument -- '\" << opt_char << L\"'\";\n";
+  moduleContent += "                safeErrorPrintLn(oss.str());\n";
   moduleContent += "                return false;\n";
   moduleContent += "              }\n";
   moduleContent += "            } else {\n";
@@ -210,7 +210,7 @@ std::string generateCommandModule(const std::string& cmdName) {
   moduleContent += "    }\n\n";
   moduleContent += "    if (paths.empty()) {\n";
   moduleContent +=
-      "      fwprintf(stderr, L\"" + cmdName + ": missing operand\\n\");\n";
+      "      safeErrorPrintLn(L\"" + cmdName + ": missing operand\\n\");\n";
   moduleContent += "      return false;\n";
   moduleContent += "    }\n\n";
   moduleContent += "    return true;\n";
@@ -226,7 +226,7 @@ std::string generateCommandModule(const std::string& cmdName) {
   moduleContent += "  // Example: Print paths\n";
   moduleContent += "  for (const auto& path : paths) {\n";
   moduleContent += "    if (options.get_verbose()) {\n";
-  moduleContent += "      wprintf(L\"Processing: %s\\n\", path.c_str());\n";
+  moduleContent += "      safePrintLn(L\"Processing: \" + utf8_to_wstring(path));\n";
   moduleContent += "    }\n";
   moduleContent += "    // TODO: Process path\n";
   moduleContent += "  }\n\n";
@@ -236,7 +236,7 @@ std::string generateCommandModule(const std::string& cmdName) {
   return moduleContent;
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   if (argc != 2) {
     std::cerr << "Usage: " << argv[0] << " <command-name>" << std::endl;
     return 1;
@@ -289,7 +289,7 @@ int main(int argc, char* argv[]) {
   std::cout << "Next steps: " << std::endl;
   std::cout << "1. Add command logic to " << cmdName << ".cppm" << std::endl;
   std::string displayCmdName = cmdName;
-  for (auto& c : displayCmdName) {
+  for (auto &c : displayCmdName) {
     c = std::toupper(c);
   }
   std::cout << "2. Add options to " << displayCmdName << "_OPTIONS array"

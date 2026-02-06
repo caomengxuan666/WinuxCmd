@@ -23,32 +23,40 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-// Use global module fragment for C standard library
-module;
-#include <cstdio>
-#include <cwchar>
+/// @contributors:
+///   - @contributor1 caomengxuan666 2507560089@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
+///   - @description:
+/// @Description: Implemention for mkdir.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
 
+module;
 #include "core/auto_flags.h"
 #include "core/command_macros.h"
+#include "pch/pch.h"
 export module commands.mkdir;
 
 import std;
-import core.dispatcher;
-import core.cmd_meta;
-import core.opt;
-
+import core;
+import utils;
 /**
  * @brief MKDIR command options definition
- * 
+ *
  * This array defines all the options supported by the mkdir command.
  * Each option is described with its short form, long form, and description.
  * The implementation status is also indicated for each option.
- * 
+ *
  * @par Options:
  * - @a -m, @a --mode: Set file mode (as in chmod), not a=rwx - umask [TODO]
- * - @a -p, @a --parents: No error if existing, make parent directories as needed [IMPLEMENTED]
- * - @a -v, @a --verbose: Print a message for each created directory [IMPLEMENTED]
- * - @a -Z: Set SELinux security context of each created directory to the default type [TODO]
+ * - @a -p, @a --parents: No error if existing, make parent directories as
+ * needed [IMPLEMENTED]
+ * - @a -v, @a --verbose: Print a message for each created directory
+ * [IMPLEMENTED]
+ * - @a -Z: Set SELinux security context of each created directory to the
+ * default type [TODO]
  */
 constexpr auto MKDIR_OPTIONS = std::array{
     OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask"),
@@ -117,10 +125,13 @@ REGISTER_COMMAND(
     // Helper function to print option error
     auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
       if (!arg.empty()) {
-        fwprintf(stderr, L"mkdir: invalid option -- '%.*s'\n",
-                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+        std::string opt_str(arg.data() + 2, arg.size() - 2);
+        std::wstring wopt_str = utf8_to_wstring(opt_str);
+        safeErrorPrintLn(L"mkdir: invalid option -- '" + wopt_str + L"'");
       } else {
-        fwprintf(stderr, L"mkdir: invalid option -- '%c'\n", opt_char);
+        safeErrorPrintLn(L"mkdir: invalid option -- '" +
+                         std::wstring(1, static_cast<wchar_t>(opt_char)) +
+                         L"'");
       }
     };
 
@@ -141,8 +152,9 @@ REGISTER_COMMAND(
         ++i;
       } else {
         // No argument provided
-        fwprintf(stderr, L"mkdir: option requires an argument -- '%c'\n",
-                 opt_char);
+        safeErrorPrintLn(L"mkdir: option requires an argument -- '" +
+                         std::wstring(1, static_cast<wchar_t>(opt_char)) +
+                         L"'");
         return false;
       }
       return true;
@@ -178,8 +190,9 @@ REGISTER_COMMAND(
               }
               ++i;
             } else {
-              fwprintf(stderr, L"mkdir: option '%s' requires an argument\n",
-                       arg.data());
+              std::wstring warg = utf8_to_wstring(arg);
+              safeErrorPrintLn(L"mkdir: option '" + warg +
+                               L"' requires an argument");
               return false;
             }
           } else {
@@ -225,7 +238,7 @@ REGISTER_COMMAND(
     }
 
     if (paths.empty()) {
-      fwprintf(stderr, L"mkdir: missing operand\n");
+      safeErrorPrintLn(L"mkdir: missing operand");
       return false;
     }
 
@@ -245,17 +258,17 @@ REGISTER_COMMAND(
       if (options.get_parents()) {
         std::filesystem::create_directories(fsPath);
         if (options.get_verbose())
-          wprintf(L"mkdir: created directory '%ls'\n", fsPath.c_str());
+          safePrintLn(L"mkdir: created directory '" + fsPath.wstring() + L"'");
       } else {
         bool created = std::filesystem::create_directory(fsPath);
         if (created) {
           if (options.get_verbose())
-            wprintf(L"mkdir: created directory '%ls'\n", fsPath.c_str());
+            safePrintLn(L"mkdir: created directory '" + fsPath.wstring() +
+                        L"'");
         } else {
           if (std::filesystem::exists(fsPath)) {
-            fwprintf(stderr,
-                     L"mkdir: cannot create directory '%ls': File exists\n",
-                     fsPath.c_str());
+            safeErrorPrintLn(L"mkdir: cannot create directory '" +
+                             fsPath.wstring() + L"': File exists");
             return false;
           } else {
             throw std::filesystem::filesystem_error(
@@ -265,11 +278,15 @@ REGISTER_COMMAND(
       }
       return true;
     } catch (const std::filesystem::filesystem_error& e) {
-      fwprintf(stderr, L"mkdir: cannot create directory '%hs': %hs\n",
-               path.data(), e.what());
+      std::wstring wpath = utf8_to_wstring(path);
+      std::wstring errorMsg = utf8_to_wstring(e.what());
+      safeErrorPrintLn(L"mkdir: cannot create directory '" + wpath + L"': " +
+                       errorMsg);
       return false;
     } catch (const std::exception& e) {
-      fwprintf(stderr, L"mkdir: error: %hs\n", e.what());
+      std::string msg(e.what());
+      std::wstring wmsg = utf8_to_wstring(msg);
+      safeErrorPrintLn(L"mkdir: error: " + wmsg);
       return false;
     }
   };

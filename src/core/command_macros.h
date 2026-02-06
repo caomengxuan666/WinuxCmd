@@ -97,7 +97,7 @@
         std::string_view(cmd_name), std::string_view(cmd_synopsis),            \
         std::string_view(cmd_desc), options, std::string_view(examples),       \
         std::string_view(see_also), std::string_view(author),                  \
-        std::string_view(copyright));                                          \
+        std::string_view(copyright), std::string_view(cmd_synopsis));          \
   }                                                                            \
   namespace {                                                                  \
   CMD_MSG("Registering command with constexpr options: " #name)                \

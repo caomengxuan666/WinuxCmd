@@ -1,7 +1,7 @@
-export module core.opt;
+export module core:opt;
 
 import std;
-import core.cmd_meta;
+import :cmd_meta;
 
 // Option handler structure for lookup table
 export struct OptionHandler {

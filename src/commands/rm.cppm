@@ -23,40 +23,50 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-// Use global module fragment for C standard library
+/// @contributors:
+///   - @contributor1 caomengxuan666 2507560089@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
+///   - @description:
+/// @Description: Implemention for rm.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
+
 module;
-#include <cstdio>
-#include <cwchar>
-#define WIN32_LEAN_AND_MEAN
-#include <shlwapi.h>
-#include <windows.h>
+#include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
 #include "core/auto_flags.h"
 #include "core/command_macros.h"
 export module commands.rm;
 
 import std;
-import core.dispatcher;
-import core.cmd_meta;
-import core.opt;
-
+import core;
+import utils;
 /**
  * @brief RM command options definition
- * 
+ *
  * This array defines all the options supported by the rm command.
  * Each option is described with its short form, long form, and description.
  * The implementation status is also indicated for each option.
- * 
+ *
  * @par Options:
- * - @a -f, @a --force: Ignore nonexistent files and arguments, never prompt [IMPLEMENTED]
+ * - @a -f, @a --force: Ignore nonexistent files and arguments, never prompt
+ * [IMPLEMENTED]
  * - @a -i: Prompt before every removal [IMPLEMENTED]
- * - @a -I: Prompt once before removing more than three files, or when removing recursively [IMPLEMENTED]
+ * - @a -I: Prompt once before removing more than three files, or when removing
+ * recursively [IMPLEMENTED]
  * - @a -d, @a --dir: Remove empty directories [IMPLEMENTED]
- * - @a -r, @a --recursive: Remove directories and their contents recursively [IMPLEMENTED]
- * - @a -R, @a --recursive: Remove directories and their contents recursively [IMPLEMENTED]
+ * - @a -r, @a --recursive: Remove directories and their contents recursively
+ * [IMPLEMENTED]
+ * - @a -R, @a --recursive: Remove directories and their contents recursively
+ * [IMPLEMENTED]
  * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
- * - @a --interactive: Prompt according to WHEN: never, once (-I), or always (-i) [IMPLEMENTED]
- * - @a --one-file-system: When removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument [TODO]
+ * - @a --interactive: Prompt according to WHEN: never, once (-I), or always
+ * (-i) [IMPLEMENTED]
+ * - @a --one-file-system: When removing a hierarchy recursively, skip any
+ * directory that is on a file system different from that of the corresponding
+ * command line argument [TODO]
  * - @a --no-preserve-root: Do not treat '/' specially [IMPLEMENTED]
  * - @a --preserve-root: Do not remove '/' (default) [IMPLEMENTED]
  */
@@ -143,10 +153,11 @@ REGISTER_COMMAND(
     // Helper function to print option error
     auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
       if (!arg.empty()) {
-        fwprintf(stderr, L"rm: invalid option -- '%.*s'\n",
-                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+        std::wstring warg(arg.begin(), arg.end());
+        safeErrorPrintLn(L"rm: invalid option -- '" + warg.substr(2) + L"'");
       } else {
-        fwprintf(stderr, L"rm: invalid option -- '%c'\n", opt_char);
+        safeErrorPrintLn(L"rm: invalid option -- '" +
+                         std::wstring(1, opt_char) + L"'");
       }
     };
 
@@ -188,8 +199,9 @@ REGISTER_COMMAND(
               // rm command has no options that require arguments
               ++i;
             } else {
-              fwprintf(stderr, L"rm: option '%s' requires an argument\n",
-                       arg.data());
+              std::wstring warg = utf8_to_wstring(arg);
+              safeErrorPrintLn(L"rm: option '" + warg +
+                               L"' requires an argument");
               return false;
             }
           } else {
@@ -225,8 +237,9 @@ REGISTER_COMMAND(
           if (handler) {
             if (handler->requires_arg) {
               // rm command has no options that require arguments
-              fwprintf(stderr, L"rm: option requires an argument -- '%c'\n",
-                       opt_char);
+              safeErrorPrintLn(L"rm: option requires an argument -- '" +
+                               std::wstring(1, static_cast<wchar_t>(opt_char)) +
+                               L"'");
               return false;
             } else {
               set_boolean_option(opt_char);
@@ -243,7 +256,7 @@ REGISTER_COMMAND(
     }
 
     if (paths.empty()) {
-      fwprintf(stderr, L"rm: missing file operand\n");
+      safeErrorPrintLn(L"rm: missing file operand");
       return false;
     }
 
@@ -282,15 +295,15 @@ REGISTER_COMMAND(
       if (options.get_force()) {
         return true;
       } else {
-        fwprintf(stderr,
-                 L"rm: cannot remove '%hs': No such file or directory\n",
-                 path.data());
+        std::wstring wpath = utf8_to_wstring(path);
+        safeErrorPrintLn(L"rm: cannot remove '" + wpath +
+                         L"': No such file or directory");
         return false;
       }
     }
 
     if (options.get_interactive()) {
-      wprintf(L"rm: remove '%hs? (y/n) ", path.data());
+      safeErrorPrint(L"rm: remove '" + utf8_to_wstring(path) + L"'? (y/n) ");
       char response;
       std::cin.get(response);
       if (response != 'y' && response != 'Y') {
@@ -299,8 +312,8 @@ REGISTER_COMMAND(
     }
 
     if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !options.get_recursive()) {
-      fwprintf(stderr, L"rm: cannot remove '%hs': Is a directory\n",
-               path.data());
+      std::wstring wpath = utf8_to_wstring(path);
+      safeErrorPrintLn(L"rm: cannot remove '" + wpath + L"': Is a directory");
       return false;
     }
 
@@ -337,12 +350,14 @@ REGISTER_COMMAND(
                 FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0,
                                errorMsg, sizeof(errorMsg), NULL);
                 std::string itemPathStr = wstringToUtf8(itemPath);
-                fwprintf(stderr, L"rm: cannot remove file '%hs': %hs\n",
-                         itemPathStr.c_str(), errorMsg);
+                std::wstring witemPath = utf8_to_wstring(itemPathStr);
+                std::wstring werrorMsg = utf8_to_wstring(std::string(errorMsg));
+                safeErrorPrintLn(L"rm: cannot remove file '" + witemPath +
+                                 L"': " + werrorMsg);
                 success = false;
               } else if (options.get_verbose()) {
                 std::string itemPathStr = wstringToUtf8(itemPath);
-                wprintf(L"removed '%hs'\n", itemPathStr.c_str());
+                safePrintLn(L"removed '" + utf8_to_wstring(itemPathStr) + L"'");
               }
             }
           }
@@ -369,14 +384,16 @@ REGISTER_COMMAND(
           FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                          sizeof(errorMsg), NULL);
           std::string dirPathStr = wstringToUtf8(dirPath);
-          fwprintf(stderr, L"rm: cannot remove directory '%hs': %hs\n",
-                   dirPathStr.c_str(), errorMsg);
+          std::wstring wdirPath = utf8_to_wstring(dirPathStr);
+          std::wstring werrorMsg = utf8_to_wstring(std::string(errorMsg));
+          safeErrorPrintLn(L"rm: cannot remove directory '" + wdirPath +
+                           L"': " + werrorMsg);
           return false;
         }
 
         if (options.get_verbose()) {
           std::string dirPathStr = wstringToUtf8(dirPath);
-          wprintf(L"removed '%hs'\n", dirPathStr.c_str());
+          safePrintLn(L"removed '" + utf8_to_wstring(dirPathStr) + L"'");
         }
 
         return true;
@@ -392,13 +409,15 @@ REGISTER_COMMAND(
         char errorMsg[256];
         FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                        sizeof(errorMsg), NULL);
-        fwprintf(stderr, L"rm: cannot remove file '%hs': %hs\n", path.data(),
-                 errorMsg);
+        std::wstring wpath_str = utf8_to_wstring(std::string(path));
+        std::wstring werrorMsg = utf8_to_wstring(std::string(errorMsg));
+        safeErrorPrintLn(L"rm: cannot remove file '" + wpath_str + L"': " +
+                         werrorMsg);
         return false;
       }
 
       if (options.get_verbose()) {
-        wprintf(L"removed '%hs'\n", path.data());
+        safePrintLn(L"removed '" + utf8_to_wstring(path) + L"'");
       }
     }
 

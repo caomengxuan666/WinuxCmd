@@ -23,47 +23,45 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-/// @Author: TODO: fill in your name
 /// @contributors:
-///   - contributor1 caomengxuan666 2507560089@qq.com
-///   - contributor2 <email2@example.com>
-///   - contributor3 <email3@example.com>
-///   - description: 
+///   - @contributor1 caomengxuan666 2507560089@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
 /// @Description: Implemention for cat.
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
-module;
-#include <cctype>
-#include <cstdio>
 
+module;
 #include "core/auto_flags.h"
 #include "core/command_macros.h"
+#include "pch/pch.h"
 export module commands.cat;
 
 import std;
-import core.dispatcher;
-import core.cmd_meta;
-import core.opt;
-
+import core;
+import utils;
 /**
  * @brief CAT command options definition
- * 
+ *
  * This array defines all the options supported by the cat command.
  * Each option is described with its short form, long form, and description.
  * The implementation status is also indicated for each option.
- * 
+ *
  * @par Options:
  * - @a -A, @a --show-all: Equivalent to -vET [IMPLEMENTED]
- * - @a -b, @a --number-nonblank: Number nonempty output lines, overrides -n [IMPLEMENTED]
+ * - @a -b, @a --number-nonblank: Number nonempty output lines, overrides -n
+ * [IMPLEMENTED]
  * - @a -e: Equivalent to -vE [IMPLEMENTED]
  * - @a -E, @a --show-ends: Display $ at end of each line [IMPLEMENTED]
  * - @a -n, @a --number: Number all output lines [IMPLEMENTED]
- * - @a -s, @a --squeeze-blank: Suppress repeated empty output lines [IMPLEMENTED]
+ * - @a -s, @a --squeeze-blank: Suppress repeated empty output lines
+ * [IMPLEMENTED]
  * - @a -t: Equivalent to -vT [IMPLEMENTED]
  * - @a -T, @a --show-tabs: Display TAB characters as ^I [IMPLEMENTED]
  * - @a -u: (ignored, for POSIX compatibility) [IMPLEMENTED]
- * - @a -v, @a --show-nonprinting: Use ^ and M- notation, except for LFD and TAB [IMPLEMENTED]
+ * - @a -v, @a --show-nonprinting: Use ^ and M- notation, except for LFD and TAB
+ * [IMPLEMENTED]
  */
 constexpr auto CAT_OPTIONS = std::array{
     OPTION("-A", "--show-all", "equivalent to -vET"),
@@ -144,10 +142,11 @@ REGISTER_COMMAND(
     // Helper function to print option error
     auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
       if (!arg.empty()) {
-        fwprintf(stderr, L"cat: invalid option -- '%.*s'\n",
-                 static_cast<int>(arg.size() - 2), arg.data() + 2);
+        std::wstring warg(arg.begin(), arg.end());
+        safeErrorPrintLn(L"cat: invalid option -- '" + warg.substr(2) + L"'");
       } else {
-        fwprintf(stderr, L"cat: invalid option -- '%c'\n", opt_char);
+        safeErrorPrintLn(L"cat: invalid option -- '" +
+                         std::wstring(1, opt_char) + L"'");
       }
     };
 
@@ -260,34 +259,37 @@ REGISTER_COMMAND(
       if (c < 0x20) {
         // Control characters (except newline, tab, form feed)
         if (c == '\n') {
-          putwchar('\n');
+          safePrintLn(L"");  // prints '\n' in both console and pipe mode
         } else if (c == '\t') {
           if (options.get_show_tabs()) {
-            wprintf(L"^I");
+            safePrint(L"^I");
           } else {
-            putwchar('\t');
+            safePrint(L"\t");
           }
         } else if (c == '\f') {
-          wprintf(L"^L");
+          safePrint(L"^L");
         } else {
-          wprintf(L"^%c", c + 0x40);  // Convert to ^A, ^B, etc.
+          // Convert to ^A, ^B, ..., ^Z (e.g., \x01 → ^A)
+          wchar_t caret_char = static_cast<wchar_t>(c + 0x40);
+          safePrint(L"^" + std::wstring(1, caret_char));
         }
-      } else if (c == 0x7f) {
+      } else if (c == 0x7F) {
         // DEL character
-        wprintf(L"^?");
+        safePrint(L"^?");
       } else if (c >= 0x80) {
-        // Non-ASCII characters
-        wprintf(L"M-%c", c - 0x80);
+        // Non-ASCII: represent as M-x (meta notation)
+        wchar_t base_char = static_cast<wchar_t>(c - 0x80);
+        safePrint(L"M-" + std::wstring(1, base_char));
       } else {
-        // Printable ASCII characters
-        putwchar(c);
+        // Printable ASCII: output as-is
+        safePrint(std::wstring(1, static_cast<wchar_t>(c)));
       }
     } else if (options.get_show_tabs() && c == '\t') {
       // Only show tabs when requested
-      wprintf(L"^I");
+      safePrint(L"^I");
     } else {
       // Normal character output
-      putwchar(c);
+      safePrint(std::wstring(1, static_cast<wchar_t>(c)));
     }
   };
 
@@ -311,9 +313,9 @@ REGISTER_COMMAND(
 
     // Handle line numbering
     if (options.get_number_lines()) {
-      wprintf(L"%6zu  ", line_num++);
+      safePrint(std::to_wstring(line_num++) + L"      ");
     } else if (options.get_number_nonblank() && !is_empty) {
-      wprintf(L"%6zu  ", line_num++);
+      safePrint(std::to_wstring(line_num++) + L"      ");
     }
 
     // Process each character in the line
@@ -391,7 +393,8 @@ REGISTER_COMMAND(
       }
 
       if (file.bad()) {
-        fprintf(stderr, "cat: error reading '%s'\n", path.data());
+        std::wstring wpath_str = utf8_to_wstring(std::string(path));
+        safeErrorPrintLn(L"cat: error reading '" + wpath_str + L"'");
         return false;
       }
 
