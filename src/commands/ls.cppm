@@ -2,7 +2,7 @@
  *  Copyright © 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the “Software”), to
+ *  of this software and associated documentation files (the "Software"), to
  * deal in the Software without restriction, including without limitation the
  * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the Software is
@@ -11,7 +11,7 @@
  *  The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
  *
- *  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -23,64 +23,75 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-// Use global module fragment for C standard library
+/// @contributors:
+///   - @contributor1 caomengxuan666 2507560089@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
+/// @Description: Implemention for ls.
+/// @Version: 0.1.0
+/// @License: MIT
+/// @Copyright: Copyright © 2026 WinuxCmd
+
 module;
-#define NOMINMAX
-#define WIN32_LEAN_AND_MEAN
-#include <fcntl.h>
-#include <lmcons.h>
-#include <windows.h>
-
-#include <cstdio>
-
-#include "core/auto_flags.h"
 #include "core/command_macros.h"
+#include "pch/pch.h"
 
-export module commands.ls;
+export module cmd:ls;
 
 import std;
-import core.dispatcher;
-import core.cmd_meta;
-import core.opt;
+import core;
 import utils;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
 
 /**
  * @brief LS command options definition
- * 
+ *
  * This array defines all the options supported by the ls command.
  * Each option is described with its short form, long form, and description.
  * The implementation status is also indicated for each option.
- * 
+ *
  * @par Options:
  * - @a -a, @a --all: Do not ignore entries starting with . [IMPLEMENTED]
  * - @a -A, @a --almost-all: Do not list implied . and .. [IMPLEMENTED]
  * - @a -b, @a --escape: Print C-style escapes for nongraphic characters [TODO]
- * - @a -B, @a --ignore-backups: Do not list implied entries ending with ~ [TODO]
- * - @a -c: With -lt: sort by, and show, ctime; with -l: show ctime and sort by name; otherwise: sort by ctime, newest first [TODO]
+ * - @a -B, @a --ignore-backups: Do not list implied entries ending with ~
+ * [TODO]
+ * - @a -c: With -lt: sort by, and show, ctime; with -l: show ctime and sort by
+ * name; otherwise: sort by ctime, newest first [TODO]
  * - @a -C: List entries by columns [IMPLEMENTED]
- * - @a -d, @a --directory: List directories themselves, not their contents [TODO]
+ * - @a -d, @a --directory: List directories themselves, not their contents
+ * [TODO]
  * - @a -f: List all entries in directory order [TODO]
  * - @a -F, @a --classify: Append indicator (one of *=>@|) to entries [TODO]
  * - @a -g: Like -l, but do not list owner [IMPLEMENTED]
- * - @a -h, @a --human-readable: With -l and -s, print sizes like 1K 234M 2G etc. [IMPLEMENTED]
+ * - @a -h, @a --human-readable: With -l and -s, print sizes like 1K 234M 2G
+ * etc. [IMPLEMENTED]
  * - @a -i, @a --inode: Print the index number of each file [TODO]
- * - @a -k, @a --kibibytes: Default to 1024-byte blocks for file system usage [TODO]
- * - @a -L, @a --dereference: When showing file information for a symbolic link, show information for the file the link references [TODO]
+ * - @a -k, @a --kibibytes: Default to 1024-byte blocks for file system usage
+ * [TODO]
+ * - @a -L, @a --dereference: When showing file information for a symbolic link,
+ * show information for the file the link references [TODO]
  * - @a -l, @a --long-list: Use a long listing format [IMPLEMENTED]
  * - @a -m: Fill width with a comma separated list of entries [TODO]
- * - @a -n, @a --numeric-uid-gid: Like -l, but list numeric user and group IDs [TODO]
+ * - @a -n, @a --numeric-uid-gid: Like -l, but list numeric user and group IDs
+ * [TODO]
  * - @a -N, @a --literal: Print entry names without quoting [TODO]
  * - @a -o: Like -l, but do not list group information [IMPLEMENTED]
  * - @a -p, @a --indicator-style=slash: Append / indicator to directories [TODO]
- * - @a -q, @a --hide-control-chars: Print ? instead of nongraphic characters [TODO]
+ * - @a -q, @a --hide-control-chars: Print ? instead of nongraphic characters
+ * [TODO]
  * - @a -Q, @a --quote-name: Enclose entry names in double quotes [TODO]
  * - @a -r, @a --reverse: Reverse order while sorting [IMPLEMENTED]
  * - @a -R, @a --recursive: List subdirectories recursively [TODO]
  * - @a -s, @a --size: Print the allocated size of each file, in blocks [TODO]
  * - @a -S: Sort by file size, largest first [TODO]
  * - @a -t: Sort by time, newest first [TODO]
- * - @a -T, @a --tabsize: Assume tab stops at each COLS instead of 8 [IMPLEMENTED]
- * - @a -u: With -lt: sort by, and show, access time; with -l: show access time and sort by name; otherwise: sort by access time, newest first [TODO]
+ * - @a -T, @a --tabsize: Assume tab stops at each COLS instead of 8
+ * [IMPLEMENTED]
+ * - @a -u: With -lt: sort by, and show, access time; with -l: show access time
+ * and sort by name; otherwise: sort by access time, newest first [TODO]
  * - @a -U: Do not sort; list entries in directory order [TODO]
  * - @a -v: Natural sort of (version) numbers within text [TODO]
  * - @a -w, @a --width: Set output width to COLS. 0 means no limit [IMPLEMENTED]
@@ -89,7 +100,7 @@ import utils;
  * - @a -Z, @a --context: Print any security context of each file [TODO]
  * - @a -1: List one file per line [IMPLEMENTED]
  */
-constexpr auto LS_OPTIONS = std::array{
+export auto constexpr LS_OPTIONS = std::array{
     OPTION("-a", "--all", "do not ignore entries starting with ."),
     OPTION("-A", "--almost-all", "do not list implied . and .."),
     OPTION("-b", "--escape", "print C-style escapes for nongraphic characters"),
@@ -139,54 +150,732 @@ constexpr auto LS_OPTIONS = std::array{
     OPTION("-x", "", "list entries by lines instead of by columns"),
     OPTION("-X", "", "sort alphabetically by entry extension"),
     OPTION("-Z", "--context", "print any security context of each file"),
-    OPTION("-1", "", "list one file per line")};
+    OPTION("-1", "", "list one file per line")
+};
 
-// Auto-generated lookup table for options from LS_OPTIONS
-constexpr auto OPTION_HANDLERS =
-    generate_option_handlers(LS_OPTIONS, "--tabsize", "--width");
+// ======================================================
+// Constants
+// ======================================================
+namespace ls_constants {
+constexpr int DEFAULT_TAB_SIZE = 8;
+constexpr int DEFAULT_WIDTH = 0;
 
-// clang-format off
-CREATE_AUTO_FLAGS_CLASS(LsOptions,
-    DECLARE_NUMERIC_OPTION(int, tab_size, 8)
-    DECLARE_NUMERIC_OPTION(int, width, 0)
+// ANSI color codes for file types (with bold)
+constexpr const wchar_t* COLOR_DIR = L"\033[1;34m";     // Bold Blue
+constexpr const wchar_t* COLOR_LINK = L"\033[1;36m";    // Bold Cyan
+constexpr const wchar_t* COLOR_EXEC = L"\033[1;32m";    // Bold Green
+constexpr const wchar_t* COLOR_COMP = L"\033[1;31m";    // Bold Red (compressed files)
+constexpr const wchar_t* COLOR_SCRIPT = L"\033[1;33m";  // Bold Yellow (scripts)
+constexpr const wchar_t* COLOR_REG = L"\033[0m";        // Default
+constexpr const wchar_t* COLOR_END = L"\033[0m";         // Reset
+
+// File extensions for different types
+const std::array<const wchar_t*, 10> COMPRESSED_EXTS = {
+    L"zip", L"rar", L"7z", L"tar", L"gz", L"bz2", L"xz", L"iso", L"cab", L"arc"
+};
+
+const std::array<const wchar_t*, 10> SCRIPT_EXTS = {
+    L"sh", L"bat", L"cmd", L"py", L"pl", L"lua", L"js", L"php", L"rb", L"ps1"
+};
+}
+
+// ======================================================
+// Pipeline components
+// ======================================================
+namespace ls_pipeline {
+  namespace cp = core::pipeline;
+
+  /**
+   * @brief Validate arguments
+   * @param ctx Command context
+   * @return Result with paths to process
+   */
+  auto validate_arguments(const CommandContext<LS_OPTIONS.size()>& ctx) -> cp::Result<std::vector<std::string>> {
+    std::vector<std::string> paths;
+    for (auto arg : ctx.positionals) {
+      paths.push_back(std::string(arg));
+    }
     
-    // Define all flags
-    DEFINE_FLAG(long_format, 0)
-    DEFINE_FLAG(show_all, 1)
-    DEFINE_FLAG(almost_all, 2)
-    DEFINE_FLAG(escape, 3)
-    DEFINE_FLAG(ignore_backups, 4)
-    DEFINE_FLAG(sort_by_ctime, 5)
-    DEFINE_FLAG(columns, 6)
-    DEFINE_FLAG(directory, 7)
-    DEFINE_FLAG(directory_order, 8)
-    DEFINE_FLAG(classify, 9)
-    DEFINE_FLAG(no_owner, 10)
-    DEFINE_FLAG(human_readable, 11)
-    DEFINE_FLAG(show_inode, 12)
-    DEFINE_FLAG(kibibytes, 13)
-    DEFINE_FLAG(dereference, 14)
-    DEFINE_FLAG(comma_separated, 15)
-    DEFINE_FLAG(numeric_uid_gid, 16)
-    DEFINE_FLAG(literal, 17)
-    DEFINE_FLAG(no_group, 18)
-    DEFINE_FLAG(indicator_slash, 19)
-    DEFINE_FLAG(hide_control_chars, 20)
-    DEFINE_FLAG(quote_name, 21)
-    DEFINE_FLAG(reverse_order, 22)
-    DEFINE_FLAG(recursive, 23)
-    DEFINE_FLAG(show_size, 24)
-    DEFINE_FLAG(sort_by_size, 25)
-    DEFINE_FLAG(sort_by_time, 26)
-    DEFINE_FLAG(sort_by_atime, 27)
-    DEFINE_FLAG(no_sort, 28)
-    DEFINE_FLAG(natural_sort, 29)
-    DEFINE_FLAG(lines, 30)
-    DEFINE_FLAG(sort_by_extension, 31)
-    DEFINE_FLAG(show_context, 32)
-    DEFINE_FLAG(one_per_line, 33)
-)
-// clang-format on
+    if (paths.empty()) {
+      paths.push_back(".");
+    }
+    
+    return paths;
+  }
+
+  /**
+   * @brief Get file permissions string
+   * @param find_data WIN32_FIND_DATAW structure
+   * @return Permissions string in ls format
+   */
+  auto get_permissions_string(const WIN32_FIND_DATAW &find_data) -> std::wstring {
+    std::wstring perms = L"----------";
+
+    // Set file type
+    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        perms[0] = L'd';
+    } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        perms[0] = L'l';
+    } else {
+        perms[0] = L'-';
+    }
+
+    // Set permissions (simplified for Windows)
+    perms[1] = L'r'; // Owner read
+    perms[2] = L'w'; // Owner write
+    perms[3] = L'x'; // Owner execute
+    perms[4] = L'r'; // Group read
+    perms[5] = L'w'; // Group write
+    perms[6] = L'x'; // Group execute
+    perms[7] = L'r'; // Other read
+    perms[8] = L'w'; // Other write
+    perms[9] = L'x'; // Other execute
+
+    return perms;
+  }
+
+  /**
+   * @brief Get file size string
+   * @param find_data WIN32_FIND_DATAW structure
+   * @param ctx Command context
+   * @return File size string
+   */
+  auto get_file_size_string(const WIN32_FIND_DATAW &find_data,
+                            const CommandContext<LS_OPTIONS.size()> &ctx) -> std::wstring {
+    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        return L"";
+    }
+
+    // Calculate file size
+    uint64_t fileSize = static_cast<uint64_t>(find_data.nFileSizeLow) |
+                        (static_cast<uint64_t>(find_data.nFileSizeHigh) << 32);
+
+    if (ctx.get<bool>("-h", false) || ctx.get<bool>("--human-readable", false)) {
+        const wchar_t *units[] = {L"B", L"K", L"M", L"G", L"T"};
+        int unitIndex = 0;
+        double size = static_cast<double>(fileSize);
+
+        while (size >= 1024.0 && unitIndex < 4) {
+            size /= 1024.0;
+            ++unitIndex;
+        }
+
+        std::wostringstream oss;
+        if (size < 10.0) {
+            oss << std::fixed << std::setprecision(1) << size << units[unitIndex];
+        } else {
+            oss << std::fixed << std::setprecision(0) << size << units[unitIndex];
+        }
+        return oss.str();
+    } else {
+        std::wostringstream oss;
+        oss << fileSize;
+        return oss.str();
+    }
+  }
+
+  /**
+   * @brief Get file modification time string
+   * @param find_data WIN32_FIND_DATAW structure
+   * @return Modification time string
+   */
+  auto get_modification_time_string(const WIN32_FIND_DATAW &find_data) -> std::wstring {
+    SYSTEMTIME st;
+    FileTimeToSystemTime(&find_data.ftLastWriteTime, &st);
+
+    // Month abbreviations
+    const wchar_t *month_abbrs[] = {
+        L"", L"Jan", L"Feb", L"Mar", L"Apr",
+        L"May", L"Jun", L"Jul", L"Aug", L"Sep",
+        L"Oct", L"Nov", L"Dec"
+    };
+
+    // Use wostringstream for consistency
+    std::wostringstream oss;
+    oss << month_abbrs[st.wMonth] << L" ";
+    if (st.wDay < 10) {
+        oss << L" ";
+    }
+    oss << st.wDay << L" " << std::setfill(L'0') << std::setw(2) << st.wHour
+            << L":" << std::setw(2) << st.wMinute;
+
+    return oss.str();
+  }
+
+  /**
+   * @brief Get file owner and group information
+   * @return Pair of (owner, group) strings
+   */
+  auto get_file_owner_and_group() -> std::pair<std::wstring, std::wstring> {
+    wchar_t username[UNLEN + 1];
+    DWORD username_len = UNLEN + 1;
+    if (!GetUserNameW(username, &username_len)) {
+        return {L"user", L"group"};
+    }
+
+    std::wstring username_str = username;
+
+    // Extract only username part from DOMAIN\USER
+    size_t pos = username_str.find(L'\\');
+    if (pos != std::wstring::npos) {
+        username_str = username_str.substr(pos + 1);
+    }
+
+    // On Windows, group name is same as username for now
+    return {username_str, username_str};
+  }
+
+  /**
+   * @brief Get terminal width
+   * @return Terminal width in columns
+   */
+  auto get_terminal_width() -> int {
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
+        return csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    }
+    return 80; // Default to 80 columns if we can't get terminal width
+  }
+
+  /**
+   * @brief Get string display width (simplified, assumes 1 character = 1 column)
+   * @param str String to measure
+   * @return Display width in columns
+   */
+  auto string_display_width(const std::wstring &str) -> size_t {
+    return str.length();
+  }
+
+  /**
+   * @brief Calculate optimal column layout
+   * @param entries List of entries
+   * @param terminal_width Terminal width in columns
+   * @return Number of columns and number of rows
+   */
+  auto calculate_layout(const std::vector<std::wstring> &entries, int terminal_width) -> std::pair<int, int> {
+    if (entries.empty()) {
+        return {0, 0};
+    }
+
+    // Find the longest entry display width
+    size_t max_display_width = 0;
+    for (const auto &entry : entries) {
+        max_display_width = std::max(max_display_width, string_display_width(entry));
+    }
+
+    // Minimum column width = max display width + 2 spaces padding
+    int min_column_width = static_cast<int>(max_display_width) + 2;
+    if (min_column_width <= 0) {
+        min_column_width = 1;
+    }
+
+    // Calculate maximum possible columns with minimum width
+    int max_cols = terminal_width / min_column_width;
+    if (max_cols < 1) {
+        max_cols = 1;
+    }
+
+    // Try to find optimal column width that fills the terminal
+    int best_cols = max_cols;
+    int best_column_width = min_column_width;
+
+    // If we can fit more than 1 column, try to adjust column width to fill the screen
+    if (max_cols > 1) {
+        // Calculate how much space is left with minimum column width
+        int remaining_space = terminal_width % min_column_width;
+        
+        // If there's remaining space, distribute it among columns
+        if (remaining_space > 0) {
+            // Calculate how much extra space per column
+            int extra_per_column = remaining_space / max_cols;
+            
+            // New column width with extra space
+            int new_column_width = min_column_width + extra_per_column;
+            
+            // Calculate new number of columns with adjusted width
+            int new_cols = terminal_width / new_column_width;
+            if (new_cols > 0) {
+                best_cols = new_cols;
+                best_column_width = new_column_width;
+            }
+        }
+    }
+
+    // Calculate number of rows
+    int rows = (entries.size() + best_cols - 1) / best_cols;
+
+    return {best_cols, rows};
+  }
+
+  /**
+   * @brief Print entries in column format
+   * @param entries List of entries
+   * @param ctx Command context
+   * @param base_path Base path for the entries
+   */
+  auto print_columns(const std::vector<std::wstring> &entries, const CommandContext<LS_OPTIONS.size()> &ctx, const std::wstring &base_path) {
+    if (entries.empty()) {
+        return;
+    }
+
+    // Get terminal width or use specified width
+    int width = ctx.get<int>("-w", 0) || ctx.get<int>("--width", 0);
+    if (width <= 0) {
+        width = get_terminal_width();
+    }
+
+    // Calculate layout
+    auto [cols, rows] = calculate_layout(entries, width);
+
+    // Calculate column widths to fill the terminal
+    size_t max_display_width = 0;
+    for (const auto &entry : entries) {
+        max_display_width = std::max(max_display_width, string_display_width(entry));
+    }
+
+    // Calculate base column width
+    int base_col_width = static_cast<int>(max_display_width) + 2;
+    if (base_col_width <= 0) {
+        base_col_width = 1;
+    }
+
+    // Calculate total width used by all columns
+    int total_used_width = cols * base_col_width;
+    int remaining_space = width - total_used_width;
+
+    // Distribute remaining space among columns
+    std::vector<int> col_widths(cols, base_col_width);
+    if (remaining_space > 0 && cols > 0) {
+        int extra_per_col = remaining_space / cols;
+        int extra_remaining = remaining_space % cols;
+        
+        for (int i = 0; i < cols; ++i) {
+            col_widths[i] += extra_per_col;
+            if (i < extra_remaining) {
+                col_widths[i] += 1;
+            }
+        }
+    }
+
+    // Calculate maximum display width for each column
+    std::vector<size_t> col_max_widths(cols, 0);
+    for (int col = 0; col < cols; ++col) {
+        for (int row = 0; row < rows; ++row) {
+            size_t idx = row + col * rows;
+            if (idx < entries.size()) {
+                col_max_widths[col] = std::max(col_max_widths[col], string_display_width(entries[idx]));
+            }
+        }
+    }
+
+    // Print entries in columns
+    for (int row = 0; row < rows; ++row) {
+        for (int col = 0; col < cols; ++col) {
+            size_t index = row + col * rows;
+            if (index < entries.size()) {
+                const auto &entry = entries[index];
+                
+                // Get file type and apply color
+                std::wstring path = base_path + L"\\" + entry;
+                WIN32_FIND_DATAW find_data;
+                HANDLE hFind = FindFirstFileW(path.c_str(), &find_data);
+                
+                if (hFind != INVALID_HANDLE_VALUE) {
+                    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                        safePrint(ls_constants::COLOR_DIR);
+                    } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+                        safePrint(ls_constants::COLOR_LINK);
+                    } else {
+                        // Check file extensions for different types
+                        std::wstring ext;
+                        size_t dot_pos = entry.find_last_of(L".");
+                        if (dot_pos != std::wstring::npos && dot_pos < entry.length() - 1) {
+                            ext = entry.substr(dot_pos + 1);
+                            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                        }
+                        
+                        // Check for compressed files
+                        bool is_compressed = false;
+                        for (const auto* comp_ext : ls_constants::COMPRESSED_EXTS) {
+                            if (ext == comp_ext) {
+                                is_compressed = true;
+                                break;
+                            }
+                        }
+                        
+                        // Check for script files
+                        bool is_script = false;
+                        for (const auto* script_ext : ls_constants::SCRIPT_EXTS) {
+                            if (ext == script_ext) {
+                                is_script = true;
+                                break;
+                            }
+                        }
+                        
+                        // Check for executable files
+                        bool is_executable = false;
+                        if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" || ext == L"ps1") {
+                            is_executable = true;
+                        }
+                        
+                        // Apply color based on file type
+                        if (is_compressed) {
+                            safePrint(ls_constants::COLOR_COMP);
+                        } else if (is_script) {
+                            safePrint(ls_constants::COLOR_SCRIPT);
+                        } else if (is_executable) {
+                            safePrint(ls_constants::COLOR_EXEC);
+                        } else {
+                            safePrint(ls_constants::COLOR_REG);
+                        }
+                    }
+                    FindClose(hFind);
+                }
+                
+                // Print entry
+                safePrint(entry);
+                safePrint(ls_constants::COLOR_END);
+                
+                // Add spacing
+                if (col < cols - 1) {
+                    // Use calculated column width for spacing
+                    size_t current_width = string_display_width(entry);
+                    int spaces_needed = col_widths[col] - static_cast<int>(current_width);
+                    if (spaces_needed > 0) {
+                        for (int i = 0; i < spaces_needed; ++i) {
+                            safePrint(L" ");
+                        }
+                    } else {
+                        // At least 2 spaces between columns
+                        safePrint(L"  ");
+                    }
+                }
+            }
+        }
+        safePrintLn(L"");
+    }
+  }
+
+  /**
+   * @brief List directory contents
+   * @param path Path to directory
+   * @param ctx Command context
+   * @return Result with success status
+   */
+  auto list_directory(const std::string &path, const CommandContext<LS_OPTIONS.size()> &ctx) -> cp::Result<bool> {
+    try {
+        std::wstring wpath = utf8_to_wstring(path);
+        std::wstring search_path = wpath + L"\\*";
+
+        WIN32_FIND_DATAW find_data;
+        HANDLE hFind = FindFirstFileW(search_path.c_str(), &find_data);
+
+        if (hFind == INVALID_HANDLE_VALUE) {
+            return std::unexpected("cannot access '" + path + "': No such file or directory");
+        }
+
+        std::vector<std::wstring> entries;
+        do {
+            std::wstring filename = find_data.cFileName;
+            
+            // Skip . and .. unless show_all is set
+            if (filename == L"." || filename == L"..") {
+                if (!ctx.get<bool>("-a", false) && !ctx.get<bool>("--all", false)) {
+                    continue;
+                }
+            }
+            // Skip hidden files unless show_all or almost_all is set
+            else if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) && 
+                     !ctx.get<bool>("-a", false) && !ctx.get<bool>("--all", false) && 
+                     !ctx.get<bool>("-A", false) && !ctx.get<bool>("--almost-all", false)) {
+                continue;
+            }
+
+            entries.push_back(filename);
+        } while (FindNextFileW(hFind, &find_data) != 0);
+
+        FindClose(hFind);
+
+        // Sort entries
+        bool no_sort = ctx.get<bool>("-U", false);
+        if (!no_sort) {
+            std::sort(entries.begin(), entries.end());
+            if (ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false)) {
+                std::reverse(entries.begin(), entries.end());
+            }
+        }
+
+        // Determine output format
+        bool long_format = ctx.get<bool>("-l", false) || ctx.get<bool>("--long-list", false);
+        bool one_per_line = ctx.get<bool>("-1", false);
+        bool columns = ctx.get<bool>("-C", false);
+
+        if (long_format) {
+            // FileInfo struct for storing file information
+            struct FileInfo {
+                std::wstring name;
+                WIN32_FIND_DATAW find_data;
+                std::wstring perms;
+                std::wstring size;
+                std::wstring mtime;
+                std::wstring owner;
+                std::wstring group;
+            };
+
+            // Collect file information
+            std::vector<FileInfo> files;
+            for (const auto &entry : entries) {
+                std::wstring full_path = wpath + L"\\" + entry;
+                WIN32_FIND_DATAW entry_data;
+                HANDLE hEntry = FindFirstFileW(full_path.c_str(), &entry_data);
+                if (hEntry != INVALID_HANDLE_VALUE) {
+                    FileInfo info;
+                    info.name = entry;
+                    info.find_data = entry_data;
+                    info.perms = get_permissions_string(entry_data);
+                    info.size = get_file_size_string(entry_data, ctx);
+                    info.mtime = get_modification_time_string(entry_data);
+                    
+                    // Get owner and group
+                    auto [owner, group] = get_file_owner_and_group();
+                    info.owner = owner;
+                    info.group = group;
+                    
+                    files.push_back(info);
+                    FindClose(hEntry);
+                }
+            }
+
+            // Calculate maximum widths for alignment
+            size_t max_owner_len = 0;
+            size_t max_group_len = 0;
+            size_t max_size_len = 0;
+            for (const auto &file : files) {
+                max_owner_len = std::max(max_owner_len, file.owner.length());
+                max_group_len = std::max(max_group_len, file.group.length());
+                max_size_len = std::max(max_size_len, file.size.length());
+            }
+
+            // Set minimum widths to avoid empty values
+            if (max_owner_len == 0) max_owner_len = 1;
+            if (max_group_len == 0) max_group_len = 1;
+            if (max_size_len == 0) max_size_len = 1;
+
+            // Long format output
+            for (const auto &file_info : files) {
+                // 1. Permissions and link count
+                safePrint(file_info.perms);
+                safePrint(L" ");
+                safePrint(L"1"); // Windows always has 1 link
+                safePrint(L" ");
+
+                // 2. Owner (left-aligned)
+                safePrint(file_info.owner);
+                int owner_padding = static_cast<int>(max_owner_len) - static_cast<int>(file_info.owner.length());
+                for (int i = 0; i < owner_padding; i++) {
+                    safePrint(L" ");
+                }
+                safePrint(L" ");
+
+                // 3. Group (left-aligned)
+                safePrint(file_info.group);
+                int group_padding = static_cast<int>(max_group_len) - static_cast<int>(file_info.group.length());
+                for (int i = 0; i < group_padding; i++) {
+                    safePrint(L" ");
+                }
+                safePrint(L" ");
+
+                // 4. File size (right-aligned)
+                int size_padding = static_cast<int>(max_size_len) - static_cast<int>(file_info.size.length());
+                for (int i = 0; i < size_padding; i++) {
+                    safePrint(L" ");
+                }
+                safePrint(file_info.size);
+                safePrint(L" ");
+
+                // 5. Modification time
+                safePrint(file_info.mtime);
+                safePrint(L" ");
+
+                // 6. Filename with color
+                if (file_info.find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                    safePrint(ls_constants::COLOR_DIR);
+                } else if (file_info.find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+                    safePrint(ls_constants::COLOR_LINK);
+                } else {
+                    // Check file extensions for different types
+                    std::wstring ext;
+                    size_t dot_pos = file_info.name.find_last_of(L".");
+                    if (dot_pos != std::wstring::npos && dot_pos < file_info.name.length() - 1) {
+                        ext = file_info.name.substr(dot_pos + 1);
+                        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                    }
+                    
+                    // Check for compressed files
+                    bool is_compressed = false;
+                    for (const auto* comp_ext : ls_constants::COMPRESSED_EXTS) {
+                        if (ext == comp_ext) {
+                            is_compressed = true;
+                            break;
+                        }
+                    }
+                    
+                    // Check for script files
+                    bool is_script = false;
+                    for (const auto* script_ext : ls_constants::SCRIPT_EXTS) {
+                        if (ext == script_ext) {
+                            is_script = true;
+                            break;
+                        }
+                    }
+                    
+                    // Check for executable files
+                    bool is_executable = false;
+                    if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" || ext == L"ps1") {
+                        is_executable = true;
+                    }
+                    
+                    // Apply color based on file type
+                    if (is_compressed) {
+                        safePrint(ls_constants::COLOR_COMP);
+                    } else if (is_script) {
+                        safePrint(ls_constants::COLOR_SCRIPT);
+                    } else if (is_executable) {
+                        safePrint(ls_constants::COLOR_EXEC);
+                    } else {
+                        safePrint(ls_constants::COLOR_REG);
+                    }
+                }
+                safePrint(file_info.name);
+                safePrint(ls_constants::COLOR_END);
+                safePrintLn(L"");
+            }
+        } else if (one_per_line) {
+            // One entry per line
+            for (const auto &entry : entries) {
+                std::wstring full_path = wpath + L"\\" + entry;
+                WIN32_FIND_DATAW entry_data;
+                HANDLE hEntry = FindFirstFileW(full_path.c_str(), &entry_data);
+                
+                if (hEntry != INVALID_HANDLE_VALUE) {
+                    // Apply color based on file type
+                    if (entry_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                        safePrint(ls_constants::COLOR_DIR);
+                    } else if (entry_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+                        safePrint(ls_constants::COLOR_LINK);
+                    } else {
+                        // Check file extensions for different types
+                        std::wstring ext;
+                        size_t dot_pos = entry.find_last_of(L".");
+                        if (dot_pos != std::wstring::npos && dot_pos < entry.length() - 1) {
+                            ext = entry.substr(dot_pos + 1);
+                            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                        }
+                        
+                        // Check for compressed files
+                        bool is_compressed = false;
+                        for (const auto* comp_ext : ls_constants::COMPRESSED_EXTS) {
+                            if (ext == comp_ext) {
+                                is_compressed = true;
+                                break;
+                            }
+                        }
+                        
+                        // Check for script files
+                        bool is_script = false;
+                        for (const auto* script_ext : ls_constants::SCRIPT_EXTS) {
+                            if (ext == script_ext) {
+                                is_script = true;
+                                break;
+                            }
+                        }
+                        
+                        // Check for executable files
+                        bool is_executable = false;
+                        if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" || ext == L"ps1") {
+                            is_executable = true;
+                        }
+                        
+                        // Apply color based on file type
+                        if (is_compressed) {
+                            safePrint(ls_constants::COLOR_COMP);
+                        } else if (is_script) {
+                            safePrint(ls_constants::COLOR_SCRIPT);
+                        } else if (is_executable) {
+                            safePrint(ls_constants::COLOR_EXEC);
+                        } else {
+                            safePrint(ls_constants::COLOR_REG);
+                        }
+                    }
+                    
+                    safePrint(entry);
+                    safePrint(ls_constants::COLOR_END);
+                    safePrintLn(L"");
+                    
+                    FindClose(hEntry);
+                }
+            }
+        } else {
+            // Column format
+            print_columns(entries, ctx, wpath);
+        }
+
+        return true;
+    } catch (const std::exception& e) {
+        return std::unexpected(std::string("error: ") + e.what());
+    }
+  }
+
+  /**
+   * @brief Process all paths
+   * @param paths Paths to process
+   * @param ctx Command context
+   * @return Result with success status
+   */
+  auto process_paths(const std::vector<std::string> &paths, const CommandContext<LS_OPTIONS.size()> &ctx) -> cp::Result<bool> {
+    bool success = true;
+    for (size_t i = 0; i < paths.size(); ++i) {
+        const auto& path = paths[i];
+        
+        // Print path header if multiple paths
+        if (paths.size() > 1) {
+            safePrintLn(std::wstring(path.begin(), path.end()) + L":");
+        }
+        
+        auto result = list_directory(path, ctx);
+        if (!result) {
+            return std::unexpected(result.error());
+        }
+        if (!*result) {
+            success = false;
+        }
+        
+        // Add newline between paths
+        if (i < paths.size() - 1) {
+            safePrintLn(L"");
+        }
+    }
+    return success;
+  }
+
+  /**
+   * @brief Main pipeline
+   * @param ctx Command context
+   * @return Result with success status
+   */
+  template<size_t N>
+  auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
+    return validate_arguments(ctx)
+        .and_then([&](const std::vector<std::string>& paths) {
+            return process_paths(paths, ctx);
+        });
+  }
+
+} // namespace ls_pipeline
+
+// ======================================================
+// Command registration
+// ======================================================
 
 REGISTER_COMMAND(
     ls,
@@ -210,664 +899,14 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     LS_OPTIONS) {
-  /**
-   * @brief Parse command line options for ls
-   * @param args Command arguments
-   * @param options Output parameter for parsed options
-   * @param paths Output parameter for paths to process
-   * @return true if parsing succeeded, false on error
-   */
-  auto parseLsOptions = [](std::span<std::string_view> args, LsOptions &options,
-                           std::vector<std::string> &paths) -> bool {
-    // Helper functions for code reuse
-    auto find_handler = [](std::string_view arg,
-                           char opt_char = '\0') -> const OptionHandler * {
-      for (const auto &handler : OPTION_HANDLERS) {
-        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
-            (opt_char && handler.short_opt == opt_char)) {
-          return &handler;
-        }
-      }
-      return nullptr;
-    };
+  using namespace ls_pipeline;
+  using namespace core::pipeline;
 
-    auto handle_arg_option = [&options](char opt_char, int value) {
-      if (opt_char == 'T')
-        options.set_tab_size(value);
-      else if (opt_char == 'w')
-        options.set_width(value);
-    };
-
-    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
-      if (!arg.empty()) {
-        std::wstring warg(arg.begin(), arg.end());
-        fwprintf(stderr, L"ls: invalid option -- '%ls'\n", warg.c_str() + 2);
-      } else {
-        fwprintf(stderr, L"ls: invalid option -- '%c'\n", opt_char);
-      }
-    };
-
-    auto set_boolean_option = [&options](char opt_char) {
-      switch (opt_char) {
-        case 'l':
-          options.set_long_format(true);
-          break;
-        case 'a':
-          options.set_show_all(true);
-          break;
-        case 'A':
-          options.set_almost_all(true);
-          break;
-        case 'b':
-          options.set_escape(true);
-          break;
-        case 'B':
-          options.set_ignore_backups(true);
-          break;
-        case 'c':
-          options.set_sort_by_ctime(true);
-          break;
-        case 'C':
-          options.set_columns(true);
-          break;
-        case 'd':
-          options.set_directory(true);
-          break;
-        case 'f':
-          options.set_directory_order(true);
-          break;
-        case 'F':
-          options.set_classify(true);
-          break;
-        case 'g':
-          options.set_no_owner(true);
-          break;
-        case 'h':
-          options.set_human_readable(true);
-          break;
-        case 'i':
-          options.set_show_inode(true);
-          break;
-        case 'k':
-          options.set_kibibytes(true);
-          break;
-        case 'L':
-          options.set_dereference(true);
-          break;
-        case 'm':
-          options.set_comma_separated(true);
-          break;
-        case 'n':
-          options.set_numeric_uid_gid(true);
-          break;
-        case 'N':
-          options.set_literal(true);
-          break;
-        case 'o':
-          options.set_no_group(true);
-          break;
-        case 'p':
-          options.set_indicator_slash(true);
-          break;
-        case 'q':
-          options.set_hide_control_chars(true);
-          break;
-        case 'Q':
-          options.set_quote_name(true);
-          break;
-        case 'r':
-          options.set_reverse_order(true);
-          break;
-        case 'R':
-          options.set_recursive(true);
-          break;
-        case 's':
-          options.set_show_size(true);
-          break;
-        case 'S':
-          options.set_sort_by_size(true);
-          break;
-        case 't':
-          options.set_sort_by_time(true);
-          break;
-        case 'u':
-          options.set_sort_by_atime(true);
-          break;
-        case 'U':
-          options.set_no_sort(true);
-          break;
-        case 'v':
-          options.set_natural_sort(true);
-          break;
-        case 'x':
-          options.set_lines(true);
-          break;
-        case 'X':
-          options.set_sort_by_extension(true);
-          break;
-        case 'Z':
-          options.set_show_context(true);
-          break;
-        case '1':
-          options.set_one_per_line(true);
-          break;
-      }
-    };
-
-    for (size_t i = 0; i < args.size(); ++i) {
-      auto arg = args[i];
-
-      if (arg.starts_with("--")) {
-        // This is a long option
-        if (const auto *handler = find_handler(arg)) {
-          if (handler->requires_arg) {
-            if (i + 1 < args.size()) {
-              handle_arg_option(handler->short_opt,
-                                std::stoi(std::string(args[i + 1])));
-              ++i;
-            } else {
-              std::wstring warg(arg.begin(), arg.end());
-              fwprintf(stderr, L"ls: option '%ls' requires an argument\n",
-                       warg.c_str());
-              return false;
-            }
-          } else {
-            set_boolean_option(handler->short_opt);
-          }
-        } else {
-          print_option_error(arg);
-          return false;
-        }
-      } else if (arg.starts_with('-')) {
-        // This is a short option
-        if (arg == "-") {
-          // Single dash, treat as path
-          paths.push_back(std::string(arg));
-          continue;
-        }
-
-        // Process option characters
-        for (size_t j = 1; j < arg.size(); ++j) {
-          char opt_char = arg[j];
-          if (const auto *handler = find_handler("", opt_char)) {
-            if (handler->requires_arg) {
-              if (j + 1 < arg.size()) {
-                handle_arg_option(opt_char,
-                                  std::stoi(std::string(arg.substr(j + 1))));
-                j = arg.size() - 1;
-              } else if (i + 1 < args.size()) {
-                handle_arg_option(opt_char,
-                                  std::stoi(std::string(args[i + 1])));
-                ++i;
-                break;
-              } else {
-                fwprintf(stderr, L"ls: option requires an argument -- '%c'\n",
-                         opt_char);
-                return false;
-              }
-            } else {
-              set_boolean_option(opt_char);
-            }
-          } else {
-            print_option_error("", opt_char);
-            return false;
-          }
-        }
-      } else {
-        // This is a path - add as a separate path
-        paths.push_back(std::string(arg));
-      }
-    }
-
-    // Default to current directory if no paths specified
-    if (paths.empty()) {
-      paths.push_back(".");
-    }
-
-    return true;
-  };
-
-  /**
-   * @brief Get file permissions string
-   * @param find_data WIN32_FIND_DATAW structure
-   * @return Permissions string in ls format
-   */
-  auto getPermissionsString =
-      [](const WIN32_FIND_DATAW &find_data) -> std::wstring {
-    std::wstring perms = L"----------";
-
-    // Set file type
-    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-      perms[0] = L'd';
-    } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-      perms[0] = L'l';
-    } else {
-      perms[0] = L'-';
-    }
-
-    // Set permissions (simplified for Windows)
-    perms[1] = L'r';  // Owner read
-    perms[2] = L'w';  // Owner write
-    perms[3] = L'x';  // Owner execute
-    perms[4] = L'r';  // Group read
-    perms[5] = L'w';  // Group write
-    perms[6] = L'x';  // Group execute
-    perms[7] = L'r';  // Other read
-    perms[8] = L'w';  // Other write
-    perms[9] = L'x';  // Other execute
-
-    return perms;
-  };
-
-  /**
-   * @brief Get file size string
-   * @param find_data WIN32_FIND_DATAW structure
-   * @param options ls command options
-   * @return File size string
-   */
-  auto getFileSizeString = [](const WIN32_FIND_DATAW &find_data,
-                              const LsOptions &options) -> std::wstring {
-    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-      return L"";  // Empty string for directories
-    }
-
-    // Calculate file size
-    uint64_t fileSize = static_cast<uint64_t>(find_data.nFileSizeLow) |
-                        (static_cast<uint64_t>(find_data.nFileSizeHigh) << 32);
-
-    if (options.get_human_readable()) {
-      // Human-readable format - use std::wostringstream for safety
-      const wchar_t *units[] = {L"B", L"K", L"M", L"G", L"T"};
-      int unitIndex = 0;
-      double size = static_cast<double>(fileSize);
-
-      while (size >= 1024.0 && unitIndex < 4) {
-        size /= 1024.0;
-        unitIndex++;
-      }
-
-      // Use string stream for formatting
-      std::wostringstream oss;
-      if (size < 10.0) {
-        oss << std::fixed << std::setprecision(1) << size << units[unitIndex];
-      } else {
-        oss << std::fixed << std::setprecision(0) << size << units[unitIndex];
-      }
-      return oss.str();
-    } else {
-      // Regular format - use string stream
-      std::wostringstream oss;
-      oss << fileSize;
-      return oss.str();
-    }
-  };
-
-  /**
-   * @brief Get file modification time string
-   * @param find_data WIN32_FIND_DATAW structure
-   * @return Modification time string
-   */
-  auto getModificationTimeString =
-      [](const WIN32_FIND_DATAW &find_data) -> std::wstring {
-    SYSTEMTIME st;
-    FileTimeToSystemTime(&find_data.ftLastWriteTime, &st);
-
-    // Month abbreviations
-    const wchar_t *month_abbrs[] = {L"",    L"Jan", L"Feb", L"Mar", L"Apr",
-                                    L"May", L"Jun", L"Jul", L"Aug", L"Sep",
-                                    L"Oct", L"Nov", L"Dec"};
-
-    // Use wostringstream for consistency
-    std::wostringstream oss;
-    oss << month_abbrs[st.wMonth] << L" ";
-    if (st.wDay < 10) {
-      oss << L" ";
-    }
-    oss << st.wDay << L" " << std::setfill(L'0') << std::setw(2) << st.wHour
-        << L":" << std::setw(2) << st.wMinute;
-
-    return oss.str();
-  };
-
-  /**
-   * @brief Get file owner and group information
-   * @return Pair of (owner, group) strings
-   */
-  auto getFileOwnerAndGroup = []() -> std::pair<std::wstring, std::wstring> {
-    wchar_t username[UNLEN + 1];
-    DWORD username_len = UNLEN + 1;
-    if (!GetUserNameW(username, &username_len)) {
-      return {L"user", L"group"};
-    }
-
-    std::wstring username_str = username;
-
-    // Extract only username part from DOMAIN\USER
-    size_t pos = username_str.find(L'\\');
-    if (pos != std::wstring::npos) {
-      username_str = username_str.substr(pos + 1);
-    }
-
-    // On Windows, group name is same as username for now
-    return {username_str, username_str};
-  };
-
-  /**
-   * @brief Get color for file based on type
-   * @param find_data WIN32_FIND_DATAW structure
-   * @return Color string
-   */
-  auto getFileColor = [](const WIN32_FIND_DATAW &find_data) -> std::wstring {
-    if (!isTerminalSupportsColor()) {
-      return L"";
-    }
-
-    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-      return COLOR_DIR;
-    } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-      return COLOR_LINK;
-    } else {
-      // Check if file is executable
-      DWORD fileAttributes = GetFileAttributesW(find_data.cFileName);
-      if (fileAttributes != INVALID_FILE_ATTRIBUTES) {
-        // Check for .exe, .bat, .cmd files
-        std::wstring filename(find_data.cFileName);
-        size_t dotPos = filename.rfind(L'.');
-        if (dotPos != std::wstring::npos) {
-          std::wstring ext = filename.substr(dotPos + 1);
-          if (ext == L"exe" || ext == L"bat" || ext == L"cmd" || ext == L"com" || ext == L"ps1") {
-            return COLOR_EXEC;
-          }
-        }
-      }
-      return COLOR_FILE;
-    }
-  };
-
-  /**
-   * @brief Calculate optimal column layout
-   * @param filenames List of filenames
-   * @param terminalWidth Terminal width in columns
-   * @return Pair of (columns, rows)
-   */
-  auto calculateColumns = [](const std::vector<std::wstring> &filenames, int terminalWidth) -> std::pair<int, int> {
-    if (filenames.empty()) return {0, 0};
-
-    size_t maxLength = 0;
-    for (const auto &filename : filenames) {
-      maxLength = std::max(maxLength, filename.length());
-    }
-
-    // Add 2 spaces between columns
-    int columnWidth = static_cast<int>(maxLength) + 2;
-    int columns = terminalWidth / columnWidth;
-    if (columns < 1) columns = 1;
-
-    int rows = (filenames.size() + columns - 1) / columns;
-    return {columns, rows};
-  };
-
-  // FileInfo struct definition
-  struct FileInfo {
-    std::wstring name;
-    WIN32_FIND_DATAW find_data;
-    std::wstring perms;
-    std::wstring size;
-    std::wstring mtime;
-    std::wstring owner;
-    std::wstring group;
-  };
-
-  /**
-   * @brief List directory contents
-   * @param path Path to list
-   * @param options ls command options
-   * @return true if listing succeeded, false on error
-   */
-  auto listDirectory = [&](const std::string &path,
-                           const LsOptions &options) -> bool {
-    std::wstring wpath = utf8_to_wstring(path);
-    WIN32_FIND_DATAW find_data;
-    HANDLE hFind = FindFirstFileW((wpath + L"\\*").c_str(), &find_data);
-    if (hFind == INVALID_HANDLE_VALUE) {
-      std::wstring wpath_str = utf8_to_wstring(path);
-      fwprintf(stderr, L"ls: cannot access '%ls': No such file or directory\n",
-               wpath_str.c_str());
-      return false;
-    }
-
-    std::vector<FileInfo> files;
-    do {
-      std::wstring filename(find_data.cFileName);
-      if (!options.get_show_all() && (filename == L"." || filename == L".."))
-        continue;
-
-      FileInfo info;
-      info.name = std::move(filename);
-      info.find_data = find_data;
-      info.perms = getPermissionsString(find_data);
-      info.size = getFileSizeString(find_data, options);
-      info.mtime = getModificationTimeString(find_data);
-
-      // Get owner and group
-      auto [owner, group] = getFileOwnerAndGroup();
-      info.owner = owner;
-      info.group = group;
-
-      files.push_back(std::move(info));
-    } while (FindNextFileW(hFind, &find_data) != 0);
-    FindClose(hFind);
-
-    // Sort files
-    if (options.get_reverse_order()) {
-      std::sort(
-          files.rbegin(), files.rend(),
-          [](const FileInfo &a, const FileInfo &b) { return a.name > b.name; });
-    } else {
-      std::ranges::sort(
-          files.begin(), files.end(),
-          [](const FileInfo &a, const FileInfo &b) { return a.name < b.name; });
-    }
-
-    if (options.get_long_format()) {
-      // Calculate maximum widths
-      size_t max_owner_len = 0;
-      size_t max_group_len = 0;
-      size_t max_size_len = 0;
-
-      for (const auto &file : files) {
-        max_owner_len = std::max(max_owner_len, file.owner.length());
-        max_group_len = std::max(max_group_len, file.group.length());
-        max_size_len = std::max(max_size_len, file.size.length());
-      }
-
-      // Set minimum widths to avoid empty values
-      if (max_owner_len == 0) max_owner_len = 1;
-      if (max_group_len == 0) max_group_len = 1;
-      if (max_size_len == 0) max_size_len = 1;
-
-      // Print files with precise alignment
-      for (const auto &file_info : files) {
-        std::wstring line;
-
-        // 1. Permissions and link count
-        line += file_info.perms;
-        line += L' ';
-        line += L'1';  // Windows always has 1 link
-        line += L' ';
-
-        // 2. Owner (left-aligned)
-        line += file_info.owner;
-        int owner_padding = static_cast<int>(max_owner_len) -
-                            static_cast<int>(file_info.owner.length());
-        for (int i = 0; i < owner_padding; i++) line += L' ';
-        line += L' ';
-
-        // 3. Group (left-aligned)
-        line += file_info.group;
-        int group_padding = static_cast<int>(max_group_len) -
-                            static_cast<int>(file_info.group.length());
-        for (int i = 0; i < group_padding; i++) line += L' ';
-        line += L' ';
-
-        // 4. File size (right-aligned)
-        int size_padding = static_cast<int>(max_size_len) -
-                           static_cast<int>(file_info.size.length());
-        for (int i = 0; i < size_padding; i++) line += L' ';
-        line += file_info.size;
-        line += L' ';
-
-        // 5. Modification time + filename
-        line += file_info.mtime;
-        line += L' ';
-        if (isTerminalSupportsColor()) {
-          line += getFileColor(file_info.find_data);
-        }
-        line += file_info.name;
-        if (isTerminalSupportsColor()) {
-          line += COLOR_RESET;
-        }
-
-        wprintf(L"%ls\n", line.c_str());
-      }
-    } else {
-      // Brief mode with columns
-      std::vector<std::wstring> filenames;
-      std::vector<std::wstring> colors;
-      size_t max_filename_len = 0;
-
-      for (const auto &file_info : files) {
-        filenames.push_back(file_info.name);
-        colors.push_back(getFileColor(file_info.find_data));
-        max_filename_len = std::max(max_filename_len, file_info.name.length());
-      }
-
-      // Calculate terminal width and columns
-      int terminalWidth = options.get_width() > 0 ? options.get_width() : getTerminalWidth();
-      int columnWidth = static_cast<int>(max_filename_len) + 2; // Add 2 spaces padding
-      int columns = terminalWidth / columnWidth;
-      if (columns < 1) columns = 1;
-      int rows = (filenames.size() + columns - 1) / columns;
-
-      // Print files in columns
-      for (int row = 0; row < rows; row++) {
-        for (int col = 0; col < columns; col++) {
-          int index = col * rows + row;
-          if (index < filenames.size()) {
-            if (isTerminalSupportsColor()) {
-              wprintf(L"%ls", colors[index].c_str());
-            }
-            wprintf(L"%ls", filenames[index].c_str());
-            if (isTerminalSupportsColor()) {
-              wprintf(L"%ls", COLOR_RESET);
-            }
-            // Add padding
-            size_t padding = max_filename_len - filenames[index].length() + 2;
-            for (size_t i = 0; i < padding; i++) {
-              wprintf(L" ");
-            }
-          }
-        }
-        wprintf(L"\n");
-      }
-    }
-
-    return true;
-  };
-
-  // Main implementation
-  LsOptions options;
-  std::vector<std::string> paths;
-
-  // Set console to wide character mode to support Chinese characters
-  setConsoleToWideCharMode();
-
-  if (!parseLsOptions(args, options, paths)) {
-    return 2;  // Invalid option error code
+  auto result = process_command(ctx);
+  if (!result) {
+    report_error(result, L"ls");
+    return 1;
   }
 
-  int result = 0;
-
-  // Process each path
-  for (size_t i = 0; i < paths.size(); ++i) {
-    std::wstring wpath = utf8_to_wstring(paths[i]);
-
-    // Check if path is a file
-    WIN32_FIND_DATAW find_data;
-    HANDLE hFind = FindFirstFileW(wpath.c_str(), &find_data);
-    bool is_file = (hFind != INVALID_HANDLE_VALUE) &&
-                   !(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-    if (hFind != INVALID_HANDLE_VALUE) {
-      FindClose(hFind);
-    }
-
-    if (is_file) {
-      // If it's a file, display it directly
-      if (options.get_long_format()) {
-        // For long format, get file info
-        HANDLE hFileFind = FindFirstFileW(wpath.c_str(), &find_data);
-        if (hFileFind != INVALID_HANDLE_VALUE) {
-          FileInfo info;
-          info.name = find_data.cFileName;
-          info.find_data = find_data;
-          info.perms = getPermissionsString(find_data);
-          info.size = getFileSizeString(find_data, options);
-          info.mtime = getModificationTimeString(find_data);
-
-          // Get owner and group
-          auto [owner, group] = getFileOwnerAndGroup();
-          info.owner = owner;
-          info.group = group;
-
-          // Calculate column widths
-          size_t max_owner_len = info.owner.length();
-          size_t max_group_len = info.group.length();
-          size_t max_size_len = info.size.length();
-
-          // Print with long format
-          std::wstring line;
-          line += info.perms;
-          line += L' ';
-          line += L'1';  // Windows always has 1 link
-          line += L' ';
-          line += info.owner;
-          int owner_padding = static_cast<int>(max_owner_len) -
-                              static_cast<int>(info.owner.length());
-          for (int j = 0; j < owner_padding; j++) line += L' ';
-          line += L' ';
-          line += info.group;
-          int group_padding = static_cast<int>(max_group_len) -
-                              static_cast<int>(info.group.length());
-          for (int j = 0; j < group_padding; j++) line += L' ';
-          line += L' ';
-          int size_padding = static_cast<int>(max_size_len) -
-                             static_cast<int>(info.size.length());
-          for (int j = 0; j < size_padding; j++) line += L' ';
-          line += info.size;
-          line += L' ';
-          line += info.mtime;
-          line += L' ';
-          line += info.name;
-          wprintf(L"%ls\n", line.c_str());
-
-          FindClose(hFileFind);
-        }
-      } else {
-        // For brief mode, just print the filename
-        wprintf(L"%ls\n", find_data.cFileName);
-      }
-    } else {
-      // If it's a directory, list its contents
-      if (paths.size() > 1) {
-        std::wstring wpath_str = utf8_to_wstring(paths[i]);
-        wprintf(L"%ls:\n", wpath_str.c_str());
-      }
-      if (!listDirectory(paths[i], options)) {
-        result = 1;  // Directory listing error
-      }
-    }
-    if (i < paths.size() - 1) wprintf(L"\n");
-  }
-
-  return result;
+  return *result ? 0 : 1;
 }

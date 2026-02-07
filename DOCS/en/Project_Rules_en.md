@@ -148,7 +148,7 @@ int execute_ls(std::span<std::string_view> args) noexcept {
 Compilation must be done via CMake; CMakeLists.txt must force specify MSVC compilation chain, core configuration example:
 
 ```cmake
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.30)
 
 project(WinuxCmd LANGUAGES CXX)
 
