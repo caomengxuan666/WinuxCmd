@@ -49,6 +49,7 @@ import utils;
  * The implementation status is also indicated for each option.
  *
  * @par Options:
+ *
  * - @a -A, @a --show-all: Equivalent to -vET [IMPLEMENTED]
  * - @a -b, @a --number-nonblank: Number nonempty output lines, overrides -n
  * [IMPLEMENTED]

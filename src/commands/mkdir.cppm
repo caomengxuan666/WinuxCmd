@@ -50,6 +50,7 @@ import utils;
  * The implementation status is also indicated for each option.
  *
  * @par Options:
+ *
  * - @a -m, @a --mode: Set file mode (as in chmod), not a=rwx - umask [TODO]
  * - @a -p, @a --parents: No error if existing, make parent directories as
  * needed [IMPLEMENTED]

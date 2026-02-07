@@ -27,8 +27,12 @@ export module core:dispatcher;
 
 import std;
 import :cmd_meta;
+import :command_context;
+import utils;
 
-export using CommandFunc = int (*)(std::span<std::string_view>) noexcept;
+#define MY_FUCK_DEBUG wprintf(L"__DISPATCH__:%d\n", __LINE__)
+
+export using CommandFunc = int (*)(CommandContext&) noexcept;
 
 export class CommandRegistry {
  private:
@@ -52,20 +56,22 @@ export class CommandRegistry {
    public:
     // Register a command with compile-time metadata
     template <size_t N>
-    void registerCommand(std::string_view name,
-                         const cmd::meta::CommandMeta<N> &meta,
-                         int (*handler)(std::span<std::string_view>) noexcept) {
-      // Register to metadata registry with command name
+    void registerCommand(
+        std::string_view name,
+        const cmd::meta::CommandMeta<N>& meta,
+        CommandFunc handler)
+    {
       cmd::meta::Registry::register_command(name, meta);
-      // Store to command registry
-      registry_[name] = {cmd::meta::CommandMetaHandle(meta), handler};
+
+      registry_[name] =
+          CommandEntry(cmd::meta::CommandMetaHandle(meta), handler);
     }
 
     // Dispatch command execution
     int dispatch(std::string_view cmdName, std::span<std::string_view> args) {
       auto it = registry_.find(cmdName);
       if (it == registry_.end()) {
-        std::cerr << "winuxcmd: command not found: " << cmdName << std::endl;
+        safePrintLn(L"winuxcmd: command not found: " + std::wstring(cmdName.begin(), cmdName.end()));
         return 127;  // Command not found exit code
       }
 
@@ -76,9 +82,22 @@ export class CommandRegistry {
           return 0;
         }
       }
-
       // Execute command handler
-      return it->second.handler(args);
+      auto& entry = it->second;
+
+      bool ok = true;
+
+      auto ctx = make_context(
+          args,
+          entry.meta.options(),
+          ok
+      );
+      if (!ok) {
+        safePrintLn(std::wstring(cmdName.begin(), cmdName.end()) + L": invalid arguments");
+        return 1;
+      }
+
+      return entry.handler(ctx);
     }
 
     // Print command help
@@ -109,8 +128,10 @@ export class CommandRegistry {
   // Must be defined in the interface due to template nature
   template <size_t N>
   static void registerCommand(
-      std::string_view name, const cmd::meta::CommandMeta<N> &meta,
-      int (*handler)(std::span<std::string_view>) noexcept) noexcept {
+      std::string_view name,
+      const cmd::meta::CommandMeta<N>& meta,
+      CommandFunc handler) noexcept
+  {
     getImpl().registerCommand(name, meta, handler);
   }
 
@@ -118,12 +139,13 @@ export class CommandRegistry {
   static int dispatch(std::string_view cmdName,
                       std::span<std::string_view> args) noexcept {
     try {
+
       return getImpl().dispatch(cmdName, args);
     } catch (const std::exception &e) {
-      std::cerr << "winuxcmd: dispatch error: " << e.what() << std::endl;
+      safePrintLn(L"winuxcmd: dispatch error: " + std::wstring(e.what(), e.what() + std::strlen(e.what())));
       return 1;
     } catch (...) {
-      std::cerr << "winuxcmd: unknown dispatch error" << std::endl;
+      safePrintLn(L"winuxcmd: unknown dispatch error");
       return 1;
     }
   }
@@ -133,9 +155,9 @@ export class CommandRegistry {
     try {
       getImpl().printHelp(cmdName);
     } catch (const std::exception &e) {
-      std::cerr << "winuxcmd: help error: " << e.what() << std::endl;
+      safePrintLn(L"winuxcmd: help error: " + std::wstring(e.what(), e.what() + std::strlen(e.what())));
     } catch (...) {
-      std::cerr << "winuxcmd: unknown help error" << std::endl;
+      safePrintLn(L"winuxcmd: unknown help error");
     }
   }
 
@@ -145,10 +167,10 @@ export class CommandRegistry {
     try {
       return getImpl().getAllCommands();
     } catch (const std::exception &e) {
-      std::cerr << "winuxcmd: getAllCommands error: " << e.what() << std::endl;
+      safePrintLn(L"winuxcmd: getAllCommands error: " + std::wstring(e.what(), e.what() + std::strlen(e.what())));
       return {};
     } catch (...) {
-      std::cerr << "winuxcmd: unknown getAllCommands error" << std::endl;
+      safePrintLn(L"winuxcmd: unknown getAllCommands error");
       return {};
     }
   }

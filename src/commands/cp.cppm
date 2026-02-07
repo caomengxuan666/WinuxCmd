@@ -51,6 +51,7 @@ import utils;
  * The implementation status is also indicated for each option.
  *
  * @par Options:
+ *
  * - @a -a, @a --archive: Same as -dR --preserve=all [TODO]
  * - @a -b: Like --backup but does not accept an argument [TODO]
  * - @a -d: Same as --no-dereference --preserve=links [TODO]
