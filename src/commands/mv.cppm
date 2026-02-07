@@ -52,6 +52,7 @@ import utils;
  * The implementation status is also indicated for each option.
  *
  * @par Options:
+ *
  * - @a -b: Like --backup but does not accept an argument [TODO]
  * - @a -f, @a --force: Do not prompt before overwriting [IMPLEMENTED]
  * - @a -i: Prompt before overwrite [IMPLEMENTED]

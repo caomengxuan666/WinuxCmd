@@ -50,6 +50,7 @@ import utils;
  * The implementation status is also indicated for each option.
  *
  * @par Options:
+ *
  * - @a -a, @a --all: Do not ignore entries starting with . [IMPLEMENTED]
  * - @a -A, @a --almost-all: Do not list implied . and .. [IMPLEMENTED]
  * - @a -b, @a --escape: Print C-style escapes for nongraphic characters [TODO]
@@ -271,7 +272,6 @@ DEFINE_BOOL_OPTION_HANDLER(apply_ls_bool_option, LsOptions)
     BOOL_CASE('1', one_per_line)
 END_BOOL_HANDLER
 
-// 参数选项处理器
 DEFINE_ARG_OPTION_HANDLER(apply_ls_arg_option, LsOptions)
     ARG_CASE('T', tab_size, 1, 100)
     ARG_CASE('w', width, 0, 10000)

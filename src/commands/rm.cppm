@@ -51,6 +51,7 @@ import utils;
  * The implementation status is also indicated for each option.
  *
  * @par Options:
+ *
  * - @a -f, @a --force: Ignore nonexistent files and arguments, never prompt
  * [IMPLEMENTED]
  * - @a -i: Prompt before every removal [IMPLEMENTED]

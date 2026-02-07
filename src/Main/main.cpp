@@ -29,6 +29,11 @@ import std;
 import core;
 import utils;
 import wildcard_handler;
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <dbghelp.h>
+
+#pragma comment(lib, "dbghelp.lib")
 
 /**
  * @brief Print help information
@@ -70,7 +75,6 @@ int main(int argc, char *argv[]) noexcept {
     }
     // Automatically set console or pipe output.
     setupConsoleForUnicode();
-
     // Get the executable name (stem only)
     std::filesystem::path self_path(argv[0]);
     std::string self_name = self_path.stem().string();
@@ -87,7 +91,6 @@ int main(int argc, char *argv[]) noexcept {
     for (const auto &arg: expanded_args) {
         args.emplace_back(arg);
     }
-
     if (self_name == "winuxcmd") {
         // Mode 1: winuxcmd <command> [args...] (e.g., winuxcmd ls -la)
         if (args.empty()) {

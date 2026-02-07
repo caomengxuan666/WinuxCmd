@@ -25,6 +25,8 @@
  */
 #pragma once
 
+#include <optional>
+
 #ifdef _MSC_VER
 #define CMD_MSG(msg) __pragma(message("[WINUX] " msg))
 #else
@@ -32,8 +34,8 @@
 #endif
 
 #define REGISTER_COMMAND(name, cmd_name, cmd_synopsis, cmd_desc, examples,     \
-                         see_also, author, copyright, ...)                     \
-  export int execute##name(std::span<std::string_view> args) noexcept;         \
+    see_also, author, copyright, ...)                     \
+  export int execute##name(CommandContext& ctx) noexcept;         \
   namespace command_##name##_internal {                                        \
     /* We must make sure no more include in this header */                     \
     /* So put them after the "import std" could avoid ODR between import       \
@@ -108,68 +110,40 @@
     }                                                                          \
   } _registrar_instance_##name;                                                \
   }                                                                            \
-  int execute##name(std::span<std::string_view> args) noexcept
-
+int execute##name(CommandContext& ctx) noexcept
 #undef OPTION
-#define OPTION(s, l, d) \
-  cmd::meta::OptionMeta { s, l, d }
 
-// #define OPTION_CASE(opt_char, field_name) \
-// case opt_char: options.set_##field_name(true); return true;
-//
-// #define BEGIN_OPTION_SWITCH(opt_char_var, options_var) \
-// switch (opt_char_var) {
-//
-// #define END_OPTION_SWITCH \
-// default: return false; \
-// } \
-// return true;
-//
-// #define DEFINE_OPTION_APPLIER(func_name, class_name) \
-// static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
-// BEGIN_OPTION_SWITCH(opt_char, options)
-//
-// #define END_OPTION_APPLIER \
-// END_OPTION_SWITCH \
-// }
-//
-// #define DEFINE_OPTION_HANDLER(func_name, class_name) \
-// template<typename Arg = void> \
-// static __forceinline bool func_name(char opt_char, class_name &options, Arg&& arg = {}) noexcept { \
-// if constexpr (std::is_same_v<Arg, void>) { \
-// switch (opt_char) {
-//
-// #define BOOL_CASE(opt, field) \
-// case opt: options.set_##field(true); break;
-//
-// #define ARG_CASE(opt, field, min, max) \
-// case opt: \
-// if constexpr (!std::is_same_v<Arg, void>) { \
-// try { \
-// int value = std::stoi(std::string(arg)); \
-// if (value >= min && value <= max) { \
-// options.set_##field(value); \
-// return true; \
-// } \
-// } catch (...) {} \
-// return false; \
-// } \
-// break;
-//
-// #define END_OPTION_HANDLER \
-// default: \
-// return false; \
-// } \
-// return true; \
-// } \
-// }
+#define BOOL_TYPE   cmd::meta::OptionType::Bool
+#define INT_TYPE    cmd::meta::OptionType::Int
+#define STRING_TYPE cmd::meta::OptionType::String
 
-#define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name) \
-static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
-switch (opt_char) {
+#undef OPTION_TYPE
+#define OPTION_TYPE(...) \
+OPTION_TYPE_IMPL(__VA_ARGS__, BOOL_TYPE)
 
-#define BOOL_CASE(opt, field) \
-case opt: options.set_##field(true); break;
+#define OPTION_TYPE_IMPL(type, ...) type
+
+#undef BOOL_OPTION
+#undef INT_OPTION
+#undef STR_OPTION
+#undef OPTION
+
+#define BOOL_OPTION(short_name, long_name, description) \
+cmd::meta::OptionMeta { short_name, long_name, description, BOOL_TYPE }
+
+#define INT_OPTION(short_name, long_name, description) \
+cmd::meta::OptionMeta { short_name, long_name, description, INT_TYPE }
+
+#define STR_OPTION(short_name, long_name, description) \
+cmd::meta::OptionMeta { short_name, long_name, description, STRING_TYPE }
+
+#define OPTION(short_name, long_name, description, ...) \
+cmd::meta::OptionMeta { \
+short_name, \
+long_name, \
+description, \
+OPTION_TYPE(__VA_ARGS__) \
+}
 
 #define END_BOOL_HANDLER \
 default: \
@@ -177,8 +151,6 @@ return false; \
 } \
 return true; \
 }
-
-
 
 #define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name) \
 static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
@@ -219,6 +191,14 @@ result = false; \
 return result; \
 }
 
+template<typename T>
+concept IsOptional = requires(T t)
+{
+    typename std::remove_cvref_t<T>::value_type;
+    { t.has_value() } -> std::convertible_to<bool>;
+    { *t } -> std::convertible_to<typename std::remove_cvref_t<T>::value_type>;
+} && std::is_same_v<std::remove_cvref_t<T>, std::optional<typename std::remove_cvref_t<T>::value_type> >;
+
 #define DEFINE_OPTION_WRAPPER(wrapper_name, bool_func, arg_func) \
 template<typename... Args> \
 static __forceinline bool wrapper_name(char opt_char, auto& options, Args&&... args) noexcept { \
@@ -226,6 +206,14 @@ if constexpr (sizeof...(Args) == 0) { \
 return bool_func(opt_char, options); \
 } else { \
 static_assert(sizeof...(Args) == 1, "Only one argument expected for option"); \
+if constexpr (IsOptional<std::decay_t<decltype(args)...>>) { \
+if (std::get<0>(std::forward_as_tuple(args...)).has_value()) { \
+return arg_func(opt_char, options, std::get<0>(std::forward_as_tuple(args...)).value()); \
+} else { \
+return false; \
+} \
+} else { \
 return arg_func(opt_char, options, std::forward<Args>(args)...); \
+} \
 } \
 }

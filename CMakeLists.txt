@@ -6,8 +6,6 @@ cmake_minimum_required(VERSION 3.30.0)
 option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" ON)
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
-# Allow users to debug by the .i file.
-option(GENERATE_EXPAND_MACRO_FILE "Generate sourcefile.i file to show the macro" OFF)
 # Option to use hardlinks for commands instead of separate executables
 option(USE_HARDLINKS "Use hardlinks for commands instead of separate executables" ON)
 # Option to enable UPX compression
@@ -17,12 +15,6 @@ if (USE_STATIC_CRT)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 else ()
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-endif ()
-
-if (GENERATE_EXPAND_MACRO_FILE)
-    if (MSVC)
-        target_compile_options(ls PRIVATE /P)
-    endif ()
 endif ()
 
 # Include UPX compression configuration if enabled
