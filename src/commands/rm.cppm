@@ -2,7 +2,7 @@
  *  Copyright © 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the “Software”), to
+ *  of this software and associated documentation files (the "Software"), to
  * deal in the Software without restriction, including without limitation the
  * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the Software is
@@ -11,7 +11,7 @@
  *  The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
  *
- *  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -36,13 +36,15 @@
 module;
 #include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
-#include "core/auto_flags.h"
 #include "core/command_macros.h"
 export module commands.rm;
 
 import std;
 import core;
 import utils;
+
+using namespace core::pipeline;
+
 /**
  * @brief RM command options definition
  *
@@ -97,174 +99,18 @@ constexpr auto RM_OPTIONS = std::array{
 constexpr auto OPTION_HANDLERS =
     generate_option_handlers(RM_OPTIONS, "--interactive");
 
-REGISTER_COMMAND(
-    rm,
-    /* cmd_name */ "rm",
-    /* cmd_synopsis */ "remove files or directories",
-    /* cmd_desc */
-    "Remove the FILE(s).\n"
-    "\n"
-    "By default, rm does not remove directories. Use the --recursive (-r) "
-    "option\n"
-    "to remove each listed directory, too, along with all of its contents.\n",
-    /* examples */
-    "  rm file.txt               Remove file.txt\n"
-    "  rm -r dir/                Recursively remove directory dir/\n"
-    "  rm -v file1.txt file2.txt Verbose remove\n"
-    "  rm -i file.txt            Interactive remove (prompt before removal)",
-    /* see_also */ "cp(1), mv(1), mkdir(1), rmdir(1)",
-    /* author */ "caomengxuan666",
-    /* copyright */ "Copyright © 2026 WinuxCmd",
-    /* options */
-    RM_OPTIONS) {
-  // Option flags for rm command
-  CREATE_AUTO_FLAGS_CLASS(
-      RmOptions, DEFINE_FLAG(recursive, 0)  // -r, -R, --recursive
-      DEFINE_FLAG(interactive, 1)           // -i, --interactive
-      DEFINE_FLAG(force, 2)                 // -f, --force
-      DEFINE_FLAG(verbose, 3)               // -v, --verbose
-      DEFINE_FLAG(remove_dir, 4)            // -d, --dir
-      DEFINE_FLAG(prompt_once, 5)           // -I
-      DEFINE_FLAG(one_file_system, 6)       // --one-file-system
-      DEFINE_FLAG(no_preserve_root, 7)      // --no-preserve-root
-      DEFINE_FLAG(preserve_root, 8)         // --preserve-root
-  )
-
-  /**
-   * @brief Parse command line options for rm
-   * @param args Command arguments
-   * @param options Output parameter for parsed options
-   * @param paths Output parameter for paths to remove
-   * @return true if parsing succeeded, false on error
-   */
-  auto parseRmOptions = [](std::span<std::string_view> args, RmOptions& options,
-                           std::vector<std::string>& paths) -> bool {
-    // Helper function to find option handler by long option or short option
-    auto find_handler = [](std::string_view arg,
-                           char opt_char = '\0') -> const OptionHandler* {
-      for (const auto& handler : OPTION_HANDLERS) {
-        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
-            (opt_char && handler.short_opt == opt_char)) {
-          return &handler;
-        }
-      }
-      return nullptr;
-    };
-
-    // Helper function to print option error
-    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
-      if (!arg.empty()) {
-        std::wstring warg(arg.begin(), arg.end());
-        safeErrorPrintLn(L"rm: invalid option -- '" + warg.substr(2) + L"'");
-      } else {
-        safeErrorPrintLn(L"rm: invalid option -- '" +
-                         std::wstring(1, opt_char) + L"'");
-      }
-    };
-
-    // Helper function to set boolean option
-    auto set_boolean_option = [&options](char opt_char) {
-      switch (opt_char) {
-        case 'r':
-        case 'R':
-          options.set_recursive(true);
-          break;
-        OPTION_CASE('i', interactive)
-          break;
-        OPTION_CASE('f', force)
-          break;
-        OPTION_CASE('v', verbose)
-          break;
-        OPTION_CASE('d', remove_dir)
-          break;
-        OPTION_CASE('I', prompt_once)
-          break;
-      }
-    };
-
-    for (size_t i = 0; i < args.size(); ++i) {
-      auto arg = args[i];
-
-      if (arg.starts_with("--")) {
-        // This is a long option
-        const auto* handler = find_handler(arg);
-        if (handler) {
-          if (handler->requires_arg) {
-            // Handle options that require arguments
-            if (i + 1 < args.size()) {
-              // rm command has no options that require arguments
-              ++i;
-            } else {
-              std::wstring warg = utf8_to_wstring(arg);
-              safeErrorPrintLn(L"rm: option '" + warg +
-                               L"' requires an argument");
-              return false;
-            }
-          } else {
-            // Special case for --no-preserve-root and --preserve-root
-            if (arg == "--no-preserve-root") {
-              options.set_no_preserve_root(true);
-              options.set_preserve_root(false);
-            } else if (arg == "--preserve-root") {
-              options.set_preserve_root(true);
-              options.set_no_preserve_root(false);
-            } else if (arg == "--one-file-system") {
-              options.set_one_file_system(true);
-            } else {
-              set_boolean_option(handler->short_opt);
-            }
-          }
-        } else {
-          print_option_error(arg);
-          return false;
-        }
-      } else if (arg.starts_with('-')) {
-        // This is a short option
-        if (arg == "-") {
-          // Single dash, treat as path
-          paths.push_back(std::string(arg));
-          continue;
-        }
-
-        // Process option characters
-        for (size_t j = 1; j < arg.size(); ++j) {
-          char opt_char = arg[j];
-          const auto* handler = find_handler("", opt_char);
-          if (handler) {
-            if (handler->requires_arg) {
-              // rm command has no options that require arguments
-              safeErrorPrintLn(L"rm: option requires an argument -- '" +
-                               std::wstring(1, static_cast<wchar_t>(opt_char)) +
-                               L"'");
-              return false;
-            } else {
-              set_boolean_option(opt_char);
-            }
-          } else {
-            print_option_error("", opt_char);
-            return false;
-          }
-        }
-      } else {
-        // This is a path
-        paths.push_back(std::string(arg));
-      }
-    }
-
-    if (paths.empty()) {
-      safeErrorPrintLn(L"rm: missing file operand");
-      return false;
-    }
-
-    return true;
-  };
+// ======================================================
+// Pipeline components
+// ======================================================
+namespace rm_pipeline {
+  namespace cp = core::pipeline;
 
   /**
    * @brief Helper function to convert wstring to UTF-8 string
    * @param wstr Wide string to convert
    * @return UTF-8 string
    */
-  auto wstringToUtf8 = [](const std::wstring& wstr) -> std::string {
+  auto wstringToUtf8(const std::wstring& wstr) -> std::string {
     int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0,
                                    nullptr, nullptr);
     if (size == 0) return "";
@@ -273,22 +119,37 @@ REGISTER_COMMAND(
                         nullptr);
     result.pop_back();  // Remove trailing null character
     return result;
-  };
+  }
+
+  /**
+   * @brief Check if paths are provided
+   * @param paths Paths to check
+   * @return Result with paths if valid, error otherwise
+   */
+  auto check_paths(const std::vector<std::string>& paths) -> cp::Result<std::vector<std::string>> {
+    if (paths.empty()) {
+      return std::unexpected("missing file operand");
+    }
+    return paths;
+  }
 
   /**
    * @brief Remove a file or directory
    * @param path Path to remove
-   * @param options rm command options
+   * @param ctx Command context with options
    * @return true if removal was successful, false on error
    */
-  std::function<bool(const std::string&, const RmOptions&)> removePath;
-
-  removePath = [&](const std::string& path, const RmOptions& options) -> bool {
+  auto remove_path(const std::string& path, const CommandContext<RM_OPTIONS.size()>& ctx) -> bool {
     std::wstring wpath(path.begin(), path.end());
     DWORD attr = GetFileAttributesW(wpath.c_str());
 
+    bool force = ctx.get<bool>("--force", false) || ctx.get<bool>("-f", false);
+    bool interactive = ctx.get<bool>("--interactive", false) || ctx.get<bool>("-i", false);
+    bool recursive = ctx.get<bool>("--recursive", false) || ctx.get<bool>("-r", false) || ctx.get<bool>("-R", false);
+    bool verbose = ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
+
     if (attr == INVALID_FILE_ATTRIBUTES) {
-      if (options.get_force()) {
+      if (force) {
         return true;
       } else {
         std::wstring wpath = utf8_to_wstring(path);
@@ -298,7 +159,7 @@ REGISTER_COMMAND(
       }
     }
 
-    if (options.get_interactive()) {
+    if (interactive) {
       safeErrorPrint(L"rm: remove '" + utf8_to_wstring(path) + L"'? (y/n) ");
       char response;
       std::cin.get(response);
@@ -307,7 +168,7 @@ REGISTER_COMMAND(
       }
     }
 
-    if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !options.get_recursive()) {
+    if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !recursive) {
       std::wstring wpath = utf8_to_wstring(path);
       safeErrorPrintLn(L"rm: cannot remove '" + wpath + L"': Is a directory");
       return false;
@@ -315,8 +176,8 @@ REGISTER_COMMAND(
 
     if (attr & FILE_ATTRIBUTE_DIRECTORY) {
       // Recursive function to delete directory with post-order traversal
-      std::function<bool(const std::wstring&)> removeDirectoryRecursive;
-      removeDirectoryRecursive = [&](const std::wstring& dirPath) -> bool {
+      std::function<bool(const std::wstring&)> remove_directory_recursive;
+      remove_directory_recursive = [&](const std::wstring& dirPath) -> bool {
         // First, enumerate all items in the directory
         std::wstring searchPath = dirPath + L"\\*";
         WIN32_FIND_DATAW findData;
@@ -351,7 +212,7 @@ REGISTER_COMMAND(
                 safeErrorPrintLn(L"rm: cannot remove file '" + witemPath +
                                  L"': " + werrorMsg);
                 success = false;
-              } else if (options.get_verbose()) {
+              } else if (verbose) {
                 std::string itemPathStr = wstringToUtf8(itemPath);
                 safePrintLn(L"removed '" + utf8_to_wstring(itemPathStr) + L"'");
               }
@@ -368,7 +229,7 @@ REGISTER_COMMAND(
 
         // Recursively delete all subdirectories (post-order traversal)
         for (const auto& subdir : subdirs) {
-          if (!removeDirectoryRecursive(subdir)) {
+          if (!remove_directory_recursive(subdir)) {
             return false;
           }
         }
@@ -387,7 +248,7 @@ REGISTER_COMMAND(
           return false;
         }
 
-        if (options.get_verbose()) {
+        if (verbose) {
           std::string dirPathStr = wstringToUtf8(dirPath);
           safePrintLn(L"removed '" + utf8_to_wstring(dirPathStr) + L"'");
         }
@@ -396,7 +257,7 @@ REGISTER_COMMAND(
       };
 
       // Start recursive directory deletion
-      return removeDirectoryRecursive(wpath);
+      return remove_directory_recursive(wpath);
     } else {
       // Delete regular file
       BOOL success = DeleteFileW(wpath.c_str());
@@ -412,29 +273,75 @@ REGISTER_COMMAND(
         return false;
       }
 
-      if (options.get_verbose()) {
+      if (verbose) {
         safePrintLn(L"removed '" + utf8_to_wstring(path) + L"'");
       }
     }
 
     return true;
-  };
-
-  // Main implementation
-  RmOptions options;
-  std::vector<std::string> paths;
-
-  if (!parseRmOptions(args, options, paths)) {
-    return 2;  // Invalid option error code
   }
 
-  bool success = true;
-
-  for (const auto& path : paths) {
-    if (!removePath(path, options)) {
-      success = false;
+  /**
+   * @brief Process all paths
+   * @param paths Paths to process
+   * @param ctx Command context with options
+   * @return true if all paths were processed successfully, false otherwise
+   */
+  auto process_paths(const std::vector<std::string>& paths, const CommandContext<RM_OPTIONS.size()>& ctx) -> bool {
+    bool success = true;
+    for (const auto& path : paths) {
+      if (!remove_path(path, ctx)) {
+        success = false;
+      }
     }
+    return success;
   }
 
-  return success ? 0 : 1;
+  /**
+   * @brief Main pipeline
+   * @param ctx Command context
+   * @return Result with success status
+   */
+  auto process_command(const CommandContext<RM_OPTIONS.size()>& ctx) -> cp::Result<bool> {
+    std::vector<std::string> paths;
+    for (auto arg : ctx.positionals) {
+      paths.push_back(std::string(arg));
+    }
+
+    return check_paths(paths)
+        .and_then([&](const std::vector<std::string>& valid_paths) {
+            return process_paths(valid_paths, ctx);
+        });
+  }
+} // namespace rm_pipeline
+
+REGISTER_COMMAND(
+    rm,
+    /* cmd_name */ "rm",
+    /* cmd_synopsis */ "remove files or directories",
+    /* cmd_desc */
+    "Remove the FILE(s).\n"
+    "\n"
+    "By default, rm does not remove directories. Use the --recursive (-r) "
+    "option\n"
+    "to remove each listed directory, too, along with all of its contents.\n",
+    /* examples */
+    "  rm file.txt               Remove file.txt\n"
+    "  rm -r dir/                Recursively remove directory dir/\n"
+    "  rm -v file1.txt file2.txt Verbose remove\n"
+    "  rm -i file.txt            Interactive remove (prompt before removal)",
+    /* see_also */ "cp(1), mv(1), mkdir(1), rmdir(1)",
+    /* author */ "caomengxuan666",
+    /* copyright */ "Copyright © 2026 WinuxCmd",
+    /* options */
+    RM_OPTIONS) {
+  using namespace rm_pipeline;
+
+  auto result = process_command(ctx);
+  if (!result) {
+    cp::report_error(result, L"rm");
+    return 1;
+  }
+
+  return *result ? 0 : 1;
 }

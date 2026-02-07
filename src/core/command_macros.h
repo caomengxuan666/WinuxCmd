@@ -34,12 +34,9 @@
 #endif
 
 #define REGISTER_COMMAND(name, cmd_name, cmd_synopsis, cmd_desc, examples,     \
-    see_also, author, copyright, ...)                     \
-  export int execute##name(CommandContext& ctx) noexcept;         \
+                         see_also, author, copyright, ...)                     \
+                                                                               \
   namespace command_##name##_internal {                                        \
-    /* We must make sure no more include in this header */                     \
-    /* So put them after the "import std" could avoid ODR between import       \
-     * modules and traditional include headers */                              \
     template <typename T>                                                      \
     concept IsOptionMeta =                                                     \
         std::is_same_v<std::remove_cvref_t<T>, cmd::meta::OptionMeta>;         \
@@ -62,30 +59,24 @@
     template <typename... Args>                                                \
     constexpr auto make_option_array_impl(Args && ... args) {                  \
       if constexpr (sizeof...(Args) == 0) {                                    \
-        /* No param */                                                         \
         return std::array<cmd::meta::OptionMeta, 0>{};                         \
       } else if constexpr (sizeof...(Args) == 1) {                             \
-        /* Single Param */                                                     \
         using FirstType = std::tuple_element_t<0, std::tuple<Args...>>;        \
         if constexpr (IsSingleOption<FirstType>) {                             \
-          /* Single OptionalMeta */                                            \
           return std::array<cmd::meta::OptionMeta, 1>{                         \
               std::forward<Args>(args)...};                                    \
         } else if constexpr (IsOptionArray<FirstType>) {                       \
-          /* Array|container */                                                \
           return std::forward<FirstType>(args...);                             \
         } else {                                                               \
-          /* Type Error */                                                     \
           static_assert(                                                       \
               IsSingleOption<FirstType> || IsOptionArray<FirstType>,           \
               "Argument must be OptionMeta or container/array of OptionMeta"); \
-          return std::array<cmd::meta::OptionMeta, 0>{}; /* fallback */        \
+          return std::array<cmd::meta::OptionMeta, 0>{};                       \
         }                                                                      \
       } else {                                                                 \
-        /* Multi Params,all must be OptionMeta */                              \
         static_assert((IsSingleOption<Args> && ...),                           \
                       "All arguments must be OptionMeta when multiple "        \
-                      "arguments are provided");                               \
+                      "arguments provided");                                   \
         return std::array<cmd::meta::OptionMeta, sizeof...(Args)>{             \
             std::forward<Args>(args)...};                                      \
       }                                                                        \
@@ -94,32 +85,40 @@
     constexpr auto options = []() {                                            \
       return make_option_array_impl(__VA_ARGS__);                              \
     }();                                                                       \
-                                                                               \
-    constexpr auto meta = cmd::meta::CommandMeta<options.size()>(              \
+    constexpr size_t option_count = options.size();                            \
+    static_assert(option_count > 0, "No options registered!");                 \
+    constexpr auto meta = cmd::meta::CommandMeta<option_count>(                \
         std::string_view(cmd_name), std::string_view(cmd_synopsis),            \
         std::string_view(cmd_desc), options, std::string_view(examples),       \
         std::string_view(see_also), std::string_view(author),                  \
         std::string_view(copyright), std::string_view(cmd_synopsis));          \
   }                                                                            \
+                                                                               \
+  template <size_t N>                                                          \
+  int execute##name(CommandContext<N>& ctx) noexcept;                          \
+                                                                               \
   namespace {                                                                  \
-  CMD_MSG("Registering command with constexpr options: " #name)                \
   struct _Registrar_##name {                                                   \
     _Registrar_##name() {                                                      \
-      CommandRegistry::registerCommand(#name, command_##name##_internal::meta, \
-                                       execute##name);                         \
+      constexpr size_t N = command_##name##_internal::option_count;            \
+      CommandRegistry::registerCommand<N>(                                     \
+          #name, command_##name##_internal::meta, execute##name<N>);           \
     }                                                                          \
-  } _registrar_instance_##name;                                                \
+  };                                                                           \
+  _Registrar_##name _registrar_instance_##name;                                \
   }                                                                            \
-int execute##name(CommandContext& ctx) noexcept
+                                                                               \
+  template <size_t N>                                                          \
+  int execute##name(CommandContext<N>& ctx) noexcept
+
 #undef OPTION
 
-#define BOOL_TYPE   cmd::meta::OptionType::Bool
-#define INT_TYPE    cmd::meta::OptionType::Int
+#define BOOL_TYPE cmd::meta::OptionType::Bool
+#define INT_TYPE cmd::meta::OptionType::Int
 #define STRING_TYPE cmd::meta::OptionType::String
 
 #undef OPTION_TYPE
-#define OPTION_TYPE(...) \
-OPTION_TYPE_IMPL(__VA_ARGS__, BOOL_TYPE)
+#define OPTION_TYPE(...) OPTION_TYPE_IMPL(__VA_ARGS__, BOOL_TYPE)
 
 #define OPTION_TYPE_IMPL(type, ...) type
 
@@ -129,91 +128,103 @@ OPTION_TYPE_IMPL(__VA_ARGS__, BOOL_TYPE)
 #undef OPTION
 
 #define BOOL_OPTION(short_name, long_name, description) \
-cmd::meta::OptionMeta { short_name, long_name, description, BOOL_TYPE }
+  cmd::meta::OptionMeta { short_name, long_name, description, BOOL_TYPE }
 
 #define INT_OPTION(short_name, long_name, description) \
-cmd::meta::OptionMeta { short_name, long_name, description, INT_TYPE }
+  cmd::meta::OptionMeta { short_name, long_name, description, INT_TYPE }
 
 #define STR_OPTION(short_name, long_name, description) \
-cmd::meta::OptionMeta { short_name, long_name, description, STRING_TYPE }
+  cmd::meta::OptionMeta { short_name, long_name, description, STRING_TYPE }
 
-#define OPTION(short_name, long_name, description, ...) \
-cmd::meta::OptionMeta { \
-short_name, \
-long_name, \
-description, \
-OPTION_TYPE(__VA_ARGS__) \
-}
+#define OPTION(short_name, long_name, description, ...)          \
+  cmd::meta::OptionMeta {                                        \
+    short_name, long_name, description, OPTION_TYPE(__VA_ARGS__) \
+  }
 
 #define END_BOOL_HANDLER \
-default: \
-return false; \
-} \
-return true; \
-}
+  default:               \
+    return false;        \
+    }                    \
+    return true;         \
+    }
 
-#define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name) \
-static __forceinline bool func_name(char opt_char, class_name &options) noexcept { \
-switch (opt_char) {
-
-#define BOOL_CASE(opt, field) \
-case opt: { options.set_##field(true); } break;
+#define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name)             \
+  static __forceinline bool func_name(char opt_char,                  \
+                                      class_name& options) noexcept { \
+    switch (opt_char) {
+#define BOOL_CASE(opt, field)  \
+  case opt: {                  \
+    options.set_##field(true); \
+  } break;
 
 #define END_BOOL_HANDLER \
-default: return false; \
-} \
-return true; \
-}
+  default:               \
+    return false;        \
+    }                    \
+    return true;         \
+    }
 
-#define DEFINE_ARG_OPTION_HANDLER(func_name, class_name) \
-static __forceinline bool func_name(char opt_char, class_name &options, std::string_view arg_str) noexcept { \
-bool result = false; \
-try { \
-switch (opt_char) { \
-case 0: ;
+#define DEFINE_ARG_OPTION_HANDLER(func_name, class_name)                   \
+  static __forceinline bool func_name(char opt_char, class_name& options,  \
+                                      std::string_view arg_str) noexcept { \
+    bool result = false;                                                   \
+    try {                                                                  \
+      switch (opt_char) {                                                  \
+        case 0:;
 
-#define ARG_CASE(opt, field, min, max) \
-case opt: { \
-int value = std::stoi(std::string(arg_str)); \
-if (value >= min && value <= max) { \
-options.set_##field(value); \
-result = true; \
-} \
-break; \
-}
+#define ARG_CASE(opt, field, min, max)           \
+  case opt: {                                    \
+    int value = std::stoi(std::string(arg_str)); \
+    if (value >= min && value <= max) {          \
+      options.set_##field(value);                \
+      result = true;                             \
+    }                                            \
+    break;                                       \
+  }
 
 #define END_ARG_HANDLER \
-default: result = false; break; \
-} \
-} catch (...) { \
-result = false; \
-} \
-return result; \
-}
+  default:              \
+    result = false;     \
+    break;              \
+    }                   \
+    }                   \
+    catch (...) {       \
+      result = false;   \
+    }                   \
+    return result;      \
+    }
 
-template<typename T>
-concept IsOptional = requires(T t)
-{
-    typename std::remove_cvref_t<T>::value_type;
-    { t.has_value() } -> std::convertible_to<bool>;
-    { *t } -> std::convertible_to<typename std::remove_cvref_t<T>::value_type>;
-} && std::is_same_v<std::remove_cvref_t<T>, std::optional<typename std::remove_cvref_t<T>::value_type> >;
+template <typename T>
+concept IsOptional =
+    requires(T t) {
+      typename std::remove_cvref_t<T>::value_type;
+      { t.has_value() } -> std::convertible_to<bool>;
+      {
+        *t
+      } -> std::convertible_to<typename std::remove_cvref_t<T>::value_type>;
+    } &&
+    std::is_same_v<std::remove_cvref_t<T>,
+                   std::optional<typename std::remove_cvref_t<T>::value_type>>;
 
-#define DEFINE_OPTION_WRAPPER(wrapper_name, bool_func, arg_func) \
-template<typename... Args> \
-static __forceinline bool wrapper_name(char opt_char, auto& options, Args&&... args) noexcept { \
-if constexpr (sizeof...(Args) == 0) { \
-return bool_func(opt_char, options); \
-} else { \
-static_assert(sizeof...(Args) == 1, "Only one argument expected for option"); \
-if constexpr (IsOptional<std::decay_t<decltype(args)...>>) { \
-if (std::get<0>(std::forward_as_tuple(args...)).has_value()) { \
-return arg_func(opt_char, options, std::get<0>(std::forward_as_tuple(args...)).value()); \
-} else { \
-return false; \
-} \
-} else { \
-return arg_func(opt_char, options, std::forward<Args>(args)...); \
-} \
-} \
-}
+#define DEFINE_OPTION_WRAPPER(wrapper_name, bool_func, arg_func)         \
+  template <typename... Args>                                            \
+  static __forceinline bool wrapper_name(char opt_char, auto& options,   \
+                                         Args&&... args) noexcept {      \
+    if constexpr (sizeof...(Args) == 0) {                                \
+      return bool_func(opt_char, options);                               \
+    } else {                                                             \
+      static_assert(sizeof...(Args) == 1,                                \
+                    "Only one argument expected for option");            \
+      if constexpr (IsOptional<std::decay_t<decltype(args)...>>) {       \
+        if (std::get<0>(std::forward_as_tuple(args...)).has_value()) {   \
+          return arg_func(                                               \
+              opt_char, options,                                         \
+              std::get<0>(std::forward_as_tuple(args...)).value());      \
+        } else {                                                         \
+          return false;                                                  \
+        }                                                                \
+      } else {                                                           \
+        return arg_func(opt_char, options, std::forward<Args>(args)...); \
+      }                                                                  \
+    }                                                                    \
+  }
