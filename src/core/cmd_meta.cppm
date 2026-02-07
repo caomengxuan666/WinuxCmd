@@ -24,20 +24,25 @@
  *  - CopyrightYear: 2026
  */
 module;
-#include <cstdio>
-export module core.cmd_meta;
+#include "pch/pch.h"
+export module core:cmd_meta;
 import std;
+import utils;
 
 namespace cmd::meta {
 // OptionMeta with constexpr support
+export enum class OptionType { Bool, Int, String };
+
 export struct OptionMeta {
   std::string_view short_name;
   std::string_view long_name;
   std::string_view description;
+  OptionType type;
+  size_t index = 0;
 
   constexpr OptionMeta(std::string_view s = "", std::string_view l = "",
-                       std::string_view d = "")
-      : short_name(s), long_name(l), description(d) {}
+                       std::string_view d = "", OptionType t = OptionType::Bool)
+      : short_name(s), long_name(l), description(d), type(t) {}
 };
 
 // Compile-time command metadata (fully compile-time)
@@ -52,6 +57,13 @@ class CommandMeta {
   std::string_view m_see_also;
   std::string_view m_author;
   std::string_view m_copyright;
+  std::string_view m_brief_desc;  // Brief description for help listing
+
+  static constexpr std::array<OptionMeta, OptionCount> with_index(
+      std::array<OptionMeta, OptionCount> opts) {
+    for (size_t i = 0; i < OptionCount; ++i) opts[i].index = i;
+    return opts;
+  }
 
  public:
   // constexpr constructor
@@ -60,15 +72,17 @@ class CommandMeta {
       std::string_view description, std::array<OptionMeta, OptionCount> options,
       std::string_view examples = "", std::string_view see_also = "",
       std::string_view author = "WinuxCmd Project",
-      std::string_view copyright = "Copyright © 2026 WinuxCmd")
+      std::string_view copyright = "Copyright © 2026 WinuxCmd",
+      std::string_view brief_desc = "")
       : m_name(name),
         m_synopsis(synopsis),
         m_description(description),
-        m_options(options),
+        m_options(with_index(options)),
         m_examples(examples),
         m_see_also(see_also),
         m_author(author),
-        m_copyright(copyright) {}
+        m_copyright(copyright),
+        m_brief_desc(brief_desc) {}
 
   // Accessors
   constexpr std::string_view name() const { return m_name; }
@@ -80,6 +94,28 @@ class CommandMeta {
   constexpr std::string_view see_also() const { return m_see_also; }
   constexpr std::string_view author() const { return m_author; }
   constexpr std::string_view copyright() const { return m_copyright; }
+
+  constexpr std::string_view brief_desc() const {
+    return m_brief_desc;
+  }  // Brief description getter
+
+  constexpr int find_index(std::string_view name) const {
+    for (size_t i = 0; i < OptionCount; ++i) {
+      if (m_options[i].long_name == name || m_options[i].short_name == name) {
+        return static_cast<int>(i);
+      }
+    }
+    return -1;
+  }
+
+  constexpr size_t findIndexOrThrow(std::string_view name) const {
+    for (size_t i = 0; i < OptionCount; ++i) {
+      if (options[i].long_name == name || options[i].short_name == name)
+        return i;
+    }
+    static_assert(OptionCount != OptionCount, "Option name not found");
+    return 0;
+  }
 
   // Generate help text
   std::string get_help() const {
@@ -191,6 +227,11 @@ class CommandMeta {
     result += "  0  if OK,\n";
     result += "  1  if minor problems,\n";
     result += "  2  if serious trouble.\n";
+
+    // 9. Out Project's Infomation
+
+    result += "This Project is a Windows implemention of GNU CoreUtils\n";
+    result += "Serverd for linux-windows developers and Ai coding assistant";
 
     return result;
   }
@@ -378,11 +419,15 @@ export class CommandMetaBase {
   virtual std::string get_help() const = 0;
 
   virtual std::string get_man() const = 0;
+
+  virtual std::string_view brief_desc() const = 0;
+
+  virtual std::span<const OptionMeta> options() const = 0;
 };
 
 export template <size_t N>
 class CommandMetaWrapper : public CommandMetaBase {
-  const CommandMeta<N> &m_meta;
+  const CommandMeta<N> m_meta;
 
  public:
   CommandMetaWrapper(const CommandMeta<N> &meta) : m_meta(meta) {}
@@ -390,6 +435,11 @@ class CommandMetaWrapper : public CommandMetaBase {
   std::string_view name() const override { return m_meta.name(); }
   std::string get_help() const override { return m_meta.get_help(); }
   std::string get_man() const override { return m_meta.get_man(); }
+  std::string_view brief_desc() const override { return m_meta.brief_desc(); }
+
+  std::span<const OptionMeta> options() const override {
+    return m_meta.options();
+  }
 };
 
 // Type-erased runtime handle
@@ -406,6 +456,9 @@ export class CommandMetaHandle {
   std::string_view name() const { return m_ptr->name(); }
   std::string get_help() const { return m_ptr->get_help(); }
   std::string get_man() const { return m_ptr->get_man(); }
+  std::string_view brief_desc() const { return m_ptr->brief_desc(); }
+
+  std::span<const OptionMeta> options() const { return m_ptr->options(); }
 };
 
 // Registry for metadata
@@ -421,7 +474,8 @@ export class Registry {
     auto &storage = get_storage();
     auto it = storage.find(cmd_name);
     if (it != storage.end()) {
-      printf("%s\n", it->second.get_help().c_str());
+      std::wstring whelp = utf8_to_wstring(it->second.get_help().c_str());
+      safePrintLn(whelp);
       return true;
     }
     return false;

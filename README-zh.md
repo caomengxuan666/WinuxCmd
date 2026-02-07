@@ -142,6 +142,72 @@ ls -lah
 cat -n file.txt
 ```
 
+### 管理命令
+
+```bash
+# WinuxCmd v0.1.4 - GNU Coreutils for Windows
+# ===================================================
+
+# 管理命令:
+winux activate          - 启用 GNU 命令
+winux deactivate        - 恢复原始命令
+winux status            - 检查激活状态
+winux list              - 列出可用命令
+winux version           - 显示版本
+winux help              - 显示此帮助
+
+# GNU 命令（直接）:
+winux ls -la            - 列出文件
+winux cp source dest    - 复制文件
+winux mv source dest    - 移动文件
+winux rm file           - 删除文件
+winux cat file          - 显示文件内容
+winux mkdir dir         - 创建目录
+
+# 直接访问:
+winuxcmd --help         - 显示 winuxcmd 帮助
+```
+
+### 激活示例
+
+```bash
+# 激活 WinuxCmd
+winux activate
+
+# 输出:
+# Activating WinuxCmd...
+#   ✓ cat
+#   ✓ cp
+#   ✓ mkdir
+#   ✓ ls
+#   ✓ mv
+#   ✓ rm
+# Activation complete!
+# Available WinuxCmd Commands:
+# =============================
+#   cat -> cat.exe [✓]
+#   cp -> cp.exe [✓]
+#   ls -> ls.exe [✓]
+#   mkdir -> mkdir.exe [✓]
+#   mv -> mv.exe [✓]
+#   rm -> rm.exe [✓]
+
+# 现在可以直接使用命令
+ls -la
+cat file.txt
+```
+
+### 停用示例
+
+```bash
+# 停用 WinuxCmd
+winux deactivate
+
+# 输出:
+# Deactivating WinuxCmd...
+# Deactivation complete! All original commands restored.
+```
+
 ### 与 PowerShell 集成
 
 ```powershell

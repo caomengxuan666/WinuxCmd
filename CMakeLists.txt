@@ -5,9 +5,7 @@ cmake_minimum_required(VERSION 3.30.0)
 # Option to choose between static (MT) and dynamic (MD) CRT
 option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" ON)
 # Option to enable tests
-option(ENABLE_TESTS "Enable tests" OFF)
-# Allow users to debug by the .i file.
-option(GENERATE_EXPAND_MACRO_FILE "Generate sourcefile.i file to show the macro" OFF)
+option(ENABLE_TESTS "Enable tests" ON)
 # Option to use hardlinks for commands instead of separate executables
 option(USE_HARDLINKS "Use hardlinks for commands instead of separate executables" ON)
 # Option to enable UPX compression
@@ -17,12 +15,6 @@ if (USE_STATIC_CRT)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
 else ()
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-endif ()
-
-if (GENERATE_EXPAND_MACRO_FILE)
-    if (MSVC)
-        target_compile_options(ls PRIVATE /P)
-    endif ()
 endif ()
 
 # Include UPX compression configuration if enabled
@@ -43,15 +35,6 @@ project(WinuxCmd
 )
 
 
-if (MSVC)
-    # remove default Ehsc
-    string(REGEX REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    # use Ehsc- instead to disable Exception handlers.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc-")
-    add_compile_options(/wd9025)
-    add_compile_definitions(NOMINMAX)
-endif ()
-
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -70,8 +53,12 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 # Main executable: winuxcmd.exe - includes all commands
 add_executable(winuxcmd
-        src/main.cpp
+        src/Main/main.cpp
 )
+
+# PCH for winuxcmd
+target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
+
 
 # Add all C++23 module interfaces for main executable
 file(GLOB_RECURSE CXX_MODULE_FILES CONFIGURE_DEPENDS
@@ -138,7 +125,7 @@ endif ()
 
 # Helper macro to create command executables
 macro(create_command_executable CMD)
-    add_executable(${CMD} src/main.cpp)
+    add_executable(${CMD} src/Main/main.cpp)
 
     # Add only the necessary modules
     target_sources(${CMD}
@@ -154,6 +141,7 @@ macro(create_command_executable CMD)
             src/utils/console.cppm
             src/utils/utf8.cppm
             src/commands/${CMD}.cppm
+            src/Main/wildcard_handler.cppm
     )
 
     # Add only the necessary implementation file
@@ -251,17 +239,7 @@ add_custom_command(TARGET scaffold POST_BUILD
 )
 
 if (ENABLE_TESTS)
-    # Add Catch2 test framework
-    include(FetchContent)
-    FetchContent_Declare(
-            Catch2
-            GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-            GIT_TAG v3.4.0
-    )
-    FetchContent_MakeAvailable(Catch2)
-
-    # Add test directory
-    add_subdirectory(test)
+    add_subdirectory(tests)
 endif ()
 
 include(GNUInstallDirs)

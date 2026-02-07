@@ -2,163 +2,226 @@
 
 ## Overview
 
-This guide explains how to use the `core.opt` module for consistent option handling across all commands in the WinuxCmd project. The module provides a unified way to generate option handlers from option definitions, reducing code duplication and ensuring consistency.
+This guide explains how to use the option handling system in the WinuxCmd project. With the new pipeline-based architecture, option handling is more streamlined and type-safe, providing a consistent way to handle command-line options across all commands.
 
 ## Core Concepts
 
-### OptionHandler Structure
+### CommandContext
 
-The `OptionHandler` structure represents a single option handler with the following fields:
+The `CommandContext` class provides type-safe access to command options and arguments. It automatically parses options based on the provided option definitions and allows you to access them with proper type checking:
 
 ```cpp
-struct OptionHandler {
-  char short_opt;         // Short option character (e.g., 'l' for -l)
-  bool requires_arg = false; // Whether the option requires an argument
-  const char* long_opt = nullptr; // Long option name (e.g., "--long-list")
+// Example: Accessing options with CommandContext
+template<size_t N>
+auto process_command(const CommandContext<N>& ctx) -> cp::Result<std::vector<std::string>> {
+  // Type-safe access to boolean options
+  bool all = ctx.get<bool>("--all", false);
+  bool list = ctx.get<bool>("--list", false);
+  
+  // Type-safe access to numeric options
+  int tabsize = ctx.get<int>("--tabsize", 8);
+  int width = ctx.get<int>("--width", 0);
+  
+  // Access positional arguments
+  std::vector<std::string> paths;
+  for (const auto& arg : ctx.positionals) {
+    paths.push_back(std::string(arg));
+  }
+  
+  return paths;
+}
+```
+
+### OptionMeta
+
+The `OptionMeta` structure defines a single command option with the following fields:
+
+```cpp
+struct OptionMeta {
+  const char* short_name; // Short option (e.g., "-l")
+  const char* long_name;  // Long option (e.g., "--list")
+  const char* desc;       // Option description
 };
 ```
 
-### Key Functions
+### OPTION Macro
 
-#### generate_option_handlers
+The `OPTION` macro simplifies creating `OptionMeta` objects:
 
-Generates an `std::array<OptionHandler>` from an array of `OptionMeta` objects. This function has two overloads:
-
-1. **Base case**: No argument-requiring options specified
-   ```cpp
-   template <size_t N>
-   constexpr auto generate_option_handlers(const std::array<cmd::meta::OptionMeta, N>& options);
-   ```
-
-2. **With custom argument-requiring options**:
-   ```cpp
-   template <size_t N, typename... Args>
-   constexpr auto generate_option_handlers(const std::array<cmd::meta::OptionMeta, N>& options, Args... args);
-   ```
-
-#### requires_argument
-
-Checks if an option requires an argument. This function has two overloads:
-
-1. **Base case**: Always returns false
-   ```cpp
-   constexpr bool requires_argument(std::string_view long_name);
-   ```
-
-2. **With custom argument-requiring options**:
-   ```cpp
-   template <typename... Args>
-   constexpr bool requires_argument(std::string_view long_name, Args... args);
-   ```
+```cpp
+#define OPTION(short_opt, long_opt, description) \
+    cmd::meta::OptionMeta{short_opt, long_opt, description}
+```
 
 ## Usage Example (ls command)
 
 ### 1. Define Options
 
-First, define your command options using the `OPTION` macro:
+First, define your command options using the `OPTION` macro in a constexpr array:
 
 ```cpp
-constexpr auto LS_OPTIONS = std::array{
-    OPTION("-a", "--all", "do not ignore entries starting with ."),
-    OPTION("-T", "--tabsize", "assume tab stops at each COLS instead of 8"),
-    OPTION("-w", "--width", "set output width to COLS. 0 means no limit"),
-    // ... other options
-};
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
+
+export auto constexpr LS_OPTIONS =
+    std::array{
+        OPTION("-a", "--all", "do not ignore entries starting with ."),
+        OPTION("-A", "--almost-all", "do not list implied . and .."),
+        OPTION("-l", "--list", "use a long listing format"),
+        OPTION("-h", "--human-readable", "with -l, print sizes in human readable format"),
+        OPTION("-T", "--tabsize", "assume tab stops at each COLS instead of 8"),
+        OPTION("-w", "--width", "set output width to COLS. 0 means no limit"),
+        // ... other options
+    };
 ```
 
-### 2. Generate Option Handlers
+### 2. Create Pipeline Components
 
-Generate `OPTION_HANDLERS` from your options array. Specify any options that require arguments:
-
-```cpp
-// Auto-generated lookup table for options from LS_OPTIONS
-constexpr auto OPTION_HANDLERS = generate_option_handlers(LS_OPTIONS, "--tabsize", "--width");
-```
-
-### 3. Use Option Handlers
-
-Use the generated `OPTION_HANDLERS` in your option parsing logic:
+Create pipeline components to process the command, using `CommandContext` for option access:
 
 ```cpp
-// Example: Parsing long options
-if (arg.starts_with("--")) {
-  for (const auto& handler : OPTION_HANDLERS) {
-    if (handler.long_opt && arg == handler.long_opt) {
-      if (handler.requires_arg) {
-        // Handle option with argument
-      } else {
-        // Handle boolean option
-      }
-      break;
+namespace ls_pipeline {
+  namespace cp=core::pipeline;
+  
+  // Validate arguments
+  auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {
+    std::vector<std::string> paths;
+    for (auto arg : args) {
+      paths.push_back(std::string(arg));
     }
+    return paths;
   }
+
+  // Main pipeline
+  template<size_t N>
+  auto process_command(const CommandContext<N>& ctx)
+      -> cp::Result<std::vector<std::string>>
+  {
+    return validate_arguments(ctx.positionals);
+  }
+
 }
+```
 
-// Example: Parsing short options
-for (size_t j = 1; j < arg.size(); ++j) {
-  char opt_char = arg[j];
-  for (const auto& handler : OPTION_HANDLERS) {
-    if (handler.short_opt == opt_char) {
-      if (handler.requires_arg) {
-        // Handle option with argument
-      } else {
-        // Handle boolean option
-      }
-      break;
-    }
+### 3. Register the Command
+
+Register the command with the `REGISTER_COMMAND` macro, passing the option definitions:
+
+```cpp
+REGISTER_COMMAND(ls,
+                 /* name */
+                 "ls",
+
+                 /* synopsis */
+                 "ls [OPTION]... [FILE]...",
+
+                 /* description */
+                 "List information about the FILEs (the current directory by default).\n"
+                 "Sort entries alphabetically if none of -cftuvSUX nor --sort is specified.",
+
+                 /* examples */
+                 "  ls -la                  List all files in long format\n"
+                 "  ls -lh                 List files with human-readable sizes\n"
+                 "  ls -la /path/to/dir    List all files in specified directory",
+
+                 /* see_also */
+                 "cp, mv, rm, mkdir, rmdir",
+
+                 /* author */
+                 "WinuxCmd Team",
+
+                 /* copyright */
+                 "Copyright © 2026 WinuxCmd",
+
+                 /* options */
+                 LS_OPTIONS
+) {
+  using namespace ls_pipeline;
+
+  auto result = process_command(ctx);
+  if (!result) {
+    cp::report_error(result, L"ls");
+    return 1;
   }
+
+  auto paths = *result;
+  
+  // Access options
+  bool all = ctx.get<bool>("--all", false);
+  bool almost_all = ctx.get<bool>("--almost-all", false);
+  bool list = ctx.get<bool>("--list", false);
+  bool human_readable = ctx.get<bool>("--human-readable", false);
+  int tabsize = ctx.get<int>("--tabsize", 8);
+  int width = ctx.get<int>("--width", 0);
+  
+  // Command logic
+  // ...
+
+  return 0;
 }
 ```
 
 ## Migration Guide
 
-To migrate an existing command to use the `core.opt` module:
+To migrate an existing command to the new option handling system:
 
-1. **Add import statement**:
+1. **Add necessary imports**:
    ```cpp
-   import core.opt;
+   import core;
+   import utils;
+   using cmd::meta::OptionMeta;
+   using cmd::meta::OptionType;
    ```
 
-2. **Remove duplicate code**:
-   - Remove any local `OptionHandler` struct definitions
-   - Remove any local option handler generation logic
+2. **Define options**:
+   - Replace manual option definitions with a constexpr array using the `OPTION` macro
+   - Ensure all options have both short and long forms when appropriate
 
-3. **Generate option handlers**:
-   - Replace manually defined `OPTION_HANDLERS` with a call to `generate_option_handlers`
-   - Specify any options that require arguments
+3. **Update command structure**:
+   - Create a pipeline namespace for your command
+   - Implement `validate_arguments` and `process_command` functions
+   - Use `CommandContext` for option access instead of manual parsing
 
-4. **Update option parsing**:
-   - Use the generated `OPTION_HANDLERS` in your parsing logic
-   - Ensure consistent handling of options with arguments
+4. **Register the command**:
+   - Use the new `REGISTER_COMMAND` macro format
+   - Pass the option definitions array
+
+5. **Update error handling**:
+   - Use `core::pipeline::Result` for error reporting
+   - Use `cp::report_error` to display errors
 
 ## Best Practices
 
-- **Single source of truth**: Define options only once in the `OPTIONS` array
-- **Explicit argument requirements**: Always specify which options require arguments when calling `generate_option_handlers`
-- **Consistent naming**: Use the same option names across all commands when possible
-- **Documentation**: Document all options with clear descriptions
+- **Type safety**: Always use `ctx.get<T>()` with the appropriate type for option access
+- **Default values**: Always provide a default value when accessing options
+- **Consistency**: Use the same option names across commands when possible
+- **Documentation**: Provide clear descriptions for all options
+- **Error handling**: Use pipeline components and `Result` for consistent error handling
+- **Modularity**: Separate validation from processing logic
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Option not found**: Ensure the option is defined in the `OPTIONS` array
-2. **Argument handling** : Ensure options that require arguments are properly specified in the `generate_option_handlers` call
-3. **Module imports**: Ensure `import core.opt;` is present in your module
+1. **Option not found**: Ensure the option is defined in the options array
+2. **Type mismatch**: Ensure the type used in `ctx.get<T>()` matches the expected type
+3. **Default values**: Ensure you provide appropriate default values for all options
+4. **Module imports**: Ensure you've imported all necessary modules
 
 ### Debugging Tips
 
-- Print the generated `OPTION_HANDLERS` array to verify it contains the expected handlers
-- Check that short options are correctly extracted from the short_name field
-- Ensure long options are correctly mapped to their handlers
+- Print the `CommandContext` to verify options are being parsed correctly
+- Check that positional arguments are being captured properly
+- Ensure option names in the array match those used in `ctx.get<T>()`
 
-## Example: Migrating ls.cppm
+## Example: Full Implementation
 
-The `ls.cppm` file serves as the reference implementation for using the `core.opt` module. Key changes include:
+The `echo.cppm` file serves as the reference implementation for the new option handling system. Key features include:
 
-1. **Added import**: `import core.opt;`
-2. **Removed local definitions**: Removed duplicate `OptionHandler` struct and helper functions
-3. **Generated handlers**: Used `generate_option_handlers(LS_OPTIONS, "--tabsize", "--width")`
-4. **Updated parsing**: Used the generated `OPTION_HANDLERS` in the parsing logic
+1. **Option definitions**: Uses a constexpr array with `OPTION` macro
+2. **Pipeline components**: Implements validation and processing functions
+3. **CommandContext usage**: Uses type-safe option access
+4. **Error handling**: Uses `core::pipeline::Result` for error reporting
+5. **Command registration**: Uses the new `REGISTER_COMMAND` macro format
 
-By following this pattern, all commands can benefit from consistent, maintainable option handling.
+By following this pattern, all commands can benefit from consistent, type-safe, and maintainable option handling.

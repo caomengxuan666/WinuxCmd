@@ -142,6 +142,72 @@ ls -lah
 cat -n file.txt
 ```
 
+### Management Commands
+
+```bash
+# WinuxCmd v0.1.4 - GNU Coreutils for Windows
+# ===================================================
+
+# Management Commands:
+winux activate          - Enable GNU commands
+winux deactivate        - Restore original commands
+winux status            - Check activation status
+winux list              - List available commands
+winux version           - Show version
+winux help              - Show this help
+
+# GNU Commands (direct):
+winux ls -la            - List files
+winux cp source dest    - Copy files
+winux mv source dest    - Move files
+winux rm file           - Remove file
+winux cat file          - Show file content
+winux mkdir dir         - Create directory
+
+# Direct Access:
+winuxcmd --help         - Show winuxcmd help
+```
+
+### Activation Example
+
+```bash
+# Activate WinuxCmd
+winux activate
+
+# Output:
+# Activating WinuxCmd...
+#   ✓ cat
+#   ✓ cp
+#   ✓ mkdir
+#   ✓ ls
+#   ✓ mv
+#   ✓ rm
+# Activation complete!
+# Available WinuxCmd Commands:
+# =============================
+#   cat -> cat.exe [✓]
+#   cp -> cp.exe [✓]
+#   ls -> ls.exe [✓]
+#   mkdir -> mkdir.exe [✓]
+#   mv -> mv.exe [✓]
+#   rm -> rm.exe [✓]
+
+# Now you can use commands directly
+ls -la
+cat file.txt
+```
+
+### Deactivation Example
+
+```bash
+# Deactivate WinuxCmd
+winux deactivate
+
+# Output:
+# Deactivating WinuxCmd...
+# Deactivation complete! All original commands restored.
+```
+
 ### Integration with PowerShell
 
 ```powershell

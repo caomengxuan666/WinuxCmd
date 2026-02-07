@@ -148,7 +148,7 @@ int execute_ls(std::span<std::string_view> args) noexcept {
 编译必须通过 CMake 执行；CMakeLists.txt 必须强制指定 MSVC 编译链，核心配置示例：
 
 ```cmake
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.30)
 
 project(WinuxCmd LANGUAGES CXX)
 

@@ -49,6 +49,75 @@ WinuxCmd是一个轻量级的Windows可执行程序，为Windows系统提供了�
 - 配置模块输出目录
 - 支持MSVC的 `/std:c++latest` 标志
 
+## 架构设计
+
+### 基于管道的架构
+
+项目采用**基于管道的架构**，将命令处理分离为不同阶段，提供更好的模块化和可测试性：
+
+- **管道组件**：命令实现为一系列管道组件
+- **CommandContext**：提供类型安全的命令选项和参数访问
+- **声明式选项定义**：使用 constexpr 数组定义命令选项
+
+```cpp
+// 基于管道架构示例
+namespace ls_pipeline {
+  namespace cp = core::pipeline;
+  
+  // 验证参数
+  auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>>;
+  
+  // 主管道
+  template<size_t N>
+  auto process_command(const CommandContext<N>& ctx) -> cp::Result<std::vector<std::string>>;
+}
+```
+
+### 命令调度器
+
+中央命令调度器管理命令注册和执行：
+
+- **自动注册**：命令使用 `REGISTER_COMMAND` 宏自行注册
+- **双模式执行**：支持 `winuxcmd <命令>` 和 `<命令>.exe` 两种格式
+- **高效调度**：使用哈希表进行快速命令查找
+
+```cpp
+// 命令注册示例
+REGISTER_COMMAND(ls,
+                 /* name */ "ls",
+                 /* synopsis */ "list directory contents",
+                 /* description */ "List information about the FILEs",
+                 /* examples */ "  ls -la",
+                 /* see_also */ "cp, mv, rm",
+                 /* author */ "WinuxCmd Team",
+                 /* copyright */ "Copyright © 2026 WinuxCmd",
+                 /* options */ LS_OPTIONS
+) {
+  // 命令实现
+}
+
+// 命令执行示例
+int exit_code = CommandRegistry::dispatch("ls", args);
+```
+
+### CommandContext
+
+`CommandContext` 类提供类型安全的命令选项和参数访问：
+
+- **类型安全的选项访问**：使用 `ctx.get<bool>("--verbose", false)` 访问选项
+- **位置参数访问**：通过 `ctx.positionals` 提供对位置参数的访问
+- **自动选项解析**：自动处理选项解析和验证
+
+### 管道组件
+
+每个命令都结构化为管道组件：
+
+1. **验证**：验证命令参数和选项
+2. **处理**：包含主要命令逻辑
+3. **输出**：处理命令输出
+
+这种结构提高了代码组织、可测试性和可维护性。
+
 ## 功能特性
 
 ### 命令兼容性
@@ -90,13 +159,140 @@ winuxcmd/
     ├── scaffold_and_dsl.md  # 脚手架和DSL设计文档（中文）
 ```
 
+## 添加新命令
+
+要添加新命令，请按照以下步骤操作：
+
+1. **使用脚手架工具**生成命令模板
+2. **更新生成文件中的命令选项**
+3. **实现验证和处理的管道组件**
+4. **在注册的命令函数中添加命令逻辑**
+5. **构建项目**以包含新命令
+
+为新命令 `echo` 示例：
+
+```cpp
+// src/commands/echo.cppm
+export module cmd:echo;
+
+import std;
+import core;
+import utils;
+namespace fs = std::filesystem;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
+
+// ======================================================
+// 常量
+// ======================================================
+namespace echo_constants {
+  // 在此添加常量
+}
+
+// ======================================================
+// 选项 (constexpr)
+// ======================================================
+
+export auto constexpr ECHO_OPTIONS =
+    std::array{OPTION("-n", "--no-newline", "不输出尾随换行符"),
+               // 在此添加更多选项
+              };
+
+// ======================================================
+// 管道组件
+// ======================================================
+namespace echo_pipeline {
+   namespace cp=core::pipeline;
+  
+  // ----------------------------------------------
+  // 1. 验证参数
+  // ----------------------------------------------
+  auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {
+    std::vector<std::string> texts;
+    for (auto arg : args) {
+      texts.push_back(std::string(arg));
+    }
+    return texts;
+  }
+
+  // ----------------------------------------------
+  // 2. 主管道
+  // ----------------------------------------------
+  template<size_t N>
+  auto process_command(const CommandContext<N>& ctx)
+      -> cp::Result<std::vector<std::string>>
+  {
+    return validate_arguments(ctx.positionals)
+        // 在此添加更多管道步骤
+        ;
+  }
+
+}
+
+// ======================================================
+// 命令注册
+// ======================================================
+
+REGISTER_COMMAND(echo,
+                 /* name */
+                 "echo",
+
+                 /* synopsis */
+                 "echo [选项]... [字符串]...",
+
+                 /* description */
+                 "显示一行文本。无参数时，输出空行。",
+
+                 /* examples */
+                 "  echo Hello World        显示 'Hello World'\n"
+                 "  echo -n Hello           显示 'Hello' 无尾随换行符",
+
+                 /* see_also */
+                 "printf",
+
+                 /* author */
+                 "WinuxCmd Team",
+
+                 /* copyright */
+                 "Copyright © 2026 WinuxCmd",
+
+                 /* options */
+                 ECHO_OPTIONS
+) {
+  using namespace echo_pipeline;
+
+  auto result = process_command(ctx);
+  if (!result) {
+    cp::report_error(result, L"echo");
+    return 1;
+  }
+
+  auto texts = *result;
+
+  // 命令逻辑
+  for (size_t i = 0; i < texts.size(); ++i) {
+    safePrint(utf8_to_wstring(texts[i]));
+    if (i != texts.size() - 1) {
+      safePrint(L" ");
+    }
+  }
+
+  if (!ctx.get<bool>("--no-newline", false)) {
+    safePrintLn(L"");
+  }
+
+  return 0;
+}
+```
+
 ## 构建说明
 
 ### 前提条件
 
 - Windows 10/11（64位）
 - Microsoft Visual Studio 2022+（支持C++23）
-- CMake 3.26+（支持C++23模块）
+- CMake 3.30+（支持C++23模块）
 
 ### 构建命令
 
