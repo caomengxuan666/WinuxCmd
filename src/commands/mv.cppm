@@ -79,47 +79,47 @@ module;
 #include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
 #include "core/command_macros.h"
-export module commands.mv;
+
+
+export module cmd:mv;
 
 import std;
 import core;
 import utils;
 
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
+
+// clang-format off
 export auto constexpr MV_OPTIONS =
     std::array{OPTION("-b", "", "like --backup but does not accept an argument"),
                OPTION("-f", "--force", "do not prompt before overwriting"),
                OPTION("-i", "", "prompt before overwrite"),
                OPTION("-n", "--no-clobber", "do not overwrite an existing file"),
-               OPTION("--strip-trailing-slashes", "",
-                      "remove any trailing slashes from each SOURCE argument"),
+               OPTION("--strip-trailing-slashes", "", "remove any trailing slashes from each SOURCE argument"),
                OPTION("-S", "--suffix", "override the usual backup suffix"),
-               OPTION("-t", "--target-directory",
-                      "move all SOURCE arguments into DIRECTORY"),
+               OPTION("-t", "--target-directory", "move all SOURCE arguments into DIRECTORY"),
                OPTION("-T", "--no-target-directory", "treat DEST as a normal file"),
-               OPTION("-u", "",
-                      "move only when the SOURCE file is newer than the destination file "
-                      "or when the destination file is missing"),
+               OPTION("-u", "", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
                OPTION("-v", "--verbose", "explain what is being done"),
-               OPTION("-Z", "--context",
-                      "set SELinux security context of destination file to default type"),
+               OPTION("-Z", "--context", "set SELinux security context of destination file to default type"),
                OPTION("--backup", "", "make a backup of each existing destination file"),
                OPTION("--force", "", "do not prompt before overwriting"),
-               OPTION("--interactive", "",
-                      "prompt according to WHEN: never, once (-I), or always (-i)"),
+               OPTION("--interactive", "", "prompt according to WHEN: never, once (-I), or always (-i)"),
                OPTION("--no-clobber", "", "do not overwrite an existing file"),
                OPTION("--suffix", "", "override the usual backup suffix"),
-               OPTION("--target-directory", "",
-                      "move all SOURCE arguments into DIRECTORY"),
+               OPTION("--target-directory", "", "move all SOURCE arguments into DIRECTORY"),
                OPTION("--no-target-directory", "", "treat DEST as a normal file"),
-               OPTION("--update", "",
-                      "move only when the SOURCE file is newer than the destination file "
-                      "or when the destination file is missing"),
+               OPTION("--update", "", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
                OPTION("--verbose", "", "explain what is being done"),
-               OPTION("--context", "",
-                      "set SELinux security context of destination file to default type"),
+               OPTION("--context", "", "set SELinux security context of destination file to default type"),
                OPTION("--help", "", "display this help and exit"),
                OPTION("--version", "", "output version information and exit")};
+// clang-format on
 
+// ======================================================
+// Pipeline components
+// ======================================================
 namespace mv_pipeline {
   namespace cp = core::pipeline;
 
@@ -132,9 +132,9 @@ namespace mv_pipeline {
     MoveContext move_ctx;
 
     // Get target directory if specified
-    bool has_target_dir = ctx.has("--target-directory");
+    bool has_target_dir = ctx.get<bool>("--target-directory", false);
     if (has_target_dir) {
-      move_ctx.dest_path = ctx.get<std::string>("--target-directory");
+      move_ctx.dest_path = ctx.get<std::string>("--target-directory", "");
       for (auto arg : ctx.positionals) {
         move_ctx.source_paths.push_back(std::string(arg));
       }
@@ -259,7 +259,7 @@ namespace mv_pipeline {
   template<size_t N>
   auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
     return parse_arguments(ctx)
-        .and_then([&](MoveContext move_ctx) {
+        .and_then([&](MoveContext move_ctx) -> cp::Result<bool> {
             auto dest_exists = check_path_exists(move_ctx.dest_path);
             if (!dest_exists) {
               return std::unexpected(dest_exists.error());
