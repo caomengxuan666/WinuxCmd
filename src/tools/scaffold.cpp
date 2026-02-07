@@ -130,8 +130,9 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "        safeErrorPrintLn(L\"" + cmdName +
                    ": invalid option -- '\" + warg.substr(2) + L\"'\");\n";
   moduleContent += "      } else {\n";
-  moduleContent += "        safeErrorPrintLn(L\"" + cmdName +
-                   ": invalid option -- '\" + std::wstring(1, opt_char) + L\"'\");\n";
+  moduleContent +=
+      "        safeErrorPrintLn(L\"" + cmdName +
+      ": invalid option -- '\" + std::wstring(1, opt_char) + L\"'\");\n";
   moduleContent += "      }\n";
   moduleContent += "    }\n\n";
   moduleContent += "    // Helper function to set boolean option\n";
@@ -157,7 +158,9 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "              ++i;\n";
   moduleContent += "            } else {\n";
   moduleContent += "              std::wostringstream oss;\n";
-  moduleContent += "              oss << L\"" + cmdName + ": option '\" << arg.data() << L\"' requires an argument\";\n";
+  moduleContent +=
+      "              oss << L\"" + cmdName +
+      ": option '\" << arg.data() << L\"' requires an argument\";\n";
   moduleContent += "              safeErrorPrintLn(oss.str());\n";
   moduleContent += "              return false;\n";
   moduleContent += "            }\n";
@@ -191,7 +194,9 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "                ++i;\n";
   moduleContent += "              } else {\n";
   moduleContent += "                std::wostringstream oss;\n";
-  moduleContent += "                oss << L\"" + cmdName + ": option requires an argument -- '\" << opt_char << L\"'\";\n";
+  moduleContent +=
+      "                oss << L\"" + cmdName +
+      ": option requires an argument -- '\" << opt_char << L\"'\";\n";
   moduleContent += "                safeErrorPrintLn(oss.str());\n";
   moduleContent += "                return false;\n";
   moduleContent += "              }\n";
@@ -226,7 +231,8 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "  // Example: Print paths\n";
   moduleContent += "  for (const auto& path : paths) {\n";
   moduleContent += "    if (options.get_verbose()) {\n";
-  moduleContent += "      safePrintLn(L\"Processing: \" + utf8_to_wstring(path));\n";
+  moduleContent +=
+      "      safePrintLn(L\"Processing: \" + utf8_to_wstring(path));\n";
   moduleContent += "    }\n";
   moduleContent += "    // TODO: Process path\n";
   moduleContent += "  }\n\n";

@@ -35,9 +35,9 @@
 #define NOMINMAX
 #define STRICT
 #define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>     // For basic windows functions
-//Include these headers after windows.h
-//Fuck clang-format.
+#include <windows.h>  // For basic windows functions
+// Include these headers after windows.h
+// Fuck clang-format.
 #include <fcntl.h>       // For _setmode
 #include <fileapi.h>     // For FindFirstFileW, FindNextFileW
 #include <handleapi.h>   // For GetStdHandle, INVALID_HANDLE_VALUE

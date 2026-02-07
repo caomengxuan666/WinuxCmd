@@ -33,17 +33,6 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-module;
-#include "pch/pch.h"
-#pragma comment(lib, "shlwapi.lib")
-#include "core/auto_flags.h"
-#include "core/command_macros.h"
-export module commands.mv;
-
-import std;
-import core;
-import utils;
-
 /**
  * @brief MV command options definition
  *
@@ -85,44 +74,216 @@ import utils;
  * - @a --help: Display this help and exit [TODO]
  * - @a --version: Output version information and exit [TODO]
  */
-constexpr auto MV_OPTIONS = std::array{
-    OPTION("-b", "", "like --backup but does not accept an argument"),
-    OPTION("-f", "--force", "do not prompt before overwriting"),
-    OPTION("-i", "", "prompt before overwrite"),
-    OPTION("-n", "--no-clobber", "do not overwrite an existing file"),
-    OPTION("--strip-trailing-slashes", "",
-           "remove any trailing slashes from each SOURCE argument"),
-    OPTION("-S", "--suffix", "override the usual backup suffix"),
-    OPTION("-t", "--target-directory",
-           "move all SOURCE arguments into DIRECTORY"),
-    OPTION("-T", "--no-target-directory", "treat DEST as a normal file"),
-    OPTION("-u", "",
-           "move only when the SOURCE file is newer than the destination file "
-           "or when the destination file is missing"),
-    OPTION("-v", "--verbose", "explain what is being done"),
-    OPTION("-Z", "--context",
-           "set SELinux security context of destination file to default type"),
-    OPTION("--backup", "", "make a backup of each existing destination file"),
-    OPTION("--force", "", "do not prompt before overwriting"),
-    OPTION("--interactive", "",
-           "prompt according to WHEN: never, once (-I), or always (-i)"),
-    OPTION("--no-clobber", "", "do not overwrite an existing file"),
-    OPTION("--suffix", "", "override the usual backup suffix"),
-    OPTION("--target-directory", "",
-           "move all SOURCE arguments into DIRECTORY"),
-    OPTION("--no-target-directory", "", "treat DEST as a normal file"),
-    OPTION("--update", "",
-           "move only when the SOURCE file is newer than the destination file "
-           "or when the destination file is missing"),
-    OPTION("--verbose", "", "explain what is being done"),
-    OPTION("--context", "",
-           "set SELinux security context of destination file to default type"),
-    OPTION("--help", "", "display this help and exit"),
-    OPTION("--version", "", "output version information and exit")};
 
-// Auto-generated lookup table for options from MV_OPTIONS
-constexpr auto OPTION_HANDLERS =
-    generate_option_handlers(MV_OPTIONS, "--interactive");
+module;
+#include "pch/pch.h"
+#pragma comment(lib, "shlwapi.lib")
+#include "core/command_macros.h"
+export module commands.mv;
+
+import std;
+import core;
+import utils;
+
+export auto constexpr MV_OPTIONS =
+    std::array{OPTION("-b", "", "like --backup but does not accept an argument"),
+               OPTION("-f", "--force", "do not prompt before overwriting"),
+               OPTION("-i", "", "prompt before overwrite"),
+               OPTION("-n", "--no-clobber", "do not overwrite an existing file"),
+               OPTION("--strip-trailing-slashes", "",
+                      "remove any trailing slashes from each SOURCE argument"),
+               OPTION("-S", "--suffix", "override the usual backup suffix"),
+               OPTION("-t", "--target-directory",
+                      "move all SOURCE arguments into DIRECTORY"),
+               OPTION("-T", "--no-target-directory", "treat DEST as a normal file"),
+               OPTION("-u", "",
+                      "move only when the SOURCE file is newer than the destination file "
+                      "or when the destination file is missing"),
+               OPTION("-v", "--verbose", "explain what is being done"),
+               OPTION("-Z", "--context",
+                      "set SELinux security context of destination file to default type"),
+               OPTION("--backup", "", "make a backup of each existing destination file"),
+               OPTION("--force", "", "do not prompt before overwriting"),
+               OPTION("--interactive", "",
+                      "prompt according to WHEN: never, once (-I), or always (-i)"),
+               OPTION("--no-clobber", "", "do not overwrite an existing file"),
+               OPTION("--suffix", "", "override the usual backup suffix"),
+               OPTION("--target-directory", "",
+                      "move all SOURCE arguments into DIRECTORY"),
+               OPTION("--no-target-directory", "", "treat DEST as a normal file"),
+               OPTION("--update", "",
+                      "move only when the SOURCE file is newer than the destination file "
+                      "or when the destination file is missing"),
+               OPTION("--verbose", "", "explain what is being done"),
+               OPTION("--context", "",
+                      "set SELinux security context of destination file to default type"),
+               OPTION("--help", "", "display this help and exit"),
+               OPTION("--version", "", "output version information and exit")};
+
+namespace mv_pipeline {
+  namespace cp = core::pipeline;
+
+  struct MoveContext {
+    std::vector<std::string> source_paths;
+    std::string dest_path;
+  };
+
+  auto parse_arguments(const CommandContext<MV_OPTIONS.size()>& ctx) -> cp::Result<MoveContext> {
+    MoveContext move_ctx;
+
+    // Get target directory if specified
+    bool has_target_dir = ctx.has("--target-directory");
+    if (has_target_dir) {
+      move_ctx.dest_path = ctx.get<std::string>("--target-directory");
+      for (auto arg : ctx.positionals) {
+        move_ctx.source_paths.push_back(std::string(arg));
+      }
+    } else {
+      // Regular case: last argument is destination
+      if (ctx.positionals.size() < 2) {
+        return std::unexpected("missing file operand");
+      }
+      
+      for (size_t i = 0; i < ctx.positionals.size() - 1; ++i) {
+        move_ctx.source_paths.push_back(std::string(ctx.positionals[i]));
+      }
+      move_ctx.dest_path = std::string(ctx.positionals.back());
+    }
+
+    if (move_ctx.source_paths.empty()) {
+      return std::unexpected("missing file operand");
+    }
+
+    return move_ctx;
+  }
+
+  auto check_path_exists(const std::string& path) -> cp::Result<bool> {
+    std::wstring wpath(path.begin(), path.end());
+    DWORD attr = GetFileAttributesW(wpath.c_str());
+    return attr != INVALID_FILE_ATTRIBUTES;
+  }
+
+  auto check_is_directory(const std::string& path) -> cp::Result<bool> {
+    std::wstring wpath(path.begin(), path.end());
+    DWORD attr = GetFileAttributesW(wpath.c_str());
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+      return std::unexpected("cannot access '" + path + "': No such file or directory");
+    }
+    return (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  }
+
+
+
+  auto build_dest_path(const std::string& src_path, const std::string& dest_path,
+                       bool dest_is_dir) -> cp::Result<std::string> {
+    if (!dest_is_dir) {
+      return dest_path;
+    }
+
+    std::wstring wsrc_path(src_path.begin(), src_path.end());
+    LPWSTR file_name = PathFindFileNameW(wsrc_path.c_str());
+    int file_name_length =
+        WideCharToMultiByte(CP_UTF8, 0, file_name, -1, NULL, 0, NULL, NULL);
+    std::string file_name_str(file_name_length, 0);
+    WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &file_name_str[0], file_name_length, NULL, NULL);
+
+    return dest_path + "\\" + file_name_str;
+  }
+
+  auto confirm_overwrite(const std::string& dest_path) -> cp::Result<bool> {
+    safeErrorPrint(L"mv: overwrite '" + utf8_to_wstring(dest_path) + L"'? (y/n) ");
+    char response;
+    std::cin.get(response);
+    std::cin.ignore(1024, '\n');
+    return response == 'y' || response == 'Y';
+  }
+
+  auto move_single_path(const std::string& src_path, const std::string& dest_path,
+                        const CommandContext<MV_OPTIONS.size()>& ctx) -> cp::Result<bool> {
+    try {
+      std::filesystem::path src_fs_path(src_path);
+      std::filesystem::path dest_fs_path(dest_path);
+
+      bool interactive = ctx.get<bool>("--interactive", false) || ctx.get<bool>("-i", false);
+      if (interactive) {
+        if (std::filesystem::exists(dest_fs_path)) {
+          auto confirmed = confirm_overwrite(dest_path);
+          if (!confirmed) {
+            return std::unexpected(confirmed.error());
+          }
+          if (!*confirmed) {
+            return true;
+          }
+        }
+      }
+
+      try {
+        std::filesystem::rename(src_fs_path, dest_fs_path);
+      } catch (const std::filesystem::filesystem_error&) {
+        std::filesystem::copy_file(src_fs_path, dest_fs_path,
+                                    std::filesystem::copy_options::overwrite_existing);
+        std::filesystem::remove(src_fs_path);
+      }
+
+      bool verbose = ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
+      if (verbose) {
+        safePrintLn(L"'" + utf8_to_wstring(src_path) + L"' -> '" + utf8_to_wstring(dest_path) + L"'");
+      }
+
+      return true;
+    } catch (const std::filesystem::filesystem_error& e) {
+      return std::unexpected("cannot move '" + src_path + "' to '" + dest_path + "': " + e.what());
+    } catch (const std::exception& e) {
+      return std::unexpected(std::string("error: ") + e.what());
+    }
+  }
+
+  auto process_single_source(const std::string& src_path, const MoveContext& move_ctx,
+                              bool dest_is_dir, const CommandContext<MV_OPTIONS.size()>& ctx) -> cp::Result<bool> {
+    auto src_exists = check_path_exists(src_path);
+    if (!src_exists) {
+      return std::unexpected(src_exists.error());
+    }
+    if (!*src_exists) {
+      return std::unexpected("cannot stat '" + src_path + "': No such file or directory");
+    }
+
+    auto final_dest = build_dest_path(src_path, move_ctx.dest_path, dest_is_dir);
+    if (!final_dest) {
+      return std::unexpected(final_dest.error());
+    }
+
+    return move_single_path(src_path, *final_dest, ctx);
+  }
+
+  template<size_t N>
+  auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
+    return parse_arguments(ctx)
+        .and_then([&](MoveContext move_ctx) {
+            auto dest_exists = check_path_exists(move_ctx.dest_path);
+            if (!dest_exists) {
+              return std::unexpected(dest_exists.error());
+            }
+            auto is_dir = check_is_directory(move_ctx.dest_path);
+            if (!is_dir) {
+              return std::unexpected(is_dir.error());
+            }
+            bool dest_is_dir = *is_dir;
+            bool success = true;
+            for (const auto& src_path : move_ctx.source_paths) {
+              auto result = process_single_source(src_path, move_ctx, dest_is_dir, ctx);
+              if (!result) {
+                return std::unexpected(result.error());
+              }
+              if (!*result) {
+                success = false;
+              }
+            }
+            return success;
+        });
+  }
+
+}
 
 REGISTER_COMMAND(
     mv,
@@ -143,298 +304,14 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     MV_OPTIONS) {
-  // Option flags for mv command
-  CREATE_AUTO_FLAGS_CLASS(
-      MvOptions, DECLARE_STRING_OPTION(backup_suffix, "~")  // --suffix
-      DECLARE_STRING_OPTION(target_dir, "")  // --target-directory
-      DEFINE_FLAG(interactive, 0)            // -i, --interactive
-      DEFINE_FLAG(verbose, 1)                // -v, --verbose
-      DEFINE_FLAG(force, 2)                  // -f, --force
-      DEFINE_FLAG(no_clobber, 3)             // --no-clobber
-      DEFINE_FLAG(backup, 4)                 // -b
-      DEFINE_FLAG(suffix, 5)                 // --suffix
-      DEFINE_FLAG(target_directory, 6)       // --target-directory
-      DEFINE_FLAG(no_target_directory, 7)    // --no-target-directory
-      DEFINE_FLAG(update, 8)                 // -u
-      DEFINE_FLAG(context, 9)                // -Z
-  )
+  using namespace mv_pipeline;
+  using namespace core::pipeline;
 
-  /**
-   * @brief Parse command line options for mv
-   * @param args Command arguments
-   * @param options Output parameter for parsed options
-   * @param sourcePaths Output parameter for source paths
-   * @param destPath Output parameter for destination path
-   * @return true if parsing succeeded, false on error
-   */
-  auto parseMvOptions = [](std::span<std::string_view> args, MvOptions& options,
-                           std::vector<std::string>& sourcePaths,
-                           std::string& destPath) -> bool {
-    for (size_t i = 0; i < args.size(); ++i) {
-      auto arg = args[i];
-
-      if (arg.starts_with("--")) {
-        // This is a long option
-        if (arg == "--interactive") {
-          options.set_interactive(true);
-        } else if (arg == "--verbose") {
-          options.set_verbose(true);
-        } else if (arg == "--force") {
-          options.set_force(true);
-        } else if (arg == "--no-clobber") {
-          options.set_no_clobber(true);
-        } else if (arg == "--suffix") {
-          if (i + 1 < args.size()) {
-            options.set_backup_suffix(args[i + 1]);
-            options.set_suffix(true);
-            ++i;
-          } else {
-            safeErrorPrintLn(L"mv: option '--suffix' requires an argument");
-            return false;
-          }
-        } else if (arg == "--target-directory") {
-          if (i + 1 < args.size()) {
-            options.set_target_dir(args[i + 1]);
-            options.set_target_directory(true);
-            ++i;
-          } else {
-            safeErrorPrintLn(
-                L"mv: option '--target-directory' requires an argument");
-            return false;
-          }
-        } else if (arg == "--no-target-directory") {
-          options.set_no_target_directory(true);
-        } else if (arg == "--context") {
-          options.set_context(true);
-        } else {
-          std::wstring warg(arg.begin(), arg.end());
-          safeErrorPrintLn(L"mv: invalid option -- '" + warg.substr(2) + L"'");
-          return false;
-        }
-      } else if (arg.starts_with('-')) {
-        // This is a short option
-        if (arg == "-") {
-          // Single dash, treat as path
-          sourcePaths.push_back(std::string(arg));
-          continue;
-        }
-
-        // Process option characters
-        for (size_t j = 1; j < arg.size(); ++j) {
-          char opt_char = arg[j];
-          bool found = false;
-
-          for (const auto& handler : OPTION_HANDLERS) {
-            if (handler.short_opt == opt_char) {
-              if (handler.requires_arg) {
-                if (j + 1 < arg.size()) {
-                  if (opt_char == 'S') {
-                    options.set_backup_suffix(arg.substr(j + 1));
-                    options.set_suffix(true);
-                  } else if (opt_char == 't') {
-                    options.set_target_dir(arg.substr(j + 1));
-                    options.set_target_directory(true);
-                  }
-                  j = arg.size() - 1;
-                } else if (i + 1 < args.size()) {
-                  if (opt_char == 'S') {
-                    options.set_backup_suffix(args[i + 1]);
-                    options.set_suffix(true);
-                  } else if (opt_char == 't') {
-                    options.set_target_dir(args[i + 1]);
-                    options.set_target_directory(true);
-                  }
-                  ++i;
-                } else {
-                  safeErrorPrintLn(
-                      L"mv: option requires an argument -- '" +
-                      std::wstring(1, static_cast<wchar_t>(opt_char)) + L"'");
-                  return false;
-                }
-              } else {
-                // Set boolean option based on opt_char
-                switch (opt_char) {
-                  OPTION_CASE('i', interactive)
-                    break;
-                  OPTION_CASE('v', verbose)
-                    break;
-                  OPTION_CASE('b', backup)
-                    break;
-                  OPTION_CASE('f', force)
-                    break;
-                  OPTION_CASE('n', no_clobber)
-                    break;
-                  OPTION_CASE('T', no_target_directory)
-                    break;
-                  OPTION_CASE('u', update)
-                    break;
-                  OPTION_CASE('Z', context)
-                    break;
-                }
-              }
-              found = true;
-              break;
-            }
-          }
-
-          if (!found) {
-            safeErrorPrintLn(L"mv: invalid option -- '" +
-                             std::wstring(1, static_cast<wchar_t>(opt_char)) +
-                             L"'");
-            return false;
-          }
-        }
-      } else {
-        // This is a path
-        sourcePaths.push_back(std::string(arg));
-      }
-    }
-
-    if (options.get_target_directory()) {
-      if (sourcePaths.empty()) {
-        safeErrorPrintLn(L"mv: missing file operand");
-        return false;
-      }
-      destPath = options.get_target_dir();
-    } else {
-      if (sourcePaths.size() < 2) {
-        safeErrorPrintLn(L"mv: missing file operand");
-        return false;
-      }
-      destPath = sourcePaths.back();
-      sourcePaths.pop_back();
-    }
-
-    return true;
-  };
-
-  /**
-   * @brief Move a file or directory
-   * @param srcPath Source path
-   * @param destPath Destination path
-   * @param options mv command options
-   * @return true if move was successful, false on error
-   */
-  auto movePath = [](const std::string& srcPath, const std::string& destPath,
-                     const MvOptions& options) -> bool {
-    try {
-      std::filesystem::path srcFsPath(srcPath);
-      std::filesystem::path destFsPath(destPath);
-
-      if (options.get_interactive()) {
-        if (std::filesystem::exists(destFsPath)) {
-          safeErrorPrint(L"mv: overwrite '" + utf8_to_wstring(destPath) +
-                         L"'? (y/n) ");
-          char response;
-          std::cin.get(response);
-
-          // Clear any remaining characters in the input buffer (including
-          // newline)
-          std::cin.ignore(1024, '\n');
-
-          if (response != 'y' && response != 'Y') {
-            return true;
-          }
-        }
-      }
-
-      // First try to rename (works if on same filesystem)
-      try {
-        std::filesystem::rename(srcFsPath, destFsPath);
-      } catch (const std::filesystem::filesystem_error& e) {
-        // If rename fails (e.g., different filesystems), try copy then delete
-        std::filesystem::copy_file(
-            srcFsPath, destFsPath,
-            std::filesystem::copy_options::overwrite_existing);
-        std::filesystem::remove(srcFsPath);
-      }
-
-      if (options.get_verbose()) {
-        safePrintLn(L"'" + utf8_to_wstring(srcPath) + L"' -> '" +
-                    utf8_to_wstring(destPath) + L"'");
-      }
-
-      return true;
-    } catch (const std::filesystem::filesystem_error& e) {
-      std::wstring wsrcPath = utf8_to_wstring(srcPath);
-      std::wstring wdestPath = utf8_to_wstring(destPath);
-      std::wstring errorMsg = utf8_to_wstring(e.what());
-      safeErrorPrintLn(L"mv: cannot move '" + wsrcPath + L"' to '" + wdestPath +
-                       L"': " + errorMsg);
-      return false;
-    } catch (const std::exception& e) {
-      std::wstring errorMsg = utf8_to_wstring(e.what());
-      safeErrorPrintLn(L"mv: error: " + errorMsg);
-      return false;
-    }
-  };
-
-  /**
-   * @brief Check if a path exists and is a directory
-   * @param path Path to check
-   * @return true if path exists and is a directory, false otherwise
-   */
-  auto pathExistsAndIsDirectory = [](const std::string& path) -> bool {
-    std::wstring wpath(path.begin(), path.end());
-    DWORD attr = GetFileAttributesW(wpath.c_str());
-    return attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY);
-  };
-
-  /**
-   * @brief Check if a path exists
-   * @param path Path to check
-   * @return true if path exists, false otherwise
-   */
-  auto pathExists = [](const std::string& path) -> bool {
-    std::wstring wpath(path.begin(), path.end());
-    DWORD attr = GetFileAttributesW(wpath.c_str());
-    return attr != INVALID_FILE_ATTRIBUTES;
-  };
-
-  // Main implementation
-  MvOptions options;
-  std::vector<std::string> sourcePaths;
-  std::string destPath;
-
-  if (!parseMvOptions(args, options, sourcePaths, destPath)) {
-    return 2;  // Invalid option error code
-  }
-
-  bool destIsDir = pathExistsAndIsDirectory(destPath);
-
-  if (sourcePaths.size() > 1 && !destIsDir) {
-    std::wstring wdestPath = utf8_to_wstring(destPath);
-    safeErrorPrintLn(L"mv: target '" + wdestPath + L"' is not a directory");
+  auto result = process_command(ctx);
+  if (!result) {
+    report_error(result, L"mv");
     return 1;
   }
 
-  bool success = true;
-
-  for (const auto& srcPath : sourcePaths) {
-    if (!pathExists(srcPath)) {
-      std::wstring wpath_str = utf8_to_wstring(std::string(srcPath));
-      safeErrorPrintLn(L"mv: cannot stat '" + wpath_str +
-                       L"': No such file or directory");
-      success = false;
-      continue;
-    }
-
-    std::string finalDestPath = destPath;
-    if (destIsDir) {
-      std::wstring wsrcPath(srcPath.begin(), srcPath.end());
-      LPWSTR fileName = PathFindFileNameW(wsrcPath.c_str());
-      int fileNameLength =
-          WideCharToMultiByte(CP_UTF8, 0, fileName, -1, NULL, 0, NULL, NULL);
-      std::string fileNameStr(fileNameLength, 0);
-      WideCharToMultiByte(CP_UTF8, 0, fileName, -1, &fileNameStr[0],
-                          fileNameLength, NULL, NULL);
-      finalDestPath += "\\" + fileNameStr;
-    }
-
-    if (!movePath(srcPath, finalDestPath, options)) {
-      success = false;
-    }
-  }
-
-  return success ? 0 : 1;
+  return *result ? 0 : 1;
 }
