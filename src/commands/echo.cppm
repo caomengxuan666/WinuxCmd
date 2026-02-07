@@ -2,7 +2,6 @@ module;
 #include "pch/pch.h"
 #include "core/command_macros.h"
 
-
 export module cmd:echo;
 
 import std;

@@ -34,14 +34,18 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 
 module;
-#include "core/command_macros.h"
 #include "pch/pch.h"
-export module commands.mkdir;
+#include "core/command_macros.h"
+
+
+export module cmd:mkdir;
 
 import std;
 import core;
 import utils;
 
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
 using namespace core::pipeline;
 
 /**
@@ -61,14 +65,13 @@ using namespace core::pipeline;
  * - @a -Z: Set SELinux security context of each created directory to the
  * default type [TODO]
  */
-constexpr auto MKDIR_OPTIONS = std::array{
-    OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask"),
-    OPTION("-p", "--parents",
-           "no error if existing, make parent directories as needed"),
-    OPTION("-v", "--verbose", "print a message for each created directory"),
-    OPTION("-Z", "",
-           "set SELinux security context of each created directory to the "
-           "default type")};
+// clang-format off
+export auto constexpr MKDIR_OPTIONS =
+    std::array{OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask"),
+               OPTION("-p", "--parents", "no error if existing, make parent directories as needed"),
+               OPTION("-v", "--verbose", "print a message for each created directory"),
+               OPTION("-Z", "", "set SELinux security context of each created directory to the default type")};
+// clang-format on
 
 
 // ======================================================
@@ -141,9 +144,9 @@ namespace mkdir_pipeline {
    * @brief Process all paths
    * @param paths Paths to process
    * @param ctx Command context with options
-   * @return true if all paths were processed successfully, false otherwise
+   * @return Result with success status
    */
-  auto process_paths(const std::vector<std::string>& paths, const CommandContext<MKDIR_OPTIONS.size()>& ctx) -> bool {
+  auto process_paths(const std::vector<std::string>& paths, const CommandContext<MKDIR_OPTIONS.size()>& ctx) -> cp::Result<bool> {
     bool success = true;
     for (const auto& path : paths) {
       if (!create_directory(path, ctx)) {

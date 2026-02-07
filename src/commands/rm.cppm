@@ -37,11 +37,15 @@ module;
 #include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
 #include "core/command_macros.h"
-export module commands.rm;
+
+export module cmd:rm;
 
 import std;
 import core;
 import utils;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
 
 using namespace core::pipeline;
 
@@ -73,31 +77,20 @@ using namespace core::pipeline;
  * - @a --no-preserve-root: Do not treat '/' specially [IMPLEMENTED]
  * - @a --preserve-root: Do not remove '/' (default) [IMPLEMENTED]
  */
-constexpr auto RM_OPTIONS = std::array{
-    OPTION("-f", "--force",
-           "ignore nonexistent files and arguments, never prompt"),
+// clang-format off
+export constexpr auto RM_OPTIONS = std::array{
+    OPTION("-f", "--force", "ignore nonexistent files and arguments, never prompt"),
     OPTION("-i", "", "prompt before every removal"),
-    OPTION("-I", "",
-           "prompt once before removing more than three files, or when "
-           "removing recursively"),
+    OPTION("-I", "", "prompt once before removing more than three files, or when removing recursively"),
     OPTION("-d", "--dir", "remove empty directories"),
-    OPTION("-r", "--recursive",
-           "remove directories and their contents recursively"),
-    OPTION("-R", "--recursive",
-           "remove directories and their contents recursively"),
+    OPTION("-r", "--recursive", "remove directories and their contents recursively"),
+    OPTION("-R", "--recursive", "remove directories and their contents recursively"),
     OPTION("-v", "--verbose", "explain what is being done"),
-    OPTION("--interactive", "",
-           "prompt according to WHEN: never, once (-I), or always (-i)"),
-    OPTION("--one-file-system", "",
-           "when removing a hierarchy recursively, skip any directory that is "
-           "on a file system different from that of the corresponding command "
-           "line argument"),
+    OPTION("--interactive", "", "prompt according to WHEN: never, once (-I), or always (-i)"),
+    OPTION("--one-file-system", "", "when removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument"),
     OPTION("--no-preserve-root", "", "do not treat '/' specially"),
     OPTION("--preserve-root", "", "do not remove '/' (default)")};
-
-// Auto-generated lookup table for options from RM_OPTIONS
-constexpr auto OPTION_HANDLERS =
-    generate_option_handlers(RM_OPTIONS, "--interactive");
+// clang-format on
 
 // ======================================================
 // Pipeline components
@@ -285,9 +278,9 @@ namespace rm_pipeline {
    * @brief Process all paths
    * @param paths Paths to process
    * @param ctx Command context with options
-   * @return true if all paths were processed successfully, false otherwise
+   * @return Result with success status
    */
-  auto process_paths(const std::vector<std::string>& paths, const CommandContext<RM_OPTIONS.size()>& ctx) -> bool {
+  auto process_paths(const std::vector<std::string>& paths, const CommandContext<RM_OPTIONS.size()>& ctx) -> cp::Result<bool> {
     bool success = true;
     for (const auto& path : paths) {
       if (!remove_path(path, ctx)) {

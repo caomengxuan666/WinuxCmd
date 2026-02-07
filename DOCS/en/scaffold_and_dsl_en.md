@@ -1,185 +1,448 @@
-# Scaffold and DSL Design Documentation
+# Scaffold and DSL Documentation
 
-## 1. Scaffold Tool
+## Scaffold Tool Overview
 
-### 1.1 Overview
+The scaffold tool is designed to streamline the creation of new command modules for the WinuxCmd project. It generates boilerplate code that follows the project's conventions and best practices, allowing developers to focus on implementing the core functionality of the command. The tool now generates code that uses the new pipeline-based architecture.
 
-The scaffold tool is a command-line utility provided by the WinuxCmd project to quickly generate template code for new commands. It helps developers avoid writing repetitive boilerplate code, improves development efficiency, and ensures all commands follow the project's coding standards and architectural design.
+### Key Features
 
-### 1.2 Features
+- **Automated Code Generation**: Creates all necessary files and boilerplate code for a new command
+- **Consistent Structure**: Ensures all commands follow the same structure and conventions
+- **Integration with DSL**: Generates code that uses the project's DSL for option handling and command registration
+- **Error Handling**: Includes basic error handling patterns using `core::pipeline::Result`
+- **Documentation Template**: Provides placeholders for command documentation
+- **Pipeline Architecture**: Generates code that follows the new pipeline-based architecture
 
-- **Automatic command template generation**: Generates complete command implementation templates based on user input
-- **Follows project specifications**: Ensures generated code complies with Google C++ Style Guide and project coding standards
-- **Includes necessary components**: Automatically generates command registration, parameter parsing, core logic, and other necessary components
-- **Supports author information**: Generated code includes author information fields for contributor tracking
+### How to Use
 
-### 1.3 Usage
+To create a new command module using the scaffold tool, run the following command:
 
-1. **Build the scaffold tool**:
-   ```bash
-   # Execute in project root directory
-   cmake --build . --target scaffold
-   ```
+```bash
+# From the project root directory
+python scripts/scaffold.py <command_name> [options]
 
-2. **Run the scaffold tool**:
-   ```bash
-   # Execute in build directory
-   ./scaffold.exe <command name> <command description>
-   ```
-
-   For example, to create a command named `grep` with the description "search text", you can execute:
-   ```bash
-   ./scaffold.exe grep "search text"
-   ```
-
-3. **View generated files**:
-   The scaffold will generate the corresponding command file in the `src/commands/` directory, such as `grep.cppm`.
-
-### 1.4 Generated File Structure
-
-Generated command files include the following main parts:
-
-- **Module declaration**: Declares the command module using C++23 module system
-- **Necessary imports**: Imports project core modules and standard library
-- **Command option definitions**: Defines command-supported options using DSL
-- **Command registration**: Registers the command using `REGISTER_COMMAND` macro
-- **Core logic implementation**: Contains the main functionality implementation of the command
-- **Author information**: Contains author name and email fields
-
-## 2. DSL Design
-
-### 2.1 Overview
-
-DSL (Domain-Specific Language) is a declarative syntax designed by the WinuxCmd project to simplify command option definition and processing. It allows developers to define command options and parameters in a concise, intuitive way without writing tedious parsing code.
-
-### 2.2 Design Principles
-
-DSL design is based on the following principles:
-
-- **Simplicity**: Uses concise syntax to define command options, reducing boilerplate code
-- **Type safety**: Utilizes C++ type system to ensure correctness of option definitions
-- **Extensibility**: Easy to add new option types and processing logic
-- **Compile-time validation**: Validates correctness of option definitions at compile time, avoiding runtime errors
-
-### 2.3 Core Components
-
-#### 2.3.1 OPTION Macro
-
-The `OPTION` macro is one of the core components of DSL, used to define command options. Its syntax is as follows:
-
-```cpp
-OPTION(short option, long option, description)
+# Example: Create a new command called "example"
+python scripts/scaffold.py example
 ```
 
-For example:
+### Generated Files
+
+When you run the scaffold tool, it generates the following files:
+
+1. **`src/cmd/<command_name>.cppm`**: The main command module file
+
+### Generated Code Structure
+
+The generated code follows this structure, which implements the new pipeline-based architecture:
 
 ```cpp
-OPTION("-l", "--long", "Use long format")
-```
+// Main module file (<command_name>.cppm)
+export module cmd.<command_name>;
 
-#### 2.3.2 REGISTER_COMMAND Macro
+import core;
+import utils;
 
-The `REGISTER_COMMAND` macro is used to register commands, associating command names, descriptions, option lists, and implementation functions. Its syntax is as follows:
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
 
-```cpp
-REGISTER_COMMAND(command name, command description, option list, command function, help information)
-```
+namespace <command_name>_constants {
+    // Command-specific constants
+}
 
-#### 2.3.3 Option Processing System
+// Option definitions
+export auto constexpr <COMMAND_NAME>_OPTIONS =
+    std::array{
+        // Option definitions here
+    };
 
-The option processing system is the runtime part of DSL, responsible for:
+namespace <command_name>_pipeline {
+    namespace cp = core::pipeline;
 
-- Parsing command-line arguments
-- Validating option validity
-- Processing option parameters
-- Generating help information
+    // Validate arguments
+    auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {
+        std::vector<std::string> validated_args;
+        for (auto arg : args) {
+            validated_args.push_back(std::string(arg));
+        }
+        return validated_args;
+    }
 
-### 2.4 Usage Example
+    // Process command
+    template<size_t N>
+    auto process_command(const CommandContext<N>& ctx)
+        -> cp::Result<std::vector<std::string>>
+    {
+        auto args_result = validate_arguments(ctx.positionals);
+        if (!args_result) {
+            return args_result.error();
+        }
+        return *args_result;
+    }
 
-The following is an example of using DSL to define command options:
+}
 
-```cpp
-// Define command options
-constexpr auto LS_OPTIONS = std::array{
-    OPTION("-l", "--long", "Use long format"),
-    OPTION("-a", "--all", "Show all files, including hidden files"),
-    OPTION("-h", "--human-readable", "Show file sizes in human-readable format"),
-    OPTION("-r", "--reverse", "Reverse sort"),
-};
+REGISTER_COMMAND(<command_name>,
+                 /* name */
+                 "<command_name>",
 
-// Register command
-REGISTER_COMMAND("ls", "List directory contents", LS_OPTIONS, ls_func, "List directory contents")
-{
-    // Command implementation
-    // ...
+                 /* synopsis */
+                 "<command_name> [options] [arguments]",
+
+                 /* description */
+                 "<Command description>",
+
+                 /* examples */
+                 "<Command examples>",
+
+                 /* see_also */
+                 "<See also commands>",
+
+                 /* author */
+                 "WinuxCmd Team",
+
+                 /* copyright */
+                 "Copyright © 2026 WinuxCmd",
+
+                 /* options */
+                 <COMMAND_NAME>_OPTIONS
+) {
+    using namespace <command_name>_pipeline;
+
+    auto result = process_command(ctx);
+    if (!result) {
+        cp::report_error(result, L"<command_name>");
+        return 1;
+    }
+
+    auto args = *result;
+
+    // Command implementation here
+
+    return 0;
 }
 ```
 
-### 2.5 Advanced Features
+## DSL Design Overview
 
-#### 2.5.1 Flag Options
+The WinuxCmd project uses a Domain-Specific Language (DSL) to simplify command implementation, option handling, and command registration. The DSL is implemented through macros and template metaprogramming to provide a clean, declarative syntax. The DSL has been updated to support the new pipeline-based architecture.
 
-Flag options are options that do not require parameters, used to enable or disable certain features. In DSL, flag options are defined the same way as regular options, but no parameters are fetched during processing.
+### Design Principles
 
-#### 2.5.2 Parameter Options
+- **Declarative Syntax**: Focus on what the command does, not how to parse options
+- **Type Safety**: Use C++ type system to catch errors at compile time
+- **Minimal Boilerplate**: Reduce repetitive code
+- **Consistency**: Ensure all commands follow the same patterns
+- **Extensibility**: Allow for custom option types and handling
+- **Pipeline Architecture**: Support for the new pipeline-based command processing
 
-Parameter options are options that require parameters, such as `-f <file>`. DSL automatically handles parameter fetching and validation for parameter options.
+### Core Components
 
-#### 2.5.3 Help Information Generation
+#### 1. Option Definition
 
-DSL automatically generates help information based on option definitions, including option descriptions, usage examples, etc.
+The `OPTION` macro is used to define command options:
 
-## 3. Development Process
+```cpp
+OPTION("<short_option>", "<long_option>", "<description>")
+```
 
-### 3.1 New Command Development Steps
+Example:
 
-1. **Generate command template using scaffold**
-2. **Modify command option definitions**: Modify option definitions according to the actual needs of the command
-3. **Implement core logic**: Implement the core functionality of the command in the generated template
-4. **Test the command**: Compile and test the functionality of the command
-5. **Update documentation**: Update the status and description in the command implementation plan document
+```cpp
+OPTION("-l", "--list", "Use a long listing format")
+```
 
-### 3.2 Best Practices
+#### 2. Command Registration
 
-- **Follow coding standards**: Ensure code complies with Google C++ Style Guide
-- **Keep it simple**: Implement the core functionality of the command, avoid overly complex implementations
-- **Test thoroughly**: Write unit tests for the command to ensure correct functionality
-- **Complete documentation**: Update the command's help information and documentation
+The `REGISTER_COMMAND` macro is used to register a command with the system:
 
-## 4. Common Issues
+```cpp
+REGISTER_COMMAND(
+    <command_name>,        // Command identifier
+    "<command_name>",      // Command name
+    "<synopsis>",          // Command synopsis
+    "<description>",       // Command description
+    "<examples>",          // Command examples
+    "<see_also>",          // See also commands
+    "<author>",            // Author
+    "<copyright>",         // Copyright
+    <OPTIONS_ARRAY>         // Options array
+) {
+    // Command implementation here
+}
+```
 
-### 4.1 Generated Code Fails to Compile
+#### 3. CommandContext
 
-**Possible causes**:
-- Command name does not conform to naming conventions
-- Command description contains special characters
+The `CommandContext` class is used to access parsed options in a type-safe manner:
 
-**Solutions**:
-- Use valid command names (only letters, numbers, and underscores)
-- Ensure command descriptions do not contain special characters
+```cpp
+// Get a boolean option (default: false)
+bool option_value = ctx.get<bool>("--option-name", false);
 
-### 4.2 Option Parsing Fails
+// Get a string option (default: "")
+std::string option_value = ctx.get<std::string>("--option-name", "");
 
-**Possible causes**:
-- Option definition is incorrect
-- Command-line parameter format is wrong
+// Get an integer option (default: 0)
+int option_value = ctx.get<int>("--option-name", 0);
+```
 
-**Solutions**:
-- Check if option definitions comply with DSL syntax
-- Ensure command-line parameter format is correct
+#### 4. Pipeline Components
 
-### 4.3 Command Registration Fails
+The DSL supports the creation of pipeline components for command processing:
 
-**Possible causes**:
-- Command name already exists
-- Option list format is incorrect
+```cpp
+namespace <command_name>_pipeline {
+    namespace cp = core::pipeline;
 
-**Solutions**:
-- Use a unique command name
-- Check if option list is correctly defined
+    // Validate arguments
+    auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {
+        // Validation logic here
+    }
 
-## 5. Summary
+    // Process command
+    template<size_t N>
+    auto process_command(const CommandContext<N>& ctx) -> cp::Result<ReturnType> {
+        // Processing logic here
+    }
 
-Scaffold and DSL are important tools for the WinuxCmd project, making command development simpler, more efficient, and more standardized. By using these tools, developers can focus on implementing the core functionality of commands without worrying about tedious boilerplate code and option parsing logic.
+}
+```
 
-We hope this document helps developers understand and use these tools to contribute more high-quality command implementations to the WinuxCmd project.
+### Using the DSL with Pipeline Architecture
+
+To use the DSL with the new pipeline-based architecture, follow these steps:
+
+1. **Import Required Modules**: Import `core` and `utils` modules
+2. **Define Constants**: Create a namespace for command-specific constants
+3. **Define Options**: Use the `OPTION` macro to define command options
+4. **Create Pipeline Components**: Implement validation and processing functions
+5. **Implement Command Logic**: Write the main command logic using the pipeline components
+6. **Register Command**: Use the `REGISTER_COMMAND` macro to register the command
+
+### Example: Full Command Implementation (Pipeline Architecture)
+
+```cpp
+// echo.cppm
+export module cmd.echo;
+
+import core;
+import utils;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
+
+namespace echo_constants {
+    // Command-specific constants
+}
+
+// Option definitions
+export auto constexpr ECHO_OPTIONS =
+    std::array{
+        OPTION("-n", "--no-newline", "Do not output a trailing newline"),
+        OPTION("-e", "--escape", "Enable interpretation of backslash escapes"),
+    };
+
+namespace echo_pipeline {
+    namespace cp = core::pipeline;
+
+    // Validate arguments
+    auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {
+        std::vector<std::string> validated_args;
+        for (auto arg : args) {
+            validated_args.push_back(std::string(arg));
+        }
+        return validated_args;
+    }
+
+    // Build text from arguments
+    auto build_text(const std::vector<std::string>& args) -> std::string {
+        std::string text;
+        for (size_t i = 0; i < args.size(); ++i) {
+            text += args[i];
+            if (i < args.size() - 1) {
+                text += " ";
+            }
+        }
+        return text;
+    }
+
+    // Process command
+    template<size_t N>
+    auto process_command(const CommandContext<N>& ctx)
+        -> cp::Result<std::string>
+    {
+        auto args_result = validate_arguments(ctx.positionals);
+        if (!args_result) {
+            return args_result.error();
+        }
+        auto args = *args_result;
+        return build_text(args);
+    }
+
+}
+
+REGISTER_COMMAND(echo,
+                 /* name */
+                 "echo",
+
+                 /* synopsis */
+                 "echo [OPTION]... [STRING]...",
+
+                 /* description */
+                 "Display a line of text.",
+
+                 /* examples */
+                 "echo Hello World      Display 'Hello World'\n"
+                 "echo -n Hello         Display 'Hello' without trailing newline\n"
+                 "echo -e Hello\\nWorld  Display 'Hello' and 'World' on separate lines",
+
+                 /* see_also */
+                 "cat, printf",
+
+                 /* author */
+                 "WinuxCmd Team",
+
+                 /* copyright */
+                 "Copyright © 2026 WinuxCmd",
+
+                 /* options */
+                 ECHO_OPTIONS
+) {
+    using namespace echo_pipeline;
+
+    auto result = process_command(ctx);
+    if (!result) {
+        cp::report_error(result, L"echo");
+        return 1;
+    }
+
+    auto text = *result;
+
+    // Get options using CommandContext
+    bool no_newline = ctx.get<bool>("--no-newline", false);
+    bool escape = ctx.get<bool>("--escape", false);
+
+    // If enabled, process escape sequences
+    if (escape) {
+        // Implement escape sequence processing
+    }
+
+    // Output result
+    std::cout << text;
+    if (!no_newline) {
+        std::cout << std::endl;
+    }
+
+    return 0;
+}
+```
+
+### Advanced Features
+
+#### Custom Option Types
+
+The DSL supports custom option types through template specialization:
+
+```cpp
+// Custom option type for integer values
+struct IntOption {
+    int value;
+};
+
+// Specialize OptionType for IntOption
+template<>
+struct OptionType<IntOption> {
+    static constexpr auto name = "int";
+    static constexpr auto parse = [](const std::string_view& value) -> std::optional<IntOption> {
+        try {
+            return IntOption{std::stoi(std::string(value))};
+        } catch (...) {
+            return std::nullopt;
+        }
+    };
+};
+
+// Use custom option type
+OPTION("-n", "--number", "Specify a number", OptionType<IntOption>{})
+```
+
+#### Subcommands
+
+The DSL supports subcommands through nested command registration:
+
+```cpp
+// Register main command
+REGISTER_COMMAND(
+    git,
+    "git",
+    "git [subcommand] [options]",
+    "Git version control system",
+    "git status\ngit commit",
+    "",
+    "WinuxCmd Team",
+    "Copyright © 2026 WinuxCmd",
+    GIT_OPTIONS
+) {
+    // Main git command implementation
+    return 0;
+};
+
+// Register subcommand
+REGISTER_COMMAND(
+    git_status,
+    "git status",
+    "git status [options]",
+    "Show the working tree status",
+    "git status",
+    "git",
+    "WinuxCmd Team",
+    "Copyright © 2026 WinuxCmd",
+    GIT_STATUS_OPTIONS
+) {
+    // git status implementation
+    return 0;
+};
+```
+
+## Best Practices
+
+### For Scaffold Tool
+
+1. **Use Descriptive Command Names**: Choose command names that clearly describe what the command does
+2. **Follow Naming Conventions**: Use lowercase for command names, uppercase for constants
+3. **Keep Options Simple**: Start with the most essential options, add more later
+4. **Document Thoroughly**: Fill in all documentation placeholders
+5. **Test Early**: Test the generated command structure before adding complex logic
+6. **Follow Pipeline Architecture**: Use the generated pipeline components structure
+
+### For DSL Usage
+
+1. **Use the OPTION Macro**: Always use the `OPTION` macro for option definitions
+2. **Follow Option Naming**: Use `-` for short options, `--` for long options
+3. **Provide Clear Descriptions**: Write clear, concise descriptions for options
+4. **Register Commands Properly**: Fill in all fields of the `REGISTER_COMMAND` macro
+5. **Handle Errors Gracefully**: Use `core::pipeline::Result` for error handling
+6. **Use CommandContext**: Use `CommandContext` for type-safe option access
+7. **Implement Pipeline Components**: Separate validation and processing logic into pipeline components
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Option Parsing Errors**: Check that options are defined correctly and that required arguments are provided
+2. **Command Registration Failures**: Ensure all fields of the `REGISTER_COMMAND` macro are filled in
+3. **Compilation Errors**: Check that all required modules are imported and that the code follows C++23 syntax
+4. **Pipeline Component Errors**: Ensure pipeline components return `core::pipeline::Result` and handle errors properly
+
+### Debugging Tips
+
+1. **Enable Debug Output**: Set the `WINUX_DEBUG` environment variable to `1` to enable debug output
+2. **Check Generated Code**: Examine the generated code for syntax errors or missing components
+3. **Test with Simple Commands**: Start with a simple command implementation and build up complexity
+4. **Refer to Existing Commands**: Look at how existing commands are implemented, especially `echo.cppm` which serves as a reference
+
+## Conclusion
+
+The scaffold tool and DSL are powerful tools that simplify the creation and maintenance of commands in the WinuxCmd project. With the new pipeline-based architecture, commands are now more modular, easier to test, and better organized. By following the patterns and best practices described in this document, developers can create consistent, well-structured commands that integrate seamlessly with the project's architecture.
+
+For more information, refer to the project's README.md file and the existing command implementations, especially `echo.cppm` which serves as a reference for the new pipeline-based architecture.

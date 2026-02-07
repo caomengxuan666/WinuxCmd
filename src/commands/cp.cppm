@@ -37,7 +37,7 @@ module;
 #include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
 #include "core/command_macros.h"
-export module commands.cp;
+export module cmd:cp;
 
 import std;
 import core;
@@ -134,9 +134,9 @@ namespace cp_pipeline {
     std::string destPath;
 
     // Get target directory if specified
-    bool has_target_dir = ctx.has("--target-directory");
+    bool has_target_dir = ctx.get<bool>("--target-directory", false);
     if (has_target_dir) {
-      destPath = ctx.get<std::string>("--target-directory");
+      destPath = ctx.get<std::string>("--target-directory", "");
       for (auto arg : ctx.positionals) {
         sourcePaths.push_back(std::string(arg));
       }

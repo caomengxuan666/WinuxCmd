@@ -33,14 +33,18 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 
 module;
-#include "core/auto_flags.h"
-#include "core/command_macros.h"
 #include "pch/pch.h"
-export module commands.cat;
+#include "core/command_macros.h"
+
+
+export module cmd:cat;
 
 import std;
 import core;
 import utils;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
 /**
  * @brief CAT command options definition
  *
@@ -64,34 +68,43 @@ import utils;
  * - @a -v, @a --show-nonprinting: Use ^ and M- notation, except for LFD and TAB
  * [IMPLEMENTED]
  */
-constexpr auto CAT_OPTIONS = std::array{
-    OPTION("-A", "--show-all", "equivalent to -vET"),
-    OPTION("-b", "--number-nonblank",
-           "number nonempty output lines, overrides -n"),
-    OPTION("-e", "", "equivalent to -vE"),
-    OPTION("-E", "--show-ends", "display $ at end of each line"),
-    OPTION("-n", "--number", "number all output lines"),
-    OPTION("-s", "--squeeze-blank", "suppress repeated empty output lines"),
-    OPTION("-t", "", "equivalent to -vT"),
-    OPTION("-T", "--show-tabs", "display TAB characters as ^I"),
-    OPTION("-u", "", "(ignored, for POSIX compatibility)"),
-    OPTION("-v", "--show-nonprinting",
-           "use ^ and M- notation, except for LFD and TAB")};
+// clang-format off
+export auto constexpr CAT_OPTIONS =
+    std::array{OPTION("-A", "--show-all", "equivalent to -vET"),
+               OPTION("-b", "--number-nonblank", "number nonempty output lines, overrides -n"),
+               OPTION("-e", "", "equivalent to -vE"),
+               OPTION("-E", "--show-ends", "display $ at end of each line"),
+               OPTION("-n", "--number", "number all output lines"),
+               OPTION("-s", "--squeeze-blank", "suppress repeated empty output lines"),
+               OPTION("-t", "", "equivalent to -vT"),
+               OPTION("-T", "--show-tabs", "display TAB characters as ^I"),
+               OPTION("-u", "", "(ignored, for POSIX compatibility)"),
+               OPTION("-v", "--show-nonprinting", "use ^ and M- notation, except for LFD and TAB")};
+// clang-format on
 
-// Auto-generated lookup table for options from CAT_OPTIONS
-constexpr auto OPTION_HANDLERS = generate_option_handlers(CAT_OPTIONS);
+// ======================================================
+// Pipeline components
+// ======================================================
+namespace cat_pipeline {
+  namespace cp=core::pipeline;
 
-CREATE_AUTO_FLAGS_CLASS(
-    CatOptions,
-    // Define all flags
-    DEFINE_FLAG(number_lines, 0)      // -n, --number
-    DEFINE_FLAG(number_nonblank, 1)   // -b, --number-nonblank
-    DEFINE_FLAG(show_end, 2)          // -E, --show-ends
-    DEFINE_FLAG(squeeze_empty, 3)     // -s, --squeeze-blank
-    DEFINE_FLAG(show_nonprinting, 4)  // -v, --show-nonprinting
-    DEFINE_FLAG(show_tabs, 5)         // -T, --show-tabs
-    DEFINE_FLAG(unbuffered, 6)        // -u, --unbuffered
-)
+  // ----------------------------------------------
+  // 1. Validate arguments
+  // ----------------------------------------------
+  auto validate_arguments(const CommandContext<CAT_OPTIONS.size()>& ctx) -> cp::Result<std::vector<std::string>> {
+    std::vector<std::string> files;
+    for (auto arg : ctx.positionals) {
+      files.push_back(std::string(arg));
+    }
+    
+    if (files.empty()) {
+      files.push_back("-");
+    }
+    
+    return files;
+  }
+
+} // namespace cat_pipeline
 
 REGISTER_COMMAND(
     cat,
@@ -118,151 +131,35 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */
     CAT_OPTIONS) {
+  using namespace cat_pipeline;
+  using namespace core::pipeline;
+
   /**
-   * @brief Parse command line options for cat
-   * @param args Command arguments
-   * @param options Output parameter for parsed options
-   * @param files Output parameter for files to process
-   * @return true if parsing succeeded, false on error
+   * @brief Check if a line is empty
+   * @param line Line to check
+   * @return true if line is empty or contains only whitespace
    */
-  auto parseCatOptions = [](std::span<std::string_view> args,
-                            CatOptions &options,
-                            std::vector<std::string_view> &files) -> bool {
-    // Helper function to find option handler by long option or short option
-    auto find_handler = [](std::string_view arg,
-                           char opt_char = '\0') -> const OptionHandler * {
-      for (const auto &handler : OPTION_HANDLERS) {
-        if ((!arg.empty() && handler.long_opt && arg == handler.long_opt) ||
-            (opt_char && handler.short_opt == opt_char)) {
-          return &handler;
-        }
-      }
-      return nullptr;
-    };
-
-    // Helper function to print option error
-    auto print_option_error = [](std::string_view arg, char opt_char = '\0') {
-      if (!arg.empty()) {
-        std::wstring warg(arg.begin(), arg.end());
-        safeErrorPrintLn(L"cat: invalid option -- '" + warg.substr(2) + L"'");
-      } else {
-        safeErrorPrintLn(L"cat: invalid option -- '" +
-                         std::wstring(1, opt_char) + L"'");
-      }
-    };
-
-    // Helper function to set boolean option
-    auto set_boolean_option = [&options](char opt_char) {
-      switch (opt_char) {
-        case 'b':
-          options.set_number_nonblank(true);
-          options.set_number_lines(false);  // -b overrides -n
-          break;
-        case 'n':
-          options.set_number_lines(true);
-          options.set_number_nonblank(false);  // -n overrides -b
-          break;
-        case 's':
-          options.set_squeeze_empty(true);
-          break;
-        case 'v':
-          options.set_show_nonprinting(true);
-          break;
-        case 'E':
-          options.set_show_end(true);
-          break;
-        case 'T':
-          options.set_show_tabs(true);
-          break;
-        case 'A':
-          options.set_show_nonprinting(true);
-          options.set_show_end(true);
-          options.set_show_tabs(true);
-          break;
-        case 'e':
-          options.set_show_nonprinting(true);
-          options.set_show_end(true);
-          break;
-        case 't':
-          options.set_show_nonprinting(true);
-          options.set_show_tabs(true);
-          break;
-        case 'u':
-          options.set_unbuffered(true);
-          break;
-      }
-    };
-
-    for (size_t i = 0; i < args.size(); ++i) {
-      auto arg = args[i];
-
-      if (arg.starts_with("--")) {
-        // This is a long option
-        const auto *handler = find_handler(arg);
-        if (handler) {
-          if (handler->requires_arg) {
-            // cat command has no options that require arguments
-            print_option_error(arg);
-            return false;
-          } else {
-            set_boolean_option(handler->short_opt);
-          }
-        } else {
-          print_option_error(arg);
-          return false;
-        }
-      } else if (arg.starts_with('-')) {
-        // This is a short option
-        if (arg == "-") {
-          // Single dash, read from stdin
-          files.push_back(arg);
-          continue;
-        }
-
-        // Process option characters
-        for (size_t j = 1; j < arg.size(); ++j) {
-          char opt_char = arg[j];
-          const auto *handler = find_handler("", opt_char);
-          if (handler) {
-            if (handler->requires_arg) {
-              // cat command has no options that require arguments
-              print_option_error("", opt_char);
-              return false;
-            } else {
-              set_boolean_option(opt_char);
-            }
-          } else {
-            print_option_error("", opt_char);
-            return false;
-          }
-        }
-      } else {
-        // This is a file path
-        files.push_back(arg);
-      }
-    }
-
-    // Default to stdin if no files specified
-    if (files.empty()) {
-      files.push_back("-");
-    }
-
-    return true;
+  auto is_empty_line = [](const std::string &line) -> bool {
+    return line.empty() || (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
   };
 
   /**
    * @brief Process a character with show_nonprinting option
    * @param c Character to process
-   * @param options cat command options
+   * @param ctx Command context
    */
-  auto processCharacter = [](unsigned char c, const CatOptions &options) {
-    if (options.get_show_nonprinting()) {
+  auto process_character = [&](unsigned char c, const CommandContext<CAT_OPTIONS.size()>& ctx) {
+    bool show_nonprinting = ctx.get<bool>("--show-nonprinting", false) || ctx.get<bool>("--show-all", false) || ctx.get<bool>("-e", false) || ctx.get<bool>("-t", false);
+    bool show_ends = ctx.get<bool>("--show-ends", false) || ctx.get<bool>("--show-all", false) || ctx.get<bool>("-e", false);
+    bool show_tabs = ctx.get<bool>("--show-tabs", false) || ctx.get<bool>("--show-all", false) || ctx.get<bool>("-t", false);
+
+    if (show_nonprinting) {
       if (c < 0x20) {
         // Control characters (except newline, tab, form feed)
         if (c == '\n') {
           safePrintLn(L"");  // prints '\n' in both console and pipe mode
         } else if (c == '\t') {
-          if (options.get_show_tabs()) {
+          if (show_tabs) {
             safePrint(L"^I");
           } else {
             safePrint(L"\t");
@@ -285,7 +182,7 @@ REGISTER_COMMAND(
         // Printable ASCII: output as-is
         safePrint(std::wstring(1, static_cast<wchar_t>(c)));
       }
-    } else if (options.get_show_tabs() && c == '\t') {
+    } else if (show_tabs && c == '\t') {
       // Only show tabs when requested
       safePrint(L"^I");
     } else {
@@ -297,101 +194,98 @@ REGISTER_COMMAND(
   /**
    * @brief Process a line of text with all options
    * @param line Line of text
-   * @param options cat command options
+   * @param ctx Command context
    * @param line_num Reference to line number counter
    */
-  auto processLine = [&processCharacter](std::string &line,
-                                         const CatOptions &options,
-                                         size_t &line_num) {
+  auto process_line = [&](std::string &line, const CommandContext<CAT_OPTIONS.size()>& ctx, size_t &line_num) {
     // Remove trailing carriage return (\r) if present (Windows line endings)
     if (!line.empty() && line.back() == '\r') {
       line.pop_back();
     }
 
-    bool is_empty =
-        line.empty() ||
-        (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
+    bool empty = is_empty_line(line);
 
     // Handle line numbering
-    if (options.get_number_lines()) {
-      safePrint(std::to_wstring(line_num++) + L"      ");
-    } else if (options.get_number_nonblank() && !is_empty) {
-      safePrint(std::to_wstring(line_num++) + L"      ");
+    bool number_lines = ctx.get<bool>("--number", false);
+    bool number_nonblank = ctx.get<bool>("--number-nonblank", false);
+    bool show_ends = ctx.get<bool>("--show-ends", false) || ctx.get<bool>("--show-all", false) || ctx.get<bool>("-e", false);
+
+    if (number_lines && !number_nonblank) {
+      // Format line number with consistent spacing
+      std::wostringstream oss;
+      oss << std::setw(6) << line_num++ << L" ";
+      safePrint(oss.str());
+    } else if (number_nonblank && !empty) {
+      // Format line number with consistent spacing
+      std::wostringstream oss;
+      oss << std::setw(6) << line_num++ << L" ";
+      safePrint(oss.str());
     }
 
     // Process each character in the line
     for (char ch : line) {
-      processCharacter(static_cast<unsigned char>(ch), options);
+      process_character(static_cast<unsigned char>(ch), ctx);
     }
 
     // Show end of line marker if requested
-    if (options.get_show_end()) {
-      putwchar('$');
+    if (show_ends) {
+      safePrint(L"$");
     }
 
     // End with newline
-    putwchar('\n');
+    safePrintLn(L"");
+  };
+
+  /**
+   * @brief Process input from a stream
+   * @param stream Input stream
+   * @param ctx Command context
+   * @param line_num Reference to line number counter
+   */
+  auto process_stream = [&](std::istream &stream, const CommandContext<CAT_OPTIONS.size()>& ctx, size_t &line_num) {
+    std::string line;
+    bool last_line_empty = false;
+    bool squeeze_blank = ctx.get<bool>("--squeeze-blank", false);
+
+    while (std::getline(stream, line)) {
+      bool empty = is_empty_line(line);
+
+      // Handle squeeze empty lines option
+      if (squeeze_blank && empty && last_line_empty) {
+        continue;
+      }
+
+      last_line_empty = empty;
+
+      // Process and print the line
+      process_line(line, ctx, line_num);
+    }
   };
 
   /**
    * @brief Process a single file (or stdin if path is "-")
    * @param path File path or "-" for stdin
-   * @param options cat command options
+   * @param ctx Command context
    * @param line_num Reference to line number counter
    * @return true if file processed successfully, false on error
    */
-  auto processFile = [&processLine](std::string_view path,
-                                    const CatOptions &options,
-                                    size_t &line_num) -> bool {
+  auto process_file = [&](std::string_view path, const CommandContext<CAT_OPTIONS.size()>& ctx, size_t &line_num) -> bool {
     if (path == "-") {
       // Read from stdin
-      std::string line;
-      bool last_line_empty = false;
-
-      while (std::getline(std::cin, line)) {
-        bool is_empty =
-            line.empty() ||
-            (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
-
-        // Handle squeeze empty lines option
-        if (options.get_squeeze_empty() && is_empty && last_line_empty) {
-          continue;
-        }
-
-        last_line_empty = is_empty;
-
-        // Process and print the line
-        processLine(line, options, line_num);
-      }
-
+      process_stream(std::cin, ctx, line_num);
       return true;
     } else {
       // Open the file
       std::ifstream file(std::string(path), std::ios::binary);
 
       if (!file.is_open()) {
-        fprintf(stderr, "cat: '%s': No such file or directory\n", path.data());
+        std::wstring wpath_str = utf8_to_wstring(std::string(path));
+        safeErrorPrintLn(L"cat: '" + wpath_str + L"': No such file or directory");
         return false;
       }
 
-      std::string line;
-      bool last_line_empty = false;
-
-      while (std::getline(file, line)) {
-        bool is_empty =
-            line.empty() ||
-            (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
-
-        // Handle squeeze empty lines option
-        if (options.get_squeeze_empty() && is_empty && last_line_empty) {
-          continue;
-        }
-
-        last_line_empty = is_empty;
-
-        // Process and print the line
-        processLine(line, options, line_num);
-      }
+      // Process the file
+      process_stream(file, ctx, line_num);
 
       if (file.bad()) {
         std::wstring wpath_str = utf8_to_wstring(std::string(path));
@@ -403,20 +297,19 @@ REGISTER_COMMAND(
     }
   };
 
-  // Main implementation
-  CatOptions options;
-  std::vector<std::string_view> files;
-
-  if (!parseCatOptions(args, options, files)) {
-    return 2;  // Invalid option error code
+  // Use the pipeline component to validate arguments
+  auto files_result = validate_arguments(ctx);
+  if (!files_result) {
+    return 1;
   }
 
+  const auto &files = files_result.value();
   int result = 0;
   size_t line_num = 1;
 
   // Process each file
   for (const auto &file : files) {
-    if (!processFile(file, options, line_num)) {
+    if (!process_file(file, ctx, line_num)) {
       result = 1;  // File processing error
     }
   }
