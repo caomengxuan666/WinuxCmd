@@ -17,3 +17,5 @@ out/
 scripts/manager.py
 
 .vs/
+
+/testing

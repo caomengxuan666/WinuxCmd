@@ -43,10 +43,8 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "/// @Version: 0.1.0\n";
   moduleContent += "/// @License: MIT\n";
   moduleContent += "/// @Copyright: Copyright © 2026 WinuxCmd\n";
-  moduleContent += "module;\n\n";
   moduleContent += "#include \"pch/pch.h\"\n";
   moduleContent += "#include \"core/command_macros.h\"\n\n";
-  moduleContent += "export module cmd:" + cmdName + ";\n\n";
   moduleContent += "import std;\n";
   moduleContent += "import core;\n";
   moduleContent += "import utils;\n";
@@ -61,35 +59,49 @@ std::string generateCommandModule(const std::string &cmdName) {
   }
 
   // Add constants namespace
-  moduleContent += "// ======================================================\n";
+  moduleContent +=
+      "// ======================================================\n";
   moduleContent += "// Constants\n";
-  moduleContent += "// ======================================================\n";
+  moduleContent +=
+      "// ======================================================\n";
   moduleContent += "namespace " + cmdName + "_constants {\n";
   moduleContent += "  // Add constants here\n";
   moduleContent += "}\n\n";
 
   // Add options
-  moduleContent += "// ======================================================\n";
+  moduleContent +=
+      "// ======================================================\n";
   moduleContent += "// Options (constexpr)\n";
-  moduleContent += "// ======================================================\n\n";
+  moduleContent +=
+      "// ======================================================\n\n";
   moduleContent += "export auto constexpr " + upperCmdName + "_OPTIONS =\n";
-  moduleContent += "    std::array{OPTION(\"-v\", \"--verbose\", \"explain what is being done\"),\n";
+  moduleContent +=
+      "    std::array{OPTION(\"-v\", \"--verbose\", \"explain what is being "
+      "done\"),\n";
   moduleContent += "               // Add more options here\n";
-  moduleContent += "               // Example with argument: OPTION(\"-n\", \"--number\", \"specify a number\", INT_TYPE)\n";
+  moduleContent +=
+      "               // Example with argument: OPTION(\"-n\", \"--number\", "
+      "\"specify a number\", INT_TYPE)\n";
   moduleContent += "              };\n\n";
 
   // Add pipeline components
-  moduleContent += "// ======================================================\n";
+  moduleContent +=
+      "// ======================================================\n";
   moduleContent += "// Pipeline components\n";
-  moduleContent += "// ======================================================\n";
+  moduleContent +=
+      "// ======================================================\n";
   moduleContent += "namespace " + cmdName + "_pipeline {\n";
   moduleContent += "   namespace cp=core::pipeline;\n";
   moduleContent += "  \n";
   moduleContent += "  // ----------------------------------------------\n";
   moduleContent += "  // 1. Validate arguments\n";
   moduleContent += "  // ----------------------------------------------\n";
-  moduleContent += "  auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {\n";
-  moduleContent += "    if (args.empty()) return std::unexpected(\"no arguments provided\");\n";
+  moduleContent +=
+      "  auto validate_arguments(std::span<const std::string_view> args) -> "
+      "cp::Result<std::vector<std::string>> {\n";
+  moduleContent +=
+      "    if (args.empty()) return std::unexpected(\"no arguments "
+      "provided\");\n";
   moduleContent += "    std::vector<std::string> paths;\n";
   moduleContent += "    for (auto arg : args) {\n";
   moduleContent += "      paths.push_back(std::string(arg));\n";
@@ -110,21 +122,27 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "}\n\n";
 
   // Add command registration
-  moduleContent += "// ======================================================\n";
+  moduleContent +=
+      "// ======================================================\n";
   moduleContent += "// Command registration\n";
-  moduleContent += "// ======================================================\n\n";
+  moduleContent +=
+      "// ======================================================\n\n";
   moduleContent += "REGISTER_COMMAND(" + cmdName + ",\n";
   moduleContent += "                 /* name */\n";
   moduleContent += "                 \"" + cmdName + "\",\n\n";
   moduleContent += "                 /* synopsis */\n";
   moduleContent += "                 \"TODO: Add command synopsis\",\n\n";
   moduleContent += "                 /* description */\n";
-  moduleContent += "                 \"TODO: Add command description. With no arguments, "
-                   "this command does nothing. With arguments, this command processes "
-                   "them.\",\n\n";
+  moduleContent +=
+      "                 \"TODO: Add command description. With no arguments, "
+      "this command does nothing. With arguments, this command processes "
+      "them.\",\n\n";
   moduleContent += "                 /* examples */\n";
-  moduleContent += "                 \"  " + cmdName + "                      TODO: Add example\\n"
-                   "  " + cmdName + " -v                   TODO: Add example with verbose\",\n\n";
+  moduleContent +=
+      "                 \"  " + cmdName +
+      "                      TODO: Add example\\n"
+      "  " +
+      cmdName + " -v                   TODO: Add example with verbose\",\n\n";
   moduleContent += "                 /* see_also */\n";
   moduleContent += "                 \"TODO: Add see also\",\n\n";
   moduleContent += "                 /* author */\n";
@@ -145,7 +163,8 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "  // Example: Print paths\n";
   moduleContent += "  for (const auto& path : paths) {\n";
   moduleContent += "    if (ctx.get<bool>(\"--verbose\", false)) {\n";
-  moduleContent += "      safePrintLn(L\"Processing: \" + utf8_to_wstring(path));\n";
+  moduleContent +=
+      "      safePrintLn(L\"Processing: \" + utf8_to_wstring(path));\n";
   moduleContent += "    }\n";
   moduleContent += "    // TODO: Process path\n";
   moduleContent += "  }\n\n";
@@ -180,7 +199,7 @@ int main(int argc, char *argv[]) {
   std::string moduleContent = generateCommandModule(cmdName);
 
   // Create output file path
-  fs::path outputPath = currentPath / "src" / "commands" / (cmdName + ".cppm");
+  fs::path outputPath = currentPath / "src" / "commands" / (cmdName + ".cpp");
 
   // Check if file already exists
   if (fs::exists(outputPath)) {
@@ -206,7 +225,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Successfully created command module: " << outputPath.string()
             << std::endl;
   std::cout << "Next steps: " << std::endl;
-  std::cout << "1. Add command logic to " << cmdName << ".cppm" << std::endl;
+  std::cout << "1. Add command logic to " << cmdName << ".cpp" << std::endl;
   std::string displayCmdName = cmdName;
   for (auto &c : displayCmdName) {
     c = std::toupper(c);
