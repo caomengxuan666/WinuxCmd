@@ -19,39 +19,21 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  *
- *  - File: pch.h
+ *  - File: test_main.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
+#pragma once
+#include "wctest.h"
 
 /**
- *@breif PreCompile headers to speed up compilation.
- *@note Pch doesn't affect the final executable size.
+ * @brief Main entry point for test executables
+ *
+ * Delegates to the wctest framework's default main function
+ * which handles test discovery, execution, and reporting.
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return int Exit code (0 for success, non-zero for failures)
  */
-
-#ifndef PCH_H
-
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#define STRICT
-#define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>  // For basic windows functions
-// Include these headers after windows.h
-// Fuck clang-format.
-#include <fcntl.h>       // For _setmode
-#include <fileapi.h>     // For FindFirstFileW, FindNextFileW
-#include <handleapi.h>   // For GetStdHandle, INVALID_HANDLE_VALUE
-#include <io.h>          // For _get_osfhandle
-#include <lmcons.h>      // For UNLEN
-#include <shlwapi.h>     // For PathFileExistsW
-#include <sysinfoapi.h>  // For GetUserNameW
-#include <sddl.h>        // For ConvertSidToStringSidW
-
-#include <cctype>   // For isspace
-#include <cstdint>  // For uint64_t
-#include <cstdio>   // For printf, fflush
-#include <cstdlib>  // For basic functions
-#include <cstring>  // For strlen
-#include <cwchar>   // For wprintf, fwprintf
-
-#endif  // PCH_H
+int main(int argc, char** argv) { return wctest::default_main(argc, argv); }

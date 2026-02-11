@@ -139,42 +139,17 @@ export class CommandRegistry {
   // Dispatch command execution (public interface)
   static int dispatch(std::string_view cmdName,
                       std::span<std::string_view> args) noexcept {
-    try {
-      return getImpl().run(cmdName, args);
-    } catch (const std::exception &e) {
-      safePrintLn(L"winuxcmd: dispatch error: " +
-                  std::wstring(e.what(), e.what() + std::strlen(e.what())));
-      return 1;
-    } catch (...) {
-      safePrintLn(L"winuxcmd: unknown dispatch error");
-      return 1;
-    }
+    return getImpl().run(cmdName, args);
   }
 
   // Print command help (public interface)
   static void printHelp(std::string_view cmdName) noexcept {
-    try {
-      getImpl().help(cmdName);
-    } catch (const std::exception &e) {
-      safePrintLn(L"winuxcmd: help error: " +
-                  std::wstring(e.what(), e.what() + std::strlen(e.what())));
-    } catch (...) {
-      safePrintLn(L"winuxcmd: unknown help error");
-    }
+    getImpl().help(cmdName);
   }
 
   // Get all registered command names (public interface)
   static std::vector<std::pair<std::string_view, std::string_view>>
   getAllCommands() noexcept {
-    try {
-      return getImpl().list();
-    } catch (const std::exception &e) {
-      safePrintLn(L"winuxcmd: getAllCommands error: " +
-                  std::wstring(e.what(), e.what() + std::strlen(e.what())));
-      return {};
-    } catch (...) {
-      safePrintLn(L"winuxcmd: unknown getAllCommands error");
-      return {};
-    }
+    return getImpl().list();
   }
 };

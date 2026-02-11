@@ -23,7 +23,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 | Command | Description | Supported Flags |
 |---------|-------------|-----------------|
-| ls | List directory contents | -l, -a, -h, -r, -t |
+| ls | List directory contents | -l, -a, -h, -r, -t -n, --color |
 | cat | Concatenate and display files | -n, -E, -s, -T |
 | cp | Copy files and directories | -r, -v, -f, -i |
 | mv | Move/rename files | -v, -f, -i, -n |
@@ -95,6 +95,8 @@ Single ls.exe (C/CMake):~1.5 MB
 ls -la | grep ".cpp" | xargs cat
 # ↑ Works directly with WinuxCmd installed
 ```
+
+
 
 ## 🔧 Technical Details
 
@@ -287,9 +289,11 @@ A: Maximum performance, minimal dependencies, and direct Windows API access.
 
 ## 📚 Documentation
 
-- API Reference
-- Building from Source
-- Command Compatibility
+- [API Reference](DOCS/en/overview.md)
+- [Building from Source](DOCS/en/commands_implementation_en.md)
+- [Command Compatibility](DOCS/en/commands_implementation_en.md)
+- [Testing Framework](DOCS/en/testing_framework_en.md)
+- [Option Handling](DOCS/en/option-handling.md)
 
 ## About the Author
 

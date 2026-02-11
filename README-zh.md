@@ -23,7 +23,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 | 命令 | 描述 | 支持的参数 |
 |------|------|------------|
-| ls | 列出目录内容 | -l, -a, -h, -r, -t |
+| ls | 列出目录内容 | -l, -a, -h, -r, -t -n, --color |
 | cat | 显示文件内容 | -n, -E, -s, -T |
 | cp | 复制文件/目录 | -r, -v, -f, -i |
 | mv | 移动/重命名文件 | -v, -f, -i, -n |
@@ -95,6 +95,8 @@ GNU coreutils（MSYS2）：~5 MB
 ls -la | grep ".cpp" | xargs cat
 # ↑ 安装 WinuxCmd 后直接可用
 ```
+
+
 
 ## 🔧 技术细节
 
@@ -287,9 +289,11 @@ find . -name "*.tmp" -delete
 
 ## 📚 文档
 
-- API 参考
-- 从源码构建
-- 命令兼容性
+- [API 参考](DOCS/zh/overview_zh.md)
+- [从源码构建](DOCS/zh/commands_implementation.md)
+- [命令兼容性](DOCS/zh/commands_implementation.md)
+- [测试框架](DOCS/zh/testing_framework.md)
+- [选项处理](DOCS/zh/option-handling_zh.md)
 
 ## 关于作者
 
