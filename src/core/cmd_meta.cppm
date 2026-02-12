@@ -237,6 +237,7 @@ class CommandMeta {
   }
 
   // Generate man page format
+  [[maybe_unused]]
   std::string get_man() const {
     std::string result;
     result.reserve(4096);

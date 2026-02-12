@@ -1,6 +1,16 @@
 cmake_minimum_required(VERSION 3.30.0)
 # CMake Module start from 3.30.0
-
+# Ignore some warnings
+set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
+if (POLICY CMP0158)
+    cmake_policy(SET CMP0158 OLD)
+endif()
+if (POLICY CMP0174)
+    cmake_policy(SET CMP0174 NEW)
+endif()
+string(REPLACE "/EHc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+# =============
 # Runtime Library Configuration
 # Option to choose between static (MT) and dynamic (MD) CRT
 option(USE_STATIC_CRT "Use statically linked CRT (MT) instead of dynamically linked (MD)" ON)
@@ -10,6 +20,8 @@ option(ENABLE_TESTS "Enable tests" ON)
 option(USE_HARDLINKS "Use hardlinks for commands instead of separate executables" ON)
 # Option to enable UPX compression
 option(ENABLE_UPX "Enable UPX compression for executables" OFF)
+# Generate the map info(For the developers to collect binary information)
+option(GENERATE_MAP_INFO "Generate_MAP_INFO" OFF)
 
 if (USE_STATIC_CRT)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
@@ -29,7 +41,7 @@ endif ()
 include(cmake/enable_import_std.cmake)
 
 project(WinuxCmd
-        VERSION 0.1.4
+        VERSION 0.2.0
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
@@ -56,6 +68,10 @@ add_executable(winuxcmd
         src/Main/main.cpp
 )
 
+target_sources(winuxcmd PRIVATE
+        src/pch/string_instances.cpp
+)
+
 # PCH for winuxcmd
 target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
@@ -74,15 +90,41 @@ target_sources(winuxcmd
         ${CXX_MODULE_FILES}
 )
 
+file(GLOB COMMAND_SOURCES CONFIGURE_DEPENDS
+        "src/commands/*.cpp"
+)
+
+target_sources(winuxcmd PRIVATE ${COMMAND_SOURCES})
+
 # Default optimization flags
 target_compile_options(winuxcmd PRIVATE
         $<$<CONFIG:Release>:/O2 /Os>
         /GR-  # Keep RTTI disabled for size
+        /EHsc-
+)
+
+target_compile_definitions(winuxcmd PRIVATE
+        _UNICODE
+        UNICODE
+        _CRT_DISABLE_PERFCRIT_LOCKS
+        _HAS_RTTI=0
 )
 
 target_link_options(winuxcmd PRIVATE
         $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
 )
+
+if (USE_STATIC_CRT AND MSVC)
+    target_compile_options(winuxcmd PRIVATE /MT /Os /Oy /GS-)
+endif ()
+
+if(GENERATE_MAP_INFO)
+    target_link_options(winuxcmd PRIVATE
+            /MAP:${CMAKE_CURRENT_BINARY_DIR}/winuxcmd.map
+            /MAPINFO:EXPORTS
+    )
+endif ()
+
 
 # Add UPX compression for main executable if enabled
 if (ENABLE_UPX)
@@ -127,6 +169,10 @@ endif ()
 macro(create_command_executable CMD)
     add_executable(${CMD} src/Main/main.cpp)
 
+    target_sources(${CMD} PRIVATE
+            src/pch/string_instances.cpp
+    )
+
     # Add only the necessary modules
     target_sources(${CMD}
             PUBLIC
@@ -140,12 +186,10 @@ macro(create_command_executable CMD)
             src/utils/utils.cppm
             src/utils/console.cppm
             src/utils/utf8.cppm
-            src/commands/${CMD}.cppm
             src/Main/wildcard_handler.cppm
     )
 
-    # Add only the necessary implementation file
-    #target_sources(${CMD} PRIVATE src/core/dispatcher.cpp)
+    target_sources(${CMD} PRIVATE src/commands/${CMD}.cpp)
 
     # MSVC-specific configuration for individual commands
     if (MSVC)
@@ -183,7 +227,7 @@ macro(create_command_executable CMD)
 endmacro()
 
 # Automatically collect commands from src/commands directory
-file(GLOB COMMAND_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/*.cppm")
+file(GLOB COMMAND_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/*.cpp")
 set(COMMANDS)
 foreach (CMD_FILE ${COMMAND_FILES})
     # Extract command name from filename (without extension)
@@ -239,6 +283,7 @@ add_custom_command(TARGET scaffold POST_BUILD
 )
 
 if (ENABLE_TESTS)
+    include(CTest)
     add_subdirectory(tests)
 endif ()
 

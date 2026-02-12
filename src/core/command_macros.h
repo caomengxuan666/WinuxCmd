@@ -111,8 +111,6 @@
   template <size_t N>                                                          \
   int execute##name(CommandContext<N>& ctx) noexcept
 
-#undef OPTION
-
 #define BOOL_TYPE cmd::meta::OptionType::Bool
 #define INT_TYPE cmd::meta::OptionType::Int
 #define STRING_TYPE cmd::meta::OptionType::String
@@ -140,59 +138,6 @@
   cmd::meta::OptionMeta {                                        \
     short_name, long_name, description, OPTION_TYPE(__VA_ARGS__) \
   }
-
-#define END_BOOL_HANDLER \
-  default:               \
-    return false;        \
-    }                    \
-    return true;         \
-    }
-
-#define DEFINE_BOOL_OPTION_HANDLER(func_name, class_name)             \
-  static __forceinline bool func_name(char opt_char,                  \
-                                      class_name& options) noexcept { \
-    switch (opt_char) {
-#define BOOL_CASE(opt, field)  \
-  case opt: {                  \
-    options.set_##field(true); \
-  } break;
-
-#define END_BOOL_HANDLER \
-  default:               \
-    return false;        \
-    }                    \
-    return true;         \
-    }
-
-#define DEFINE_ARG_OPTION_HANDLER(func_name, class_name)                   \
-  static __forceinline bool func_name(char opt_char, class_name& options,  \
-                                      std::string_view arg_str) noexcept { \
-    bool result = false;                                                   \
-    try {                                                                  \
-      switch (opt_char) {                                                  \
-        case 0:;
-
-#define ARG_CASE(opt, field, min, max)           \
-  case opt: {                                    \
-    int value = std::stoi(std::string(arg_str)); \
-    if (value >= min && value <= max) {          \
-      options.set_##field(value);                \
-      result = true;                             \
-    }                                            \
-    break;                                       \
-  }
-
-#define END_ARG_HANDLER \
-  default:              \
-    result = false;     \
-    break;              \
-    }                   \
-    }                   \
-    catch (...) {       \
-      result = false;   \
-    }                   \
-    return result;      \
-    }
 
 template <typename T>
 concept IsOptional =
