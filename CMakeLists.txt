@@ -68,6 +68,10 @@ add_executable(winuxcmd
         src/Main/main.cpp
 )
 
+target_sources(winuxcmd PRIVATE
+        src/pch/string_instances.cpp
+)
+
 # PCH for winuxcmd
 target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
@@ -164,6 +168,10 @@ endif ()
 # Helper macro to create command executables
 macro(create_command_executable CMD)
     add_executable(${CMD} src/Main/main.cpp)
+
+    target_sources(${CMD} PRIVATE
+            src/pch/string_instances.cpp
+    )
 
     # Add only the necessary modules
     target_sources(${CMD}

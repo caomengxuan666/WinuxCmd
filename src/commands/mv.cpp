@@ -87,7 +87,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 // clang-format off
-export auto constexpr MV_OPTIONS =
+auto constexpr MV_OPTIONS =
     std::array{OPTION("-b", "", "like --backup but does not accept an argument"),
                OPTION("-f", "--force", "do not prompt before overwriting"),
                OPTION("-i", "", "prompt before overwrite"),
@@ -155,13 +155,13 @@ auto parse_arguments(const CommandContext<MV_OPTIONS.size()>& ctx)
 }
 
 auto check_path_exists(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   DWORD attr = GetFileAttributesW(wpath.c_str());
   return attr != INVALID_FILE_ATTRIBUTES;
 }
 
 auto check_is_directory(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   DWORD attr = GetFileAttributesW(wpath.c_str());
   if (attr == INVALID_FILE_ATTRIBUTES) {
     return std::unexpected("cannot access '" + path +
@@ -176,20 +176,30 @@ auto build_dest_path(const std::string& src_path, const std::string& dest_path,
     return dest_path;
   }
 
-  std::wstring wsrc_path(src_path.begin(), src_path.end());
+  std::wstring wsrc_path = utf8_to_wstring(src_path);
   LPWSTR file_name = PathFindFileNameW(wsrc_path.c_str());
+  
+  // OPTIMIZED: Use stack buffer instead of dynamic allocation
+  char file_name_buf[MAX_PATH * 3];  // UTF-8 can be up to 3 bytes per char
   int file_name_length =
-      WideCharToMultiByte(CP_UTF8, 0, file_name, -1, NULL, 0, NULL, NULL);
+      WideCharToMultiByte(CP_UTF8, 0, file_name, -1, file_name_buf, sizeof(file_name_buf), NULL, NULL);
+  
+  if (file_name_length > 0 && file_name_length < sizeof(file_name_buf)) {
+    return dest_path + "\\" + std::string(file_name_buf);
+  }
+  
+  // Fallback to dynamic allocation if needed
   std::string file_name_str(file_name_length, 0);
   WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &file_name_str[0],
                       file_name_length, NULL, NULL);
-
   return dest_path + "\\" + file_name_str;
 }
 
 auto confirm_overwrite(const std::string& dest_path) -> cp::Result<bool> {
-  safeErrorPrint(L"mv: overwrite '" + utf8_to_wstring(dest_path) +
-                 L"'? (y/n) ");
+  // OPTIMIZED: Avoid wstring concatenation
+  safeErrorPrint("mv: overwrite '");
+  safeErrorPrint(dest_path);
+  safeErrorPrint("'? (y/n) ");
   char response;
   std::cin.get(response);
   std::cin.ignore(1024, '\n');
@@ -199,8 +209,8 @@ auto confirm_overwrite(const std::string& dest_path) -> cp::Result<bool> {
 auto move_single_path(const std::string& src_path, const std::string& dest_path,
                       const CommandContext<MV_OPTIONS.size()>& ctx)
     -> cp::Result<bool> {
-  std::wstring wsrc_path(src_path.begin(), src_path.end());
-  std::wstring wdest_path(dest_path.begin(), dest_path.end());
+  std::wstring wsrc_path = utf8_to_wstring(src_path);
+  std::wstring wdest_path = utf8_to_wstring(dest_path);
 
   bool interactive =
       ctx.get<bool>("--interactive", false) || ctx.get<bool>("-i", false);
@@ -247,8 +257,12 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
   bool verbose =
       ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
   if (verbose) {
-    safePrintLn(L"'" + utf8_to_wstring(src_path) + L"' -> '" +
-                utf8_to_wstring(dest_path) + L"'");
+    // OPTIMIZED: Avoid multiple wstring conversions and concatenations
+    safePrint("'");
+    safePrint(src_path);
+    safePrint("' -> '");
+    safePrint(dest_path);
+    safePrint("'\n");
   }
 
   return true;

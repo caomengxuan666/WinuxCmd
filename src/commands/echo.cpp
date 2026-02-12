@@ -66,7 +66,7 @@ constexpr int MAX_REPEAT = 100000;
  * - @a -u, @a --upper: Convert text to uppercase [IMPLEMENTED]
  * - @a -r, @a --repeat: Repeat output N times [IMPLEMENTED]
  */
-export auto constexpr ECHO_OPTIONS =
+auto constexpr ECHO_OPTIONS =
     std::array{OPTION("-n", "", "do not append a newline"),
                OPTION("-e", "", "enable backslash escapes"),
                OPTION("-E", "", "suppress backslash escapes"),
@@ -399,13 +399,12 @@ REGISTER_COMMAND(
   }
 
   auto [text, repeat, no_newline] = *result;
-  std::wstring wtext(text.begin(), text.end());
 
   for (int i = 0; i < repeat; ++i) {
     if (no_newline) {
-      safePrint(wtext);
+      safePrint(std::string_view(text));
     } else {
-      safePrintLn(wtext);
+      safePrintLn(std::string_view(text));
     }
   }
 

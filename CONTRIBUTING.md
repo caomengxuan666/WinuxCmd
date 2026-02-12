@@ -7,6 +7,7 @@ Thank you for considering contributing to WinuxCmd! This document provides guide
 - [Getting Started](#getting-started)
 - [Development Workflow](#development-workflow)
 - [Code Style](#code-style)
+- [High-Performance C++23 Coding Guidelines](#high-performance-c23-coding-guidelines)
 - [Testing](#testing)
 - [Submitting Changes](#submitting-changes)
 - [Reporting Issues](#reporting-issues)
@@ -112,6 +113,258 @@ The project uses clang-tidy for static analysis:
 # Run clang-tidy
 clang-tidy src/commands/*.cpp
 ```
+
+## High-Performance C++23 Coding Guidelines
+
+To maintain WinuxCmd's lightweight and high-performance characteristics, all code must follow these strict guidelines for string handling and I/O operations.
+
+### 🎯 Core Principles
+
+| Principle | Description |
+|-----------|-------------|
+| ✅ Internal UTF-8 | All business logic, calculations, and formatting use `std::string` / `char` / `snprintf` |
+| ⚠️ Boundary Wide Chars | Only use `std::wstring` when calling Windows API, convert back immediately |
+| ✅ Output via safePrint | The library handles console/pipe adaptation; business code is zero-cost |
+| ❌ No Temporary wstrings | Never write `std::wstring(1, c)` or `L"x" + wstring` |
+
+### 📊 String Type Selection Guide
+
+#### ✅ Recommended (Zero Overhead)
+
+| Type | Usage Scenario | Example |
+|------|----------------|---------|
+| `const char*` | String literals, constants | `"Hello"`, `COLOR_DIR_A` |
+| `std::string_view` | Read-only string parameters, slices | `void print(std::string_view sv)` |
+| `char[]` | Stack formatting buffers | `char buf[32]; snprintf(...)` |
+| `std::string` (SSO) | Short strings, need modification | `std::string s = "abc";` |
+
+#### ⚠️ Use Carefully (Has Cost)
+
+| Type | Cost | Alternative |
+|------|------|-------------|
+| `std::wstring` | 2 bytes per char + heap allocation | Only at Windows API boundaries |
+| `std::ostringstream` | 8.6KB code + heap allocation | `snprintf` |
+| `std::wostringstream` | 8.6KB code + heap allocation ❌ | Absolutely forbidden |
+
+#### ❌ Forbidden (High Cost)
+
+| Code | Problem | Alternative |
+|------|---------|-------------|
+| `std::wstring(1, c)` | 1.2KB code per instance | `safePrint(char)` |
+| `L"^" + std::wstring(...)` | 2.4KB code per instance | `safePrint('^') + safePrint(c)` |
+| `std::wstring(path.begin(), path.end())` | Copies entire string | `utf8_to_wstring(path)` |
+| `std::wostringstream` | 8.6KB code per instance | `snprintf + std::string` |
+
+### 🛠️ String Operation Guidelines
+
+#### ✅ 1. String Concatenation
+
+```cpp
+// ❌ Forbidden - Each operator+ instantiates 2.4KB code
+std::string s = a + b + c;
+
+// ✅ Recommended - Use operator+= or append
+std::string s = a;
+s += b;
+s += c;
+
+// ✅ Or pre-allocate capacity
+std::string s;
+s.reserve(a.size() + b.size() + c.size());
+s.append(a);
+s.append(b);
+s.append(c);
+```
+
+#### ✅ 2. Number Formatting
+
+```cpp
+// ❌ Forbidden - wostringstream/ostringstream 8.6KB
+std::wostringstream oss;
+oss << std::setw(6) << n << L" ";
+safePrint(oss.str());
+
+// ✅ Recommended - snprintf + string_view (0.1KB)
+char buf[32];
+int len = snprintf(buf, sizeof(buf), "%6d ", n);
+safePrint(std::string_view(buf, len));
+```
+
+#### ✅ 3. Character Output
+
+```cpp
+// ❌ Forbidden - Construct temporary wstring
+safePrint(std::wstring(1, c));
+safePrint(L"^" + std::wstring(1, c + 0x40));
+
+// ✅ Recommended - Direct char output
+safePrint(c);
+safePrint('^');
+safePrint(c + 0x40);
+```
+
+#### ✅ 4. Path Operations
+
+```cpp
+// ❌ Forbidden - Multiple temporary objects
+std::wstring path = base + L"\\" + file;
+
+// ✅ Recommended - Single construction, two appends
+std::wstring path = base;
+path += L'\\';
+path += file;
+```
+
+#### ✅ 5. Color Output
+
+```cpp
+// ✅ Recommended - Use const char* versions
+export constexpr auto COLOR_DIR_A = "\033[01;34m";
+
+// Direct output, zero construction
+safePrint(COLOR_DIR_A);
+safePrint(filename);
+safePrint(COLOR_RESET_A);
+```
+
+### 📋 safePrint Overload Selection Guide
+
+| Input Type | Selected Overload | Cost |
+|------------|-------------------|------|
+| `"string literal"` | `safePrint(const char*)` | Zero construction ✅ |
+| `std::string` | `safePrint(std::string_view)` | Implicit conversion |
+| `std::string_view` | `safePrint(std::string_view)` | Zero copy ✅ |
+| `char c` | `safePrint(char)` | Zero construction ✅ |
+| `int n` | `safePrint(int)` | Stack formatting |
+| `L"wide literal"` | `safePrint(const wchar_t*)` | Zero construction ✅ |
+| `std::wstring` | `safePrint(std::wstring_view)` | Implicit conversion |
+| `COLOR_DIR` (`wchar_t*`) | `safePrint(const wchar_t*)` | Zero construction ✅ |
+
+**Important**: Must add `const wchar_t*` overload, otherwise `safePrint(COLOR_DIR)` will construct temporary `std::wstring`!
+
+### 🚫 Absolutely Forbidden Code
+
+#### ❌ Forbidden List
+
+```cpp
+// 1. Any std::wostringstream
+std::wostringstream oss;  // ❌ 8.6KB
+
+// 2. Any wstring concatenation
+L"a" + std::wstring(b);   // ❌ 2.4KB
+std::wstring(1, c);       // ❌ 1.2KB
+
+// 3. Unnecessary string -> wstring conversion
+std::wstring(path.begin(), path.end());  // ❌ O(n)
+
+// 4. Non-member operator+ concatenation
+std::string s = a + b + c;  // ❌ Each + instantiates 2.4KB
+
+// 5. iostream formatting
+std::ostringstream oss;     // ❌ 8.6KB
+std::cout << x;            // ❌ 15KB iostream code
+```
+
+### ✅ Recommended Code Templates
+
+#### 📁 File Size Formatting
+
+```cpp
+auto format_size(uint64_t size, bool human_readable) -> std::string {
+    char buf[32];
+    if (human_readable) {
+        const char* units[] = {"B", "K", "M", "G", "T"};
+        int unit = 0;
+        double s = static_cast<double>(size);
+        while (s >= 1024.0 && unit < 4) { s /= 1024.0; unit++; }
+        snprintf(buf, sizeof(buf), s < 10.0 ? "%.1f%s" : "%.0f%s", s, units[unit]);
+    } else {
+        snprintf(buf, sizeof(buf), "%llu", size);
+    }
+    return std::string(buf);
+}
+```
+
+#### 📁 Time Formatting
+
+```cpp
+auto format_time(const FILETIME& ft) -> std::string {
+    SYSTEMTIME st;
+    FILETIME local_ft;
+    FileTimeToLocalFileTime(&ft, &local_ft);
+    FileTimeToSystemTime(&local_ft, &st);
+    
+    const char* months[] = {"", "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%s %2d %02d:%02d",
+             months[st.wMonth], st.wDay, st.wHour, st.wMinute);
+    return std::string(buf);
+}
+```
+
+#### 📁 Path Concatenation
+
+```cpp
+// Windows API needs wide character paths
+std::wstring build_path(const std::wstring& base, const std::wstring& file) {
+    std::wstring path = base;
+    path += L'\\';
+    path += file;
+    return path;
+}
+
+// Internal use UTF-8
+std::string build_path_utf8(const std::string& base, const std::string& file) {
+    std::string path = base;
+    path += '\\';
+    path += file;
+    return path;
+}
+```
+
+### 📊 Cost Comparison Table
+
+| Operation | Code Size | Heap Allocation | Recommendation |
+|-----------|-----------|-----------------|----------------|
+| `safePrint('c')` | 0.1KB | None | ✅✅✅ |
+| `safePrint("str")` | 0.1KB | None | ✅✅✅ |
+| `snprintf + string_view` | 0.3KB | None | ✅✅✅ |
+| `std::string::operator+=` | 0.5KB | Possible | ✅✅ |
+| `std::string::append` | 0.5KB | Possible | ✅✅ |
+| `std::wstring::operator+=` | 0.8KB | Possible | ⚠️ |
+| `std::string a + b` | 2.4KB | Yes | ❌ |
+| `std::wstring(1, c)` | 1.2KB | Yes | ❌❌ |
+| `std::ostringstream` | 8.6KB | Yes | ❌❌ |
+| `std::wostringstream` | 8.6KB | Yes | ❌❌❌ |
+| `std::cout` | 15KB+ | Yes | ❌❌❌ |
+
+### 🎯 Summary
+
+#### ✅ Do
+
+- Internal UTF-8: `std::string`, `char`, `snprintf`
+- Output via `safePrint` overload set
+- String concatenation with `+=` or `append`
+- Number formatting with `snprintf`
+- Use `std::wstring` only at Windows API boundaries
+
+#### ❌ Don't
+
+- Don't use `std::wostringstream`
+- Don't write `std::wstring(1, c)`
+- Don't use `L"x" + wstring`
+- Don't use `std::string(a + b + c)`
+- Don't use `std::cout`/`std::wcout`
+
+Following these guidelines ensures your code will:
+
+- 🚀 Compile faster - Reduced template instantiation
+- 💾 Smaller binary size - Save 30-50% code size
+- ⚡ Run faster - Zero heap allocation, zero temporary objects
+- 🔧 Easier maintenance - Consistent, predictable patterns
+
+For reference implementations, see `cat.cppm` (optimized) and `ls.cppm` (optimization in progress).
 
 ## Testing
 
@@ -273,4 +526,4 @@ We appreciate your contributions to WinuxCmd! Your help makes this project bette
 
 - Maintainer: <2507560089@qq.com>
 - GitHub: [@caomengxuan666](https://github.com/caomengxuan666)
-- Website: [blog.caomengxuan666.com](https://blog.caomengxuan666.com)
+- Website: [blog.caomengxuan666.com](https://dl.caomengxuan666.com)
