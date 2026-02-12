@@ -1,3 +1,28 @@
+/*
+ *  Copyright © 2026 [caomengxuan666]
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the “Software”), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ *  - File: opt.cppm
+ *  - Username: Administrator
+ *  - CopyrightYear: 2026
+ */
 export module core:opt;
 
 import std;
@@ -60,9 +85,17 @@ ParseResult<N> parse_command(
     // ---------- long option ----------
     if (!end_of_options && arg.starts_with("--")) {
       const cmd::meta::OptionMeta* meta = nullptr;
+      std::string_view value;
+      std::string_view name = arg;
+
+      size_t eq_pos = arg.find('=');
+      if (eq_pos != std::string_view::npos) {
+        name = arg.substr(0, eq_pos);
+        value = arg.substr(eq_pos + 1);
+      }
 
       for (const auto& m : metas) {
-        if (m.long_name == arg) {
+        if (m.long_name == name) {
           meta = &m;
           break;
         }
@@ -81,16 +114,23 @@ ParseResult<N> parse_command(
           break;
 
         case OptionType::Int: {
-          if (i + 1 >= args.size()) {
-            result.ok = false;
-            return result;
+          int v = 0;
+          std::string str;
+
+          if (!value.empty()) {
+            // --int=123
+            str = std::string(value);
+          } else {
+            // --int 123
+            if (i + 1 >= args.size()) {
+              result.ok = false;
+              return result;
+            }
+            str = std::string(args[++i]);
           }
 
-          int v = 0;
-          std::string str = std::string(args[++i]);
           auto [ptr, ec] =
               std::from_chars(str.data(), str.data() + str.size(), v);
-
           if (ec != std::errc() || ptr != str.data() + str.size()) {
             result.ok = false;
             return result;
@@ -101,12 +141,17 @@ ParseResult<N> parse_command(
         }
 
         case OptionType::String: {
-          if (i + 1 >= args.size()) {
-            result.ok = false;
-            return result;
+          if (!value.empty()) {
+            // --string=value
+            result.options.set(idx, std::string(value));
+          } else {
+            // --string value
+            if (i + 1 >= args.size()) {
+              result.ok = false;
+              return result;
+            }
+            result.options.set(idx, std::string(args[++i]));
           }
-
-          result.options.set(idx, std::string(args[++i]));
           break;
         }
       }

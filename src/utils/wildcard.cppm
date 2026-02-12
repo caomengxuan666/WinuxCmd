@@ -1,7 +1,33 @@
+/*
+ *  Copyright © 2026 [caomengxuan666]
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the “Software”), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ *  - File: wildcard.cppm
+ *  - Username: Administrator
+ *  - CopyrightYear: 2026
+ */
 export module utils:wildcard;
 
 import std;
-namespace fs = std::filesystem;
+import :utf8;
+import :path;
 
 static bool wildcard_match(const std::string &str,
                            const std::string &pattern) noexcept {
@@ -40,22 +66,49 @@ export std::vector<std::string> expand_wildcard(
     return matched_files;
   }
 
-  std::error_code ec;
-  const fs::directory_iterator dir_iter(fs::current_path(), ec);
-  if (ec) {
+  // Get current directory
+  std::string current_dir = path::current_path();
+  if (current_dir.empty()) {
     return matched_files;
   }
 
-  for (const auto &entry : dir_iter) {
-    if (!entry.exists(ec) || ec) {
+  // Build search pattern: current_dir\*
+  std::wstring search_pattern = utf8_to_wstring(path::join(current_dir, "*"));
+
+  // Find first file
+  WIN32_FIND_DATAW find_data;
+  HANDLE hFind = FindFirstFileW(search_pattern.c_str(), &find_data);
+  if (hFind == INVALID_HANDLE_VALUE) {
+    return matched_files;
+  }
+
+  // Iterate through all files
+  do {
+    // Skip . and ..
+    if (wcscmp(find_data.cFileName, L".") == 0 ||
+        wcscmp(find_data.cFileName, L"..") == 0) {
       continue;
     }
-    const std::string filename = entry.path().filename().string();
+
+    // Convert filename to UTF-8
+    int filename_len = WideCharToMultiByte(CP_UTF8, 0, find_data.cFileName,
+                                          -1, NULL, 0, NULL, NULL);
+    if (filename_len <= 0) {
+      continue;
+    }
+    std::string filename(filename_len - 1, 0);
+    WideCharToMultiByte(CP_UTF8, 0, find_data.cFileName, -1, &filename[0],
+                        filename_len, NULL, NULL);
+
+    // Check if filename matches the pattern
     if (wildcard_match(filename, pat)) {
       matched_files.push_back(filename);
     }
-  }
+  } while (FindNextFileW(hFind, &find_data));
 
+  FindClose(hFind);
+
+  // Sort and remove duplicates
   std::sort(matched_files.begin(), matched_files.end());
   auto last = std::unique(matched_files.begin(), matched_files.end());
   matched_files.erase(last, matched_files.end());

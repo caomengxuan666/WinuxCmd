@@ -71,8 +71,7 @@ int main(int argc, char *argv[]) noexcept {
   // Automatically set console or pipe output.
   setupConsoleForUnicode();
   // Get the executable name (stem only)
-  std::filesystem::path self_path(argv[0]);
-  std::string self_name = self_path.stem().string();
+  std::string self_name = path::get_executable_name(argv[0]);
 
   // Convert command-line arguments to string_views for efficiency
   std::vector<std::string_view> raw_args(argv + 1, argv + argc);

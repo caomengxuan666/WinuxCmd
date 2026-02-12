@@ -45,6 +45,7 @@
 #include <lmcons.h>      // For UNLEN
 #include <shlwapi.h>     // For PathFileExistsW
 #include <sysinfoapi.h>  // For GetUserNameW
+#include <sddl.h>        // For ConvertSidToStringSidW
 
 #include <cctype>   // For isspace
 #include <cstdint>  // For uint64_t
@@ -52,5 +53,7 @@
 #include <cstdlib>  // For basic functions
 #include <cstring>  // For strlen
 #include <cwchar>   // For wprintf, fwprintf
+
+#include "string_instances.h"
 
 #endif  // PCH_H
