@@ -301,7 +301,7 @@ find . -name "*.tmp" -delete
 
 联系：<2507560089@qq.com>
 GitHub：@caomengxuan666
-网站：blog.caomengxuan666.com
+产品：https://dl.caomengxuan666.com
 
 📄 许可证
 MIT 许可证 © 2026 caomengxuan666。详见 LICENSE。

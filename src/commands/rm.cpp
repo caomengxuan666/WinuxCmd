@@ -75,7 +75,7 @@ using namespace core::pipeline;
  * - @a --preserve-root: Do not remove '/' (default) [IMPLEMENTED]
  */
 // clang-format off
-export constexpr auto RM_OPTIONS = std::array{
+constexpr auto RM_OPTIONS = std::array{
     OPTION("-f", "--force", "ignore nonexistent files and arguments, never prompt"),
     OPTION("-i", "", "prompt before every removal"),
     OPTION("-I", "", "prompt once before removing more than three files, or when removing recursively"),
@@ -132,7 +132,7 @@ auto check_paths(const std::vector<std::string>& paths)
  */
 auto remove_path(const std::string& path,
                  const CommandContext<RM_OPTIONS.size()>& ctx) -> bool {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   DWORD attr = GetFileAttributesW(wpath.c_str());
 
   bool force = ctx.get<bool>("--force", false) || ctx.get<bool>("-f", false);
@@ -147,15 +147,19 @@ auto remove_path(const std::string& path,
     if (force) {
       return true;
     } else {
-      std::wstring wpath = utf8_to_wstring(path);
-      safeErrorPrintLn(L"rm: cannot remove '" + wpath +
-                       L"': No such file or directory");
+      // OPTIMIZED: Avoid wstring concatenation
+      safeErrorPrint("rm: cannot remove '");
+      safeErrorPrint(path);
+      safeErrorPrint("': No such file or directory\n");
       return false;
     }
   }
 
   if (interactive) {
-    safeErrorPrint(L"rm: remove '" + utf8_to_wstring(path) + L"'? (y/n) ");
+    // OPTIMIZED: Avoid wstring concatenation
+    safeErrorPrint("rm: remove '");
+    safeErrorPrint(path);
+    safeErrorPrint("'? (y/n) ");
     char response;
     std::cin.get(response);
     if (response != 'y' && response != 'Y') {
@@ -164,8 +168,10 @@ auto remove_path(const std::string& path,
   }
 
   if ((attr & FILE_ATTRIBUTE_DIRECTORY) && !recursive) {
-    std::wstring wpath = utf8_to_wstring(path);
-    safeErrorPrintLn(L"rm: cannot remove '" + wpath + L"': Is a directory");
+    // OPTIMIZED: Avoid wstring concatenation
+    safeErrorPrint("rm: cannot remove '");
+    safeErrorPrint(path);
+    safeErrorPrint("': Is a directory\n");
     return false;
   }
 
@@ -201,15 +207,20 @@ auto remove_path(const std::string& path,
               char errorMsg[256];
               FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0,
                              errorMsg, sizeof(errorMsg), NULL);
-              std::string itemPathStr = wstringToUtf8(itemPath);
-              std::wstring witemPath = utf8_to_wstring(itemPathStr);
-              std::wstring werrorMsg = utf8_to_wstring(std::string(errorMsg));
-              safeErrorPrintLn(L"rm: cannot remove file '" + witemPath +
-                               L"': " + werrorMsg);
+              // OPTIMIZED: Direct conversion and avoid multiple conversions
+              std::string itemPathStr = wstring_to_utf8(itemPath);
+              safeErrorPrint("rm: cannot remove file '");
+              safeErrorPrint(itemPathStr);
+              safeErrorPrint("': ");
+              safeErrorPrint(errorMsg);
+              safeErrorPrint("\n");
               success = false;
             } else if (verbose) {
-              std::string itemPathStr = wstringToUtf8(itemPath);
-              safePrintLn(L"removed '" + utf8_to_wstring(itemPathStr) + L"'");
+              // OPTIMIZED: Direct conversion
+              std::string itemPathStr = wstring_to_utf8(itemPath);
+              safePrint("removed '");
+              safePrint(itemPathStr);
+              safePrint("'\n");
             }
           }
         }
@@ -235,17 +246,22 @@ auto remove_path(const std::string& path,
         char errorMsg[256];
         FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                        sizeof(errorMsg), NULL);
-        std::string dirPathStr = wstringToUtf8(dirPath);
-        std::wstring wdirPath = utf8_to_wstring(dirPathStr);
-        std::wstring werrorMsg = utf8_to_wstring(std::string(errorMsg));
-        safeErrorPrintLn(L"rm: cannot remove directory '" + wdirPath + L"': " +
-                         werrorMsg);
+        // OPTIMIZED: Direct conversion
+        std::string dirPathStr = wstring_to_utf8(dirPath);
+        safeErrorPrint("rm: cannot remove directory '");
+        safeErrorPrint(dirPathStr);
+        safeErrorPrint("': ");
+        safeErrorPrint(errorMsg);
+        safeErrorPrint("\n");
         return false;
       }
 
       if (verbose) {
-        std::string dirPathStr = wstringToUtf8(dirPath);
-        safePrintLn(L"removed '" + utf8_to_wstring(dirPathStr) + L"'");
+        // OPTIMIZED: Direct conversion
+        std::string dirPathStr = wstring_to_utf8(dirPath);
+        safePrint("removed '");
+        safePrint(dirPathStr);
+        safePrint("'\n");
       }
 
       return true;
@@ -261,15 +277,20 @@ auto remove_path(const std::string& path,
       char errorMsg[256];
       FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
                      sizeof(errorMsg), NULL);
-      std::wstring wpath_str = utf8_to_wstring(std::string(path));
-      std::wstring werrorMsg = utf8_to_wstring(std::string(errorMsg));
-      safeErrorPrintLn(L"rm: cannot remove file '" + wpath_str + L"': " +
-                       werrorMsg);
+      // OPTIMIZED: Avoid redundant conversions
+      safeErrorPrint("rm: cannot remove file '");
+      safeErrorPrint(path);
+      safeErrorPrint("': ");
+      safeErrorPrint(errorMsg);
+      safeErrorPrint("\n");
       return false;
     }
 
     if (verbose) {
-      safePrintLn(L"removed '" + utf8_to_wstring(path) + L"'");
+      // OPTIMIZED: Avoid wstring conversion
+      safePrint("removed '");
+      safePrint(path);
+      safePrint("'\n");
     }
   }
 

@@ -90,7 +90,7 @@ constexpr char DEFAULT_BACKUP_SUFFIX[] = "~";
 // Options (constexpr)
 // ======================================================
 
-export auto constexpr CP_OPTIONS = std::array{
+auto constexpr CP_OPTIONS = std::array{
     OPTION("-a", "--archive", "same as -dR --preserve=all"),
     OPTION("-b", "", "like --backup but does not accept an argument"),
     OPTION("-d", "", "same as --no-dereference --preserve=links"),
@@ -166,7 +166,7 @@ auto check_destination(
     -> cp::Result<std::tuple<std::vector<std::string>, std::string, bool>> {
   const auto& [sourcePaths, destPath] = paths;
 
-  std::wstring wdestPath(destPath.begin(), destPath.end());
+  std::wstring wdestPath = utf8_to_wstring(destPath);
   DWORD attr = GetFileAttributesW(wdestPath.c_str());
   bool destIsDir =
       (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
@@ -182,7 +182,7 @@ auto check_destination(
 // 3. Create directory recursively
 // ----------------------------------------------
 auto create_directory_recursive(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   if (CreateDirectoryW(wpath.c_str(), NULL) ||
       GetLastError() == ERROR_ALREADY_EXISTS) {
     return true;
@@ -212,7 +212,7 @@ auto create_directory_recursive(const std::string& path) -> cp::Result<bool> {
 // 4. Check if path exists
 // ----------------------------------------------
 auto path_exists(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   DWORD attr = GetFileAttributesW(wpath.c_str());
   return attr != INVALID_FILE_ATTRIBUTES;
 }
@@ -221,7 +221,7 @@ auto path_exists(const std::string& path) -> cp::Result<bool> {
 // 5. Check if path exists and is directory
 // ----------------------------------------------
 auto path_exists_and_is_directory(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   DWORD attr = GetFileAttributesW(wpath.c_str());
   return (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
 }
@@ -238,8 +238,10 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
   if (interactive) {
     std::ifstream destTest(destPath);
     if (destTest.good()) {
-      safeErrorPrint(L"cp: overwrite '" + utf8_to_wstring(destPath) +
-                     L"'? (y/n) ");
+      // OPTIMIZED: Avoid wstring concatenation
+      safeErrorPrint("cp: overwrite '");
+      safeErrorPrint(destPath);
+      safeErrorPrint("'? (y/n) ");
       char response;
       std::cin.get(response);
       if (response != 'y' && response != 'Y') {
@@ -282,8 +284,12 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
   src.close();
 
   if (verbose) {
-    safePrintLn(L"'" + utf8_to_wstring(srcPath) + L"' -> '" +
-                utf8_to_wstring(destPath) + L"'");
+    // OPTIMIZED: Avoid wstring concatenation
+    safePrint("'");
+    safePrint(srcPath);
+    safePrint("' -> '");
+    safePrint(destPath);
+    safePrint("'\n");
   }
 
   return true;
@@ -310,8 +316,12 @@ auto copy_directory_helper(const std::string& srcPath,
   // Prevent copying directory where destination is a subdirectory of source
   if (destPath.find(srcPath) == 0 && destPath.size() > srcPath.size() &&
       (destPath[srcPath.size()] == '\\' || destPath[srcPath.size()] == '/')) {
-    safeErrorPrintLn(L"cp: cannot copy directory '" + utf8_to_wstring(srcPath) +
-                     L"' into itself '" + utf8_to_wstring(destPath) + L"'");
+    // OPTIMIZED: Avoid wstring concatenation
+    safeErrorPrint("cp: cannot copy directory '");
+    safeErrorPrint(srcPath);
+    safeErrorPrint("' into itself '");
+    safeErrorPrint(destPath);
+    safeErrorPrint("'\n");
     return std::unexpected("cannot copy directory into itself");
   }
 
@@ -322,7 +332,7 @@ auto copy_directory_helper(const std::string& srcPath,
   }
 
   // Open source directory
-  std::wstring wsrcPath(srcPath.begin(), srcPath.end());
+  std::wstring wsrcPath = utf8_to_wstring(srcPath);
   std::wstring searchPath = wsrcPath + L"\\*";
   WIN32_FIND_DATAW findData;
   HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
@@ -367,8 +377,7 @@ auto copy_directory_helper(const std::string& srcPath,
       }
 
       // Verify it's actually a directory
-      DWORD attr = GetFileAttributesW(
-          std::wstring(srcItemPath.begin(), srcItemPath.end()).c_str());
+      DWORD attr = GetFileAttributesW(utf8_to_wstring(srcItemPath).c_str());
       if (attr != INVALID_FILE_ATTRIBUTES &&
           (attr & FILE_ATTRIBUTE_DIRECTORY)) {
         // Recursively copy subdirectory with increased depth
@@ -414,8 +423,10 @@ auto process_source_paths(
     // Check if source path exists
     auto existsResult = path_exists(srcPath);
     if (!existsResult || !*existsResult) {
-      safeErrorPrintLn(L"cp: cannot stat '" + utf8_to_wstring(srcPath) +
-                       L"': No such file or directory");
+      // OPTIMIZED: Avoid wstring concatenation
+      safeErrorPrint("cp: cannot stat '");
+      safeErrorPrint(srcPath);
+      safeErrorPrint("': No such file or directory\n");
       success = false;
       continue;
     }
@@ -432,34 +443,49 @@ auto process_source_paths(
 
     if (destIsDir) {
       // If destination is a directory, append source filename
-      std::wstring wsrcPath(srcPath.begin(), srcPath.end());
+      std::wstring wsrcPath = utf8_to_wstring(srcPath);
       LPWSTR fileName = PathFindFileNameW(wsrcPath.c_str());
+      
+      // OPTIMIZED: Use stack buffer
+      char fileNameBuf[MAX_PATH * 3];
       int fileNameLength =
-          WideCharToMultiByte(CP_UTF8, 0, fileName, -1, NULL, 0, NULL, NULL);
-      std::string fileNameStr(fileNameLength, 0);
-      WideCharToMultiByte(CP_UTF8, 0, fileName, -1, &fileNameStr[0],
-                          fileNameLength, NULL, NULL);
-      finalDestPath += "\\" + fileNameStr;
+          WideCharToMultiByte(CP_UTF8, 0, fileName, -1, fileNameBuf, sizeof(fileNameBuf), NULL, NULL);
+      
+      if (fileNameLength > 0 && fileNameLength < sizeof(fileNameBuf)) {
+        finalDestPath += "\\" + std::string(fileNameBuf);
+      } else {
+        // Fallback to dynamic allocation if needed
+        std::string fileNameStr(fileNameLength, 0);
+        WideCharToMultiByte(CP_UTF8, 0, fileName, -1, &fileNameStr[0],
+                            fileNameLength, NULL, NULL);
+        finalDestPath += "\\" + fileNameStr;
+      }
     }
 
     if (srcIsDir) {
       if (recursive) {
         auto dirResult = copy_directory(srcPath, finalDestPath, ctx);
         if (!dirResult) {
-          safeErrorPrintLn(L"cp: error copying directory '" +
-                           utf8_to_wstring(srcPath) + L"'");
+          // OPTIMIZED: Avoid wstring concatenation
+          safeErrorPrint("cp: error copying directory '");
+          safeErrorPrint(srcPath);
+          safeErrorPrint("'\n");
           success = false;
         }
       } else {
-        safeErrorPrintLn(L"cp: omitting directory '" +
-                         utf8_to_wstring(srcPath) + L"'");
+        // OPTIMIZED: Avoid wstring concatenation
+        safeErrorPrint("cp: omitting directory '");
+        safeErrorPrint(srcPath);
+        safeErrorPrint("'\n");
         success = false;
       }
     } else {
       auto fileResult = copy_file(srcPath, finalDestPath, ctx);
       if (!fileResult) {
-        safeErrorPrintLn(L"cp: error copying file '" +
-                         utf8_to_wstring(srcPath) + L"'");
+        // OPTIMIZED: Avoid wstring concatenation
+        safeErrorPrint("cp: error copying file '");
+        safeErrorPrint(srcPath);
+        safeErrorPrint("'\n");
         success = false;
       }
     }

@@ -62,7 +62,7 @@ using namespace core::pipeline;
  * default type [TODO]
  */
 // clang-format off
-export auto constexpr MKDIR_OPTIONS =
+auto constexpr MKDIR_OPTIONS =
     std::array{OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask"),
                OPTION("-p", "--parents", "no error if existing, make parent directories as needed"),
                OPTION("-v", "--verbose", "print a message for each created directory"),
@@ -100,7 +100,7 @@ auto create_directory_recursive(const std::wstring& wpath) -> bool {
 
 auto create_directory(const std::string& path,
                       const CommandContext<MKDIR_OPTIONS.size()>& ctx) -> bool {
-  std::wstring wpath(path.begin(), path.end());
+  std::wstring wpath = utf8_to_wstring(path);
   bool parents =
       ctx.get<bool>("--parents", false) || ctx.get<bool>("-p", false);
   bool verbose =
@@ -108,28 +108,36 @@ auto create_directory(const std::string& path,
 
   if (parents) {
     if (!create_directory_recursive(wpath)) {
-      safeErrorPrintLn(L"mkdir: cannot create directory '" +
-                       wpath + L"': No such file or directory");
+      // OPTIMIZED: Use string literals instead of wstring concatenation
+      safeErrorPrint("mkdir: cannot create directory '");
+      safeErrorPrint(path);
+      safeErrorPrint("': No such file or directory\n");
       return false;
     }
     if (verbose) {
-      safePrintLn(L"mkdir: created directory '" + wpath + L"'");
+      safePrint("mkdir: created directory '");
+      safePrint(path);
+      safePrint("'\n");
     }
   } else {
     if (!CreateDirectoryW(wpath.c_str(), NULL)) {
       DWORD error = GetLastError();
       if (error == ERROR_ALREADY_EXISTS) {
-        safeErrorPrintLn(L"mkdir: cannot create directory '" +
-                         wpath + L"': File exists");
+        safeErrorPrint("mkdir: cannot create directory '");
+        safeErrorPrint(path);
+        safeErrorPrint("': File exists\n");
         return false;
       } else {
-        safeErrorPrintLn(L"mkdir: cannot create directory '" +
-                         wpath + L"': No such file or directory");
+        safeErrorPrint("mkdir: cannot create directory '");
+        safeErrorPrint(path);
+        safeErrorPrint("': No such file or directory\n");
         return false;
       }
     }
     if (verbose) {
-      safePrintLn(L"mkdir: created directory '" + wpath + L"'");
+      safePrint("mkdir: created directory '");
+      safePrint(path);
+      safePrint("'\n");
     }
   }
   return true;

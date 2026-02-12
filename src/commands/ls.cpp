@@ -97,7 +97,7 @@ using cmd::meta::OptionType;
  * - @a -Z, @a --context: Print any security context of each file [TODO]
  * - @a -1: List one file per line [IMPLEMENTED]
  */
-export auto constexpr LS_OPTIONS = std::array{
+auto constexpr LS_OPTIONS = std::array{
     OPTION("-a", "--all", "do not ignore entries starting with ."),
     OPTION("-A", "--almost-all", "do not list implied . and .."),
     OPTION("-b", "--escape", "print C-style escapes for nongraphic characters"),
@@ -214,35 +214,36 @@ auto validate_arguments(const CommandContext<LS_OPTIONS.size()> &ctx)
  * @param find_data WIN32_FIND_DATAW structure
  * @return Permissions string in ls format
  */
-auto get_permissions_string(const WIN32_FIND_DATAW &find_data) -> std::wstring {
-  std::wstring perms = L"----------";
+auto get_permissions_string(const WIN32_FIND_DATAW &find_data) -> std::string {
+  char perms[11] = "----------";
+  perms[10] = '\0';
 
   // Set file type
   if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-    perms[0] = L'd';
+    perms[0] = 'd';
     // Directory: owner rwx, group rx, other rx
-    perms[1] = L'r';
-    perms[2] = L'w';
-    perms[3] = L'x';
-    perms[4] = L'r';
-    perms[5] = L'-';
-    perms[6] = L'x';
-    perms[7] = L'r';
-    perms[8] = L'-';
-    perms[9] = L'x';
+    perms[1] = 'r';
+    perms[2] = 'w';
+    perms[3] = 'x';
+    perms[4] = 'r';
+    perms[5] = '-';
+    perms[6] = 'x';
+    perms[7] = 'r';
+    perms[8] = '-';
+    perms[9] = 'x';
   } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
-    perms[0] = L'l';  // Symbolic link
-    perms[1] = L'r';
-    perms[2] = L'w';
-    perms[3] = L'x';
-    perms[4] = L'r';
-    perms[5] = L'w';
-    perms[6] = L'x';
-    perms[7] = L'r';
-    perms[8] = L'w';
-    perms[9] = L'x';
+    perms[0] = 'l';  // Symbolic link
+    perms[1] = 'r';
+    perms[2] = 'w';
+    perms[3] = 'x';
+    perms[4] = 'r';
+    perms[5] = 'w';
+    perms[6] = 'x';
+    perms[7] = 'r';
+    perms[8] = 'w';
+    perms[9] = 'x';
   } else {
-    perms[0] = L'-';
+    perms[0] = '-';
     // Check if file is executable (exe/bat/cmd/ps1)
     std::wstring filename = find_data.cFileName;
     std::wstring ext;
@@ -258,31 +259,27 @@ auto get_permissions_string(const WIN32_FIND_DATAW &find_data) -> std::wstring {
     // Regular file:
     // - Executable: owner rwx, group rx, other rx
     // - Non-executable: owner rw, group r, other r
-    perms[1] = L'r';
-    perms[2] = L'w';
-    perms[4] = L'r';
-    perms[5] = L'-';
-    perms[7] = L'r';
-    perms[8] = L'-';
+    perms[1] = 'r';
+    perms[2] = 'w';
+    perms[4] = 'r';
+    perms[5] = '-';
+    perms[7] = 'r';
+    perms[8] = '-';
 
     if (is_executable) {
-      perms[3] = L'x';
-      perms[6] = L'x';
-      perms[9] = L'x';
+      perms[3] = 'x';
+      perms[6] = 'x';
+      perms[9] = 'x';
     } else {
-      perms[3] = L'-';
-      perms[6] = L'-';
-      perms[9] = L'-';
+      perms[3] = '-';
+      perms[6] = '-';
+      perms[9] = '-';
     }
   }
 
-  // Handle hidden files (add 'h' flag in Linux style, optional)
-  if (find_data.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) {
-    // Can add a 'h' at the end or modify permission string
-    perms += L'h';
-  }
-
-  return perms;
+  // Handle hidden files (optional)
+  // Note: Keeping 10 characters for consistent formatting
+  return std::string(perms, 10);
 }
 
 /**
@@ -293,17 +290,19 @@ auto get_permissions_string(const WIN32_FIND_DATAW &find_data) -> std::wstring {
  */
 auto get_file_size_string(const WIN32_FIND_DATAW &find_data,
                           const CommandContext<LS_OPTIONS.size()> &ctx)
-    -> std::wstring {
+    -> std::string {
   if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-    return L"";
+    return {};
   }
 
   // Calculate file size
   uint64_t fileSize = static_cast<uint64_t>(find_data.nFileSizeLow) |
                       (static_cast<uint64_t>(find_data.nFileSizeHigh) << 32);
 
+  char buf[32];
+  
   if (ctx.get<bool>("-h", false) || ctx.get<bool>("--human-readable", false)) {
-    const wchar_t *units[] = {L"B", L"K", L"M", L"G", L"T"};
+    const char *units[] = {"B", "K", "M", "G", "T"};
     int unitIndex = 0;
     double size = static_cast<double>(fileSize);
 
@@ -312,18 +311,16 @@ auto get_file_size_string(const WIN32_FIND_DATAW &find_data,
       ++unitIndex;
     }
 
-    std::wostringstream oss;
     if (size < 10.0) {
-      oss << std::fixed << std::setprecision(1) << size << units[unitIndex];
+      snprintf(buf, sizeof(buf), "%.1f%s", size, units[unitIndex]);
     } else {
-      oss << std::fixed << std::setprecision(0) << size << units[unitIndex];
+      snprintf(buf, sizeof(buf), "%.0f%s", size, units[unitIndex]);
     }
-    return oss.str();
   } else {
-    std::wostringstream oss;
-    oss << fileSize;
-    return oss.str();
+    snprintf(buf, sizeof(buf), "%llu", fileSize);
   }
+  
+  return std::string(buf);
 }
 
 /**
@@ -333,7 +330,7 @@ auto get_file_size_string(const WIN32_FIND_DATAW &find_data,
  * @return Modification time string
  */
 auto get_modification_time_string(const WIN32_FIND_DATAW &find_data,
-                                  bool use_utc = false) -> std::wstring {
+                                  bool use_utc = false) -> std::string {
   SYSTEMTIME st;
   if (use_utc) {
     FileTimeToSystemTime(&find_data.ftLastWriteTime, &st);  // UTC
@@ -344,18 +341,15 @@ auto get_modification_time_string(const WIN32_FIND_DATAW &find_data,
     FileTimeToSystemTime(&local_ft, &st);
   }
 
-  const wchar_t *month_abbrs[] = {L"",    L"Jan", L"Feb", L"Mar", L"Apr",
-                                  L"May", L"Jun", L"Jul", L"Aug", L"Sep",
-                                  L"Oct", L"Nov", L"Dec"};
+  const char *month_abbrs[] = {"",    "Jan", "Feb", "Mar", "Apr",
+                               "May", "Jun", "Jul", "Aug", "Sep",
+                               "Oct", "Nov", "Dec"};
 
-  std::wostringstream oss;
-  oss << month_abbrs[st.wMonth] << L" ";
-  oss << std::setw(2) << std::setfill(L' ') << st.wDay
-      << L" ";  // No leading space for day
-  oss << std::setfill(L'0') << std::setw(2) << st.wHour << L":" << std::setw(2)
-      << st.wMinute;
-
-  return oss.str();
+  char buf[64];
+  snprintf(buf, sizeof(buf), "%s %2d %02d:%02d",
+           month_abbrs[st.wMonth], st.wDay, st.wHour, st.wMinute);
+  
+  return std::string(buf);
 }
 
 /**
@@ -363,7 +357,7 @@ auto get_modification_time_string(const WIN32_FIND_DATAW &find_data,
  * @param use_numeric Whether to return numeric UID/GID (-n option)
  * @return Pair of (owner, group) strings
  */
-auto get_file_owner_and_group(bool use_numeric = false) -> std::pair<std::wstring, std::wstring> {
+auto get_file_owner_and_group(bool use_numeric = false) -> std::pair<std::string, std::string> {
   if (use_numeric) {
     // Get Windows SID (simulate UID/GID)
     HANDLE hToken;
@@ -378,7 +372,10 @@ auto get_file_owner_and_group(bool use_numeric = false) -> std::pair<std::wstrin
           // Extract numeric part from SID (simulate UID 197121)
           std::wstring sid = sidStr;
           size_t lastDash = sid.find_last_of(L'-');
-          std::wstring uid = (lastDash != std::wstring::npos) ? sid.substr(lastDash+1) : L"197121";
+          std::wstring uid_wstr = (lastDash != std::wstring::npos) ? sid.substr(lastDash+1) : L"197121";
+          
+          // Convert wide string to UTF-8
+          std::string uid = wstring_to_utf8(uid_wstr);
           LocalFree(sidStr);
           CloseHandle(hToken);
           return {uid, uid};  // UID = GID (Windows default)
@@ -386,19 +383,19 @@ auto get_file_owner_and_group(bool use_numeric = false) -> std::pair<std::wstrin
       }
       CloseHandle(hToken);
     }
-    return {L"197121", L"197121"};  // Fallback
+    return {"197121", "197121"};  // Fallback
   }
 
-  // Original logic: return username
-  wchar_t username[UNLEN + 1];
+  // Return username using ANSI version for efficiency
+  char username[UNLEN + 1];
   DWORD username_len = UNLEN + 1;
-  if (!GetUserNameW(username, &username_len)) {
-    return {L"user", L"group"};
+  if (!GetUserNameA(username, &username_len)) {
+    return {"user", "group"};
   }
 
-  std::wstring username_str = username;
-  size_t pos = username_str.find(L'\\');
-  if (pos != std::wstring::npos) {
+  std::string username_str = username;
+  size_t pos = username_str.find('\\');
+  if (pos != std::string::npos) {
     username_str = username_str.substr(pos + 1);
   }
   return {username_str, username_str};
@@ -635,7 +632,7 @@ auto print_columns(const std::vector<std::wstring> &entries,
         }
 
         // Print entry
-        safePrint(entry);
+        safePrint(wstring_to_utf8(entry));
         if (color_enabled) {
           safePrint(COLOR_RESET);
         }
@@ -723,17 +720,19 @@ auto list_directory(const std::string &path,
     struct FileInfo {
       std::wstring name;
       WIN32_FIND_DATAW find_data;
-      std::wstring perms;
-      std::wstring size;
-      std::wstring mtime;
-      std::wstring owner;
-      std::wstring group;
+      std::string perms;
+      std::string size;
+      std::string mtime;
+      std::string owner;
+      std::string group;
     };
 
     // Collect file information
     std::vector<FileInfo> files;
     for (const auto &entry : entries) {
-      std::wstring full_path = wpath + L"\\" + entry;
+      std::wstring full_path = wpath;
+      full_path += L'\\';
+      full_path += entry;
       WIN32_FIND_DATAW entry_data;
       HANDLE hEntry = FindFirstFileW(full_path.c_str(), &entry_data);
       if (hEntry != INVALID_HANDLE_VALUE) {
@@ -772,41 +771,41 @@ auto list_directory(const std::string &path,
     // Long format output
     for (const auto &file_info : files) {
       // 1. Permissions and link count
-      safePrint(file_info.perms);
-      safePrint(L" ");
-      safePrint(L"1");  // Windows always has 1 link
-      safePrint(L" ");
+      safePrint(std::string_view(file_info.perms));
+      safePrint(" ");
+      safePrint("1");  // Windows always has 1 link
+      safePrint(" ");
 
       // 2. Owner (left-aligned)
-      safePrint(file_info.owner);
+      safePrint(std::string_view(file_info.owner));
       int owner_padding = static_cast<int>(max_owner_len) -
                           static_cast<int>(file_info.owner.length());
       for (int i = 0; i < owner_padding; i++) {
-        safePrint(L" ");
+        safePrint(" ");
       }
-      safePrint(L" ");
+      safePrint(" ");
 
       // 3. Group (left-aligned)
-      safePrint(file_info.group);
+      safePrint(std::string_view(file_info.group));
       int group_padding = static_cast<int>(max_group_len) -
                           static_cast<int>(file_info.group.length());
       for (int i = 0; i < group_padding; i++) {
-        safePrint(L" ");
+        safePrint(" ");
       }
-      safePrint(L" ");
+      safePrint(" ");
 
       // 4. File size (right-aligned)
       int size_padding = static_cast<int>(max_size_len) -
                          static_cast<int>(file_info.size.length());
       for (int i = 0; i < size_padding; i++) {
-        safePrint(L" ");
+        safePrint(" ");
       }
-      safePrint(file_info.size);
-      safePrint(L" ");
+      safePrint(std::string_view(file_info.size));
+      safePrint(" ");
 
       // 5. Modification time
-      safePrint(file_info.mtime);
-      safePrint(L" ");
+      safePrint(std::string_view(file_info.mtime));
+      safePrint(" ");
 
       // Check if color is enabled based on --color option
       bool color_enabled = true;  // Default to enabled
@@ -874,7 +873,7 @@ auto list_directory(const std::string &path,
         }
       }
 
-      safePrint(file_info.name);
+      safePrint(wstring_to_utf8(file_info.name));
       if (color_enabled) {
         safePrint(COLOR_RESET);
       }
@@ -894,7 +893,9 @@ auto list_directory(const std::string &path,
 
     // One entry per line
     for (const auto &entry : entries) {
-      std::wstring full_path = wpath + L"\\" + entry;
+      std::wstring full_path = wpath;
+      full_path += L'\\';
+      full_path += entry;
       WIN32_FIND_DATAW entry_data;
       HANDLE hEntry = FindFirstFileW(full_path.c_str(), &entry_data);
 

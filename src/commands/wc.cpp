@@ -47,7 +47,7 @@ namespace wc_constants {
  * - @a --help: Display this help and exit [IMPLEMENTED]
  * - @a --version: Output version information and exit [IMPLEMENTED]
  */
-export auto constexpr WC_OPTIONS = std::array{
+auto constexpr WC_OPTIONS = std::array{
     OPTION("-c", "--bytes", "print the byte counts"),
     OPTION("-m", "--chars", "print the character counts"),
     OPTION("-l", "--lines", "print the newline counts"),
@@ -330,13 +330,11 @@ REGISTER_COMMAND(
   }
 
   if (ctx.get<bool>("--version", false)) {
-    safePrintLn(L"wc (WinuxCmd) 0.1.0");
-    safePrintLn(L"Copyright © 2026 WinuxCmd");
-    safePrintLn(
-        L"This is free software; see the source for copying conditions.");
-    safePrintLn(
-        L"There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
-        L"PARTICULAR PURPOSE.");
+    // OPTIMIZED: Use string literals instead of wstring
+    safePrintLn("wc (WinuxCmd) 0.1.0");
+    safePrintLn("Copyright © 2026 WinuxCmd");
+    safePrintLn("This is free software; see the source for copying conditions.");
+    safePrintLn("There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.");
     return 0;
   }
 
@@ -398,37 +396,51 @@ REGISTER_COMMAND(
 
   // Print results
   auto print_result = [&](const CountResult& result) {
-    std::wstring output;
-
+    // OPTIMIZED: Use snprintf instead of to_wstring and avoid wstring concatenation
+    char buf[256];
+    int offset = 0;
+    
     if (print_lines) {
-      output += std::to_wstring(result.lines) + L" ";
+      int len = snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.lines);
+      offset += len;
     }
     if (print_words) {
-      output += std::to_wstring(result.words) + L" ";
+      int len = snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.words);
+      offset += len;
     }
     if (print_chars) {
-      output += std::to_wstring(result.chars) + L" ";
+      int len = snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.chars);
+      offset += len;
     }
     if (print_bytes) {
-      output += std::to_wstring(result.bytes) + L" ";
+      int len = snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.bytes);
+      offset += len;
     }
     if (print_max_line_length) {
-      output += std::to_wstring(result.max_line_length) + L" ";
+      int len = snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.max_line_length);
+      offset += len;
     }
-
-    // remove trailing space
-    if (!output.empty() && output.back() == L' ') {
-      output.pop_back();
+    
+    // Remove trailing space
+    if (offset > 0 && buf[offset - 1] == ' ') {
+      buf[offset - 1] = '\0';
+      offset--;
     }
-
+    
     if (!(result.filename == "-" && count_results.size() == 1)) {
-      if (!output.empty()) {
-        output += L" ";
+      if (offset > 0) {
+        buf[offset++] = ' ';
       }
-      output += utf8_to_wstring(result.filename);
+      // Copy filename (assuming it fits in remaining buffer)
+      size_t filename_len = result.filename.length();
+      if (offset + filename_len < sizeof(buf)) {
+        memcpy(buf + offset, result.filename.c_str(), filename_len);
+        offset += filename_len;
+      }
+      buf[offset] = '\0';
     }
-
-    safePrintLn(output);
+    
+    safePrintLn(std::string_view(buf, offset));
   };
 
   if (total_when == "only") {

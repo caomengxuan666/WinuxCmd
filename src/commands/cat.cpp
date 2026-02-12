@@ -63,8 +63,18 @@ using cmd::meta::OptionType;
  * - @a -v, @a --show-nonprinting: Use ^ and M- notation, except for LFD and TAB
  * [IMPLEMENTED]
  */
+#include "core/command_macros.h"
+#include "pch/pch.h"
+
+import std;
+import core;
+import utils;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
+
 // clang-format off
-export auto constexpr CAT_OPTIONS =
+auto constexpr CAT_OPTIONS =
     std::array{OPTION("-A", "--show-all", "equivalent to -vET"),
                OPTION("-b", "--number-nonblank", "number nonempty output lines, overrides -n"),
                OPTION("-e", "", "equivalent to -vE"),
@@ -77,74 +87,58 @@ export auto constexpr CAT_OPTIONS =
                OPTION("-v", "--show-nonprinting", "use ^ and M- notation, except for LFD and TAB")};
 // clang-format on
 
-// ======================================================
-// Pipeline components
-// ======================================================
 namespace cat_pipeline {
 namespace cp = core::pipeline;
 
 // ----------------------------------------------
-// 1. Validate arguments
+// 1. Validate arguments - OPTIMIZED: pass by reference
 // ----------------------------------------------
-auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx)
-    -> cp::Result<std::vector<std::string>> {
-  std::vector<std::string> files;
+auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx,
+                        std::vector<std::string>& out_files)
+    -> cp::Result<void> {
   for (auto arg : ctx.positionals) {
-    files.push_back(std::string(arg));
+    out_files.push_back(std::string(arg));
   }
 
-  if (files.empty()) {
-    files.push_back("-");
+  if (out_files.empty()) {
+    out_files.push_back("-");
   }
 
-  return files;
+  return {};
 }
 
 }  // namespace cat_pipeline
 
-REGISTER_COMMAND(
-    cat,
-    /* cmd_name */ "cat",
-
-    /* cmd_synopsis */ "concatenate files and print on the standard output",
-
-    /* cmd_desc */
+REGISTER_COMMAND(cat, "cat",
+    "concatenate files and print on the standard output",
     "Concatenate FILE(s) to standard output.\n"
     "With no FILE, or when FILE is -, read standard input.\n"
-    "\n"
-    "Examples:\n"
+    "\nExamples:\n"
     "  cat f g  Output f's contents, then g's contents.\n"
     "  cat      Copy standard input to standard output.",
-
-    /* examples */
     "  cat file.txt              Display contents of file.txt\n"
     "  cat -n file.txt           Number all output lines\n"
     "  cat file1.txt file2.txt   Concatenate multiple files\n"
     "  cat                       Read from standard input",
-
-    /* see_also */ "tac(1), head(1), tail(1), more(1), less(1)",
-    /* author */ "caomengxuan666",
-    /* copyright */ "Copyright © 2026 WinuxCmd",
-    /* options */
+    "tac(1), head(1), tail(1), more(1), less(1)",
+    "caomengxuan666",
+    "Copyright © 2026 WinuxCmd",
     CAT_OPTIONS) {
+
   using namespace cat_pipeline;
   using namespace core::pipeline;
 
-  /**
-   * @brief Check if a line is empty
-   * @param line Line to check
-   * @return true if line is empty or contains only whitespace
-   */
+  // ----------------------------------------------
+  // Empty line check (unchanged)
+  // ----------------------------------------------
   auto is_empty_line = [](const std::string &line) -> bool {
     return line.empty() ||
            (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
   };
 
-  /**
-   * @brief Process a character with show_nonprinting option
-   * @param c Character to process
-   * @param ctx Command context
-   */
+  // ----------------------------------------------
+  // Process character - FULLY OPTIMIZED, NO wstring!
+  // ----------------------------------------------
   auto process_character = [&](unsigned char c,
                                const CommandContext<CAT_OPTIONS.size()> &ctx) {
     bool show_nonprinting = ctx.get<bool>("--show-nonprinting", false) ||
@@ -160,97 +154,81 @@ REGISTER_COMMAND(
 
     if (show_nonprinting) {
       if (c < 0x20) {
-        // Control characters (except newline, tab, form feed)
+        // Control characters
         if (c == '\n') {
-          safePrintLn(L"");  // prints '\n' in both console and pipe mode
+          safePrint("\n");
         } else if (c == '\t') {
-          if (show_tabs) {
-            safePrint(L"^I");
-          } else {
-            safePrint(L"\t");
-          }
+          if (show_tabs) safePrint("^I");
+          else safePrint("\t");
         } else if (c == '\f') {
-          safePrint(L"^L");
+          safePrint("^L");
         } else {
-          // Convert to ^A, ^B, ..., ^Z (e.g., \x01 → ^A)
-          wchar_t caret_char = static_cast<wchar_t>(c + 0x40);
-          safePrint(L"^" + std::wstring(1, caret_char));
+          // ^A, ^B, ..., ^Z - NO wstring!
+          safePrint('^');
+          safePrint(static_cast<char>(c + 0x40));
         }
       } else if (c == 0x7F) {
-        // DEL character
-        safePrint(L"^?");
+        // DEL
+        safePrint("^?");
       } else if (c >= 0x80) {
-        // Non-ASCII: represent as M-x (meta notation)
-        wchar_t base_char = static_cast<wchar_t>(c - 0x80);
-        safePrint(L"M-" + std::wstring(1, base_char));
+        // M-x notation - NO wstring!
+        safePrint('M');
+        safePrint('-');
+        safePrint(static_cast<char>(c - 0x80));
       } else {
-        // Printable ASCII: output as-is
-        safePrint(std::wstring(1, static_cast<wchar_t>(c)));
+        // Printable ASCII
+        safePrint(static_cast<char>(c));
       }
     } else if (show_tabs && c == '\t') {
-      // Only show tabs when requested
-      safePrint(L"^I");
+      safePrint("^I");
     } else {
-      // Normal character output
-      safePrint(std::wstring(1, static_cast<wchar_t>(c)));
+      // Normal output
+      safePrint(static_cast<char>(c));
     }
   };
 
-  /**
-   * @brief Process a line of text with all options
-   * @param line Line of text
-   * @param ctx Command context
-   * @param line_num Reference to line number counter
-   */
+  // ----------------------------------------------
+  // Process line - OPTIMIZED: snprintf instead of wostringstream
+  // ----------------------------------------------
   auto process_line = [&](std::string &line,
                           const CommandContext<CAT_OPTIONS.size()> &ctx,
                           size_t &line_num) {
-    // Remove trailing carriage return (\r) if present (Windows line endings)
+    // Remove Windows line endings
     if (!line.empty() && line.back() == '\r') {
       line.pop_back();
     }
 
     bool empty = is_empty_line(line);
 
-    // Handle line numbering
     bool number_lines = ctx.get<bool>("--number", false);
     bool number_nonblank = ctx.get<bool>("--number-nonblank", false);
     bool show_ends = ctx.get<bool>("--show-ends", false) ||
                      ctx.get<bool>("--show-all", false) ||
                      ctx.get<bool>("-e", false);
 
+    // OPTIMIZED: snprintf instead of wostringstream
     if (number_lines && !number_nonblank) {
-      // Format line number with consistent spacing
-      std::wostringstream oss;
-      oss << std::setw(6) << line_num++ << L" ";
-      safePrint(oss.str());
+      char buf[32];
+      int len = snprintf(buf, sizeof(buf), "%6zu ", line_num++);
+      safePrint(std::string_view(buf, len));
     } else if (number_nonblank && !empty) {
-      // Format line number with consistent spacing
-      std::wostringstream oss;
-      oss << std::setw(6) << line_num++ << L" ";
-      safePrint(oss.str());
+      char buf[32];
+      int len = snprintf(buf, sizeof(buf), "%6zu ", line_num++);
+      safePrint(std::string_view(buf, len));
     }
 
-    // Process each character in the line
+    // Output content
     for (char ch : line) {
       process_character(static_cast<unsigned char>(ch), ctx);
     }
 
-    // Show end of line marker if requested
-    if (show_ends) {
-      safePrint(L"$");
-    }
-
-    // End with newline
-    safePrintLn(L"");
+    if (show_ends) safePrint("$");
+    safePrint("\n");
   };
 
-  /**
-   * @brief Process input from a stream
-   * @param stream Input stream
-   * @param ctx Command context
-   * @param line_num Reference to line number counter
-   */
+  // ----------------------------------------------
+  // Process stream (unchanged)
+  // ----------------------------------------------
   auto process_stream = [&](std::istream &stream,
                             const CommandContext<CAT_OPTIONS.size()> &ctx,
                             size_t &line_num) {
@@ -261,72 +239,65 @@ REGISTER_COMMAND(
     while (std::getline(stream, line)) {
       bool empty = is_empty_line(line);
 
-      // Handle squeeze empty lines option
       if (squeeze_blank && empty && last_line_empty) {
         continue;
       }
 
       last_line_empty = empty;
-
-      // Process and print the line
       process_line(line, ctx, line_num);
     }
   };
 
-  /**
-   * @brief Process a single file (or stdin if path is "-")
-   * @param path File path or "-" for stdin
-   * @param ctx Command context
-   * @param line_num Reference to line number counter
-   * @return true if file processed successfully, false on error
-   */
+  // ----------------------------------------------
+  // Process file - OPTIMIZED: NO wstring error messages!
+  // ----------------------------------------------
   auto process_file = [&](std::string_view path,
                           const CommandContext<CAT_OPTIONS.size()> &ctx,
                           size_t &line_num) -> bool {
     if (path == "-") {
-      // Read from stdin
       process_stream(std::cin, ctx, line_num);
       return true;
-    } else {
-      // Open the file
-      std::ifstream file(std::string(path), std::ios::binary);
-
-      if (!file.is_open()) {
-        std::wstring wpath_str = utf8_to_wstring(std::string(path));
-        safeErrorPrintLn(L"cat: '" + wpath_str +
-                         L"': No such file or directory");
-        return false;
-      }
-
-      // Process the file
-      process_stream(file, ctx, line_num);
-
-      if (file.bad()) {
-        std::wstring wpath_str = utf8_to_wstring(std::string(path));
-        safeErrorPrintLn(L"cat: error reading '" + wpath_str + L"'");
-        return false;
-      }
-
-      return true;
     }
+
+    std::ifstream file(std::string(path), std::ios::binary);
+
+    if (!file.is_open()) {
+      // OPTIMIZED: No wstring concatenation!
+      safeErrorPrint("cat: '");
+      safeErrorPrint(path);
+      safeErrorPrint("': No such file or directory");
+      safeErrorPrint("\n");
+      return false;
+    }
+
+    process_stream(file, ctx, line_num);
+
+    if (file.bad()) {
+      safeErrorPrint("cat: error reading '");
+      safeErrorPrint(path);
+      safeErrorPrint("'");
+      safeErrorPrint("\n");
+      return false;
+    }
+
+    return true;
   };
 
-  // Use the pipeline component to validate arguments
-  auto files_result = validate_arguments(ctx);
-  if (!files_result) {
-    return 1;
-  }
+  // ----------------------------------------------
+  // Main - OPTIMIZED: pass vector by reference
+  // ----------------------------------------------
+  std::vector<std::string> files;
+  auto result = validate_arguments(ctx, files);
+  if (!result) return 1;
 
-  const auto &files = files_result.value();
-  int result = 0;
+  int exit_code = 0;
   size_t line_num = 1;
 
-  // Process each file
   for (const auto &file : files) {
     if (!process_file(file, ctx, line_num)) {
-      result = 1;  // File processing error
+      exit_code = 1;
     }
   }
 
-  return result;
+  return exit_code;
 }
