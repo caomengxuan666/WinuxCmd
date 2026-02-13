@@ -161,6 +161,68 @@ ParseResult<N> parse_command(
 
     // ---------- short option(s) ----------
     if (!end_of_options && arg.size() >= 2 && arg[0] == '-' && arg[1] != '-') {
+      // Support GNU-style single-dash multi-char options (e.g. -name)
+      const cmd::meta::OptionMeta* exact_meta = nullptr;
+      std::string_view exact_value;
+      std::string_view exact_name = arg;
+      size_t exact_eq_pos = arg.find('=');
+      if (exact_eq_pos != std::string_view::npos) {
+        exact_name = arg.substr(0, exact_eq_pos);
+        exact_value = arg.substr(exact_eq_pos + 1);
+      }
+
+      for (const auto& m : metas) {
+        if (!m.short_name.empty() && m.short_name == exact_name) {
+          exact_meta = &m;
+          break;
+        }
+      }
+
+      if (exact_meta && exact_meta->short_name.size() > 2) {
+        size_t idx = exact_meta->index;
+        switch (exact_meta->type) {
+          case OptionType::Bool:
+            result.options.set(idx, true);
+            break;
+          case OptionType::Int: {
+            int v = 0;
+            std::string str;
+            if (!exact_value.empty()) {
+              str = std::string(exact_value);
+            } else {
+              if (i + 1 >= args.size()) {
+                result.ok = false;
+                return result;
+              }
+              str = std::string(args[++i]);
+            }
+
+            auto [ptr, ec] =
+                std::from_chars(str.data(), str.data() + str.size(), v);
+            if (ec != std::errc() || ptr != str.data() + str.size()) {
+              result.ok = false;
+              return result;
+            }
+
+            result.options.set(idx, v);
+            break;
+          }
+          case OptionType::String:
+            if (!exact_value.empty()) {
+              result.options.set(idx, std::string(exact_value));
+            } else {
+              if (i + 1 >= args.size()) {
+                result.ok = false;
+                return result;
+              }
+              result.options.set(idx, std::string(args[++i]));
+            }
+            break;
+        }
+
+        continue;
+      }
+
       // iterate each short flag: -abc
       for (size_t pos = 1; pos < arg.size(); ++pos) {
         char ch = arg[pos];

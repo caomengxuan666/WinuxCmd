@@ -28,8 +28,8 @@ export module utils:path;
 import std;
 import :utf8;
 
-#include <windows.h>
 #include <shlwapi.h>
+#include <windows.h>
 #pragma comment(lib, "shlwapi.lib")
 
 namespace path {
@@ -73,8 +73,8 @@ export std::string get_parent_path(const std::string& path) {
   std::wstring wpath(path.begin(), path.end());
   wchar_t parent[MAX_PATH];
   if (PathRemoveFileSpecW(wpath.data())) {
-    int len = WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, NULL, 0,
-                                   NULL, NULL);
+    int len =
+        WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, NULL, 0, NULL, NULL);
     std::string result(len - 1, 0);
     WideCharToMultiByte(CP_UTF8, 0, wpath.c_str(), -1, &result[0], len, NULL,
                         NULL);
@@ -105,11 +105,10 @@ export std::string get_filename(const std::string& path) {
   std::wstring wpath(path.begin(), path.end());
   LPWSTR file_name = PathFindFileNameW(wpath.c_str());
   if (file_name) {
-    int len = WideCharToMultiByte(CP_UTF8, 0, file_name, -1, NULL, 0, NULL,
-                                   NULL);
+    int len =
+        WideCharToMultiByte(CP_UTF8, 0, file_name, -1, NULL, 0, NULL, NULL);
     std::string result(len - 1, 0);
-    WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &result[0], len, NULL,
-                        NULL);
+    WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &result[0], len, NULL, NULL);
     return result;
   }
   return "";
@@ -141,18 +140,18 @@ export std::string get_stem(const std::string& path) {
     if (dot) {
       *dot = L'\0';
     }
-    int len = WideCharToMultiByte(CP_UTF8, 0, file_name, -1, NULL, 0, NULL,
-                                   NULL);
+    int len =
+        WideCharToMultiByte(CP_UTF8, 0, file_name, -1, NULL, 0, NULL, NULL);
     std::string result(len - 1, 0);
-    WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &result[0], len, NULL,
-                        NULL);
+    WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &result[0], len, NULL, NULL);
     return result;
   }
   return "";
 }
 
 /**
- * @brief Get the file stem (without extension) from a path (wide string version)
+ * @brief Get the file stem (without extension) from a path (wide string
+ * version)
  * @param path Path to extract stem from
  * @return File stem
  */
@@ -429,8 +428,8 @@ export std::string current_path() {
   if (len == 0 || len > MAX_PATH) {
     return "";
   }
-  int utf8_len = WideCharToMultiByte(CP_UTF8, 0, buffer, -1, NULL, 0, NULL,
-                                      NULL);
+  int utf8_len =
+      WideCharToMultiByte(CP_UTF8, 0, buffer, -1, NULL, 0, NULL, NULL);
   std::string result(utf8_len - 1, 0);
   WideCharToMultiByte(CP_UTF8, 0, buffer, -1, &result[0], utf8_len, NULL, NULL);
   return result;
@@ -458,12 +457,11 @@ export std::string get_executable_path(const char* argv0) {
   int path_length = MultiByteToWideChar(CP_UTF8, 0, argv0, -1, NULL, 0);
   std::wstring wself_path(path_length, 0);
   MultiByteToWideChar(CP_UTF8, 0, argv0, -1, &wself_path[0], path_length);
-  int utf8_len =
-      WideCharToMultiByte(CP_UTF8, 0, wself_path.c_str(), -1, NULL, 0, NULL,
-                          NULL);
+  int utf8_len = WideCharToMultiByte(CP_UTF8, 0, wself_path.c_str(), -1, NULL,
+                                     0, NULL, NULL);
   std::string result(utf8_len - 1, 0);
-  WideCharToMultiByte(CP_UTF8, 0, wself_path.c_str(), -1, &result[0],
-                      utf8_len, NULL, NULL);
+  WideCharToMultiByte(CP_UTF8, 0, wself_path.c_str(), -1, &result[0], utf8_len,
+                      NULL, NULL);
   return result;
 }
 
