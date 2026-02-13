@@ -21,7 +21,7 @@ option(USE_HARDLINKS "Use hardlinks for commands instead of separate executables
 # Option to enable UPX compression
 option(ENABLE_UPX "Enable UPX compression for executables" OFF)
 # Generate the map info(For the developers to collect binary information)
-option(GENERATE_MAP_INFO "Generate_MAP_INFO" OFF)
+option(GENERATE_MAP_INFO "Generate_MAP_INFO" ON)
 
 if (USE_STATIC_CRT)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded")
@@ -41,7 +41,7 @@ endif ()
 include(cmake/enable_import_std.cmake)
 
 project(WinuxCmd
-        VERSION 0.2.0
+        VERSION 0.3.0
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )

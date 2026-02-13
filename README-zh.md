@@ -19,17 +19,29 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 2. 解压到任意目录
 3. 运行设置脚本：`winux-activate.ps1`
 
-## 📦 已实现的命令 (v0.1.0)
+## 📦 已实现的命令 (v0.1.x)
 
-| 命令 | 描述 | 支持的参数 |
-|------|------|------------|
-| ls | 列出目录内容 | -l, -a, -h, -r, -t -n, --color |
+| 命令 | 描述 | 支持的参数（标记 [NOT SUPPORT] 的参数会被解析但未实现） |
+|------|------|------------------------------------------------|
+| ls | 列出目录内容 | -l, -a, -h, -r, -t, -n, --color |
 | cat | 显示文件内容 | -n, -E, -s, -T |
 | cp | 复制文件/目录 | -r, -v, -f, -i |
 | mv | 移动/重命名文件 | -v, -f, -i, -n |
 | rm | 删除文件/目录 | -r, -f, -v, -i |
 | mkdir | 创建目录 | -p, -v, -m MODE |
+| rmdir | 删除空目录 | --ignore-fail-on-non-empty, -p/--parents, -v |
+| touch | 更新时间戳/创建文件 | -a, -c/--no-create, -d/--date, -h/--no-dereference, -m, -r/--reference, -t, --time |
 | echo | 显示文本 | -n, -e, -E |
+| head | 输出文件前部 | -n/--lines, -c/--bytes, -q/--quiet/--silent, -v/--verbose, -z/--zero-terminated |
+| tail | 输出文件尾部 | -n/--lines, -c/--bytes, -z/--zero-terminated, -f/--follow [NOT SUPPORT], -F [NOT SUPPORT], --pid [NOT SUPPORT], --sleep-interval [NOT SUPPORT] |
+| find | 查找文件 | -name, -iname, -type(d/f/l), -mindepth, -maxdepth, -print, -print0, -P, -quit；-L/-H/-delete/-exec/-ok/-printf/-prune 为 [NOT SUPPORT] |
+| grep | 文本搜索 | -E/-F/-G, -e, -f, -i/--no-ignore-case, -w, -x, -z, -s, -v, -m NUM, -b, -n, --line-buffered, -H/-h, --label, --binary-files, -r/-R, --include/--exclude/--exclude-dir, -L/-l, -c, -T, -Z, --color；-P 为 [NOT SUPPORT] |
+| sort | 排序 | -b, -f, -n, -r, -u, -z, -o FILE, -t SEP, -k KEY；-d/-g/-i/-h/-M/-m/-R/-s 为 [NOT SUPPORT] |
+| uniq | 去重 | -c, -d, -f NUM, -i, -s NUM, -u, -w NUM, -z；-D、--group 为 [NOT SUPPORT] |
+| cut | 按列截取 | -d 分隔符, -f 列表, -s, -z；-b/-c/--output-delimiter 为 [NOT SUPPORT] |
+| which | 查找可执行文件 | -a；--skip-dot/--skip-tilde/--show-dot/--show-tilde 为 [NOT SUPPORT] |
+| env | 查看/修改环境变量 | -i/--ignore-environment, -u 名称, -0/--null；-S/--split-string、-C/--chdir、执行 COMMAND 为 [NOT SUPPORT] |
+| wc | 统计行/词/字节 | -c, -l, -w, -m, -L |
 
 ## 🎯 为什么选择 WinuxCmd？
 

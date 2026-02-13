@@ -19,7 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  *
- *  - File: ls.cppm
+ *  - File: ls.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
@@ -73,7 +73,8 @@ using cmd::meta::OptionType;
  * show information for the file the link references [TODO]
  * - @a -l, @a --long-list: Use a long listing format [IMPLEMENTED]
  * - @a -m: Fill width with a comma separated list of entries [TODO]
- * - @a -n, @a --numeric-uid-gid: Like -l, but list numeric user and group IDs [IMPLEMENTED]
+ * - @a -n, @a --numeric-uid-gid: Like -l, but list numeric user and group IDs
+ * [IMPLEMENTED]
  * - @a -N, @a --literal: Print entry names without quoting [TODO]
  * - @a -o: Like -l, but do not list group information [IMPLEMENTED]
  * - @a -p, @a --indicator-style=slash: Append / indicator to directories [TODO]
@@ -300,7 +301,7 @@ auto get_file_size_string(const WIN32_FIND_DATAW &find_data,
                       (static_cast<uint64_t>(find_data.nFileSizeHigh) << 32);
 
   char buf[32];
-  
+
   if (ctx.get<bool>("-h", false) || ctx.get<bool>("--human-readable", false)) {
     const char *units[] = {"B", "K", "M", "G", "T"};
     int unitIndex = 0;
@@ -319,7 +320,7 @@ auto get_file_size_string(const WIN32_FIND_DATAW &find_data,
   } else {
     snprintf(buf, sizeof(buf), "%llu", fileSize);
   }
-  
+
   return std::string(buf);
 }
 
@@ -341,14 +342,13 @@ auto get_modification_time_string(const WIN32_FIND_DATAW &find_data,
     FileTimeToSystemTime(&local_ft, &st);
   }
 
-  const char *month_abbrs[] = {"",    "Jan", "Feb", "Mar", "Apr",
-                               "May", "Jun", "Jul", "Aug", "Sep",
-                               "Oct", "Nov", "Dec"};
+  const char *month_abbrs[] = {"",    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
   char buf[64];
-  snprintf(buf, sizeof(buf), "%s %2d %02d:%02d",
-           month_abbrs[st.wMonth], st.wDay, st.wHour, st.wMinute);
-  
+  snprintf(buf, sizeof(buf), "%s %2d %02d:%02d", month_abbrs[st.wMonth],
+           st.wDay, st.wHour, st.wMinute);
+
   return std::string(buf);
 }
 
@@ -357,7 +357,8 @@ auto get_modification_time_string(const WIN32_FIND_DATAW &find_data,
  * @param use_numeric Whether to return numeric UID/GID (-n option)
  * @return Pair of (owner, group) strings
  */
-auto get_file_owner_and_group(bool use_numeric = false) -> std::pair<std::string, std::string> {
+auto get_file_owner_and_group(bool use_numeric = false)
+    -> std::pair<std::string, std::string> {
   if (use_numeric) {
     // Get Windows SID (simulate UID/GID)
     HANDLE hToken;
@@ -366,14 +367,17 @@ auto get_file_owner_and_group(bool use_numeric = false) -> std::pair<std::string
       GetTokenInformation(hToken, TokenUser, nullptr, 0, &bufferSize);
       std::vector<BYTE> buffer(bufferSize);
       PTOKEN_USER pTokenUser = reinterpret_cast<PTOKEN_USER>(buffer.data());
-      if (GetTokenInformation(hToken, TokenUser, pTokenUser, bufferSize, &bufferSize)) {
+      if (GetTokenInformation(hToken, TokenUser, pTokenUser, bufferSize,
+                              &bufferSize)) {
         LPWSTR sidStr = nullptr;
         if (ConvertSidToStringSidW(pTokenUser->User.Sid, &sidStr)) {
           // Extract numeric part from SID (simulate UID 197121)
           std::wstring sid = sidStr;
           size_t lastDash = sid.find_last_of(L'-');
-          std::wstring uid_wstr = (lastDash != std::wstring::npos) ? sid.substr(lastDash+1) : L"197121";
-          
+          std::wstring uid_wstr = (lastDash != std::wstring::npos)
+                                      ? sid.substr(lastDash + 1)
+                                      : L"197121";
+
           // Convert wide string to UTF-8
           std::string uid = wstring_to_utf8(uid_wstr);
           LocalFree(sidStr);
@@ -714,7 +718,8 @@ auto list_directory(const std::string &path,
       ctx.get<bool>("-l", false) || ctx.get<bool>("--long-list", false);
   bool one_per_line = ctx.get<bool>("-1", false);
   bool columns = ctx.get<bool>("-C", false);
-  bool use_numeric = ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric-uid-gid", false);
+  bool use_numeric =
+      ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric-uid-gid", false);
   if (long_format) {
     // FileInfo struct for storing file information
     struct FileInfo {
@@ -911,8 +916,7 @@ auto list_directory(const std::string &path,
             // Check file extensions for different types
             std::wstring ext;
             size_t dot_pos = entry.find_last_of(L".");
-            if (dot_pos != std::wstring::npos &&
-                dot_pos < entry.length() - 1) {
+            if (dot_pos != std::wstring::npos && dot_pos < entry.length() - 1) {
               ext = entry.substr(dot_pos + 1);
               std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             }

@@ -19,7 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  *
- *  - File: mv.cppm
+ *  - File: mv.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
@@ -178,16 +178,17 @@ auto build_dest_path(const std::string& src_path, const std::string& dest_path,
 
   std::wstring wsrc_path = utf8_to_wstring(src_path);
   LPWSTR file_name = PathFindFileNameW(wsrc_path.c_str());
-  
+
   // OPTIMIZED: Use stack buffer instead of dynamic allocation
   char file_name_buf[MAX_PATH * 3];  // UTF-8 can be up to 3 bytes per char
   int file_name_length =
-      WideCharToMultiByte(CP_UTF8, 0, file_name, -1, file_name_buf, sizeof(file_name_buf), NULL, NULL);
-  
+      WideCharToMultiByte(CP_UTF8, 0, file_name, -1, file_name_buf,
+                          sizeof(file_name_buf), NULL, NULL);
+
   if (file_name_length > 0 && file_name_length < sizeof(file_name_buf)) {
     return dest_path + "\\" + std::string(file_name_buf);
   }
-  
+
   // Fallback to dynamic allocation if needed
   std::string file_name_str(file_name_length, 0);
   WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &file_name_str[0],
@@ -231,18 +232,21 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
   }
 
   // Try to rename first
-  if (!MoveFileExW(wsrc_path.c_str(), wdest_path.c_str(), MOVEFILE_REPLACE_EXISTING)) {
+  if (!MoveFileExW(wsrc_path.c_str(), wdest_path.c_str(),
+                   MOVEFILE_REPLACE_EXISTING)) {
     // If rename fails, try copy and delete
     // First, check if source is a file
     DWORD src_attr = GetFileAttributesW(wsrc_path.c_str());
     if (src_attr == INVALID_FILE_ATTRIBUTES) {
-      return std::unexpected("cannot access '" + src_path + "': No such file or directory");
+      return std::unexpected("cannot access '" + src_path +
+                             "': No such file or directory");
     }
 
     if (!(src_attr & FILE_ATTRIBUTE_DIRECTORY)) {
       // It's a file, try to copy
       if (!CopyFileW(wsrc_path.c_str(), wdest_path.c_str(), FALSE)) {
-        return std::unexpected("cannot copy '" + src_path + "' to '" + dest_path + "'");
+        return std::unexpected("cannot copy '" + src_path + "' to '" +
+                               dest_path + "'");
       }
       // If copy succeeds, delete the source
       if (!DeleteFileW(wsrc_path.c_str())) {
@@ -250,7 +254,8 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
       }
     } else {
       // It's a directory, rename failed (maybe cross-volume)
-      return std::unexpected("cannot move directory '" + src_path + "' to '" + dest_path + "': cross-volume move not supported");
+      return std::unexpected("cannot move directory '" + src_path + "' to '" +
+                             dest_path + "': cross-volume move not supported");
     }
   }
 
