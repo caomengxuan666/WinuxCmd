@@ -19,7 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  *
- *  - File: rm.cppm
+ *  - File: rm.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */

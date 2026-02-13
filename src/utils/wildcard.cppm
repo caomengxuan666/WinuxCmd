@@ -91,8 +91,8 @@ export std::vector<std::string> expand_wildcard(
     }
 
     // Convert filename to UTF-8
-    int filename_len = WideCharToMultiByte(CP_UTF8, 0, find_data.cFileName,
-                                          -1, NULL, 0, NULL, NULL);
+    int filename_len = WideCharToMultiByte(CP_UTF8, 0, find_data.cFileName, -1,
+                                           NULL, 0, NULL, NULL);
     if (filename_len <= 0) {
       continue;
     }

@@ -39,29 +39,30 @@ export constexpr auto COLOR_MEDIA =
     L"\033[01;35m";  ///< Media: .jpg, .mp4 (bold magenta)
 
 namespace {
-  HANDLE getStdOut() {
-    static HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    return hOut;
-  }
-
-  HANDLE getStdErr() {
-    static HANDLE hErr = GetStdHandle(STD_ERROR_HANDLE);
-    return hErr;
-  }
-
-  bool isConsoleHandle(HANDLE h) {
-    if (h == INVALID_HANDLE_VALUE) return false;
-    DWORD mode;
-    return GetConsoleMode(h, &mode) != 0;
-  }
+HANDLE getStdOut() {
+  static HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+  return hOut;
 }
+
+HANDLE getStdErr() {
+  static HANDLE hErr = GetStdHandle(STD_ERROR_HANDLE);
+  return hErr;
+}
+
+bool isConsoleHandle(HANDLE h) {
+  if (h == INVALID_HANDLE_VALUE) return false;
+  DWORD mode;
+  return GetConsoleMode(h, &mode) != 0;
+}
+}  // namespace
 
 export bool writeConsole(const std::wstring_view& wstr) {
   HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
   if (hOut == INVALID_HANDLE_VALUE) return false;
 
   DWORD written;
-  return WriteConsoleW(hOut, wstr.data(), static_cast<DWORD>(wstr.size()), &written, nullptr) != 0;
+  return WriteConsoleW(hOut, wstr.data(), static_cast<DWORD>(wstr.size()),
+                       &written, nullptr) != 0;
 }
 
 export bool writeErrorConsole(const std::wstring_view& wstr) {
@@ -69,17 +70,13 @@ export bool writeErrorConsole(const std::wstring_view& wstr) {
   if (hErr == INVALID_HANDLE_VALUE) return false;
 
   DWORD written;
-  return WriteConsoleW(hErr, wstr.data(), static_cast<DWORD>(wstr.size()), &written, nullptr) != 0;
+  return WriteConsoleW(hErr, wstr.data(), static_cast<DWORD>(wstr.size()),
+                       &written, nullptr) != 0;
 }
 
-export bool isOutputConsole() {
-  return isConsoleHandle(getStdOut());
-}
+export bool isOutputConsole() { return isConsoleHandle(getStdOut()); }
 
-export bool isErrorConsole() {
-  return isConsoleHandle(getStdErr());
-}
-
+export bool isErrorConsole() { return isConsoleHandle(getStdErr()); }
 
 /**
  * @brief Check if terminal supports color
@@ -165,65 +162,66 @@ export bool setupConsoleForUnicode() {
 // Low level write primitives - NO fprintf/wprintf
 // ============================================================================
 namespace detail {
-  bool writeConsoleW(HANDLE h, const wchar_t* data, size_t len) {
-    if (!data || len == 0) return true;
-    DWORD written;
-    return WriteConsoleW(h, data, static_cast<DWORD>(len), &written, nullptr) != 0;
-  }
-
-  bool writeFile(HANDLE h, const char* data, size_t len) {
-    if (!data || len == 0) return true;
-    DWORD written;
-    return WriteFile(h, data, static_cast<DWORD>(len), &written, nullptr) != 0;
-  }
+bool writeConsoleW(HANDLE h, const wchar_t* data, size_t len) {
+  if (!data || len == 0) return true;
+  DWORD written;
+  return WriteConsoleW(h, data, static_cast<DWORD>(len), &written, nullptr) !=
+         0;
 }
+
+bool writeFile(HANDLE h, const char* data, size_t len) {
+  if (!data || len == 0) return true;
+  DWORD written;
+  return WriteFile(h, data, static_cast<DWORD>(len), &written, nullptr) != 0;
+}
+}  // namespace detail
 
 // ============================================================================
 // Stack allocated conversion buffer (zero heap allocation)
 // ============================================================================
 namespace detail {
-    template<size_t StackSize = 256>
-    class wchar_buffer {
-        wchar_t stack_[StackSize];
-        wchar_t* data_;
-        size_t size_;
+template <size_t StackSize = 256>
+class wchar_buffer {
+  wchar_t stack_[StackSize];
+  wchar_t* data_;
+  size_t size_;
 
-    public:
-        explicit wchar_buffer(std::string_view sv) {
-            int len = MultiByteToWideChar(CP_UTF8, 0, sv.data(),
-                                         static_cast<int>(sv.size()), nullptr, 0);
-            if (len <= 0) {
-                data_ = nullptr;
-                size_ = 0;
-                return;
-            }
+ public:
+  explicit wchar_buffer(std::string_view sv) {
+    int len = MultiByteToWideChar(CP_UTF8, 0, sv.data(),
+                                  static_cast<int>(sv.size()), nullptr, 0);
+    if (len <= 0) {
+      data_ = nullptr;
+      size_ = 0;
+      return;
+    }
 
-            if (static_cast<size_t>(len) <= StackSize) {
-                data_ = stack_;
-            } else {
-                data_ = static_cast<wchar_t*>(HeapAlloc(GetProcessHeap(), 0,
-                                            len * sizeof(wchar_t)));
-            }
+    if (static_cast<size_t>(len) <= StackSize) {
+      data_ = stack_;
+    } else {
+      data_ = static_cast<wchar_t*>(
+          HeapAlloc(GetProcessHeap(), 0, len * sizeof(wchar_t)));
+    }
 
-            size_ = static_cast<size_t>(len);
-            MultiByteToWideChar(CP_UTF8, 0, sv.data(),
-                              static_cast<int>(sv.size()), data_, len);
-        }
+    size_ = static_cast<size_t>(len);
+    MultiByteToWideChar(CP_UTF8, 0, sv.data(), static_cast<int>(sv.size()),
+                        data_, len);
+  }
 
-        ~wchar_buffer() {
-            if (data_ && data_ != stack_) {
-                HeapFree(GetProcessHeap(), 0, data_);
-            }
-        }
+  ~wchar_buffer() {
+    if (data_ && data_ != stack_) {
+      HeapFree(GetProcessHeap(), 0, data_);
+    }
+  }
 
-        wchar_buffer(const wchar_buffer&) = delete;
-        wchar_buffer& operator=(const wchar_buffer&) = delete;
+  wchar_buffer(const wchar_buffer&) = delete;
+  wchar_buffer& operator=(const wchar_buffer&) = delete;
 
-        const wchar_t* data() const { return data_; }
-        size_t size() const { return size_; }
-        bool valid() const { return data_ != nullptr; }
-    };
-}
+  const wchar_t* data() const { return data_; }
+  size_t size() const { return size_; }
+  bool valid() const { return data_ != nullptr; }
+};
+}  // namespace detail
 
 // ============================================================================
 // Core output functions - ALL PATHS use WriteFile/WriteConsoleW, NO fprintf
@@ -233,247 +231,247 @@ namespace detail {
 // Wide string overloads (zero conversion)
 // ----------------------------------------------------------------------------
 export void safePrint(std::wstring_view wsv) {
-    HANDLE h = getStdOut();
-    if (isConsoleHandle(h)) {
-        detail::writeConsoleW(h, wsv.data(), wsv.size());
-    } else {
-        std::string utf8 = wstring_to_utf8(wsv);
-        detail::writeFile(h, utf8.data(), utf8.size());
-    }
+  HANDLE h = getStdOut();
+  if (isConsoleHandle(h)) {
+    detail::writeConsoleW(h, wsv.data(), wsv.size());
+  } else {
+    std::string utf8 = wstring_to_utf8(wsv);
+    detail::writeFile(h, utf8.data(), utf8.size());
+  }
 }
 
 export void safeErrorPrint(std::wstring_view wsv) {
-    HANDLE h = getStdErr();
-    if (isConsoleHandle(h)) {
-        detail::writeConsoleW(h, wsv.data(), wsv.size());
-    } else {
-        std::string utf8 = wstring_to_utf8(wsv);
-        detail::writeFile(h, utf8.data(), utf8.size());
-    }
+  HANDLE h = getStdErr();
+  if (isConsoleHandle(h)) {
+    detail::writeConsoleW(h, wsv.data(), wsv.size());
+  } else {
+    std::string utf8 = wstring_to_utf8(wsv);
+    detail::writeFile(h, utf8.data(), utf8.size());
+  }
 }
 
 export void safePrintLn(std::wstring_view wsv) {
-    safePrint(wsv);
-    safePrint(L"\n");
+  safePrint(wsv);
+  safePrint(L"\n");
 }
 
 export void safeErrorPrintLn(std::wstring_view wsv) {
-    safeErrorPrint(wsv);
-    safeErrorPrint(L"\n");
+  safeErrorPrint(wsv);
+  safeErrorPrint(L"\n");
 }
 
 // ----------------------------------------------------------------------------
 // UTF-8 string overloads (stack conversion)
 // ----------------------------------------------------------------------------
 export void safePrint(std::string_view sv) {
-    HANDLE h = getStdOut();
-    if (isConsoleHandle(h)) {
-        detail::wchar_buffer buf(sv);
-        if (buf.valid()) {
-            detail::writeConsoleW(h, buf.data(), buf.size());
-        }
-    } else {
-        detail::writeFile(h, sv.data(), sv.size());
+  HANDLE h = getStdOut();
+  if (isConsoleHandle(h)) {
+    detail::wchar_buffer buf(sv);
+    if (buf.valid()) {
+      detail::writeConsoleW(h, buf.data(), buf.size());
     }
+  } else {
+    detail::writeFile(h, sv.data(), sv.size());
+  }
 }
 
 export void safeErrorPrint(std::string_view sv) {
-    HANDLE h = getStdErr();
-    if (isConsoleHandle(h)) {
-        detail::wchar_buffer buf(sv);
-        if (buf.valid()) {
-            detail::writeConsoleW(h, buf.data(), buf.size());
-        }
-    } else {
-        detail::writeFile(h, sv.data(), sv.size());
+  HANDLE h = getStdErr();
+  if (isConsoleHandle(h)) {
+    detail::wchar_buffer buf(sv);
+    if (buf.valid()) {
+      detail::writeConsoleW(h, buf.data(), buf.size());
     }
+  } else {
+    detail::writeFile(h, sv.data(), sv.size());
+  }
 }
 
 export void safePrintLn(std::string_view sv) {
-    safePrint(sv);
-    safePrint("\n");
+  safePrint(sv);
+  safePrint("\n");
 }
 
 export void safeErrorPrintLn(std::string_view sv) {
-    safeErrorPrint(sv);
-    safeErrorPrint("\n");
+  safeErrorPrint(sv);
+  safeErrorPrint("\n");
 }
 
 // ----------------------------------------------------------------------------
 // C string overloads (zero copy)
 // ----------------------------------------------------------------------------
 export void safePrint(const char* str) {
-    if (str) safePrint(std::string_view(str));
+  if (str) safePrint(std::string_view(str));
 }
 
 export void safeErrorPrint(const char* str) {
-    if (str) safeErrorPrint(std::string_view(str));
+  if (str) safeErrorPrint(std::string_view(str));
 }
 
 export void safePrintLn(const char* str) {
-    if (str) safePrint(std::string_view(str));
-    else safePrint("\n");
+  if (str)
+    safePrint(std::string_view(str));
+  else
     safePrint("\n");
+  safePrint("\n");
 }
 
 export void safeErrorPrintLn(const char* str) {
-    if (str) safeErrorPrint(std::string_view(str));
-    else safeErrorPrint("\n");
+  if (str)
+    safeErrorPrint(std::string_view(str));
+  else
     safeErrorPrint("\n");
+  safeErrorPrint("\n");
 }
 
 export void safePrint(const wchar_t* wstr) {
-    if (!wstr) return;
-    safePrint(std::wstring_view(wstr));
+  if (!wstr) return;
+  safePrint(std::wstring_view(wstr));
 }
 
 export void safeErrorPrint(const wchar_t* wstr) {
-    if (!wstr) return;
-    safeErrorPrint(std::wstring_view(wstr));
+  if (!wstr) return;
+  safeErrorPrint(std::wstring_view(wstr));
 }
 
 export void safePrintLn(const wchar_t* wstr) {
-    safePrint(wstr);
-    safePrint(L"\n");
+  safePrint(wstr);
+  safePrint(L"\n");
 }
 
 export void safeErrorPrintLn(const wchar_t* wstr) {
-    safeErrorPrint(wstr);
-    safeErrorPrint(L"\n");
+  safeErrorPrint(wstr);
+  safeErrorPrint(L"\n");
 }
 // ----------------------------------------------------------------------------
 // Character overloads (single char)
 // ----------------------------------------------------------------------------
 export void safePrint(char c) {
-    HANDLE h = getStdOut();
-    if (isConsoleHandle(h)) {
-        wchar_t wc = static_cast<wchar_t>(c);
-        detail::writeConsoleW(h, &wc, 1);
-    } else {
-        detail::writeFile(h, &c, 1);
-    }
+  HANDLE h = getStdOut();
+  if (isConsoleHandle(h)) {
+    wchar_t wc = static_cast<wchar_t>(c);
+    detail::writeConsoleW(h, &wc, 1);
+  } else {
+    detail::writeFile(h, &c, 1);
+  }
 }
 
 export void safeErrorPrint(char c) {
-    HANDLE h = getStdErr();
-    if (isConsoleHandle(h)) {
-        wchar_t wc = static_cast<wchar_t>(c);
-        detail::writeConsoleW(h, &wc, 1);
-    } else {
-        detail::writeFile(h, &c, 1);
-    }
+  HANDLE h = getStdErr();
+  if (isConsoleHandle(h)) {
+    wchar_t wc = static_cast<wchar_t>(c);
+    detail::writeConsoleW(h, &wc, 1);
+  } else {
+    detail::writeFile(h, &c, 1);
+  }
 }
 
 export void safePrintLn(char c) {
-    safePrint(c);
-    safePrint("\n");
+  safePrint(c);
+  safePrint("\n");
 }
 
 export void safeErrorPrintLn(char c) {
-    safeErrorPrint(c);
-    safeErrorPrint("\n");
+  safeErrorPrint(c);
+  safeErrorPrint("\n");
 }
 
 // ----------------------------------------------------------------------------
 // Integer overloads (stack formatting)
 // ----------------------------------------------------------------------------
 export void safePrint(int n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%d", n);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%d", n);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(int n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%d", n);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%d", n);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safePrint(unsigned int n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%u", n);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%u", n);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(unsigned int n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%u", n);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%u", n);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safePrint(long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%ld", n);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%ld", n);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%ld", n);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%ld", n);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safePrint(unsigned long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%lu", n);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%lu", n);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(unsigned long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%lu", n);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%lu", n);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safePrint(long long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%lld", n);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%lld", n);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(long long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%lld", n);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%lld", n);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safePrint(unsigned long long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%llu", n);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%llu", n);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(unsigned long long n) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%llu", n);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%llu", n);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 // ----------------------------------------------------------------------------
 // Pointer overload
 // ----------------------------------------------------------------------------
 export void safePrint(const void* ptr) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%p", ptr);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%p", ptr);
+  safePrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 export void safeErrorPrint(const void* ptr) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%p", ptr);
-    safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
+  char buf[32];
+  int len = snprintf(buf, sizeof(buf), "%p", ptr);
+  safeErrorPrint(std::string_view(buf, static_cast<size_t>(len)));
 }
 
 // ----------------------------------------------------------------------------
 // Boolean overload
 // ----------------------------------------------------------------------------
-export void safePrint(bool b) {
-    safePrint(b ? "true" : "false");
-}
+export void safePrint(bool b) { safePrint(b ? "true" : "false"); }
 
-export void safeErrorPrint(bool b) {
-    safeErrorPrint(b ? "true" : "false");
-}
+export void safeErrorPrint(bool b) { safeErrorPrint(b ? "true" : "false"); }
 
 /// @brief Calculate display width of a wide string in terminal columns.
 /// Handles Unicode fullwidth/halfwidth characters (e.g., Chinese = 2 cols).
@@ -481,7 +479,7 @@ export void safeErrorPrint(bool b) {
 /// @brief Calculate the terminal display width of a wide string.
 /// Fullwidth characters (e.g., Chinese, Japanese) count as 2 columns.
 /// Halfwidth characters (e.g., ASCII) count as 1 column.
-export size_t string_display_width(const std::wstring &s) {
+export size_t string_display_width(const std::wstring& s) {
   size_t width = 0;
   for (wchar_t c : s) {
     // Check for fullwidth Unicode ranges

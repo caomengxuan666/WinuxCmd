@@ -244,13 +244,40 @@ CommandResult Pipeline::run() {
     auto cmdline = build_cmd(exe, cmds_[i].args);
     const wchar_t *cwd = cwd_ ? cwd_->c_str() : nullptr;
     auto build_env_block = [this]() -> std::wstring {
-      std::wstring block;
+      struct ci_less {
+        bool operator()(const std::wstring &a, const std::wstring &b) const {
+          return _wcsicmp(a.c_str(), b.c_str()) < 0;
+        }
+      };
+
+      // Start from current environment to ensure required variables stay present.
+      std::map<std::wstring, std::wstring, ci_less> vars;
+      if (LPWCH raw = GetEnvironmentStringsW()) {
+        const wchar_t *p = raw;
+        while (*p != L'\0') {
+          std::wstring entry = p;
+          p += entry.size() + 1;
+          if (entry.empty() || entry[0] == L'=') continue;
+          auto pos = entry.find(L'=');
+          if (pos == std::wstring::npos) continue;
+          vars[entry.substr(0, pos)] = entry.substr(pos + 1);
+        }
+        FreeEnvironmentStringsW(raw);
+      }
+
+      // Apply overrides from test pipeline.
       for (auto &[k, v] : this->env_) {
+        vars[k] = v;
+      }
+
+      std::wstring block;
+      for (auto &[k, v] : vars) {
         block += k;
         block += L"=";
         block += v;
         block.push_back(L'\0');
       }
+      // Double-NUL terminate the block.
       block.push_back(L'\0');
       return block;
     };

@@ -19,7 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  *
- *  - File: cp.cppm
+ *  - File: cp.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
@@ -352,8 +352,8 @@ auto copy_directory_helper(const std::string& srcPath,
     }
 
     // Get the full path of the source file/directory
-    int fileNameLength = WideCharToMultiByte(CP_UTF8, 0, findData.cFileName,
-                                             -1, NULL, 0, NULL, NULL);
+    int fileNameLength = WideCharToMultiByte(CP_UTF8, 0, findData.cFileName, -1,
+                                             NULL, 0, NULL, NULL);
     if (fileNameLength <= 0) {
       continue;
     }
@@ -445,12 +445,13 @@ auto process_source_paths(
       // If destination is a directory, append source filename
       std::wstring wsrcPath = utf8_to_wstring(srcPath);
       LPWSTR fileName = PathFindFileNameW(wsrcPath.c_str());
-      
+
       // OPTIMIZED: Use stack buffer
       char fileNameBuf[MAX_PATH * 3];
       int fileNameLength =
-          WideCharToMultiByte(CP_UTF8, 0, fileName, -1, fileNameBuf, sizeof(fileNameBuf), NULL, NULL);
-      
+          WideCharToMultiByte(CP_UTF8, 0, fileName, -1, fileNameBuf,
+                              sizeof(fileNameBuf), NULL, NULL);
+
       if (fileNameLength > 0 && fileNameLength < sizeof(fileNameBuf)) {
         finalDestPath += "\\" + std::string(fileNameBuf);
       } else {

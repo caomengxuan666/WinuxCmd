@@ -19,7 +19,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  *
- *  - File: cat.cppm
+ *  - File: cat.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
@@ -94,7 +94,7 @@ namespace cp = core::pipeline;
 // 1. Validate arguments - OPTIMIZED: pass by reference
 // ----------------------------------------------
 auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx,
-                        std::vector<std::string>& out_files)
+                        std::vector<std::string> &out_files)
     -> cp::Result<void> {
   for (auto arg : ctx.positionals) {
     out_files.push_back(std::string(arg));
@@ -110,21 +110,18 @@ auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx,
 }  // namespace cat_pipeline
 
 REGISTER_COMMAND(cat, "cat",
-    "concatenate files and print on the standard output",
-    "Concatenate FILE(s) to standard output.\n"
-    "With no FILE, or when FILE is -, read standard input.\n"
-    "\nExamples:\n"
-    "  cat f g  Output f's contents, then g's contents.\n"
-    "  cat      Copy standard input to standard output.",
-    "  cat file.txt              Display contents of file.txt\n"
-    "  cat -n file.txt           Number all output lines\n"
-    "  cat file1.txt file2.txt   Concatenate multiple files\n"
-    "  cat                       Read from standard input",
-    "tac(1), head(1), tail(1), more(1), less(1)",
-    "caomengxuan666",
-    "Copyright © 2026 WinuxCmd",
-    CAT_OPTIONS) {
-
+                 "concatenate files and print on the standard output",
+                 "Concatenate FILE(s) to standard output.\n"
+                 "With no FILE, or when FILE is -, read standard input.\n"
+                 "\nExamples:\n"
+                 "  cat f g  Output f's contents, then g's contents.\n"
+                 "  cat      Copy standard input to standard output.",
+                 "  cat file.txt              Display contents of file.txt\n"
+                 "  cat -n file.txt           Number all output lines\n"
+                 "  cat file1.txt file2.txt   Concatenate multiple files\n"
+                 "  cat                       Read from standard input",
+                 "tac(1), head(1), tail(1), more(1), less(1)", "caomengxuan666",
+                 "Copyright © 2026 WinuxCmd", CAT_OPTIONS) {
   using namespace cat_pipeline;
   using namespace core::pipeline;
 
@@ -158,8 +155,10 @@ REGISTER_COMMAND(cat, "cat",
         if (c == '\n') {
           safePrint("\n");
         } else if (c == '\t') {
-          if (show_tabs) safePrint("^I");
-          else safePrint("\t");
+          if (show_tabs)
+            safePrint("^I");
+          else
+            safePrint("\t");
         } else if (c == '\f') {
           safePrint("^L");
         } else {

@@ -19,3 +19,5 @@ scripts/manager.py
 .vs/
 
 /testing
+
+/CMakeSettings.json
