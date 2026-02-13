@@ -4,6 +4,15 @@ English | [中文](README-zh.md)
 
 > Lightweight, native Windows implementation of Linux commands | 400KB only | AI-friendly
 
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
+![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
+![GitHub stars](https://img.shields.io/github/stars/caomengxuan666/WinuxCmd)
+![GitHub license](https://img.shields.io/github/license/caomengxuan666/WinuxCmd)
+![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
+
+## ⭐ Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=caomengxuan666/WinuxCmd&type=date&legend=top-left)](https://www.star-history.com/#caomengxuan666/WinuxCmd&type=date&legend=top-left)
+
 ## 🚀 Quick Start
 
 ### One-Command Installation (Recommended)
