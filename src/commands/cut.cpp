@@ -5,9 +5,9 @@
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
-#include "core/command_macros.h"
 #include "pch/pch.h"
-#include <optional>
+//include other header after pch.h
+#include "core/command_macros.h"
 
 import std;
 import core;
@@ -214,7 +214,9 @@ auto cut_line(std::string_view line, const Config& cfg) -> std::string {
       start = i + 1;
     }
   }
-  records.push_back(content->substr(start));
+  if (start < content->size()) {
+    records.push_back(content->substr(start));
+  }
 
   for (const auto& rec : records) {
     auto out = cut_line(rec, cfg);

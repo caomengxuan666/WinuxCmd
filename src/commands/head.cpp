@@ -24,8 +24,9 @@
  *  - CopyrightYear: 2026
  */
 
-#include "core/command_macros.h"
 #include "pch/pch.h"
+//include other header after pch.h
+#include "core/command_macros.h"
 
 import std;
 import core;
