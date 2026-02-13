@@ -4,6 +4,15 @@
 
 轻量级、原生 Windows 的 Linux 命令实现 | 仅 400KB | AI友好
 
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
+![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
+![GitHub stars](https://img.shields.io/github/stars/caomengxuan666/WinuxCmd)
+![GitHub license](https://img.shields.io/github/license/caomengxuan666/WinuxCmd)
+![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
+
+## ⭐ Star 趋势
+[![Star History Chart](https://api.star-history.com/svg?repos=caomengxuan666/WinuxCmd&type=date&legend=top-left)](https://www.star-history.com/#caomengxuan666/WinuxCmd&type=date&legend=top-left)
+
 ## 🚀 快速开始
 
 ### 一键安装（推荐）
@@ -49,7 +58,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 AI 工具（GitHub Copilot、Cursor、Claude Code）在 Windows 上经常输出 Linux 命令，导致错误：
 
-```bash
+```
 # AI 输出：
 ls -la
 find . -name "*.cpp" -exec grep -l "pattern" {} \;
@@ -73,7 +82,7 @@ WinuxCmd 在 Windows 上提供原生的 Linux 命令语法，无需仿真层。
 
 ### 1. 硬链接分发（零重复）
 
-```bash
+```
 # 所有命令都是同一个可执行文件的硬链接
 $ ls -i *.exe
 12345 ls.exe    # 相同的 inode
@@ -85,7 +94,7 @@ $ ls -i *.exe
 
 ### 2. 极致的体积优化
 
-```bash
+```
 # 体积对比（Release 构建，x64）：
 WinuxCmd（静态）：    ~400 KB
 WinuxCmd（动态）：    ~60 KB
@@ -102,7 +111,7 @@ GNU coreutils（MSYS2）：~5 MB
 
 ### 4. 为 AI 友好而设计
 
-```bash
+```
 # AI 现在可以安全地在 Windows 上输出 Linux 命令
 ls -la | grep ".cpp" | xargs cat
 # ↑ 安装 WinuxCmd 后直接可用
@@ -114,7 +123,7 @@ ls -la | grep ".cpp" | xargs cat
 
 ### 编译（仅 MSVC）
 
-```bash
+```
 # 使用 Visual Studio 2026 构建
 mkdir build && cd build
 cmake .. -G "Visual Studio 17 2026" -A x64
@@ -142,7 +151,7 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
 
 ### 基本使用
 
-```bash
+```
 # 直接使用（无需激活）
 winux ls -lah
 winux cat -n file.txt
@@ -158,7 +167,7 @@ cat -n file.txt
 
 ### 管理命令
 
-```bash
+```
 # WinuxCmd v0.1.4 - GNU Coreutils for Windows
 # ===================================================
 
@@ -184,7 +193,7 @@ winuxcmd --help         - 显示 winuxcmd 帮助
 
 ### 激活示例
 
-```bash
+```
 # 激活 WinuxCmd
 winux activate
 
@@ -213,7 +222,7 @@ cat file.txt
 
 ### 停用示例
 
-```bash
+```
 # 停用 WinuxCmd
 winux deactivate
 
@@ -224,7 +233,7 @@ winux deactivate
 
 ### 与 PowerShell 集成
 
-```powershell
+```
 # 直接使用
 winux ls -la | Select-Object -First 10
 Get-Process | winux grep "chrome"
@@ -237,7 +246,7 @@ Get-Process | grep "chrome"
 
 ### 批处理脚本
 
-```batch
+```
 @echo off
 :: 现在可以在批处理文件中使用 Linux 命令
 ls -la > files.txt
