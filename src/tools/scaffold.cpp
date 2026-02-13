@@ -44,6 +44,7 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "/// @License: MIT\n";
   moduleContent += "/// @Copyright: Copyright © 2026 WinuxCmd\n";
   moduleContent += "#include \"pch/pch.h\"\n";
+  moduleContent += "//include other header after pch.h";
   moduleContent += "#include \"core/command_macros.h\"\n\n";
   moduleContent += "import std;\n";
   moduleContent += "import core;\n";

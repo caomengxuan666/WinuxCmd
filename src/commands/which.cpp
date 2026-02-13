@@ -5,9 +5,9 @@
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
-#include "core/command_macros.h"
 #include "pch/pch.h"
-
+//include other header after pch.h
+#include "core/command_macros.h"
 import std;
 import core;
 import utils;
@@ -46,19 +46,36 @@ auto split_semicolon(std::string_view text) -> std::vector<std::string> {
   return out;
 }
 
+auto get_env_utf8(const wchar_t* key) -> std::optional<std::string> {
+  DWORD size = GetEnvironmentVariableW(key, nullptr, 0);
+  if (size == 0) return std::nullopt;
+
+  std::wstring value;
+  value.resize(size - 1);
+  if (GetEnvironmentVariableW(key, value.data(), size) == 0) {
+    return std::nullopt;
+  }
+  return wstring_to_utf8(value);
+}
+
 auto get_path_entries() -> std::vector<std::string> {
-  const char* path_env = std::getenv("PATH");
-  if (path_env == nullptr) return {};
-  return split_semicolon(path_env);
+  auto path_env = get_env_utf8(L"PATH");
+  if (!path_env.has_value() || path_env->empty()) return {};
+  return split_semicolon(*path_env);
 }
 
 auto get_pathext_entries() -> std::vector<std::string> {
-  const char* ext_env = std::getenv("PATHEXT");
-  if (ext_env == nullptr || *ext_env == '\0') {
+  auto ext_env = get_env_utf8(L"PATHEXT");
+  if (!ext_env.has_value() || ext_env->empty()) {
     return {".exe", ".cmd", ".bat", ".com"};
   }
-  auto exts = split_semicolon(ext_env);
+  auto exts = split_semicolon(*ext_env);
   if (exts.empty()) exts = {".exe", ".cmd", ".bat", ".com"};
+  for (auto& ext : exts) {
+    if (!ext.empty() && ext.front() != '.') ext.insert(ext.begin(), '.');
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  }
   return exts;
 }
 

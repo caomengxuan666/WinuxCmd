@@ -32,8 +32,9 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "core/command_macros.h"
 #include "pch/pch.h"
+//include other header after pch.h
+#include "core/command_macros.h"
 
 #pragma comment(lib, "advapi32.lib")
 import std;
