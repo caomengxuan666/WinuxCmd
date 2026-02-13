@@ -29,9 +29,9 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "core/command_macros.h"
 #include "pch/pch.h"
-
+//include other header after pch.h
+#include "core/command_macros.h"
 import std;
 import core;
 import utils;

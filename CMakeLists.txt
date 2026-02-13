@@ -384,6 +384,7 @@ set(CPACK_IGNORE_FILES
         "${CMAKE_SOURCE_DIR}/cmake-build-.*/"
         "${CMAKE_SOURCE_DIR}/out/"
         "${CMAKE_SOURCE_DIR}/TemplateLicense.lict$"
+        "${CMAKE_SOURCE_DIR}/tests"
 )
 
 include(CPack)

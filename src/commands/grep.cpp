@@ -31,10 +31,10 @@
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
-/// @TODO:1.Stream reading. 2.Replace filesystem 3.String optimization(too large).
-#include "core/command_macros.h"
+/// @TODO:1.Stream reading. 2.Replace filesystem.
 #include "pch/pch.h"
-
+//include other header after pch.h
+#include "core/command_macros.h"
 import std;
 import core;
 import utils;
@@ -239,7 +239,7 @@ auto split_lines(std::string_view s) -> std::vector<std::string> {
   return parts;
 }
 
-auto split_records(const std::string& s, char delim)
+auto split_records(std::string_view s, char delim)
     -> std::vector<std::pair<size_t, size_t>> {
   std::vector<std::pair<size_t, size_t>> out;
   size_t start = 0;
@@ -456,27 +456,10 @@ auto record_name_for_output(std::string_view input_name, const Config& cfg)
   return std::string(input_name);
 }
 
-auto match_fixed_once(std::string_view haystack, std::string_view needle,
-                      bool ignore_case, size_t start_pos)
-    -> std::optional<MatchPiece> {
-  if (needle.empty()) return std::nullopt;
-
-  if (!ignore_case) {
-    size_t pos = haystack.find(needle, start_pos);
-    if (pos == std::string_view::npos) return std::nullopt;
-    return MatchPiece{pos, pos + needle.size()};
-  }
-
-  std::string h = to_lower_ascii(haystack);
-  std::string n = to_lower_ascii(needle);
-  size_t pos = h.find(n, start_pos);
-  if (pos == std::string::npos) return std::nullopt;
-  return MatchPiece{pos, pos + needle.size()};
-}
-
 auto collect_matches_in_line(std::string_view line, const Config& cfg)
     -> std::vector<MatchPiece> {
   std::vector<MatchPiece> out;
+  std::string lowered_line;
 
   for (const auto& p : cfg.patterns) {
     if (cfg.mode == PatternMode::Fixed) {
@@ -489,12 +472,25 @@ auto collect_matches_in_line(std::string_view line, const Config& cfg)
 
       size_t cursor = 0;
       while (true) {
-        auto m = match_fixed_once(line, p.raw, cfg.ignore_case, cursor);
-        if (!m.has_value()) break;
-        if (!cfg.word_regexp || word_boundary_ok(line, m->begin, m->end)) {
-          out.push_back(*m);
+        size_t pos = std::string_view::npos;
+        size_t len = 0;
+        if (cfg.ignore_case) {
+          if (lowered_line.empty() && !line.empty()) {
+            lowered_line = to_lower_ascii(line);
+          }
+          pos = lowered_line.find(p.lowered, cursor);
+          len = p.lowered.size();
+        } else {
+          pos = line.find(p.raw, cursor);
+          len = p.raw.size();
         }
-        cursor = m->begin + 1;
+
+        if (pos == std::string_view::npos) break;
+        MatchPiece m{pos, pos + len};
+        if (!cfg.word_regexp || word_boundary_ok(line, m.begin, m.end)) {
+          out.push_back(m);
+        }
+        cursor = m.begin + 1;
       }
       continue;
     }
@@ -552,62 +548,118 @@ auto print_prefix(const Config& cfg, bool show_filename,
   }
 }
 
-auto scan_text(std::string_view text, std::string_view display_name,
+auto process_selected_record(std::string_view line, bool had_delim,
+                             std::string_view display_name, bool show_filename,
+                             size_t line_no, size_t offset, Config& cfg,
+                             size_t& selected_count) -> bool {
+  auto matches = collect_matches_in_line(line, cfg);
+  bool is_match = !matches.empty();
+  bool selected = cfg.invert_match ? !is_match : is_match;
+  if (!selected) return false;
+
+  ++selected_count;
+  if (cfg.quiet) return true;
+
+  if (cfg.files_with_matches || cfg.files_without_match || cfg.count_only)
+    return true;
+
+  const char delim = cfg.null_data ? '\0' : '\n';
+  if (cfg.only_matching && !cfg.invert_match) {
+    for (const auto& m : matches) {
+      if (m.end <= m.begin) continue;
+      print_prefix(cfg, show_filename, display_name, line_no, offset + m.begin);
+      safePrint(line.substr(m.begin, m.end - m.begin));
+      safePrint(cfg.null_data ? "\0" : "\n");
+    }
+  } else {
+    print_prefix(cfg, show_filename, display_name, line_no, offset);
+    safePrint(line);
+    if (had_delim) {
+      safePrint(std::string_view(&delim, 1));
+    } else {
+      safePrint(cfg.null_data ? "\0" : "\n");
+    }
+  }
+  return true;
+}
+
+auto scan_text(const std::string& text, std::string_view display_name,
                bool show_filename, Config& cfg) -> std::pair<bool, size_t> {
   const char delim = cfg.null_data ? '\0' : '\n';
-  std::string buf(text);
-  auto records = split_records(buf, delim);
+  auto records = split_records(text, delim);
 
   bool any_selected = false;
   size_t selected_count = 0;
 
   for (size_t i = 0; i < records.size(); ++i) {
     const auto [b, e] = records[i];
-    std::string_view whole(buf.data() + b, e - b);
-    std::string_view line = whole;
-    if (!line.empty() && line.back() == delim)
-      line = line.substr(0, line.size() - 1);
-
-    auto matches = collect_matches_in_line(line, cfg);
-    bool is_match = !matches.empty();
-    bool selected = cfg.invert_match ? !is_match : is_match;
-
-    if (!selected) continue;
-
-    any_selected = true;
-    ++selected_count;
-
-    if (cfg.quiet) {
-      if (cfg.max_count >= 0 &&
-          static_cast<int>(selected_count) >= cfg.max_count)
-        break;
-      return {true, selected_count};
-    }
-
-    if (cfg.files_with_matches || cfg.files_without_match || cfg.count_only) {
-      if (cfg.max_count >= 0 &&
-          static_cast<int>(selected_count) >= cfg.max_count)
-        break;
+    std::string_view whole(text.data() + b, e - b);
+    bool had_delim = !whole.empty() && whole.back() == delim;
+    std::string_view line = had_delim ? whole.substr(0, whole.size() - 1) : whole;
+    if (!process_selected_record(line, had_delim, display_name, show_filename,
+                                 i + 1, b, cfg, selected_count))
       continue;
-    }
+    any_selected = true;
 
-    if (cfg.only_matching && !cfg.invert_match) {
-      for (const auto& m : matches) {
-        if (m.end <= m.begin) continue;
-        print_prefix(cfg, show_filename, display_name, i + 1, b + m.begin);
-        safePrint(line.substr(m.begin, m.end - m.begin));
-        safePrint(cfg.null_data ? "\0" : "\n");
-      }
-    } else {
-      print_prefix(cfg, show_filename, display_name, i + 1, b);
-      safePrint(whole);
-      if (whole.empty() || whole.back() != delim) {
-        safePrint(cfg.null_data ? "\0" : "\n");
-      }
-    }
+    if (cfg.quiet) return {true, selected_count};
 
     if (cfg.max_count >= 0 && static_cast<int>(selected_count) >= cfg.max_count)
       break;
+  }
+
+  return {any_selected, selected_count};
+}
+
+auto scan_stream(std::istream& in, std::string_view display_name,
+                 bool show_filename, Config& cfg) -> std::pair<bool, size_t> {
+  const char delim = cfg.null_data ? '\0' : '\n';
+  std::array<char, 64 * 1024> chunk{};
+  std::string pending;
+  pending.reserve(chunk.size() * 2);
+
+  size_t base_offset = 0;
+  size_t line_no = 1;
+  bool any_selected = false;
+  size_t selected_count = 0;
+
+  while (in) {
+    in.read(chunk.data(), static_cast<std::streamsize>(chunk.size()));
+    std::streamsize got = in.gcount();
+    if (got <= 0) break;
+
+    pending.append(chunk.data(), static_cast<size_t>(got));
+
+    size_t start = 0;
+    for (size_t i = 0; i < pending.size(); ++i) {
+      if (pending[i] != delim) continue;
+
+      std::string_view line(pending.data() + start, i - start);
+      size_t offset = base_offset + start;
+      if (process_selected_record(line, true, display_name, show_filename,
+                                  line_no, offset, cfg, selected_count)) {
+        any_selected = true;
+        if (cfg.quiet) return {true, selected_count};
+        if (cfg.max_count >= 0 &&
+            static_cast<int>(selected_count) >= cfg.max_count) {
+          return {any_selected, selected_count};
+        }
+      }
+
+      ++line_no;
+      start = i + 1;
+    }
+
+    if (start > 0) {
+      base_offset += start;
+      pending.erase(0, start);
+    }
+  }
+
+  if (!pending.empty()) {
+    if (process_selected_record(pending, false, display_name, show_filename,
+                                line_no, base_offset, cfg, selected_count)) {
+      any_selected = true;
+    }
   }
 
   return {any_selected, selected_count};
@@ -680,27 +732,26 @@ auto process(Config& cfg) -> int {
   bool any_selected_global = false;
 
   for (const auto& input : inputs) {
-    std::string data;
+    std::pair<bool, size_t> scan_result{false, 0};
+    auto display_name = record_name_for_output(input, cfg);
+
     if (input == "-") {
-      data = std::string((std::istreambuf_iterator<char>(std::cin)),
-                         std::istreambuf_iterator<char>());
+      scan_result = scan_stream(std::cin, display_name, show_filename, cfg);
     } else {
-      auto read = read_file_binary(input);
-      if (!read) {
+      std::ifstream in(input, std::ios::binary);
+      if (!in.is_open()) {
         cfg.has_error = true;
         if (!cfg.no_messages && !cfg.quiet) {
           safeErrorPrint("grep: ");
-          safeErrorPrint(read.error());
+          safeErrorPrint("cannot open '" + input + "'");
           safeErrorPrint("\n");
         }
         continue;
       }
-      data = *read;
+      scan_result = scan_stream(in, display_name, show_filename, cfg);
     }
 
-    auto display_name = record_name_for_output(input, cfg);
-    auto [any_selected, selected_count] =
-        scan_text(data, display_name, show_filename, cfg);
+    auto [any_selected, selected_count] = scan_result;
     any_selected_global = any_selected_global || any_selected;
 
     if (!cfg.quiet) {

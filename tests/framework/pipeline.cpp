@@ -243,7 +243,7 @@ CommandResult Pipeline::run() {
     }
     auto cmdline = build_cmd(exe, cmds_[i].args);
     const wchar_t *cwd = cwd_ ? cwd_->c_str() : nullptr;
-    auto build_env_block = [this]() -> std::wstring {
+    auto build_env_block = [this]() -> std::vector<wchar_t> {
       struct ci_less {
         bool operator()(const std::wstring &a, const std::wstring &b) const {
           return _wcsicmp(a.c_str(), b.c_str()) < 0;
@@ -270,26 +270,28 @@ CommandResult Pipeline::run() {
         vars[k] = v;
       }
 
-      std::wstring block;
+      std::vector<wchar_t> block;
       for (auto &[k, v] : vars) {
-        block += k;
-        block += L"=";
-        block += v;
+        std::wstring entry = k + L"=" + v;
+        block.insert(block.end(), entry.begin(), entry.end());
         block.push_back(L'\0');
       }
       // Double-NUL terminate the block.
       block.push_back(L'\0');
       return block;
     };
-    std::wstring env_block;
+    std::vector<wchar_t> env_block;
     LPVOID env_ptr = nullptr;
+    DWORD creation_flags = 0;
 
     if (!env_.empty()) {
       env_block = build_env_block();
-      env_ptr = (LPVOID)env_block.c_str();
+      env_ptr = env_block.data();
+      creation_flags |= CREATE_UNICODE_ENVIRONMENT;
     }
 
-    if (!CreateProcessW(nullptr, cmdline.data(), nullptr, nullptr, TRUE, 0,
+    if (!CreateProcessW(nullptr, cmdline.data(), nullptr, nullptr, TRUE,
+                        creation_flags,
                         env_ptr, cwd, &si, &procs[i])) {
       DWORD err = GetLastError();
       throw std::runtime_error("CreateProcessW failed: " + std::to_string(err));
