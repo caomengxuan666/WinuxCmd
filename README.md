@@ -19,17 +19,29 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 2. Extract to any directory
 3. Run the setup script: `winux-activate.ps1`
 
-## 📦 Currently Implemented Commands (v0.1.0)
+## 📦 Currently Implemented Commands (v0.1.x)
 
-| Command | Description | Supported Flags |
-|---------|-------------|-----------------|
-| ls | List directory contents | -l, -a, -h, -r, -t -n, --color |
+| Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
+|---------|-------------|---------------------------------------------------------------|
+| ls | List directory contents | -l, -a, -h, -r, -t, -n, --color |
 | cat | Concatenate and display files | -n, -E, -s, -T |
 | cp | Copy files and directories | -r, -v, -f, -i |
 | mv | Move/rename files | -v, -f, -i, -n |
 | rm | Remove files/directories | -r, -f, -v, -i |
 | mkdir | Create directories | -p, -v, -m MODE |
+| rmdir | Remove empty directories | --ignore-fail-on-non-empty, -p/--parents, -v |
+| touch | Update file timestamps / create | -a, -c/--no-create, -d/--date, -h/--no-dereference, -m, -r/--reference, -t, --time |
 | echo | Display text | -n, -e, -E |
+| head | Output first part of files | -n/--lines, -c/--bytes, -q/--quiet/--silent, -v/--verbose, -z/--zero-terminated |
+| tail | Output last part of files | -n/--lines, -c/--bytes, -z/--zero-terminated, -f/--follow [NOT SUPPORT], -F [NOT SUPPORT], --pid [NOT SUPPORT], --sleep-interval [NOT SUPPORT] |
+| find | Search for files | -name, -iname, -type (d/f/l), -mindepth, -maxdepth, -print, -print0, -P, -quit; -L/-H/-delete/-exec/-ok/-printf/-prune [NOT SUPPORT] |
+| grep | Print lines matching patterns | -E/-F/-G, -e, -f, -i/--no-ignore-case, -w, -x, -z, -s, -v, -m NUM, -b, -n, --line-buffered, -H/-h, --label, --binary-files, -r/-R, --include/--exclude/--exclude-dir, -L/-l, -c, -T, -Z, --color; -P [NOT SUPPORT] |
+| sort | Sort lines | -b, -f, -n, -r, -u, -z, -o FILE, -t SEP, -k KEY; -d/-g/-i/-h/-M/-m/-R/-s [NOT SUPPORT] |
+| uniq | Report or omit repeated lines | -c, -d, -f NUM, -i, -s NUM, -u, -w NUM, -z; -D, --group [NOT SUPPORT] |
+| cut | Cut fields from lines | -d DELIM, -f LIST, -s, -z; -b/-c/--output-delimiter [NOT SUPPORT] |
+| which | Locate a command in PATH/PATHEXT | -a; --skip-dot/--skip-tilde/--show-dot/--show-tilde [NOT SUPPORT] |
+| env | Print/modify environment | -i/--ignore-environment, -u NAME, -0/--null; -S/--split-string, -C/--chdir, running COMMAND [NOT SUPPORT] |
+| wc | Count lines/words/bytes | -c, -l, -w, -m, -L |
 
 ## 🎯 Why WinuxCmd?
 

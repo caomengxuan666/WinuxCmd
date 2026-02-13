@@ -43,9 +43,9 @@
 #include <handleapi.h>   // For GetStdHandle, INVALID_HANDLE_VALUE
 #include <io.h>          // For _get_osfhandle
 #include <lmcons.h>      // For UNLEN
+#include <sddl.h>        // For ConvertSidToStringSidW
 #include <shlwapi.h>     // For PathFileExistsW
 #include <sysinfoapi.h>  // For GetUserNameW
-#include <sddl.h>        // For ConvertSidToStringSidW
 
 #include <cctype>   // For isspace
 #include <cstdint>  // For uint64_t
