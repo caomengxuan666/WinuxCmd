@@ -160,12 +160,54 @@ function Invoke-Activate {
             continue
         }
 
-        $functionString = @"
-function global:$cmd {
-    param([Parameter(ValueFromRemainingArguments=`$true)]`$remainingArgs)
-    & '$exePath' @remainingArgs
-}
-"@
+$functionString = @'
+function global:{0} {{
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline = $true)]
+        $InputObject,
+        [Parameter(Position = 0)]
+        [string]$Pattern,
+        [Parameter(ValueFromRemainingArguments = $true)]
+        $extraArgs
+    )
+
+    begin {{
+        $argString = if ($extraArgs) {{
+            "$Pattern $($extraArgs -join ' ')"
+        }} else {{
+            $Pattern
+        }}
+
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = '{1}'
+        $psi.Arguments = $argString
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardInput = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.CreateNoWindow = $true
+        $psi.StandardInputEncoding = [System.Text.Encoding]::UTF8
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+
+        $process = [System.Diagnostics.Process]::Start($psi)
+        $stdin = $process.StandardInput
+    }}
+
+    process {{
+        if ($InputObject -is [string]) {{
+            $stdin.WriteLine($InputObject)
+        }} elseif ($InputObject -ne $null) {{
+            $stdin.WriteLine($InputObject.ToString())
+        }}
+    }}
+
+    end {{
+        $stdin.Close()
+        $process.StandardOutput.ReadToEnd()
+        $process.WaitForExit() | Out-Null
+    }}
+}}
+'@ -f $cmd, $exePath
 
         try {
             Remove-Item "Alias:\$cmd" -Force -ErrorAction SilentlyContinue 2>$null
