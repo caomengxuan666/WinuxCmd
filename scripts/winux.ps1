@@ -14,9 +14,23 @@ $CommandMap = @{
     "ls"    = "ls.exe"
     "cat"   = "cat.exe"
     "cp"    = "cp.exe"
-    "mkdir" = "mkdir.exe"
     "mv"    = "mv.exe"
     "rm"    = "rm.exe"
+    "mkdir" = "mkdir.exe"
+    "rmdir" = "rmdir.exe"
+    "touch" = "touch.exe"
+    "echo"  = "echo.exe"
+    "head"  = "head.exe"
+    "tail"  = "tail.exe"
+    "find"  = "find.exe"
+    "grep"  = "grep.exe"
+    "sort"  = "sort.exe"
+    "uniq"  = "uniq.exe"
+    "cut"   = "cut.exe"
+    "wc"    = "wc.exe"
+    "which" = "which.exe"
+    "env"   = "env.exe"
+    "sed"   = "sed.exe"
 }
 
 # ========== Backup System ==========
@@ -148,7 +162,8 @@ function Invoke-Activate {
 
         $functionString = @"
 function global:$cmd {
-    & '$exePath' @args
+    param([Parameter(ValueFromRemainingArguments=`$true)]`$remainingArgs)
+    & '$exePath' @remainingArgs
 }
 "@
 

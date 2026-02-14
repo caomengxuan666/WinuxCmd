@@ -74,11 +74,35 @@ function Install-WinuxToProfile {
 
     # Dynamically find the latest winux version
     $winuxFunction = @'
+# Find winuxcmd.exe and set alias for it.
+function Update-WinuxCmdAlias {
+    $baseDir = "$env:LOCALAPPDATA\WinuxCmd"
+    if (-not (Test-Path $baseDir)) {
+        return
+    }
+
+    $dirs = Get-ChildItem -Path $baseDir -Directory -Filter "WinuxCmd-*" -ErrorAction SilentlyContinue
+    $latestExe = $null
+
+    foreach ($dir in $dirs) {
+        if ($dir.Name -match 'WinuxCmd-(\d+\.\d+\.\d+)-win-(x64|arm64)') {
+            $exePath = Join-Path $dir.FullName "bin\winuxcmd.exe"
+            if (Test-Path $exePath) {
+                $latestExe = $exePath
+                # continue search for potential latest version.
+            }
+        }
+    }
+
+    if ($latestExe) {
+        Set-Alias -Name winuxcmd -Value $latestExe -Scope Global -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # WinuxCmd wrapper (dynamically finds latest version)
 function global:winux {
     param(
-        [string]$Command = "help",
-        [Parameter(ValueFromRemainingArguments = $true)]
+        [Parameter(Position=0, ValueFromRemainingArguments=$true)]
         [string[]]$Arguments
     )
 
@@ -155,6 +179,39 @@ function global:winux {
     $winuxCmdPath = $winuxPaths.WinuxCmdExe
     $winuxVersion = $winuxPaths.Version
 
+    # Handle empty arguments (just 'winux' command)
+    if ($Arguments.Count -eq 0) {
+        Write-Host "WinuxCmd v$winuxVersion - GNU Coreutils for Windows" -ForegroundColor Cyan
+        Write-Host "===================================================" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Installation:" -ForegroundColor Green
+        Write-Host "  Location: $($winuxPaths.BinDir)" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "Management Commands:" -ForegroundColor Yellow
+        Write-Host "  winux activate          - Enable GNU commands"
+        Write-Host "  winux deactivate        - Restore original commands"
+        Write-Host "  winux status            - Check activation status"
+        Write-Host "  winux list              - List available commands"
+        Write-Host "  winux version           - Show version"
+        Write-Host "  winux help              - Show this help"
+        Write-Host ""
+        Write-Host "GNU Commands (direct):" -ForegroundColor Magenta
+        Write-Host "  winux ls -la            - List files"
+        Write-Host "  winux cp source dest    - Copy files"
+        Write-Host "  winux mv source dest    - Move files"
+        Write-Host "  winux rm file           - Remove file"
+        Write-Host "  winux cat file          - Show file content"
+        Write-Host "  winux mkdir dir         - Create directory"
+        Write-Host ""
+        Write-Host "Direct Access:" -ForegroundColor Blue
+        Write-Host "  winuxcmd --help         - Show winuxcmd help"
+        return
+    }
+
+    # Get the first argument as the command
+    $Command = $Arguments[0]
+    $RemainingArgs = $Arguments[1..$($Arguments.Count-1)]
+
     # Management commands that go to winux.ps1
     $managementCommands = @("activate", "deactivate", "status", "list", "help", "version")
 
@@ -163,7 +220,7 @@ function global:winux {
         switch ($Command) {
             "activate" {
                 if (Test-Path $winuxPs1Path) {
-                    & $winuxPs1Path -Action activate @$Arguments
+                    & $winuxPs1Path -Action activate @RemainingArgs
                 } else {
                     Write-Host "winux.ps1 not found. Cannot activate." -ForegroundColor Red
                     Write-Host "Copy winux.ps1 to: $winuxPs1Path" -ForegroundColor Yellow
@@ -171,21 +228,21 @@ function global:winux {
             }
             "deactivate" {
                 if (Test-Path $winuxPs1Path) {
-                    & $winuxPs1Path -Action deactivate @$Arguments
+                    & $winuxPs1Path -Action deactivate @RemainingArgs
                 } else {
                     Write-Host "winux.ps1 not found. Cannot deactivate." -ForegroundColor Red
                 }
             }
             "status" {
                 if (Test-Path $winuxPs1Path) {
-                    & $winuxPs1Path -Action status @$Arguments
+                    & $winuxPs1Path -Action status @RemainingArgs
                 } else {
                     Write-Host "winux.ps1 not found. Status unknown." -ForegroundColor Red
                 }
             }
             "list" {
                 if (Test-Path $winuxPs1Path) {
-                    & $winuxPs1Path -Action list @$Arguments
+                    & $winuxPs1Path -Action list @RemainingArgs
                 } else {
                     Write-Host "winux.ps1 not found. Cannot list commands." -ForegroundColor Red
                     Write-Host "Direct GNU commands available via winuxcmd.exe" -ForegroundColor Yellow
@@ -228,7 +285,7 @@ function global:winux {
         return
     }
 
-    # Special case: --help and --version flags
+    # Special case: --help and --version flags (when used as first argument)
     if ($Command -eq "--help" -or $Command -eq "-h") {
         if (Test-Path $winuxCmdPath) {
             & $winuxCmdPath --help
@@ -245,13 +302,8 @@ function global:winux {
 
     # All other commands: pass through to winuxcmd.exe
     if (Test-Path $winuxCmdPath) {
-        # Build argument list properly
-        $allArgs = @($Command)
-        if ($Arguments.Count -gt 0) {
-            $allArgs += $Arguments
-        }
-
-        & $winuxCmdPath @allArgs
+        # Build argument list properly - include the command and all remaining args
+        & $winuxCmdPath @Arguments
     } else {
         Write-Host "winuxcmd.exe not found at: $winuxCmdPath" -ForegroundColor Red
     }
@@ -323,11 +375,13 @@ Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
 
     # remove old configuration.
     $patterns = @(
-        '(?s)# WinuxCmd wrapper.*?Set-Alias -Name winuxcmd -Value.*\n',
-        '(?s)function global:winux.*?\n\}.*?\n',
-        'Set-Alias -Name winuxcmd -Value.*',
-        '(?s)# =+[\r\n]+# WinuxCmd Integration.*?# =+[\r\n]+# End WinuxCmd Integration[\r\n]+',
-        'Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action.*Out-Null'
+        '(?s)# WinuxCmd wrapper.*?(?=^# Find winuxcmd\.exe|\Z)',
+        '(?s)^# set alias\s*\r?\nUpdate-WinuxCmdAlias\s*\r?\n\r?\n',
+        '(?s)^function Update-WinuxCmdAlias\s*\{.*?^\}',
+        '(?s)^function global:winux\s*\{.*?^\}',
+        '^Set-Alias -Name winuxcmd -Value [^\r\n]+\r?\n?',
+        '(?s)^# =+[\r\n]+# WinuxCmd Integration.*?# =+[\r\n]+# End WinuxCmd Integration[\r\n]+',
+        '(?s)^Register-EngineEvent -SourceIdentifier PowerShell\.Exiting -Action \{.*?\} \| Out-Null'
     )
 
     foreach ($pattern in $patterns) {
@@ -393,7 +447,7 @@ if (Install-WinuxToProfile -BinDir $binDir) {
     Write-Host "  > winux                     # Show help and version info"
     Write-Host "  > winux ls -la              # Use GNU ls directly"
     Write-Host "  > winux activate            # Activate (if winux.ps1 exists)"
-    Write-Host "  > winuxcmd --help           # Direct alias to winuxcmd.exe"
+    Write-Host "  > winuxcmd --help           # Direct alias toe winuxcmd.exe"
     Write-Host ""
     Write-Host "Note: Future WinuxCmd updates will be automatically detected!" -ForegroundColor Gray
 } else {

@@ -4,6 +4,15 @@ cmake-build-*/
 
 out/
 
+# CMake Preset build directories
+build-dev/
+build-release/
+build-release-debug/
+build-asan/
+build-minsize/
+build-test/
+build-profile/
+
 .idea/
 
 .vscode/
