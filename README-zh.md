@@ -312,9 +312,10 @@ find . -name "*.tmp" -delete
 
 - [API 参考](DOCS/zh/overview_zh.md)
 - [从源码构建](DOCS/zh/commands_implementation.md)
-- [命令兼容性](DOCS/zh/commands_implementation.md)
+- [命令兼容性矩阵](DOCS/zh/commands_implementation.md)
 - [测试框架](DOCS/zh/testing_framework.md)
-- [选项处理](DOCS/zh/option-handling_zh.md)
+- [选项处理指南](DOCS/zh/option-handling_zh.md)
+- [构建模式指南](DOCS/zh/build_modes.md)
 
 ## 关于作者
 

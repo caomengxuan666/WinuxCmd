@@ -8,36 +8,55 @@ This document tracks the implementation status of commands in the WinuxCmd proje
 
 | Command | Status | Priority | Description | Parameters/Options | Implementation Notes |
 |---------|--------|----------|-------------|-------------------|---------------------|
-| `ls` | ✅ Done | High | List directory contents | `-a, --all`: Do not ignore entries starting with `.`<br>`-l, --list`: Use a long listing format<br>`-h, --human-readable`: With `-l`, print sizes in human readable format (e.g., 1K 234M 2G)<br>`-T, --tabsize`: Assume tab stops at each COLS instead of 8<br>`-w, --width`: Set output width to COLS. 0 means no limit | Implemented with pipeline architecture |
-| `cat` | ✅ Done | High | Concatenate files and print on the standard output | `-n, --number`: Number all output lines<br>`-b, --number-nonblank`: Number non-empty output lines, overrides `-n` | Simple file reading and writing with pipeline structure |
-| `cp` | ✅ Done | High | Copy files and directories | `-i, --interactive`: Prompt before overwrite<br>`-r, --recursive`: Copy directories recursively<br>`-v, --verbose`: Explain what is being done | File system operations with error handling |
-| `mv` | ✅ Done | High | Move (rename) files | `-i, --interactive`: Prompt before overwrite<br>`-v, --verbose`: Explain what is being done | File system operations with error handling |
-| `rm` | ✅ Done | High | Remove files or directories | `-f, --force`: Ignore nonexistent files and arguments, never prompt<br>`-i, --interactive`: Prompt before every removal<br>`-r, -R, --recursive`: Remove directories and their contents recursively | File system operations with error handling |
-| `mkdir` | ✅ Done | High | Make directories | `-p, --parents`: No error if existing, make parent directories as needed<br>`-v, --verbose`: Print a message for each created directory | File system operations with error handling |
-| `rmdir` | ✅ Done | Medium | Remove empty directories | `-p, --parents`: Remove DIRECTORY and its ancestors<br>`-v, --verbose`: Print a message for each removed directory | File system operations with error handling |
-| `touch` | ✅ Done | Medium | Change file timestamps or create empty files | `-a`: Change only the access time<br>`-m`: Change only the modification time<br>`-c, --no-create`: Do not create any files | File system operations with error handling |
-| `ln` | ❌ TODO | Low | Make links between files | `-s, --symbolic`: Make symbolic links instead of hard links | Not yet implemented |
+| `ls` | ✅ Done | High | List directory contents | `-a, --all`: Do not ignore entries starting with `.`<br>`-l, --list`: Use a long listing format<br>`-h, --human-readable`: With `-l`, print sizes in human readable format<br>`-r, --reverse`: Reverse order while sorting<br>`-t`: Sort by modification time<br>`--color`: Colorize output | Implemented with pipeline architecture, supports color output |
+| `cat` | ✅ Done | High | Concatenate files and print on the standard output | `-n, --number`: Number all output lines<br>`-b, --number-nonblank`: Number non-empty output lines<br>`-E, --show-ends`: Display $ at end of each line<br>`-s, --squeeze-blank`: Squeeze multiple adjacent empty lines | Simple file reading and writing with pipeline structure |
+| `cp` | ✅ Done | High | Copy files and directories | `-i, --interactive`: Prompt before overwrite<br>`-r, --recursive`: Copy directories recursively<br>`-v, --verbose`: Explain what is being done<br>`-f, --force`: Force copy without prompt | File system operations with error handling |
+| `mv` | ✅ Done | High | Move (rename) files | `-i, --interactive`: Prompt before overwrite<br>`-v, --verbose`: Explain what is being done<br>`-f, --force`: Do not prompt before overwriting<br>`-n, --no-clobber`: Do not overwrite an existing file | File system operations with error handling |
+| `rm` | ✅ Done | High | Remove files or directories | `-f, --force`: Ignore nonexistent files and arguments, never prompt<br>`-i, --interactive`: Prompt before every removal<br>`-r, -R, --recursive`: Remove directories and their contents recursively<br>`-v, --verbose`: Explain what is being done | File system operations with error handling |
+| `mkdir` | ✅ Done | High | Make directories | `-p, --parents`: No error if existing, make parent directories as needed<br>`-v, --verbose`: Print a message for each created directory<br>`-m, --mode`: Set file mode (as in chmod) | File system operations with error handling |
+| `rmdir` | ✅ Done | Medium | Remove empty directories | `--ignore-fail-on-non-empty`: Ignore each failure to remove a directory that is non-empty<br>`-p, --parents`: Remove DIRECTORY and its ancestors<br>`-v, --verbose`: Print a message for each removed directory | File system operations with error handling |
+| `touch` | ✅ Done | Medium | Change file timestamps or create empty files | `-a`: Change only the access time<br>`-m`: Change only the modification time<br>`-c, --no-create`: Do not create any files<br>`-d, --date`: Parse STRING and use it instead of current time<br>`-r, --reference`: Use this file's times instead of current time | File system operations with error handling |
 
 ### Text Processing
 
 | Command | Status | Priority | Description | Parameters/Options | Implementation Notes |
 |---------|--------|----------|-------------|-------------------|---------------------|
-| `echo` | ✅ Done | High | Display a line of text | `-n`: Do not output the trailing newline<br>`-e`: Enable interpretation of backslash escapes | Implemented with pipeline architecture and serves as reference implementation |
-| `grep` | ❌ TODO | High | Print lines matching a pattern | `-i, --ignore-case`: Ignore case distinctions<br>`-v, --invert-match`: Invert the sense of matching, to select non-matching lines<br>`-n, --line-number`: Prefix each line of output with the 1-based line number | Not yet implemented |
-| `sort` | ❌ TODO | Medium | Sort lines of text files | `-n, --numeric-sort`: Compare according to string numerical value<br>`-r, --reverse`: Reverse the result of comparisons | Not yet implemented |
-| `wc` | ❌ TODO | Medium | Print newline, word, and byte counts for each file | `-l, --lines`: Print the newline counts<br>`-w, --words`: Print the word counts<br>`-c, --bytes`: Print the byte counts | Not yet implemented |
-| `head` | ❌ TODO | Low | Output the first part of files | `-n, --lines`: Print the first N lines instead of the first 10 | Not yet implemented |
-| `tail` | ❌ TODO | Low | Output the last part of files | `-n, --lines`: Output the last N lines instead of the last 10 | Not yet implemented |
+| `echo` | ✅ Done | High | Display a line of text | `-n`: Do not output the trailing newline<br>`-e`: Enable interpretation of backslash escapes<br>`-E`: Disable interpretation of backslash escapes | Implemented with pipeline architecture and serves as reference implementation |
+| `grep` | ✅ Done | High | Print lines matching a pattern | `-E, --extended-regexp`: Interpret PATTERNS as extended regular expressions<br>`-F, --fixed-strings`: Interpret PATTERNS as fixed strings<br>`-G, --basic-regexp`: Interpret PATTERNS as basic regular expressions<br>`-i, --ignore-case`: Ignore case distinctions<br>`-v, --invert-match`: Invert the sense of matching<br>`-n, --line-number`: Prefix each line of output with the 1-based line number<br>`-c, --count`: Print only a count of selected lines<br>`-l, --files-with-matches`: Print only names of FILEs containing matches<br>`-L, --files-without-match`: Print only names of FILEs containing no match<br>`--color`: Use markers to highlight matches | Pattern matching with regex support |
+| `sort` | ✅ Done | Medium | Sort lines of text files | `-b, --ignore-leading-blanks`: Ignore leading blanks
+`-f, --ignore-case`: Fold lower case to upper case characters
+`-n, --numeric-sort`: Compare according to string numerical value
+`-r, --reverse`: Reverse the result of comparisons
+`-u, --unique`: With -c, check for strict ordering
+`-k, --key`: Sort via a key
+`-t, --field-separator`: Use SEP instead of non-blank to blank transition | Sorting with multiple key support |
+| `wc` | ✅ Done | Medium | Print newline, word, and byte counts for each file | `-c, --bytes`: Print the byte counts<br>`-l, --lines`: Print the newline counts<br>`-w, --words`: Print the word counts<br>`-m, --chars`: Print the character counts<br>`-L, --max-line-length`: Print the maximum display width | Character counting with multiple modes |
+| `head` | ✅ Done | Low | Output the first part of files | `-n, --lines`: Print the first N lines instead of the first 10<br>`-c, --bytes`: Print the first N bytes<br>`-q, --quiet, --silent`: Never print headers giving file names<br>`-v, --verbose`: Always print headers giving file names | File head extraction with byte/line options |
+| `tail` | ✅ Done | Low | Output the last part of files | `-n, --lines`: Output the last N lines<br>`-c, --bytes`: Output the last N bytes<br>`-z, --zero-terminated`: Line delimiter is NUL, not newline<br>`-f, --follow`: Output appended data as the file grows | File tail extraction with follow support |
+| `sed` | ✅ Done | Medium | Stream editor for filtering and transforming text | `-e, --expression`: Add SCRIPT to the commands to be executed
+`-f, --file`: Add the contents of SCRIPT-FILE to the commands
+`-n, --quiet, --silent`: Suppress automatic printing of pattern space
+`-i[SUFFIX], --in-place[=SUFFIX]`: Edit files in place | Text stream editing with script support |
+| `uniq` | ✅ Done | Medium | Report or omit repeated lines | `-c, --count`: Prefix lines by the number of occurrences
+`-d, --repeated`: Only print duplicate lines, one for each group
+`-f, --skip-fields`: Avoid comparing the first N fields
+`-i, --ignore-case`: Ignore differences in case when comparing
+`-s, --skip-chars`: Avoid comparing the first N characters
+`-u, --unique`: Only print unique lines
+`-w, --check-chars`: Compare no more than N characters in lines | Duplicate line detection and filtering |
+| `cut` | ✅ Done | Medium | Remove sections from each line of files | `-d, --delimiter`: Use DELIM instead of TAB for field delimiter
+`-f, --fields`: Select only these fields
+`-s, --only-delimited`: Do not print lines not containing delimiters
+`-z, --zero-terminated`: Line delimiter is NUL, not newline | Field extraction from delimited text |
 
 ### System Information
 
 | Command | Status | Priority | Description | Parameters/Options | Implementation Notes |
 |---------|--------|----------|-------------|-------------------|---------------------|
-| `pwd` | ✅ Done | High | Print working directory | No options | Simple call to GetCurrentDirectory with pipeline structure |
-| `date` | ✅ Done | High | Print or set system date and time | `+FORMAT`: Specify format of output | Uses Windows API for date/time operations |
-| `time` | ❌ TODO | Medium | Time a command | No options | Not yet implemented |
-| `env` | ❌ TODO | Medium | Print environment variables | No options | Not yet implemented |
-| `uname` | ❌ TODO | Low | Print system information | `-s, --kernel-name`: Print the kernel name<br>`-r, --kernel-release`: Print the kernel release | Not yet implemented |
+| `which` | ✅ Done | High | Locate a command in PATH | `-a, --all`: Print all matching pathnames of each argument<br>`--skip-dot`: Skip directories in PATH that start with a dot<br>`--skip-tilde`: Skip directories in PATH that start with a tilde | Path searching with PATHEXT support |
+| `env` | ✅ Done | Medium | Run a command in a modified environment | `-i, --ignore-environment`: Start with an empty environment
+`-u, --unset`: Remove variable from the environment
+`-0, --null`: End each output line with NUL, not newline | Environment variable manipulation |
 
 ### Network
 

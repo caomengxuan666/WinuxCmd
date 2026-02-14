@@ -12,11 +12,12 @@ WinuxCmd是一个轻量级的Windows可执行程序，为Windows系统提供了�
 
 ### 量化目标
 
-- 支持数百个个高频Linux命令及其核心参数（与Linux行为1:1兼容）
-- 组合主程序 `winuxcmd.exe` 大小 < 1MB
-- 单个命令可执行文件（如 `ls.exe`）每个文件大小 ≤ 2KB
+- 支持20+个高频Linux命令及其核心参数（与Linux行为1:1兼容）
+- 组合主程序 `winuxcmd.exe` 大小 ~400KB（静态）/ ~60KB（动态）
+- 单个命令可执行文件（如 `ls.exe`）每个文件大小 ~400KB（硬链接）
 - 纯Windows API实现，无第三方库依赖
 - 使用C++23现代模块系统架构开发
+- 支持多种构建模式：DEV、RELEASE、DEBUG_RELEASE
 
 ## 技术栈
 
@@ -145,18 +146,27 @@ int exit_code = CommandRegistry::dispatch("ls", args);
 winuxcmd/
 ├── src/
 │   ├── core/         # 核心模块实现
-│   │   ├── runtime.cppm   # 模块接口
-│   │   └── runtime.cpp    # 模块实现
-│   └── main.cpp      # 主程序入口
+│   │   ├── dispatcher.cppm    # 命令调度器
+│   │   ├── cmd_meta.cppm      # 命令元数据
+│   │   └── opt.cppm           # 选项解析
+│   ├── commands/     # 单独命令实现
+│   │   ├── ls.cppm   # ls命令模块
+│   │   ├── cat.cppm  # cat命令模块
+│   │   └── ...       # 其他命令
+│   ├── utils/        # 工具模块
+│   │   ├── console.cppm       # 控制台工具
+│   │   └── utf8.cppm          # UTF-8处理
+│   └── Main/         # 主程序入口
+│       └── main.cpp
+├── tests/            # 单元测试
+├── cmake/            # CMake模块
 ├── DOCS/             # 文档文件
-├── CMakeLists.txt    # CMake配置
+├── scripts/          # 辅助脚本
+├── CMakeLists.txt    # 主CMake配置
+├── CMakePresets.json # CMake预设配置
 ├── Project_Rules.md  # 开发指南
 ├── README.md         # 项目文档（英文）
-├── TODO.md           # 项目待办列表（英文）
-└── DOCS/
-    ├── README_zh.md  # 项目文档（中文）
-    ├── TODO_zh.md    # 项目待办列表（中文）
-    ├── scaffold_and_dsl.md  # 脚手架和DSL设计文档（中文）
+└── TODO.md           # 项目待办列表（英文）
 ```
 
 ## 添加新命令
@@ -293,6 +303,7 @@ REGISTER_COMMAND(echo,
 - Windows 10/11（64位）
 - Microsoft Visual Studio 2022+（支持C++23）
 - CMake 3.30+（支持C++23模块）
+- Ninja构建系统（推荐）
 
 ### 构建命令
 
@@ -301,11 +312,15 @@ REGISTER_COMMAND(echo,
 mkdir build
 cd build
 
-# 配置CMake
-cmake .. -G "Visual Studio 17 2022" -A x64
+# 使用构建模式配置CMake
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_MODE=RELEASE
 
 # 构建项目
-cmake --build . --config Release
+cmake --build .
+
+# 替代构建模式：
+cmake .. -DBUILD_MODE=DEV          # 开发模式（快速增量）
+cmake .. -DBUILD_MODE=DEBUG_RELEASE # 发布带调试功能
 ```
 
 ## 使用示例
