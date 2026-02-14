@@ -28,7 +28,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 2. Extract to any directory
 3. Run the setup script: `winux-activate.ps1`
 
-## 📦 Currently Implemented Commands (v0.1.x)
+## 📦 Currently Implemented Commands (v0.3.0)
 
 | Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
 |---------|-------------|---------------------------------------------------------------|
@@ -117,6 +117,17 @@ ls -la | grep ".cpp" | xargs cat
 # ↑ Works directly with WinuxCmd installed
 ```
 
+### 5. Color Support
+
+```bash
+# ls with color support (enabled by default)
+ls --color=auto
+ls --color=always
+
+# Color output works in both terminal and piped scenarios
+ls --color=always | grep "\.cpp$"
+```
+
 
 
 ## 🔧 Technical Details
@@ -124,13 +135,18 @@ ls -la | grep ".cpp" | xargs cat
 ### Compilation (MSVC Only)
 
 ```bash
-# Build with Visual Studio 2026
+# Build with Visual Studio 2022+
 mkdir build && cd build
-cmake .. -G "Visual Studio 17 2026" -A x64
-cmake --build . --config Release
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+cmake --build .
 
-# Advanced options
-cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
+# Advanced options with build modes
+cmake .. -DBUILD_MODE=DEV      # Development mode (fast incremental builds)
+cmake .. -DBUILD_MODE=RELEASE   # Release mode (optimized performance)
+cmake .. -DBUILD_MODE=DEBUG_RELEASE  # Release optimizations with debug features
+
+# Other options
+cmake .. -DUSE_STATIC_CRT=ON -DENABLE_TESTS=ON -DGENERATE_MAP_INFO=ON
 ```
 
 ### Architecture
@@ -312,9 +328,10 @@ A: Maximum performance, minimal dependencies, and direct Windows API access.
 
 - [API Reference](DOCS/en/overview.md)
 - [Building from Source](DOCS/en/commands_implementation_en.md)
-- [Command Compatibility](DOCS/en/commands_implementation_en.md)
+- [Command Compatibility Matrix](DOCS/en/commands_implementation_en.md)
 - [Testing Framework](DOCS/en/testing_framework_en.md)
-- [Option Handling](DOCS/en/option-handling.md)
+- [Option Handling Guide](DOCS/en/option-handling.md)
+- [Build Modes Guide](DOCS/en/build_modes_en.md)
 
 ## About the Author
 

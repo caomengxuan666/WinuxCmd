@@ -54,6 +54,4 @@
 #include <cstring>  // For strlen
 #include <cwchar>   // For wprintf, fwprintf
 
-#include "string_instances.h"
-
 #endif  // PCH_H

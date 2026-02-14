@@ -12,11 +12,12 @@ Provide Windows-native, lightweight, AI-agnostic compatible Linux command set fo
 
 ### Quantitative Objectives
 
-- Support hundreds high-frequency Linux commands with core parameters (1:1 compatible with Linux behavior)
-- Combined main program `winuxcmd.exe` size < 1MB
-- Individual command executable (e.g., `ls.exe`) size ≤ 2KB per file
+- Support 20+ high-frequency Linux commands with core parameters (1:1 compatible with Linux behavior)
+- Combined main program `winuxcmd.exe` size ~400KB (static) / ~60KB (dynamic)
+- Individual command executable (e.g., `ls.exe`) size ~400KB (hardlinked) per file
 - Implemented with pure Windows API, no third-party library dependencies
 - Developed in C++23 with modern module system architecture
+- Support multiple build modes: DEV, RELEASE, DEBUG_RELEASE
 
 ## Technology Stack
 
@@ -140,10 +141,51 @@ This structure improves code organization, testability, and maintainability.
 
 ## Current Supported Commands
 
-- **ls**: List directory contents
-  - Options: -l (long format), -a (show all), -h (human-readable), -r (reverse)
+### File Management
+- **ls**: List directory contents (with color support)
+  - Options: -l (long format), -a (show all), -h (human-readable), -r (reverse), --color
 - **cat**: Concatenate files and print on the standard output
   - Options: -n (number lines), -E (show $ at end), -s (squeeze empty lines)
+- **cp**: Copy files and directories
+  - Options: -r (recursive), -v (verbose), -f (force), -i (interactive)
+- **mv**: Move/rename files
+  - Options: -v (verbose), -f (force), -i (interactive), -n (no-clobber)
+- **rm**: Remove files or directories
+  - Options: -r (recursive), -f (force), -v (verbose), -i (interactive)
+- **mkdir**: Create directories
+  - Options: -p (parents), -v (verbose), -m (mode)
+- **rmdir**: Remove empty directories
+  - Options: -p (parents), -v (verbose)
+- **touch**: Update file timestamps or create files
+  - Options: -a (access time), -m (modification time), -c (no-create)
+
+### Text Processing
+- **echo**: Display a line of text
+  - Options: -n (no newline), -e (escape sequences), -E (no escapes)
+- **grep**: Print lines matching patterns
+  - Options: -E/-F/-G (regex types), -i (ignore case), -n (line numbers), -v (invert)
+- **find**: Search for files
+  - Options: -name, -type, -mindepth, -maxdepth
+- **head**: Output first part of files
+  - Options: -n (lines), -c (bytes), -q (quiet)
+- **tail**: Output last part of files
+  - Options: -n (lines), -c (bytes), -f (follow)
+- **sort**: Sort lines
+  - Options: -n (numeric), -r (reverse), -u (unique), -k (key)
+- **uniq**: Report or omit repeated lines
+  - Options: -c (count), -d (duplicates), -u (unique)
+- **cut**: Cut fields from lines
+  - Options: -d (delimiter), -f (fields), -s (suppress)
+- **wc**: Count lines/words/bytes
+  - Options: -l (lines), -w (words), -c (bytes), -m (chars)
+- **sed**: Stream editor
+  - Options: -e (script), -f (file), -n (quiet), -i (in-place)
+
+### System Information
+- **which**: Locate commands in PATH
+  - Options: -a (all matches)
+- **env**: Print/modify environment
+  - Options: -i (ignore environment), -u (unset), -0 (null separator)
 
 ## Adding New Commands
 
@@ -278,18 +320,27 @@ REGISTER_COMMAND(echo,
 winuxcmd/
 ├── src/
 │   ├── core/         # Core module implementation
-│   │   ├── runtime.cppm   # Module interface
-│   │   └── runtime.cpp    # Module implementation
-│   └── main.cpp      # Main program entry
+│   │   ├── dispatcher.cppm    # Command dispatcher
+│   │   ├── cmd_meta.cppm      # Command metadata
+│   │   └── opt.cppm           # Option parsing
+│   ├── commands/     # Individual command implementations
+│   │   ├── ls.cppm   # ls command module
+│   │   ├── cat.cppm  # cat command module
+│   │   └── ...       # Other commands
+│   ├── utils/        # Utility modules
+│   │   ├── console.cppm       # Console utilities
+│   │   └── utf8.cppm          # UTF-8 handling
+│   └── Main/         # Main program entry
+│       └── main.cpp
+├── tests/            # Unit tests
+├── cmake/            # CMake modules
 ├── DOCS/             # Documentation files
-├── CMakeLists.txt    # CMake configuration
+├── scripts/          # Helper scripts
+├── CMakeLists.txt    # Main CMake configuration
+├── CMakePresets.json # CMake presets configuration
 ├── Project_Rules.md  # Development guidelines
 ├── README.md         # Project documentation (English)
-├── TODO.md           # Project TODO list (English)
-└── DOCS/
-    ├── README_zh.md  # Project documentation (Chinese)
-    ├── TODO_zh.md    # Project TODO list (Chinese)
-    ├── scaffold_and_dsl_en.md  # Scaffold and DSL design documentation (English)
+└── TODO.md           # Project TODO list (English)
 ```
 
 ## Build Instructions
@@ -299,6 +350,7 @@ winuxcmd/
 - Windows 10/11 (64-bit)
 - Microsoft Visual Studio 2022+ (with C++23 support)
 - CMake 3.30+ (supports C++23 modules)
+- Ninja build system (recommended)
 
 ### Build Commands
 
@@ -307,11 +359,15 @@ winuxcmd/
 mkdir build
 cd build
 
-# Configure CMake
-cmake .. -G "Visual Studio 17 2022" -A x64
+# Configure CMake with build mode
+cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_MODE=RELEASE
 
 # Build project
-cmake --build . --config Release
+cmake --build .
+
+# Alternative build modes:
+cmake .. -DBUILD_MODE=DEV          # Development mode (fast incremental)
+cmake .. -DBUILD_MODE=DEBUG_RELEASE # Release with debug features
 ```
 
 ## Usage Examples

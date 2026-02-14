@@ -41,7 +41,7 @@ jobs:
           }
           echo "project_version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Configure CMake
+      - name: Configure CMake (Release Mode)
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
@@ -50,11 +50,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_C_COMPILER_TARGET=${{ matrix.arch }} ^
             -DCMAKE_CXX_COMPILER_TARGET=${{ matrix.arch }} ^
+            -DBUILD_MODE=RELEASE ^
             -DUSE_STATIC_CRT=ON ^
-            -DENABLE_TESTS=OFF ^
-            -DGENERATE_EXPAND_MACRO_FILE=OFF ^
             -DUSE_HARDLINKS=ON ^
-            -DENABLE_UPX=OFF ^
             -DCMAKE_CXX_STANDARD=23 ^
             -DCMAKE_CXX_STANDARD_REQUIRED=ON ^
             -DCMAKE_EXPERIMENTAL_CXX_MODULE_STD=ON ^
