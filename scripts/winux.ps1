@@ -153,77 +153,55 @@ function Invoke-Activate {
     Save-CommandBackups
 
     foreach ($cmd in $CommandMap.Keys) {
-        $exePath = Join-Path $ScriptDir $CommandMap[$cmd]
 
-        if (-not (Test-Path $exePath)) {
-            Write-Warning "Skipping ${cmd}: $($CommandMap[$cmd]) not found"
-            continue
+        # Remove regular aliases/functions
+        if (Test-Path "Alias:\$cmd") {
+            Remove-Item "Alias:\$cmd" -Force -ErrorAction SilentlyContinue
         }
 
-$functionString = @'
-function global:{0} {{
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromPipeline = $true)]
-        $InputObject,
-        [Parameter(Position = 0)]
-        [string]$Pattern,
-        [Parameter(ValueFromRemainingArguments = $true)]
-        $extraArgs
-    )
-
-    begin {{
-        $argString = if ($extraArgs) {{
-            "$Pattern $($extraArgs -join ' ')"
-        }} else {{
-            $Pattern
-        }}
-
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = '{1}'
-        $psi.Arguments = $argString
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardInput = $true
-        $psi.RedirectStandardOutput = $true
-        $psi.CreateNoWindow = $true
-        $psi.StandardInputEncoding = [System.Text.Encoding]::UTF8
-        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-
-        $process = [System.Diagnostics.Process]::Start($psi)
-        $stdin = $process.StandardInput
-    }}
-
-    process {{
-        if ($InputObject -is [string]) {{
-            $stdin.WriteLine($InputObject)
-        }} elseif ($InputObject -ne $null) {{
-            $stdin.WriteLine($InputObject.ToString())
-        }}
-    }}
-
-    end {{
-        $stdin.Close()
-        $process.StandardOutput.ReadToEnd()
-        $process.WaitForExit() | Out-Null
-    }}
-}}
-'@ -f $cmd, $exePath
-
-        try {
-            Remove-Item "Alias:\$cmd" -Force -ErrorAction SilentlyContinue 2>$null
-            Remove-Item "Function:\$cmd" -Force -ErrorAction SilentlyContinue 2>$null
-
-            Invoke-Expression $functionString -ErrorAction Stop
-            Write-Host "  ✓ $cmd" -ForegroundColor Cyan
+        if (Test-Path "Alias:\global:$cmd") {
+            Remove-Item "Alias:\global:$cmd" -Force -ErrorAction SilentlyContinue
         }
-        catch {
-            Write-Warning "Failed to create ${cmd}: ${_}"
+
+        if (Test-Path "Function:\$cmd") {
+            Remove-Item "Function:\$cmd" -Force -ErrorAction SilentlyContinue
+        }
+
+        if (Test-Path "Function:\global:$cmd") {
+            Remove-Item "Function:\global:$cmd" -Force -ErrorAction SilentlyContinue
         }
     }
 
-    Write-Host "Activation complete!" -ForegroundColor Green
-    Show-CommandList
+    # Add WinuxCmd bin directory to PATH
+    if ($env:PATH -notlike "$ScriptDir*") {
+        $env:PATH = "$ScriptDir;$env:PATH"
+    }
+
+    Write-Host "Activation complete! (native pipeline enabled)" -ForegroundColor Green
+
+    # ----- Special notice for echo and cp -----
+    $specialCmds = @("echo", "cp")
+    foreach ($special in $specialCmds) {
+        $exePath = Join-Path $ScriptDir $CommandMap[$special]
+        if (Test-Path $exePath) {
+            Write-Host "Warning: '$special' is a built-in PowerShell alias. Use '$special.exe' to run the WinuxCmd version." -ForegroundColor Magenta
+        }
+    }
+
+    # ----- Print all command mappings -----
+    Write-Host ""
+    Write-Host "WinuxCmd Command Mapping:" -ForegroundColor Cyan
+    Write-Host "========================" -ForegroundColor Cyan
+    foreach ($cmd in $CommandMap.Keys | Sort-Object) {
+        $exePath = Join-Path $ScriptDir $CommandMap[$cmd]
+        $exists = if (Test-Path $exePath) { "✓" } else { "✗" }
+        Write-Host ("{0,-8} -> {1,-15} [{2}]" -f $cmd, $CommandMap[$cmd], $exists)
+    }
+
+    Write-Host ""
+    Write-Host "Use commands directly (except 'echo' and 'cp' need '.exe')." -ForegroundColor Cyan
 }
+
 
 function Invoke-Deactivate {
     Write-Host "Deactivating WinuxCmd..." -ForegroundColor Green
