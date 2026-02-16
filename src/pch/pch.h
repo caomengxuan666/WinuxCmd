@@ -43,9 +43,12 @@
 #include <handleapi.h>   // For GetStdHandle, INVALID_HANDLE_VALUE
 #include <io.h>          // For _get_osfhandle
 #include <lmcons.h>      // For UNLEN
+#include <psapi.h>       // For GetProcessMemoryInfo
 #include <sddl.h>        // For ConvertSidToStringSidW
 #include <shlwapi.h>     // For PathFileExistsW
 #include <sysinfoapi.h>  // For GetUserNameW
+#include <tlhelp32.h>    // For CreateToolhelp32Snapshot, Process32First
+#include <winternl.h>    // For PROCESS_BASIC_INFORMATION
 
 #include <cctype>   // For isspace
 #include <cstdint>  // For uint64_t

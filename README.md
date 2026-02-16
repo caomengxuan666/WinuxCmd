@@ -51,6 +51,8 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | which | Locate a command in PATH/PATHEXT | -a; --skip-dot/--skip-tilde/--show-dot/--show-tilde [NOT SUPPORT] |
 | env | Print/modify environment | -i/--ignore-environment, -u NAME, -0/--null; -S/--split-string, -C/--chdir, running COMMAND [NOT SUPPORT] |
 | wc | Count lines/words/bytes | -c, -l, -w, -m, -L |
+| pwd | Print working directory | -L (logical), -P (physical) |
+| ps | Report process status | -e/-A/-a/-x (all processes), -f (full format), -l (long format), -u USER (user format), -w (wide output), --no-headers, --sort=KEY (sort by column) |
 
 ## 🎯 Why WinuxCmd?
 
