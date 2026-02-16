@@ -51,6 +51,8 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | which | 查找可执行文件 | -a；--skip-dot/--skip-tilde/--show-dot/--show-tilde 为 [NOT SUPPORT] |
 | env | 查看/修改环境变量 | -i/--ignore-environment, -u 名称, -0/--null；-S/--split-string、-C/--chdir、执行 COMMAND 为 [NOT SUPPORT] |
 | wc | 统计行/词/字节 | -c, -l, -w, -m, -L |
+| pwd | 显示当前工作目录 | -L (逻辑路径), -P (物理路径) |
+| ps | 查看进程状态 | -e/-A/-a/-x (全部进程), -f (完整格式), -l (长格式), -u USER (用户格式), -w (宽输出), --no-headers, --sort=KEY (排序) |
 
 ## 🎯 为什么选择 WinuxCmd？
 
