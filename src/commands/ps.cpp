@@ -1,10 +1,37 @@
-/// @Author: WinuxCmd
+/*
+*  Copyright ? 2026 [caomengxuan666]
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ *
+ *  - File: ps.cpp
+ *  - Username: Administrator
+ *  - CopyrightYear: 2026
+ */
+
 /// @contributors:
-///   - caomengxuan666 <2507560089@qq.com>
-/// @Description: Implementation for ps (process status).
+///   - @contributor1 arookieofc 2128194521@qq.com
+///   - @contributor2 <email2@example.com>
+///   - @contributor3 <email3@example.com>
+/// @Description: Implementation for pwd.
 /// @Version: 0.1.0
 /// @License: MIT
-/// @Copyright: Copyright © 2026 WinuxCmd
+/// @Copyright: Copyright ©  2026 WinuxCmd
 #include "pch/pch.h"
 //include other header after pch.h
 #include "core/command_macros.h"
@@ -61,23 +88,32 @@ struct Config {
   std::string sort_key;
 };
 
+// RAII wrapper for HANDLE
+struct HandleCloser {
+  typedef HANDLE pointer;
+  void operator()(HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); }
+};
+using unique_handle = std::unique_ptr<HANDLE, HandleCloser>;
+
 // Get user name from process handle
 auto get_process_user(HANDLE h_process) -> std::wstring {
   HANDLE h_token = nullptr;
+  
   if (!OpenProcessToken(h_process, TOKEN_QUERY, &h_token)) {
     return L"UNKNOWN";
   }
+  
+  // Use RAII for token handle
+  unique_handle h_token_holder(h_token);
 
   DWORD size = 0;
   GetTokenInformation(h_token, TokenUser, nullptr, 0, &size);
   if (size == 0) {
-    CloseHandle(h_token);
     return L"UNKNOWN";
   }
 
   std::vector<BYTE> buffer(size);
   if (!GetTokenInformation(h_token, TokenUser, buffer.data(), size, &size)) {
-    CloseHandle(h_token);
     return L"UNKNOWN";
   }
 
@@ -90,21 +126,20 @@ auto get_process_user(HANDLE h_process) -> std::wstring {
 
   if (LookupAccountSidW(nullptr, token_user->User.Sid, name, &name_len, domain,
                         &domain_len, &sid_type)) {
-    CloseHandle(h_token);
     return std::wstring(name);
   }
 
-  CloseHandle(h_token);
   return L"UNKNOWN";
 }
 
-// Get process command line
+// Get process command line with safer approach
 auto get_process_command_line(DWORD pid) -> std::wstring {
-  HANDLE h_process =
-      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-  if (!h_process) return L"";
+  HANDLE h_proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+  unique_handle h_process(h_proc);
+  
+  if (!h_process.get() || h_process.get() == INVALID_HANDLE_VALUE) return L"";
 
-  // Try to read command line from PEB
+  // Try to read command line from PEB using official structures
   PROCESS_BASIC_INFORMATION pbi = {};
   typedef NTSTATUS(WINAPI * NtQueryInformationProcessFunc)(
       HANDLE, DWORD, PVOID, ULONG, PULONG);
@@ -116,27 +151,35 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
             ntdll, "NtQueryInformationProcess");
     if (NtQueryInformationProcess) {
       ULONG len = 0;
-      if (NtQueryInformationProcess(h_process, 0, &pbi, sizeof(pbi), &len) ==
+      if (NtQueryInformationProcess(h_process.get(), 0, &pbi, sizeof(pbi), &len) ==
           0) {
-        // Read ProcessParameters from PEB
+        // Use safer approach with bounds checking
         SIZE_T read = 0;
         PVOID pparams_addr = nullptr;
-        if (ReadProcessMemory(h_process,
-                              (PBYTE)pbi.PebBaseAddress + 0x20,  // RTL_USER_PROCESS_PARAMETERS offset
-                              &pparams_addr, sizeof(PVOID), &read) &&
-            read == sizeof(PVOID) && pparams_addr) {
-          
-          UNICODE_STRING cmd_line = {};
-          if (ReadProcessMemory(h_process, (PBYTE)pparams_addr + 0x70,  // CommandLine offset
-                                &cmd_line, sizeof(cmd_line), &read) &&
-              read == sizeof(cmd_line) && cmd_line.Length > 0) {
+        
+        // Validate PEB address before reading
+        if (pbi.PebBaseAddress) {
+          // Read ProcessParameters pointer from PEB (offset 0x20)
+          if (ReadProcessMemory(h_process.get(),
+                                (PBYTE)pbi.PebBaseAddress + 0x20,
+                                &pparams_addr, sizeof(PVOID), &read) &&
+              read == sizeof(PVOID) && pparams_addr) {
             
-            std::vector<wchar_t> buffer(cmd_line.Length / sizeof(wchar_t) + 1);
-            if (ReadProcessMemory(h_process, cmd_line.Buffer, buffer.data(),
-                                  cmd_line.Length, &read)) {
-              buffer[cmd_line.Length / sizeof(wchar_t)] = L'\0';
-              CloseHandle(h_process);
-              return std::wstring(buffer.data());
+            UNICODE_STRING cmd_line = {};
+            // Read CommandLine from ProcessParameters (offset 0x70)
+            if (ReadProcessMemory(h_process.get(), (PBYTE)pparams_addr + 0x70,
+                                  &cmd_line, sizeof(cmd_line), &read) &&
+                read == sizeof(cmd_line) && cmd_line.Length > 0 && cmd_line.Buffer) {
+              
+              // Validate buffer bounds before reading
+              if (cmd_line.Length <= 32768) {  // Reasonable limit
+                std::vector<wchar_t> buffer(cmd_line.Length / sizeof(wchar_t) + 1);
+                if (ReadProcessMemory(h_process.get(), cmd_line.Buffer, buffer.data(),
+                                      cmd_line.Length, &read)) {
+                  buffer[cmd_line.Length / sizeof(wchar_t)] = L'\0';
+                  return std::wstring(buffer.data());
+                }
+              }
             }
           }
         }
@@ -144,7 +187,7 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
     }
   }
 
-  CloseHandle(h_process);
+  // Fallback: return empty string if we can't read command line
   return L"";
 }
 
@@ -154,6 +197,8 @@ auto get_process_path(HANDLE h_process) -> std::wstring {
   DWORD size = MAX_PATH * 2;
   
   if (QueryFullProcessImageNameW(h_process, 0, path, &size)) {
+    // Ensure null termination
+    path[size] = L'\0';
     return std::wstring(path);
   }
   return L"";
@@ -195,27 +240,28 @@ auto enumerate_processes() -> cp::Result<std::vector<ProcessInfo>> {
     info.thread_count = pe.cntThreads;
 
     // Try to open process for more info
-    HANDLE h_process = OpenProcess(
+    HANDLE h_proc = OpenProcess(
         PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, info.pid);
+    unique_handle h_process(h_proc);
     
-    if (h_process) {
+    if (h_process.get() && h_process.get() != INVALID_HANDLE_VALUE) {
       // Get user
-      info.user = get_process_user(h_process);
+      info.user = get_process_user(h_process.get());
 
       // Get full path
-      info.full_path = get_process_path(h_process);
+      info.full_path = get_process_path(h_process.get());
 
       // Get times
       FILETIME exit_time;
-      GetProcessTimes(h_process, &info.create_time, &exit_time,
+      GetProcessTimes(h_process.get(), &info.create_time, &exit_time,
                       &info.kernel_time, &info.user_time);
 
       // Get memory
-      auto [ws, priv] = get_process_memory(h_process);
+      auto [ws, priv] = get_process_memory(h_process.get());
       info.working_set_size = ws;
       info.private_bytes = priv;
 
-      CloseHandle(h_process);
+      // Handle automatically closed by unique_handle destructor
     }
 
     // Get command line (may fail for protected processes)
