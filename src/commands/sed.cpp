@@ -11,6 +11,7 @@
 import std;
 import core;
 import utils;
+import container;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
@@ -52,8 +53,8 @@ namespace sed_pipeline {
 
   struct Config {
     bool suppress_output = false;
-    std::vector<Script> scripts;
-    std::vector<std::string> files;
+    SmallVector<Script, 32> scripts;
+    SmallVector<std::string, 64> files;
     std::regex_constants::syntax_option_type regex_syntax =
         std::regex_constants::basic;
   };
@@ -64,6 +65,7 @@ namespace sed_pipeline {
 
   auto split_lines_string(const std::string& s) -> std::vector<std::string> {
     std::vector<std::string> out;
+    out.reserve(s.size() / 20);  // Reserve for ~20 chars per line
     size_t start = 0;
     for (size_t i = 0; i <= s.size(); ++i) {
       if (i == s.size() || s[i] == '\n') {
@@ -409,41 +411,42 @@ namespace sed_pipeline {
     }
 
     std::vector<Script> scripts;
+  scripts.reserve(32);  // Reserve for reasonable number of scripts
 
-    auto expr_opt = ctx.get<std::string>("--expression", "");
-    if (!expr_opt.empty()) {
-      auto lines = split_lines_string(expr_opt);
-      for (auto& e : lines) {
-        if (e.empty()) continue;
-        auto s = parse_script_line(e, cfg.regex_syntax);
-        if (!s) return std::unexpected(s.error());
-        scripts.insert(scripts.end(), s->begin(), s->end());
-      }
+  auto expr_opt = ctx.get<std::string>("--expression", "");
+  if (!expr_opt.empty()) {
+    auto lines = split_lines_string(expr_opt);
+    for (auto& e : lines) {
+      if (e.empty()) continue;
+      auto s = parse_script_line(e, cfg.regex_syntax);
+      if (!s) return std::unexpected(s.error());
+      scripts.insert(scripts.end(), s->begin(), s->end());
     }
+  }
 
-    auto file_opt = ctx.get<std::string>("--file", "");
-    if (file_opt.empty()) file_opt = ctx.get<std::string>("-f", "");
-    if (!file_opt.empty()) {
-      auto fscripts = read_script_file(file_opt, cfg.regex_syntax);
-      if (!fscripts) return std::unexpected(fscripts.error());
-      scripts.insert(scripts.end(), fscripts->begin(), fscripts->end());
-    }
+  auto file_opt = ctx.get<std::string>("--file", "");
+  if (file_opt.empty()) file_opt = ctx.get<std::string>("-f", "");
+  if (!file_opt.empty()) {
+    auto fscripts = read_script_file(file_opt, cfg.regex_syntax);
+    if (!fscripts) return std::unexpected(fscripts.error());
+    scripts.insert(scripts.end(), fscripts->begin(), fscripts->end());
+  }
 
-    size_t consumed_positional = 0;
-    if (scripts.empty()) {
-      if (ctx.positionals.empty())
-        return std::unexpected("script required");
-      size_t script_end =
-          ctx.positionals.size() >= 2 ? ctx.positionals.size() - 1 : 1;
-      for (size_t i = 0; i < script_end; ++i) {
-        auto s = parse_script_line(ctx.positionals[i], cfg.regex_syntax);
-        if (!s) return std::unexpected(s.error());
+  size_t consumed_positional = 0;
+  if (scripts.empty()) {
+    if (ctx.positionals.empty())
+      return std::unexpected("script required");
+    size_t script_end =
+        ctx.positionals.size() >= 2 ? ctx.positionals.size() - 1 : 1;
+    for (size_t i = 0; i < script_end; ++i) {
+      auto s = parse_script_line(ctx.positionals[i], cfg.regex_syntax);
+      if (!s) return std::unexpected(s.error());
         scripts.insert(scripts.end(), s->begin(), s->end());
       }
       consumed_positional = script_end;
     }
 
-    cfg.scripts = std::move(scripts);
+    for (auto& s : scripts) cfg.scripts.push_back(std::move(s));
 
     for (size_t i = consumed_positional; i < ctx.positionals.size(); ++i) {
       cfg.files.emplace_back(ctx.positionals[i]);
@@ -460,13 +463,16 @@ namespace sed_pipeline {
     std::string current(line);
     matched_any = false;
     std::vector<std::string> insert_before;
+    insert_before.reserve(8);  // Reserve for reasonable number of insertions
     std::vector<std::string> append_after;
+    append_after.reserve(8);  // Reserve for reasonable number of append operations
     bool deleted = false;
     bool explicit_print = false;
     should_quit = false;
 
     auto to_ecma_repl = [](const std::string& in) -> std::string {
       std::string out;
+      out.reserve(in.size());
       out.reserve(in.size());
       bool escape = false;
       for (size_t i = 0; i < in.size(); ++i) {
@@ -616,8 +622,10 @@ namespace sed_pipeline {
         bool should_quit = false;
         bool is_last = false;
         if (in->peek() == EOF) is_last = true;
+        // Convert SmallVector to std::vector for apply_scripts
+        std::vector<Script> scripts_vec(cfg.scripts.begin(), cfg.scripts.end());
         bool should_print =
-            apply_scripts(line, cfg.scripts, states, line_no,
+            apply_scripts(line, scripts_vec, states, line_no,
                           cfg.suppress_output, is_last, out_line,
                           matched_any, should_quit);
         if (should_print) {
