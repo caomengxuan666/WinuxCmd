@@ -173,11 +173,12 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
               
               // Validate buffer bounds before reading
               if (cmd_line.Length <= 32768) {  // Reasonable limit
-                std::vector<wchar_t> buffer(cmd_line.Length / sizeof(wchar_t) + 1);
+                size_t num_chars = cmd_line.Length / sizeof(wchar_t);
+                std::vector<wchar_t> buffer(num_chars + 1);
                 if (ReadProcessMemory(h_process.get(), cmd_line.Buffer, buffer.data(),
                                       cmd_line.Length, &read)) {
-                  buffer[cmd_line.Length / sizeof(wchar_t)] = L'\0';
-                  return std::wstring(buffer.data());
+                  buffer[num_chars] = L'\0';
+                  return std::wstring(buffer.data(), num_chars);  // Construct from known size
                 }
               }
             }
@@ -198,8 +199,7 @@ auto get_process_path(HANDLE h_process) -> std::wstring {
   
   if (QueryFullProcessImageNameW(h_process, 0, path, &size)) {
     // Ensure null termination
-    path[size] = L'\0';
-    return std::wstring(path);
+    return std::wstring(path, size);  // Construct from known size
   }
   return L"";
 }
@@ -217,6 +217,7 @@ auto get_process_memory(HANDLE h_process) -> std::pair<SIZE_T, SIZE_T> {
 // Enumerate all processes
 auto enumerate_processes() -> cp::Result<std::vector<ProcessInfo>> {
   std::vector<ProcessInfo> processes;
+  processes.reserve(4096);  // Reserve for reasonable number of processes
 
   HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (h_snap == INVALID_HANDLE_VALUE) {
@@ -553,12 +554,11 @@ auto run(const Config& cfg) -> int {
   // Filter by user if specified
   if (!cfg.user_filter.empty()) {
     auto user_w = utf8_to_wstring(cfg.user_filter);
-    processes.erase(
-        std::remove_if(processes.begin(), processes.end(),
-                       [&](const ProcessInfo& p) { 
-                         return p.user != user_w; 
-                       }),
-        processes.end());
+    auto it = std::remove_if(processes.begin(), processes.end(),
+                            [&](const ProcessInfo& p) { 
+                              return p.user != user_w; 
+                            });
+    processes.erase(it, processes.end());
   }
 
   // Sort if requested

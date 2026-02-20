@@ -38,6 +38,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -95,7 +96,7 @@ namespace cp = core::pipeline;
 // 1. Validate arguments - OPTIMIZED: pass by reference
 // ----------------------------------------------
 auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx,
-                        std::vector<std::string> &out_files)
+                        SmallVector<std::string, 64> &out_files)
     -> cp::Result<void> {
   for (auto arg : ctx.positionals) {
     out_files.push_back(std::string(arg));
@@ -286,7 +287,7 @@ REGISTER_COMMAND(cat, "cat",
   // ----------------------------------------------
   // Main - OPTIMIZED: pass vector by reference
   // ----------------------------------------------
-  std::vector<std::string> files;
+  SmallVector<std::string, 64> files;
   auto result = validate_arguments(ctx, files);
   if (!result) return 1;
 

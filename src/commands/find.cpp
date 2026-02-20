@@ -36,6 +36,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -88,7 +89,7 @@ namespace find_pipeline {
 namespace cp = core::pipeline;
 
 struct Config {
-  std::vector<std::string> roots;
+  SmallVector<std::string, 64> roots;
   std::string name_pattern;
   std::string iname_pattern;
   std::string type_filter;

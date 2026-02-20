@@ -114,9 +114,10 @@ if (NOT CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
 endif ()
 
 include(cmake/enable_import_std.cmake)
+include(cmake/statistics_project.cmake)
 
 project(WinuxCmd
-        VERSION 0.3.2
+        VERSION 0.4.0
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
@@ -333,6 +334,9 @@ macro(create_command_executable CMD)
             src/utils/console.cppm
             src/utils/utf8.cppm
             src/Main/wildcard_handler.cppm
+            src/container/container.cppm
+            src/container/small_vector.cppm
+            src/container/constexpr_map.cppm
     )
 
     target_sources(${CMD} PRIVATE src/commands/${CMD}.cpp)
@@ -428,6 +432,8 @@ add_custom_command(TARGET scaffold POST_BUILD
         COMMENT "Copying scaffold to project root"
 )
 
+add_subdirectory(examples)
+
 if (ENABLE_TESTS)
     include(CTest)
     add_subdirectory(tests)
@@ -482,6 +488,16 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux-activate.ps1"
         COMPONENT Runtime
 )
 
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winuxcmd_init.cmd"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
+)
+
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winuxcmd_uninstall.cmd"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
+)
+
 install(FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
         "${CMAKE_CURRENT_SOURCE_DIR}/README-ZH.md"
@@ -505,8 +521,9 @@ set(CPACK_COMPONENT_GROUP_CORE_DISPLAY_NAME "Core Components")
 set(CPACK_COMPONENT_GROUP_DOCUMENTATION_DISPLAY_NAME "Documentation")
 
 if (WIN32)
-    set(CPACK_GENERATOR "7Z")
+    set(CPACK_GENERATOR "ZIP;TGZ;7Z")
     set(CPACK_ARCHIVE_SEVEN_ZIP_OPTIONS "-mx=9")
+    set(CPACK_ARCHIVE_TAR_GZIP_OPTIONS "-9")
     if (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
         set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win-arm64")
     else ()
@@ -541,5 +558,17 @@ message(STATUS "Static CRT: ${USE_STATIC_CRT}")
 message(STATUS "Hardlinks: ${USE_HARDLINKS}")
 message(STATUS "Note: UPX compression has been permanently disabled for reliability")
 message(STATUS "=================================================================")
+
+# Print out supported the amount of supported commands
+statistics_number_of_commands_supported()
+message(STATUS "Final count result: ${COMMANDS_SRC_FILE_COUNT} .cpp files")
+
+# ========== Benchmark (DEV and DEBUG_RELEASE mode only) ==========
+if (BUILD_MODE STREQUAL "DEV" OR BUILD_MODE STREQUAL "DEBUG_RELEASE")
+    message(STATUS "Benchmarks: ENABLED (${BUILD_MODE} mode)")
+    add_subdirectory(benchmark)
+else ()
+    message(STATUS "Benchmarks: DISABLED (only available in DEV and DEBUG_RELEASE mode)")
+endif ()
 
 include(CPack)

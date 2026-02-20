@@ -37,6 +37,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -108,7 +109,7 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
 
 auto split_records(std::string_view content, char delimiter)
     -> std::vector<std::string> {
-  std::vector<std::string> out;
+  SmallVector<std::string, 4096> out;
   size_t start = 0;
   for (size_t i = 0; i < content.size(); ++i) {
     if (content[i] == delimiter) {
@@ -119,7 +120,7 @@ auto split_records(std::string_view content, char delimiter)
   if (start < content.size()) {
     out.emplace_back(content.substr(start));
   }
-  return out;
+  return std::vector<std::string>(out.begin(), out.end());
 }
 
 auto to_lower_ascii(std::string_view s) -> std::string {
