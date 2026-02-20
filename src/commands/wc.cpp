@@ -30,6 +30,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -255,7 +256,7 @@ auto process_command(const CommandContext<N>& ctx)
   return validate_arguments(ctx.positionals)
       .and_then([](std::vector<std::string> paths)
                     -> cp::Result<std::vector<CountResult>> {
-        std::vector<CountResult> results;
+        SmallVector<CountResult, 64> results;
 
         if (paths.empty()) {
           // Read from stdin
@@ -275,7 +276,7 @@ auto process_command(const CommandContext<N>& ctx)
           }
         }
 
-        return results;
+        return std::vector<CountResult>(results.begin(), results.end());
       });
 }
 

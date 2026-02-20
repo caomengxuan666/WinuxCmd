@@ -82,6 +82,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -120,7 +121,7 @@ namespace mv_pipeline {
 namespace cp = core::pipeline;
 
 struct MoveContext {
-  std::vector<std::string> source_paths;
+  SmallVector<std::string, 64> source_paths;
   std::string dest_path;
 };
 

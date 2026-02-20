@@ -11,6 +11,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -28,11 +29,11 @@ namespace fs = std::filesystem;
 
 struct Config {
   bool all = false;
-  std::vector<std::string> names;
+  SmallVector<std::string, 32> names;
 };
 
 auto split_semicolon(std::string_view text) -> std::vector<std::string> {
-  std::vector<std::string> out;
+  SmallVector<std::string, 256> out;
   size_t start = 0;
   while (start <= text.size()) {
     size_t pos = text.find(';', start);
@@ -43,7 +44,7 @@ auto split_semicolon(std::string_view text) -> std::vector<std::string> {
     out.emplace_back(text.substr(start, pos - start));
     start = pos + 1;
   }
-  return out;
+  return std::vector<std::string>(out.begin(), out.end());
 }
 
 auto get_env_utf8(const wchar_t* key) -> std::optional<std::string> {
@@ -67,10 +68,10 @@ auto get_path_entries() -> std::vector<std::string> {
 auto get_pathext_entries() -> std::vector<std::string> {
   auto ext_env = get_env_utf8(L"PATHEXT");
   if (!ext_env.has_value() || ext_env->empty()) {
-    return {".exe", ".cmd", ".bat", ".com"};
+    return std::vector<std::string>{".exe", ".cmd", ".bat", ".com"};
   }
   auto exts = split_semicolon(*ext_env);
-  if (exts.empty()) exts = {".exe", ".cmd", ".bat", ".com"};
+  if (exts.empty()) exts = std::vector<std::string>{".exe", ".cmd", ".bat", ".com"};
   for (auto& ext : exts) {
     if (!ext.empty() && ext.front() != '.') ext.insert(ext.begin(), '.');
     std::transform(ext.begin(), ext.end(), ext.begin(),
@@ -105,7 +106,7 @@ auto with_extensions(const fs::path& base,
 }
 
 auto find_one(std::string_view name, bool all) -> std::vector<std::string> {
-  std::vector<std::string> hits;
+  SmallVector<std::string, 64> hits;
   std::unordered_set<std::string> seen;
   const auto pathext = get_pathext_entries();
 
@@ -121,10 +122,10 @@ auto find_one(std::string_view name, bool all) -> std::vector<std::string> {
     for (const auto& candidate : with_extensions(base, pathext)) {
       if (exists_regular(candidate)) {
         append_hit(candidate);
-        if (!all) return hits;
+        if (!all) return std::vector<std::string>(hits.begin(), hits.end());
       }
     }
-    return hits;
+    return std::vector<std::string>(hits.begin(), hits.end());
   }
 
   for (const auto& dir : get_path_entries()) {
@@ -133,12 +134,12 @@ auto find_one(std::string_view name, bool all) -> std::vector<std::string> {
     for (const auto& candidate : with_extensions(base, pathext)) {
       if (exists_regular(candidate)) {
         append_hit(candidate);
-        if (!all) return hits;
+        if (!all) return std::vector<std::string>(hits.begin(), hits.end());
       }
     }
   }
 
-  return hits;
+  return std::vector<std::string>(hits.begin(), hits.end());
 }
 
 auto is_unsupported_used(const CommandContext<WHICH_OPTIONS.size()>& ctx)

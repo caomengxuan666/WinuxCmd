@@ -38,6 +38,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -89,7 +90,7 @@ struct Config {
   std::optional<char> field_separator;
   std::string output_file;
   KeySpec key;
-  std::vector<std::string> files;
+  SmallVector<std::string, 64> files{};  // SmallVector for paths, stack-allocated
 };
 
 auto read_all(std::istream& in) -> std::string {
@@ -110,6 +111,7 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
 auto split_records(std::string_view content, char delimiter)
     -> std::vector<std::string> {
   std::vector<std::string> out;
+  out.reserve(content.size() / 20);  // Estimate: assume ~20 chars per record
   size_t start = 0;
   for (size_t i = 0; i < content.size(); ++i) {
     if (content[i] == delimiter) {
@@ -321,23 +323,24 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
   if (!key) return std::unexpected(key.error());
   cfg.key = *key;
 
-  for (auto p : ctx.positionals) cfg.files.emplace_back(p);
-  if (cfg.files.empty()) cfg.files.emplace_back("-");
+for (auto p : ctx.positionals) cfg.files.push_back(std::string(p));
+  if (cfg.files.empty()) cfg.files.push_back("-");
 
   return cfg;
 }
 
 auto run(const Config& cfg) -> int {
   std::vector<std::string> records;
-  for (const auto& file : cfg.files) {
-    auto content = read_source(file);
+  for (size_t i = 0; i < cfg.files.size(); ++i) {
+    auto content = read_source(cfg.files[i]);
     if (!content) {
       cp::report_error(content, L"sort");
       return 1;
     }
     auto chunk = split_records(*content, cfg.delimiter);
-    records.insert(records.end(), std::make_move_iterator(chunk.begin()),
-                   std::make_move_iterator(chunk.end()));
+    for (auto& r : chunk) {
+      records.push_back(std::move(r));
+    }
   }
 
   std::stable_sort(records.begin(), records.end(), [&](const auto& a, const auto& b) {
