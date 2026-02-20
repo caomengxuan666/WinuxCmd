@@ -2,7 +2,7 @@
 
 English | [中文](README-zh.md)
 
-> Lightweight, native Windows implementation of Linux commands | 400KB only | AI-friendly
+> Lightweight, native Windows implementation of Linux commands | 900KB only | AI-friendly
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
 ![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
@@ -32,7 +32,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 | Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
 |---------|-------------|---------------------------------------------------------------|
-| ls | List directory contents | -l, -a, -h, -r, -t, -n, --color |
+| ls | List directory contents | -l, -a, -A, -h, -r, -t, -n, -g, -o, -1, -C, -w/--width, --color; -b/-B/-c/-d/-f/-F/-i/-k/-L/-m/-N/-p/-q/-Q/-R/-s/-S/-T/-u/-U/-v/-x/-X/-Z [NOT SUPPORT] |
 | cat | Concatenate and display files | -n, -E, -s, -T |
 | cp | Copy files and directories | -r, -v, -f, -i |
 | mv | Move/rename files | -v, -f, -i, -n |
@@ -40,7 +40,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | mkdir | Create directories | -p, -v, -m MODE |
 | rmdir | Remove empty directories | --ignore-fail-on-non-empty, -p/--parents, -v |
 | touch | Update file timestamps / create | -a, -c/--no-create, -d/--date, -h/--no-dereference, -m, -r/--reference, -t, --time |
-| echo | Display text | -n, -e, -E |
+| echo | Display text | -n, -e, -E, -u/--upper, -r/--repeat N |
 | head | Output first part of files | -n/--lines, -c/--bytes, -q/--quiet/--silent, -v/--verbose, -z/--zero-terminated |
 | tail | Output last part of files | -n/--lines, -c/--bytes, -z/--zero-terminated, -f/--follow [NOT SUPPORT], -F [NOT SUPPORT], --pid [NOT SUPPORT], --sleep-interval [NOT SUPPORT] |
 | find | Search for files | -name, -iname, -type (d/f/l), -mindepth, -maxdepth, -print, -print0, -P, -quit; -L/-H/-delete/-exec/-ok/-printf/-prune [NOT SUPPORT] |
@@ -53,6 +53,18 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | wc | Count lines/words/bytes | -c, -l, -w, -m, -L |
 | pwd | Print working directory | -L (logical), -P (physical) |
 | ps | Report process status | -e/-A/-a/-x (all processes), -f (full format), -l (long format), -u USER (user format), -w (wide output), --no-headers, --sort=KEY (sort by column) |
+| tee | Read from stdin and write to stdout and files | -a/--append, -i/--ignore-interrupts, -p/--diagnose |
+| chmod | Change file mode bits | -c/--changes, -f/--silent/--quiet, -v/--verbose, -R/--recursive, --reference |
+| date | Print or set system date/time | -d/--date, -u/--utc, +FORMAT; -s/--set [NOT SUPPORT] |
+| df | Report file system disk space usage | -h/--human-readable, -H/--si, -T/--print-type, -i/--inodes, -t/--type, -x/--exclude-type, -a/--all |
+| du | Estimate file space usage | -h/--human-readable, -H/--si, -s/--summarize, -c/--total, -d/--max-depth, -a/--all |
+| kill | Send a signal to processes | -l/--list, -s/--signal; -9/-KILL/-15/-TERM [supported signals] |
+| ln | Make links between files | -s/--symbolic, -f/--force, -i/--interactive, -v/--verbose, -n/--no-dereference |
+| diff | Compare files line by line | -u/--unified, -q/--brief, -i/--ignore-case, -w/--ignore-all-space, -B/--ignore-blank-lines, -y/--side-by-side [NOT SUPPORT], -r/--recursive [NOT SUPPORT] |
+| file | Determine file type | -b/--brief, -i/--mime, -z/--compress, --mime-type, --mime-encoding |
+| realpath | Print the resolved absolute path | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
+| xargs | Build and execute command lines from input | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null; -d/--delimiter [NOT SUPPORT] |
+| sed | Stream editor | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [basic substitution: s/pattern/replacement/flags] |
 
 ## 🎯 Why WinuxCmd?
 
@@ -98,8 +110,8 @@ $ ls -i *.exe
 
 ```bash
 # Size comparison (Release build, x64):
-WinuxCmd (static):      ~400 KB
-WinuxCmd (dynamic):     ~60 KB
+WinuxCmd (static):      ~900 KB
+WinuxCmd (dynamic):     ~150 KB
 BusyBox Windows:        ~1.24 MB
 GNU coreutils (MSYS2):  ~5 MB
 Single ls.exe (C/CMake):~1.5 MB
@@ -107,11 +119,45 @@ Single ls.exe (C/CMake):~1.5 MB
 
 ### 3. Performance
 
-- Startup time: < 5ms (vs 15ms for PowerShell aliases)
+- Startup time: 10-25ms (vs 70-80ms for GNU coreutils/MSYS2, Git Bash)
 - Memory usage: < 2MB per process
 - No runtime dependencies: Pure Win32 API
 
-### 4. AI-Friendly by Design
+### 4. Custom Containers
+
+WinuxCmd implements custom C++23 containers for optimal performance:
+
+#### SmallVector
+Stack-allocated vector with Small Buffer Optimization (SBO):
+- 5-10x faster than std::vector for small sizes (< 64 elements)
+- Reduces heap allocations by 80%+ in typical command scenarios
+- Automatic fallback to heap when capacity exceeded
+
+**Benchmark Results:**
+```
+BM_SmallVectorPushBack/4    6.13 ns    (vs StdVector: 45.0 ns, 7.3x faster)
+BM_SmallVectorPushBack/8    11.1 ns    (vs StdVector: 47.8 ns, 4.3x faster)
+BM_SmallVectorPushBack/64   86.0 ns    (vs StdVector: 106 ns,  1.2x faster)
+```
+
+#### ConstexprMap
+Compile-time hash map for fixed-size key-value pairs:
+- Zero initialization overhead
+- O(1) lookup at runtime
+- Perfect for configuration tables and mappings
+
+**Benchmark Results:**
+```
+BM_ConstexprMapLookup       99.6 ns    (16.67 G/s iteration)
+BM_UnorderedMapLookup       34.8 ns    (113.33 M/s iteration)
+BM_ConstexprMapIterate      1.19 ns    (constant-time access)
+```
+
+**Optimized Commands:**
+- find, cat, env, mv, xargs, grep, sed, head, tail, tee, wc, uniq, which (SmallVector)
+- tail (ConstexprMap for suffix multipliers: K, M, G, T, P, E)
+
+### 5. AI-Friendly by Design
 
 ```bash
 # AI can now safely output Linux commands on Windows

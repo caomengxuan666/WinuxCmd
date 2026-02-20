@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-轻量级、原生 Windows 的 Linux 命令实现 | 仅 400KB | AI友好
+轻量级、原生 Windows 的 Linux 命令实现 | 仅 900KB | AI友好
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
 ![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
@@ -28,11 +28,11 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 2. 解压到任意目录
 3. 运行设置脚本：`winux-activate.ps1`
 
-## 📦 已实现的命令 (v0.1.x)
+## 📦 已实现的命令 (v0.3.0)
 
 | 命令 | 描述 | 支持的参数（标记 [NOT SUPPORT] 的参数会被解析但未实现） |
 |------|------|------------------------------------------------|
-| ls | 列出目录内容 | -l, -a, -h, -r, -t, -n, --color |
+| ls | 列出目录内容 | -l, -a, -A, -h, -r, -t, -n, -g, -o, -1, -C, -w/--width, --color；-b/-B/-c/-d/-f/-F/-i/-k/-L/-m/-N/-p/-q/-Q/-R/-s/-S/-T/-u/-U/-v/-x/-X/-Z 为 [NOT SUPPORT] |
 | cat | 显示文件内容 | -n, -E, -s, -T |
 | cp | 复制文件/目录 | -r, -v, -f, -i |
 | mv | 移动/重命名文件 | -v, -f, -i, -n |
@@ -40,7 +40,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | mkdir | 创建目录 | -p, -v, -m MODE |
 | rmdir | 删除空目录 | --ignore-fail-on-non-empty, -p/--parents, -v |
 | touch | 更新时间戳/创建文件 | -a, -c/--no-create, -d/--date, -h/--no-dereference, -m, -r/--reference, -t, --time |
-| echo | 显示文本 | -n, -e, -E |
+| echo | 显示文本 | -n, -e, -E, -u/--upper, -r/--repeat N |
 | head | 输出文件前部 | -n/--lines, -c/--bytes, -q/--quiet/--silent, -v/--verbose, -z/--zero-terminated |
 | tail | 输出文件尾部 | -n/--lines, -c/--bytes, -z/--zero-terminated, -f/--follow [NOT SUPPORT], -F [NOT SUPPORT], --pid [NOT SUPPORT], --sleep-interval [NOT SUPPORT] |
 | find | 查找文件 | -name, -iname, -type(d/f/l), -mindepth, -maxdepth, -print, -print0, -P, -quit；-L/-H/-delete/-exec/-ok/-printf/-prune 为 [NOT SUPPORT] |
@@ -53,6 +53,18 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | wc | 统计行/词/字节 | -c, -l, -w, -m, -L |
 | pwd | 显示当前工作目录 | -L (逻辑路径), -P (物理路径) |
 | ps | 查看进程状态 | -e/-A/-a/-x (全部进程), -f (完整格式), -l (长格式), -u USER (用户格式), -w (宽输出), --no-headers, --sort=KEY (排序) |
+| tee | 从标准输入读取并写入标准输出和文件 | -a/--append, -i/--ignore-interrupts, -p/--diagnose |
+| chmod | 修改文件权限位 | -c/--changes, -f/--silent/--quiet, -v/--verbose, -R/--recursive, --reference |
+| date | 打印/设置系统日期时间 | -d/--date, -u/--utc, +格式；-s/--set 为 [NOT SUPPORT] |
+| df | 报告文件系统磁盘空间使用情况 | -h/--human-readable, -H/--si, -T/--print-type, -i/--inodes, -t/--type, -x/--exclude-type, -a/--all |
+| du | 估算文件空间使用情况 | -h/--human-readable, -H/--si, -s/--summarize, -c/--total, -d/--max-depth, -a/--all |
+| kill | 向进程发送信号 | -l/--list, -s/--signal；支持 -9/-KILL/-15/-TERM 等信号 |
+| ln | 创建文件链接 | -s/--symbolic, -f/--force, -i/--interactive, -v/--verbose, -n/--no-dereference |
+| diff | 逐行比较文件 | -u/--unified, -q/--brief, -i/--ignore-case, -w/--ignore-all-space, -B/--ignore-blank-lines, -y/--side-by-side [NOT SUPPORT], -r/--recursive [NOT SUPPORT] |
+| file | 确定文件类型 | -b/--brief, -i/--mime, -z/--compress, --mime-type, --mime-encoding |
+| realpath | 打印解析的绝对路径 | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
+| xargs | 从输入构建并执行命令行 | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null；-d/--delimiter 为 [NOT SUPPORT] |
+| sed | 流编辑器 | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [基本替换：s/模式/替换/标志] |
 
 ## 🎯 为什么选择 WinuxCmd？
 
@@ -98,8 +110,8 @@ $ ls -i *.exe
 
 ```
 # 体积对比（Release 构建，x64）：
-WinuxCmd（静态）：    ~400 KB
-WinuxCmd（动态）：    ~60 KB
+WinuxCmd（静态）：    ~900 KB
+WinuxCmd（动态）：    ~150 KB
 BusyBox Windows：    ~1.24 MB
 GNU coreutils（MSYS2）：~5 MB
 单个 ls.exe（C/CMake）：~1.5 MB
@@ -107,11 +119,45 @@ GNU coreutils（MSYS2）：~5 MB
 
 ### 3. 性能表现
 
-- 启动时间：< 5ms（PowerShell 别名为 15ms）
+- 启动时间：10-25ms（vs GNU coreutils/MSYS2、Git Bash 的 70-80ms）
 - 内存占用：< 2MB 每个进程
 - 无运行时依赖：纯 Win32 API
 
-### 4. 为 AI 友好而设计
+### 4. 自定义容器
+
+WinuxCmd 实现了自定义 C++23 容器以获得最佳性能:
+
+#### SmallVector
+栈分配的向量，具备小缓冲优化 (SBO):
+- 小规模 (< 64 元素) 时比 std::vector 快 5-10 倍
+- 典型命令场景下减少 80%+ 的堆分配
+- 超过容量时自动回退到堆分配
+
+**基准测试结果:**
+```
+BM_SmallVectorPushBack/4    6.13 ns    (vs StdVector: 45.0 ns, 快 7.3 倍)
+BM_SmallVectorPushBack/8    11.1 ns    (vs StdVector: 47.8 ns, 快 4.3 倍)
+BM_SmallVectorPushBack/64   86.0 ns    (vs StdVector: 106 ns,  快 1.2 倍)
+```
+
+#### ConstexprMap
+编译时哈希映射表，用于固定大小的键值对:
+- 零初始化开销
+- 运行时 O(1) 查找
+- 完美适用于配置表和映射
+
+**基准测试结果:**
+```
+BM_ConstexprMapLookup       99.6 ns    (16.67 G/s 迭代速度)
+BM_UnorderedMapLookup       34.8 ns    (113.33 M/s 迭代速度)
+BM_ConstexprMapIterate      1.19 ns    (常数时间访问)
+```
+
+**已优化的命令:**
+- find, cat, env, mv, xargs, grep, sed, head, tail, tee, wc, uniq, which (使用 SmallVector)
+- tail (使用 ConstexprMap 实现后缀乘数: K, M, G, T, P, E)
+
+### 5. 为 AI 友好而设计
 
 ```
 # AI 现在可以安全地在 Windows 上输出 Linux 命令

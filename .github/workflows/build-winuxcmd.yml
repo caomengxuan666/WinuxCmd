@@ -66,12 +66,13 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ matrix.vcvars_arg }}
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
-      - name: Package with CPack (7Z + ZIP)
+      - name: Package with CPack (7Z + ZIP + TGZ)
         shell: cmd
         working-directory: build-${{ matrix.package_arch }}
         run: |
           cpack -G 7Z -C Release
           cpack -G ZIP -C Release
+          cpack -G TGZ -C Release
 
       - name: Rename Packages
         shell: cmd
@@ -82,6 +83,7 @@ jobs:
           
           for %%f in ("%BUILD_DIR%\WinuxCmd-*.7z") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.7z"
           for %%f in ("%BUILD_DIR%\WinuxCmd-*.zip") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.zip"
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*.tar.gz") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.tar.gz"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -90,6 +92,7 @@ jobs:
           path: |
             build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.7z
             build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.zip
+            build-${{ matrix.package_arch }}/WinuxCmd-${{ steps.extract_version.outputs.project_version }}-win-${{ matrix.package_arch }}.tar.gz
           retention-days: 1
           if-no-files-found: error
 
@@ -125,7 +128,7 @@ jobs:
       - name: Verify Packages
         run: |
           echo "=== Valid Packages ==="
-          find artifacts -type f \( -name "*.7z" -o -name "*.zip" \) | sort || exit 1
+          find artifacts -type f \( -name "*.7z" -o -name "*.zip" -o -name "*.tar.gz" \) | sort || exit 1
           echo "======================"
 
       - name: Create GitHub Release
@@ -134,8 +137,10 @@ jobs:
           files: |
             artifacts/x64/*.7z
             artifacts/x64/*.zip
+            artifacts/x64/*.tar.gz
             artifacts/arm64/*.7z
             artifacts/arm64/*.zip
+            artifacts/arm64/*.tar.gz
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           body: |
@@ -148,8 +153,15 @@ jobs:
             ### Files included:
             - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.7z
             - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.zip
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-x64.tar.gz
             - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.7z
             - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.zip
+            - WinuxCmd-${{ steps.final_version.outputs.version }}-win-arm64.tar.gz
+            
+            ### Package Formats:
+            - **7Z**: Best compression (requires 7-Zip)
+            - **ZIP**: Native Windows support (right-click to extract)
+            - **TGZ**: tar.gz format (use `tar -xzf filename.tar.gz`)
             
             ### Usage:
             1. Download the appropriate package for your architecture

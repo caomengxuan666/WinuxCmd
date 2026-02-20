@@ -33,7 +33,10 @@ target_include_directories(test_main
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-set(WINUXCMD_BIN_DIR "${CMAKE_BINARY_DIR}")
+# Use absolute path for WINUXCMD_BIN_DIR to ensure tests work correctly
+# regardless of the current working directory
+file(REAL_PATH "${CMAKE_BINARY_DIR}" WINUXCMD_BIN_DIR_ABSOLUTE)
+set(WINUXCMD_BIN_DIR "${WINUXCMD_BIN_DIR_ABSOLUTE}")
 target_compile_definitions(winux-test
         PUBLIC
         WINUXCMD_BIN_DIR=L"${WINUXCMD_BIN_DIR}"

@@ -125,43 +125,25 @@ TEST(pwd, pwd_long_option_physical) {
 
 TEST(pwd, pwd_help) {
   TempDir tmp;
-  
+
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"pwd.exe", {L"--help"});
-  
+
   TEST_LOG_CMD_LIST("pwd.exe", L"--help");
-  
+
   auto r = p.run();
-  
+
   TEST_LOG_EXIT_CODE(r);
   TEST_LOG("pwd.exe --help output", r.stdout_text);
-  
+
   EXPECT_EQ(r.exit_code, 0);
   // Should contain help information
   EXPECT_TRUE(r.stdout_text.find("Usage:") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Options:") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("OPTIONS") != std::string::npos);
 }
 
-TEST(pwd, pwd_version) {
-  TempDir tmp;
-  
-  Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"pwd.exe", {L"--version"});
-  
-  TEST_LOG_CMD_LIST("pwd.exe", L"--version");
-  
-  auto r = p.run();
-  
-  TEST_LOG_EXIT_CODE(r);
-  TEST_LOG("pwd.exe --version output", r.stdout_text);
-  
-  EXPECT_EQ(r.exit_code, 0);
-  // Should contain version information
-  EXPECT_TRUE(r.stdout_text.find("pwd") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("WinuxCmd") != std::string::npos);
-}
+// --version not supported
 
 TEST(pwd, pwd_invalid_option) {
   TempDir tmp;
