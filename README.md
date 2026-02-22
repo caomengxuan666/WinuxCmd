@@ -53,6 +53,8 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | wc | Count lines/words/bytes | -c, -l, -w, -m, -L |
 | pwd | Print working directory | -L (logical), -P (physical) |
 | ps | Report process status | -e/-A/-a/-x (all processes), -f (full format), -l (long format), -u USER (user format), -w (wide output), --no-headers, --sort=KEY (sort by column) |
+<<<<<<< HEAD
+=======
 | tee | Read from stdin and write to stdout and files | -a/--append, -i/--ignore-interrupts, -p/--diagnose |
 | chmod | Change file mode bits | -c/--changes, -f/--silent/--quiet, -v/--verbose, -R/--recursive, --reference |
 | date | Print or set system date/time | -d/--date, -u/--utc, +FORMAT; -s/--set [NOT SUPPORT] |
@@ -65,6 +67,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | realpath | Print the resolved absolute path | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
 | xargs | Build and execute command lines from input | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null; -d/--delimiter [NOT SUPPORT] |
 | sed | Stream editor | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [basic substitution: s/pattern/replacement/flags] |
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
 ## 🎯 Why WinuxCmd?
 
