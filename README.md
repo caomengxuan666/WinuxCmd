@@ -28,7 +28,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 2. Extract to any directory
 3. Run the setup script: `winux-activate.ps1`
 
-## 📦 Currently Implemented Commands (v0.3.0)
+## 📦 Currently Implemented Commands (v0.4.1)
 
 | Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
 |---------|-------------|---------------------------------------------------------------|
@@ -65,6 +65,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | realpath | Print the resolved absolute path | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
 | xargs | Build and execute command lines from input | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null; -d/--delimiter [NOT SUPPORT] |
 | sed | Stream editor | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [basic substitution: s/pattern/replacement/flags] |
+| tree | List contents of directories in a tree-like format | -a/--all, -d/--directories-only, -L/--max-depth, -f/--full-path, -I/--ignore-pattern, -P/--pattern, -C/--color, -s/--size, -t/--time-sort, -o/--output |
 
 ## 🎯 Why WinuxCmd?
 

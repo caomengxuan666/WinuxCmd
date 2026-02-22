@@ -61,6 +61,86 @@ struct CommandEntryErased {
 class RegistryImpl {
   std::unordered_map<std::string_view, CommandEntryErased> registry_;
 
+  // Expand wildcards in positional arguments if needed
+  std::vector<std::string_view> expand_args_if_needed(
+      const cmd::meta::CommandMetaHandle &meta,
+      std::span<std::string_view> args,
+      std::vector<std::string>& storage) {
+    if (!meta.needsWildcardExpansion()) {
+      // Return a copy of args as string_views
+      std::vector<std::string_view> result(args.begin(), args.end());
+      return result;
+    }
+
+    // Need to parse options first to separate them from positionals
+    auto options = meta.options();
+    std::vector<std::string_view> non_positionals;
+    std::vector<std::string_view> positionals;
+
+    size_t i = 0;
+    while (i < args.size()) {
+      std::string_view arg = args[i];
+      if (arg.empty() || arg[0] != '-') {
+        // Positional argument
+        positionals.push_back(arg);
+        i++;
+      } else if (arg == "--") {
+        // All remaining args are positionals
+        i++;
+        while (i < args.size()) {
+          positionals.push_back(args[i]);
+          i++;
+        }
+        break;
+      } else {
+        // Option (with or without value)
+        non_positionals.push_back(arg);
+        i++;
+
+        // Check if this option requires a value
+        bool has_value = false;
+        for (const auto &opt : options) {
+          if (opt.short_name == arg || opt.long_name == arg) {
+            if (opt.type != cmd::meta::OptionType::Bool) {
+              has_value = true;
+            }
+            break;
+          }
+        }
+
+        if (has_value && i < args.size()) {
+          // Consume the option value
+          non_positionals.push_back(args[i]);
+          i++;
+        }
+      }
+    }
+
+    // Expand wildcards in positionals
+    std::vector<std::string_view> expanded_positionals;
+    for (const auto &pos : positionals) {
+      std::string pos_str(pos);
+      if (pos_str.find_first_of("*?[") != std::string::npos) {
+        auto matches = expand_wildcard(pos_str);
+        for (const auto &m : matches) {
+          storage.push_back(m);
+          expanded_positionals.push_back(storage.back());
+        }
+      } else {
+        storage.push_back(pos_str);
+        expanded_positionals.push_back(storage.back());
+      }
+    }
+
+    // Combine non-positionals + expanded positionals
+    std::vector<std::string_view> result;
+    result.reserve(non_positionals.size() + expanded_positionals.size());
+    result.insert(result.end(), non_positionals.begin(), non_positionals.end());
+    result.insert(result.end(), expanded_positionals.begin(), expanded_positionals.end());
+
+    return result;
+  }
+
  public:
   // Register a command with compile-time metadata
   template <size_t N>
@@ -128,7 +208,10 @@ class RegistryImpl {
       return 0;
     }
 
-    return it->second.handler(args);
+    // Expand wildcards if needed
+    std::vector<std::string> storage;  // Storage for expanded strings
+    auto expanded_args = expand_args_if_needed(meta, args, storage);
+    return it->second.handler(expanded_args);
   }
 
   // Print command help
