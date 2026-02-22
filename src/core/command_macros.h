@@ -91,7 +91,86 @@
         std::string_view(cmd_name), std::string_view(cmd_synopsis),            \
         std::string_view(cmd_desc), options, std::string_view(examples),       \
         std::string_view(see_also), std::string_view(author),                  \
-        std::string_view(copyright), std::string_view(cmd_synopsis));          \
+        std::string_view(copyright), std::string_view(cmd_synopsis), false);    \
+  }                                                                            \
+                                                                               \
+  template <size_t N>                                                          \
+  int execute##name(CommandContext<N>& ctx) noexcept;                          \
+                                                                               \
+  namespace {                                                                  \
+  struct _Registrar_##name {                                                   \
+    _Registrar_##name() {                                                      \
+      constexpr size_t N = command_##name##_internal::option_count;            \
+      CommandRegistry::registerCommand<N>(                                     \
+          #name, command_##name##_internal::meta, execute##name<N>);           \
+    }                                                                          \
+  };                                                                           \
+  _Registrar_##name _registrar_instance_##name;                                \
+  }                                                                            \
+                                                                               \
+  template <size_t N>                                                          \
+  int execute##name(CommandContext<N>& ctx) noexcept
+
+// Variant of REGISTER_COMMAND that enables wildcard expansion on positional arguments
+#define REGISTER_COMMAND_WILDCARD(name, cmd_name, cmd_synopsis, cmd_desc,      \
+                                   examples, see_also, author, copyright, ...)  \
+                                                                               \
+  namespace command_##name##_internal {                                        \
+    template <typename T>                                                      \
+    concept IsOptionMeta =                                                     \
+        std::is_same_v<std::remove_cvref_t<T>, cmd::meta::OptionMeta>;         \
+                                                                               \
+    template <typename T>                                                      \
+    concept IsOptionContainer = requires(T t) {                                \
+      requires std::is_array_v<T> || requires {                                \
+        { t.begin() } -> std::input_iterator;                                  \
+        { t.end() } -> std::input_iterator;                                    \
+        requires IsOptionMeta<std::iter_value_t<decltype(t.begin())>>;         \
+      };                                                                       \
+    };                                                                         \
+                                                                               \
+    template <typename T>                                                      \
+    concept IsSingleOption = IsOptionMeta<T>;                                  \
+                                                                               \
+    template <typename T>                                                      \
+    concept IsOptionArray = IsOptionContainer<T> && !IsOptionMeta<T>;          \
+                                                                               \
+    template <typename... Args>                                                \
+    constexpr auto make_option_array_impl(Args && ... args) {                  \
+      if constexpr (sizeof...(Args) == 0) {                                    \
+        return std::array<cmd::meta::OptionMeta, 0>{};                         \
+      } else if constexpr (sizeof...(Args) == 1) {                             \
+        using FirstType = std::tuple_element_t<0, std::tuple<Args...>>;        \
+        if constexpr (IsSingleOption<FirstType>) {                             \
+          return std::array<cmd::meta::OptionMeta, 1>{                         \
+              std::forward<Args>(args)...};                                    \
+        } else if constexpr (IsOptionArray<FirstType>) {                       \
+          return std::forward<FirstType>(args...);                             \
+        } else {                                                               \
+          static_assert(                                                       \
+              IsSingleOption<FirstType> || IsOptionArray<FirstType>,           \
+              "Argument must be OptionMeta or container/array of OptionMeta"); \
+          return std::array<cmd::meta::OptionMeta, 0>{};                       \
+        }                                                                      \
+      } else {                                                                 \
+        static_assert((IsSingleOption<Args> && ...),                           \
+                      "All arguments must be OptionMeta when multiple "        \
+                      "arguments provided");                                   \
+        return std::array<cmd::meta::OptionMeta, sizeof...(Args)>{             \
+            std::forward<Args>(args)...};                                      \
+      }                                                                        \
+    }                                                                          \
+                                                                               \
+    constexpr auto options = []() {                                            \
+      return make_option_array_impl(__VA_ARGS__);                              \
+    }();                                                                       \
+    constexpr size_t option_count = options.size();                            \
+    static_assert(option_count > 0, "No options registered!");                 \
+    constexpr auto meta = cmd::meta::CommandMeta<option_count>(                \
+        std::string_view(cmd_name), std::string_view(cmd_synopsis),            \
+        std::string_view(cmd_desc), options, std::string_view(examples),       \
+        std::string_view(see_also), std::string_view(author),                  \
+        std::string_view(copyright), std::string_view(cmd_synopsis), true);     \
   }                                                                            \
                                                                                \
   template <size_t N>                                                          \

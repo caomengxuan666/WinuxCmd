@@ -1397,13 +1397,16 @@ auto process_paths(const std::vector<std::string> &paths,
               }
 
               if (all_same_dir && !first_dir.empty()) {
-                // All files in same directory, display as directory listing
-                auto result = list_directory(wstring_to_utf8(first_dir), ctx);
-                if (!result) {
-                  safePrintLn(std::wstring(L"ls: ") +
-                              std::wstring(result.error().begin(),
-                                           result.error().end()));
-                  success = false;
+                // All files in same directory, list each file individually
+                // (Don't use list_directory as it would show all files, not just the matched ones)
+                for (const auto &f : matched_files) {
+                  auto result = list_file(f, ctx);
+                  if (!result) {
+                    safePrintLn(std::wstring(L"ls: ") +
+                                std::wstring(result.error().begin(),
+                                             result.error().end()));
+                    success = false;
+                  }
                 }
               } else {
                 // Files in different directories, list each one

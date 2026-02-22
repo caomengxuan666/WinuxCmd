@@ -58,6 +58,7 @@ class CommandMeta {
   std::string_view m_author;
   std::string_view m_copyright;
   std::string_view m_brief_desc;  // Brief description for help listing
+  bool m_needs_wildcard_expansion;  // Whether to expand wildcards in positional args
 
   static constexpr std::array<OptionMeta, OptionCount> with_index(
       std::array<OptionMeta, OptionCount> opts) {
@@ -73,7 +74,8 @@ class CommandMeta {
       std::string_view examples = "", std::string_view see_also = "",
       std::string_view author = "WinuxCmd Project",
       std::string_view copyright = "Copyright © 2026 WinuxCmd",
-      std::string_view brief_desc = "")
+      std::string_view brief_desc = "",
+      bool needs_wildcard_expansion = false)
       : m_name(name),
         m_synopsis(synopsis),
         m_description(description),
@@ -82,7 +84,8 @@ class CommandMeta {
         m_see_also(see_also),
         m_author(author),
         m_copyright(copyright),
-        m_brief_desc(brief_desc) {}
+        m_brief_desc(brief_desc),
+        m_needs_wildcard_expansion(needs_wildcard_expansion) {}
 
   // Accessors
   constexpr std::string_view name() const { return m_name; }
@@ -98,6 +101,10 @@ class CommandMeta {
   constexpr std::string_view brief_desc() const {
     return m_brief_desc;
   }  // Brief description getter
+
+  constexpr bool needsWildcardExpansion() const {
+    return m_needs_wildcard_expansion;
+  }
 
   constexpr int find_index(std::string_view name) const {
     for (size_t i = 0; i < OptionCount; ++i) {
@@ -424,6 +431,8 @@ export class CommandMetaBase {
   virtual std::string_view brief_desc() const = 0;
 
   virtual std::span<const OptionMeta> options() const = 0;
+
+  virtual bool needsWildcardExpansion() const = 0;
 };
 
 export template <size_t N>
@@ -440,6 +449,10 @@ class CommandMetaWrapper : public CommandMetaBase {
 
   std::span<const OptionMeta> options() const override {
     return m_meta.options();
+  }
+
+  bool needsWildcardExpansion() const override {
+    return m_meta.needsWildcardExpansion();
   }
 };
 
@@ -460,6 +473,10 @@ export class CommandMetaHandle {
   std::string_view brief_desc() const { return m_ptr->brief_desc(); }
 
   std::span<const OptionMeta> options() const { return m_ptr->options(); }
+
+  bool needsWildcardExpansion() const {
+    return m_ptr->needsWildcardExpansion();
+  }
 };
 
 // Registry for metadata
