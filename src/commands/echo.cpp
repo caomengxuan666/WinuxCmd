@@ -23,7 +23,7 @@
  *  - CopyrightYear: 2026
  */
 /// @contributors:
-///   - @contributor1 WinuxCmd
+///   - caomengxuan666 <2507560089@qq.com>
 /// @Description: Implementation for echo command.
 /// @Version: 0.1.0
 /// @License: MIT

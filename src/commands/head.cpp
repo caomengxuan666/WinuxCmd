@@ -31,6 +31,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -111,7 +112,7 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
   CountSpec spec;
   if (spec_text[0] == '-') {
     spec.all_but_last = true;
-    spec_text.erase(0, 1);
+    spec_text = spec_text.substr(1);  // Avoid modifying original string
     if (spec_text.empty()) {
       return std::unexpected("invalid number of " + std::string(opt_name));
     }
@@ -128,6 +129,7 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
 auto split_records(const std::string& data, char delimiter)
     -> std::vector<std::pair<size_t, size_t>> {
   std::vector<std::pair<size_t, size_t>> records;
+  records.reserve(data.size() / 10);  // Estimate: assume ~10 chars per record
   size_t start = 0;
   for (size_t i = 0; i < data.size(); ++i) {
     if (data[i] == delimiter) {
@@ -144,10 +146,14 @@ auto split_records(const std::string& data, char delimiter)
 auto print_ranges(const std::string& data,
                   const std::vector<std::pair<size_t, size_t>>& ranges,
                   size_t first, size_t last) -> void {
+  // Reserve buffer for output to avoid multiple small allocations
+  std::string out;
+  out.reserve((last - first) * 80);  // Assume ~80 chars per record
   for (size_t i = first; i < last; ++i) {
     const auto [begin, end] = ranges[i];
-    safePrint(std::string_view(data.data() + begin, end - begin));
+    out.append(data.data() + begin, end - begin);
   }
+  safePrint(out);
 }
 
 auto output_head(const std::string& data, const HeadConfig& config) -> void {
@@ -248,17 +254,19 @@ REGISTER_COMMAND(
     cp::report_error(config_result, L"head");
     return 1;
   }
-  auto config = *config_result;
+auto config = *config_result;
 
-  std::vector<std::string> files;
-  for (auto p : ctx.positionals) files.emplace_back(p);
-  if (files.empty()) files.emplace_back("-");
+  // Use SmallVector for files (max 64 files) - all stack-allocated
+  SmallVector<std::string, 64> files{};
+  for (auto p : ctx.positionals) files.push_back(std::string(p));
+  if (files.empty()) files.push_back("-");
 
   bool any_error = false;
   bool first_print = true;
   bool multi = files.size() > 1;
 
-  for (const auto& file : files) {
+  for (size_t i = 0; i < files.size(); ++i) {
+    const auto& file = files[i];
     auto data_result = read_input(file);
     if (!data_result) {
       safeErrorPrint("head: ");

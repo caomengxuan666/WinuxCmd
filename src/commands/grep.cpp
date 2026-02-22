@@ -38,6 +38,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -210,8 +211,8 @@ struct Config {
   bool count_only = false;
   bool null_after_filename = false;
   bool recursive = false;
-  std::vector<Pattern> patterns;
-  std::vector<std::string> files;
+  SmallVector<Pattern, 32> patterns;
+  SmallVector<std::string, 64> files;
   bool has_error = false;
 };
 
@@ -226,6 +227,7 @@ auto to_lower_ascii(std::string_view s) -> std::string {
 
 auto split_lines(std::string_view s) -> std::vector<std::string> {
   std::vector<std::string> parts;
+  parts.reserve(s.size() / 40);  // Reserve for ~40 chars per line
   size_t start = 0;
   while (start <= s.size()) {
     size_t pos = s.find('\n', start);
@@ -242,6 +244,7 @@ auto split_lines(std::string_view s) -> std::vector<std::string> {
 auto split_records(std::string_view s, char delim)
     -> std::vector<std::pair<size_t, size_t>> {
   std::vector<std::pair<size_t, size_t>> out;
+  out.reserve(s.size() / 40);  // Reserve for ~40 chars per record
   size_t start = 0;
   for (size_t i = 0; i < s.size(); ++i) {
     if (s[i] == delim) {
@@ -396,12 +399,12 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
   if (cfg.directories.empty())
     cfg.directories = cfg.recursive ? "recurse" : "read";
 
-  std::vector<std::string> raw_patterns;
+  SmallVector<std::string, 32> raw_patterns;
   std::string p_e = ctx.get<std::string>("--regexp", "");
   if (p_e.empty()) p_e = ctx.get<std::string>("-e", "");
   if (!p_e.empty()) {
     auto from_e = split_lines(p_e);
-    raw_patterns.insert(raw_patterns.end(), from_e.begin(), from_e.end());
+    for (const auto& p : from_e) raw_patterns.push_back(p);
   }
 
   std::string p_file = ctx.get<std::string>("--file", "");
@@ -409,8 +412,7 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
   if (!p_file.empty()) {
     auto file_patterns = load_patterns_from_file(p_file);
     if (!file_patterns) return std::unexpected(file_patterns.error());
-    raw_patterns.insert(raw_patterns.end(), file_patterns->begin(),
-                        file_patterns->end());
+    for (const auto& p : *file_patterns) raw_patterns.push_back(p);
   }
 
   std::vector<std::string> positionals;
@@ -421,8 +423,8 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
       return std::unexpected("missing PATTERNS");
     }
     auto split = split_lines(positionals.front());
-    raw_patterns.insert(raw_patterns.end(), split.begin(), split.end());
-    positionals.erase(positionals.begin());
+    for (const auto& p : split) raw_patterns.push_back(p);
+    positionals.erase(positionals.begin(), positionals.begin() + 1);  // Remove first element
   }
 
   if (raw_patterns.empty()) {
@@ -435,7 +437,7 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
     cfg.patterns.push_back(*c);
   }
 
-  cfg.files = positionals;
+  for (const auto& p : positionals) cfg.files.push_back(std::string(p));
   if (cfg.files.empty()) {
     if (cfg.directories == "recurse") {
       cfg.files.push_back(".");

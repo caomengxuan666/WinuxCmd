@@ -49,6 +49,7 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "import std;\n";
   moduleContent += "import core;\n";
   moduleContent += "import utils;\n";
+  moduleContent += "import container;\n";
   moduleContent += "namespace fs = std::filesystem;\n\n";
   moduleContent += "using cmd::meta::OptionMeta;\n";
   moduleContent += "using cmd::meta::OptionType;\n\n";

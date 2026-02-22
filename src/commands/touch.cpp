@@ -58,7 +58,7 @@ auto constexpr TOUCH_OPTIONS = std::array{
     OPTION("-a", "", "change only the access time"),
     OPTION("-c", "--no-create", "do not create any files"),
     OPTION("-d", "--date",
-           "parse STRING and use it instead of current time [NOT SUPPORT]",
+           "parse STRING and use it instead of current time",
            STRING_TYPE),
     OPTION("-f", "", "(ignored)"),
     OPTION("-h", "--no-dereference",
@@ -67,7 +67,7 @@ auto constexpr TOUCH_OPTIONS = std::array{
     OPTION("-r", "--reference", "use this file's times instead of current time",
            STRING_TYPE),
     OPTION("-t", "",
-           "use [[CC]YY]MMDDhhmm[.ss] instead of current time [NOT SUPPORT]",
+           "use [[CC]YY]MMDDhhmm[.ss] instead of current time",
            STRING_TYPE),
     OPTION("", "--time",
            "change the specified time (access/atime/use/modify/mtime)",
@@ -80,6 +80,131 @@ struct TimePair {
   FILETIME atime{};
   FILETIME mtime{};
 };
+
+/**
+ * @brief Parse date string in format [[CC]YY]MMDDhhmm[.ss]
+ * @param date_str Date string to parse
+ * @return FILETIME or nullopt if parsing fails
+ */
+auto parse_date_string(const std::string& date_str)
+    -> std::optional<FILETIME> {
+  std::string s = date_str;
+  
+  // Remove any leading/trailing whitespace
+  size_t start = s.find_first_not_of(" \t");
+  size_t end = s.find_last_not_of(" \t");
+  if (start != std::string::npos && end != std::string::npos) {
+    s = s.substr(start, end - start + 1);
+  } else {
+    return std::nullopt;
+  }
+  
+  // Parse format: [[CC]YY]MMDDhhmm[.ss]
+  // Minimum length: MMDDhhmm = 8 characters
+  // Maximum length: CCYYMMDDhhmm.ss = 15 characters
+  if (s.length() < 8 || s.length() > 15) {
+    return std::nullopt;
+  }
+  
+  // Handle optional century (CC) and year (YY)
+  size_t pos = 0;
+  int year = 0;
+  
+  if (s.length() >= 12) {
+    // Format includes century and year: CCYYMMDDhhmm
+    if (s.length() >= 12) {
+      std::string ccyy = s.substr(0, 4);
+      if (!std::all_of(ccyy.begin(), ccyy.end(), ::isdigit)) {
+        return std::nullopt;
+      }
+      year = std::stoi(ccyy);
+      pos = 4;
+    }
+  } else {
+    // Format includes only year: YYMMDDhhmm
+    std::string yy = s.substr(0, 2);
+    if (!std::all_of(yy.begin(), yy.end(), ::isdigit)) {
+      return std::nullopt;
+    }
+    int yy_val = std::stoi(yy);
+    // Assume 1970-2069 range
+    year = (yy_val >= 70) ? 1900 + yy_val : 2000 + yy_val;
+    pos = 2;
+  }
+  
+  // Parse month (MM)
+  if (pos + 2 > s.length()) return std::nullopt;
+  std::string mm = s.substr(pos, 2);
+  if (!std::all_of(mm.begin(), mm.end(), ::isdigit)) return std::nullopt;
+  int month = std::stoi(mm);
+  pos += 2;
+  
+  // Parse day (DD)
+  if (pos + 2 > s.length()) return std::nullopt;
+  std::string dd = s.substr(pos, 2);
+  if (!std::all_of(dd.begin(), dd.end(), ::isdigit)) return std::nullopt;
+  int day = std::stoi(dd);
+  pos += 2;
+  
+  // Parse hour (hh)
+  if (pos + 2 > s.length()) return std::nullopt;
+  std::string hh = s.substr(pos, 2);
+  if (!std::all_of(hh.begin(), hh.end(), ::isdigit)) return std::nullopt;
+  int hour = std::stoi(hh);
+  pos += 2;
+  
+  // Parse minute (mm)
+  if (pos + 2 > s.length()) return std::nullopt;
+  std::string min = s.substr(pos, 2);
+  if (!std::all_of(min.begin(), min.end(), ::isdigit)) return std::nullopt;
+  int minute = std::stoi(min);
+  pos += 2;
+  
+  // Parse optional second (.ss)
+  int second = 0;
+  if (pos < s.length() && s[pos] == '.') {
+    pos++;
+    if (pos + 2 > s.length()) return std::nullopt;
+    std::string ss = s.substr(pos, 2);
+    if (!std::all_of(ss.begin(), ss.end(), ::isdigit)) return std::nullopt;
+    second = std::stoi(ss);
+    pos += 2;
+  }
+  
+  // Validate ranges
+  if (month < 1 || month > 12) return std::nullopt;
+  if (day < 1 || day > 31) return std::nullopt;
+  if (hour < 0 || hour > 23) return std::nullopt;
+  if (minute < 0 || minute > 59) return std::nullopt;
+  if (second < 0 || second > 59) return std::nullopt;
+  
+  // Create local SYSTEMTIME (input is interpreted as local time)
+  SYSTEMTIME st_local{};
+  st_local.wYear = year;
+  st_local.wMonth = month;
+  st_local.wDay = day;
+  st_local.wHour = hour;
+  st_local.wMinute = minute;
+  st_local.wSecond = second;
+  st_local.wMilliseconds = 0;
+  
+  // Convert local time to UTC using time zone API
+  TIME_ZONE_INFORMATION tzi{};
+  GetTimeZoneInformation(&tzi);
+  
+  SYSTEMTIME st_utc{};
+  if (!TzSpecificLocalTimeToSystemTime(&tzi, &st_local, &st_utc)) {
+    return std::nullopt;
+  }
+  
+  // Convert UTC SYSTEMTIME to FILETIME
+  FILETIME ft{};
+  if (!SystemTimeToFileTime(&st_utc, &ft)) {
+    return std::nullopt;
+  }
+  
+  return ft;
+}
 
 auto read_times_from_file(const std::wstring& wpath)
     -> std::optional<TimePair> {
@@ -100,7 +225,8 @@ auto read_times_from_file(const std::wstring& wpath)
 auto apply_touch_one(const std::string& path,
                      const CommandContext<TOUCH_OPTIONS.size()>& ctx,
                      bool update_access, bool update_modify, bool no_create,
-                     const std::optional<TimePair>& ref_times) -> bool {
+                     const std::optional<TimePair>& ref_times,
+                     const std::optional<TimePair>& date_times) -> bool {
   std::wstring wpath = utf8_to_wstring(path);
 
   DWORD create_mode = no_create ? OPEN_EXISTING : OPEN_ALWAYS;
@@ -132,10 +258,16 @@ auto apply_touch_one(const std::string& path,
   FILETIME set_a = cur_a;
   FILETIME set_m = cur_m;
 
-  if (ref_times.has_value()) {
+  if (date_times.has_value()) {
+    // Use specified date/time from -d or -t option
+    if (update_access) set_a = date_times->atime;
+    if (update_modify) set_m = date_times->mtime;
+  } else if (ref_times.has_value()) {
+    // Use times from reference file
     if (update_access) set_a = ref_times->atime;
     if (update_modify) set_m = ref_times->mtime;
   } else {
+    // Use current time
     FILETIME now{};
     GetSystemTimeAsFileTime(&now);
     if (update_access) set_a = now;
@@ -186,9 +318,21 @@ auto process_command(const CommandContext<TOUCH_OPTIONS.size()>& ctx)
   bool no_create =
       ctx.get<bool>("--no-create", false) || ctx.get<bool>("-c", false);
 
-  // parsed but currently not implemented on Windows in this command
-  (void)ctx.get<std::string>("--date", "");
-  (void)ctx.get<std::string>("-t", "");
+  // Parse --date or -t option
+  std::optional<TimePair> date_times = std::nullopt;
+  std::string date_str = ctx.get<std::string>("--date", "");
+  if (date_str.empty()) date_str = ctx.get<std::string>("-t", "");
+  if (!date_str.empty()) {
+    auto ft = parse_date_string(date_str);
+    if (!ft.has_value()) {
+      safeErrorPrint("touch: invalid date format '");
+      safeErrorPrint(date_str);
+      safeErrorPrint("'\n");
+      return std::unexpected("invalid date format");
+    }
+    date_times = TimePair{*ft, *ft};
+  }
+
   (void)ctx.get<bool>("--no-dereference", false);
   (void)ctx.get<bool>("-h", false);
   (void)ctx.get<bool>("-f", false);
@@ -209,7 +353,7 @@ auto process_command(const CommandContext<TOUCH_OPTIONS.size()>& ctx)
   bool all_ok = true;
   for (auto p : ctx.positionals) {
     if (!apply_touch_one(std::string(p), ctx, update_access, update_modify,
-                         no_create, ref_times)) {
+                         no_create, ref_times, date_times)) {
       all_ok = false;
     }
   }

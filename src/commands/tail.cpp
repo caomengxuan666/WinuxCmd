@@ -25,11 +25,20 @@
  */
 
 #include "pch/pch.h"
+
 //include other header after pch.h
+
 #include "core/command_macros.h"
+
+
+
 import std;
+
 import core;
+
 import utils;
+
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -124,48 +133,43 @@ auto read_input(std::string_view path) -> cp::Result<std::string> {
 
 auto suffix_multiplier(std::string_view suffix)
     -> std::optional<std::uintmax_t> {
-  static constexpr std::array<std::pair<std::string_view, std::uintmax_t>, 25>
-      kMultipliers = {
-          std::pair{"b", 512ULL},
-          std::pair{"kB", 1000ULL},
-          std::pair{"K", 1024ULL},
-          std::pair{"KiB", 1024ULL},
-          std::pair{"MB", 1000ULL * 1000ULL},
-          std::pair{"M", 1024ULL * 1024ULL},
-          std::pair{"MiB", 1024ULL * 1024ULL},
-          std::pair{"GB", 1000ULL * 1000ULL * 1000ULL},
-          std::pair{"G", 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"GiB", 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"TB", 1000ULL * 1000ULL * 1000ULL * 1000ULL},
-          std::pair{"T", 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"TiB", 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"PB", 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
-          std::pair{"P", 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"PiB", 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"EB",
-                    1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
-          std::pair{"E",
-                    1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"EiB",
-                    1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-          std::pair{"Z", 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL *
-                             1024ULL * 1024ULL},
-          std::pair{"Y", 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL *
-                             1024ULL * 1024ULL * 1024ULL},
-          std::pair{"R", 0ULL},
-          std::pair{"Q", 0ULL},
-          std::pair{"ZB", 0ULL},
-          std::pair{"YB", 0ULL}};
-
+  static constexpr auto kMultipliers = 
+      make_constexpr_map<std::string_view, std::uintmax_t>(
+          std::array<std::pair<std::string_view, std::uintmax_t>, 25>{
+              std::pair{std::string_view{"b"}, 512ULL},
+              std::pair{std::string_view{"kB"}, 1000ULL},
+              std::pair{std::string_view{"K"}, 1024ULL},
+              std::pair{std::string_view{"KiB"}, 1024ULL},
+              std::pair{std::string_view{"MB"}, 1000ULL * 1000ULL},
+              std::pair{std::string_view{"M"}, 1024ULL * 1024ULL},
+              std::pair{std::string_view{"MiB"}, 1024ULL * 1024ULL},
+              std::pair{std::string_view{"GB"}, 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"G"}, 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"GiB"}, 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"TB"}, 1000ULL * 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"T"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"TiB"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"PB"}, 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"P"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"PiB"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"EB"}, 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"E"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"EiB"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"Z"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"Y"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"R"}, 0ULL},
+              std::pair{std::string_view{"Q"}, 0ULL},
+              std::pair{std::string_view{"ZB"}, 0ULL},
+              std::pair{std::string_view{"YB"}, 0ULL}
+          });
+  
   if (suffix.empty()) return 1;
-
-  for (const auto& [key, mult] : kMultipliers) {
-    if (key == suffix) {
-      if (mult == 0ULL) return std::nullopt;
-      return mult;
-    }
+  
+  if (auto it = kMultipliers.find(suffix); it != kMultipliers.end()) {
+    auto mult = it->second;
+    if (mult == 0ULL) return std::nullopt;
+    return mult;
   }
-
   if (suffix == "RB" || suffix == "QB") {
     return std::nullopt;
   }
@@ -207,7 +211,7 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
   CountSpec spec;
   if (spec_text[0] == '+') {
     spec.from_start = true;
-    spec_text.erase(0, 1);
+    spec_text = spec_text.substr(1);  // Avoid modifying original string
   }
 
   auto parsed = parse_numeric_with_suffix(spec_text);
@@ -222,6 +226,7 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
 auto split_records(const std::string& data, char delimiter)
     -> std::vector<std::pair<size_t, size_t>> {
   std::vector<std::pair<size_t, size_t>> records;
+  records.reserve(data.size() / 10);  // Estimate: assume ~10 chars per record
   size_t start = 0;
   for (size_t i = 0; i < data.size(); ++i) {
     if (data[i] == delimiter) {
@@ -238,10 +243,14 @@ auto split_records(const std::string& data, char delimiter)
 auto print_ranges(const std::string& data,
                   const std::vector<std::pair<size_t, size_t>>& ranges,
                   size_t first, size_t last) -> void {
+  // Reserve buffer for output to avoid multiple small allocations
+  std::string out;
+  out.reserve((last - first) * 80);  // Assume ~80 chars per record
   for (size_t i = first; i < last; ++i) {
     const auto [begin, end] = ranges[i];
-    safePrint(std::string_view(data.data() + begin, end - begin));
+    out.append(data.data() + begin, end - begin);
   }
+  safePrint(out);
 }
 
 auto output_tail(const std::string& data, const TailConfig& config) -> void {
@@ -366,17 +375,19 @@ REGISTER_COMMAND(
     cp::report_error(config_result, L"tail");
     return 1;
   }
-  auto config = *config_result;
+auto config = *config_result;
 
-  std::vector<std::string> files;
-  for (auto p : ctx.positionals) files.emplace_back(p);
-  if (files.empty()) files.emplace_back("-");
+  // Use SmallVector for files (max 64 files) - all stack-allocated
+  SmallVector<std::string, 64> files{};
+  for (auto p : ctx.positionals) files.push_back(std::string(p));
+  if (files.empty()) files.push_back("-");
 
   bool any_error = false;
   bool first_print = true;
   bool multi = files.size() > 1;
 
-  for (const auto& file : files) {
+  for (size_t i = 0; i < files.size(); ++i) {
+    const auto& file = files[i];
     auto data_result = read_input(file);
     if (!data_result) {
       safeErrorPrint("tail: ");

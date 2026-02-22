@@ -5,6 +5,7 @@ cmake-build-*/
 out/
 
 # CMake Preset build directories
+build-benchmark/
 build-dev/
 build-release/
 build-release-debug/
@@ -32,3 +33,4 @@ scripts/manager.py
 /Testing
 
 /CMakeSettings.json
+

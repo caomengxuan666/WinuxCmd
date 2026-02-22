@@ -25,13 +25,21 @@
  */
 
 /// @contributors:
+<<<<<<< HEAD
 ///   - @contributor1 arookieofc 2128194521@qq.com
+=======
+///   - @contributor1 arookieofc <2128194521@qq.com>
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 ///   - @contributor2 <email2@example.com>
 ///   - @contributor3 <email3@example.com>
 /// @Description: Implementation for pwd.
 /// @Version: 0.1.0
 /// @License: MIT
+<<<<<<< HEAD
 /// @Copyright: Copyright ? 2026 WinuxCmd
+=======
+/// @Copyright: Copyright ©  2026 WinuxCmd
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
 #include "pch/pch.h"
 //include other header after pch.h
@@ -93,6 +101,7 @@ auto get_current_directory(const CommandContext<PWD_OPTIONS.size()>& ctx)
   // Remove null terminator
   wCurrentDir.resize(result);
 
+<<<<<<< HEAD
   // Convert to UTF-8
   int utf8Size = WideCharToMultiByte(CP_UTF8, 0, wCurrentDir.c_str(), 
                                      static_cast<int>(wCurrentDir.length()), 
@@ -105,6 +114,10 @@ auto get_current_directory(const CommandContext<PWD_OPTIONS.size()>& ctx)
   WideCharToMultiByte(CP_UTF8, 0, wCurrentDir.c_str(), 
                       static_cast<int>(wCurrentDir.length()), 
                       &currentDir[0], utf8Size, NULL, NULL);
+=======
+  // Convert to UTF-8 using utility function
+  std::string currentDir = wstring_to_utf8(wCurrentDir);
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   return currentDir;
 }

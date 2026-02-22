@@ -31,6 +31,7 @@
 
 #ifndef PCH_H
 #pragma warning(disable: 4530)
+#pragma warning(disable: 4541)  // Disable typeid warning with /GR-
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define STRICT
@@ -52,7 +53,7 @@
 
 #include <cctype>   // For isspace
 #include <cstdint>  // For uint64_t
-#include <cstdio>   // For printf, fflush
+//#include <cstdio>   // For printf, fflush
 #include <cstdlib>  // For basic functions
 #include <cstring>  // For strlen
 #include <cwchar>   // For wprintf, fwprintf

@@ -40,6 +40,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -373,7 +374,9 @@ auto get_file_owner_and_group(bool use_numeric = false)
         LPWSTR sidStr = nullptr;
         if (ConvertSidToStringSidW(pTokenUser->User.Sid, &sidStr)) {
           // Extract numeric part from SID (simulate UID 197121)
-          std::wstring sid = sidStr;
+          std::wstring sid(sidStr, wcslen(sidStr));  // Construct from known length
+          LocalFree(sidStr);
+          
           size_t lastDash = sid.find_last_of(L'-');
           std::wstring uid_wstr = (lastDash != std::wstring::npos)
                                       ? sid.substr(lastDash + 1)
@@ -381,7 +384,6 @@ auto get_file_owner_and_group(bool use_numeric = false)
 
           // Convert wide string to UTF-8
           std::string uid = wstring_to_utf8(uid_wstr);
-          LocalFree(sidStr);
           CloseHandle(hToken);
           return {uid, uid};  // UID = GID (Windows default)
         }
@@ -663,6 +665,16 @@ auto print_columns(const std::vector<std::wstring> &entries,
 }
 
 /**
+ * @brief List a single file (not a directory) - forward declaration
+ * @param path Path to file
+ * @param ctx Command context
+ * @return Result with success status
+ */
+auto list_file(const std::string &path,
+               const CommandContext<LS_OPTIONS.size()> &ctx)
+    -> cp::Result<bool>;
+
+/**
  * @brief List directory contents
  * @param path Path to directory
  * @param ctx Command context
@@ -672,6 +684,27 @@ auto list_directory(const std::string &path,
                     const CommandContext<LS_OPTIONS.size()> &ctx)
     -> cp::Result<bool> {
   std::wstring wpath = utf8_to_wstring(path);
+
+  // Check -d option: list directories themselves, not their contents
+  bool list_dir_only = ctx.get<bool>("-d", false) ||
+                       ctx.get<bool>("--directory", false);
+
+  if (list_dir_only) {
+    // Get directory attributes
+    WIN32_FIND_DATAW dir_data;
+    HANDLE hFind = FindFirstFileW(wpath.c_str(), &dir_data);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+      return std::unexpected("cannot access '" + path +
+                             "': No such file or directory");
+    }
+
+    // Display directory itself as a file
+    FindClose(hFind);
+    return list_file(path, ctx);
+  }
+
+  // Normal directory listing
   std::wstring search_path = wpath + L"\\*";
 
   WIN32_FIND_DATAW find_data;
@@ -682,7 +715,13 @@ auto list_directory(const std::string &path,
                            "': No such file or directory");
   }
 
-  std::vector<std::wstring> entries;
+  // Collect entries with their metadata for sorting
+  struct EntryInfo {
+    std::wstring name;
+    WIN32_FIND_DATAW find_data;
+  };
+
+  std::vector<EntryInfo> entries;
   do {
     std::wstring filename = find_data.cFileName;
 
@@ -700,18 +739,55 @@ auto list_directory(const std::string &path,
       continue;
     }
 
-    entries.push_back(filename);
+    entries.push_back({filename, find_data});
   } while (FindNextFileW(hFind, &find_data) != 0);
 
   FindClose(hFind);
 
   // Sort entries
   bool no_sort = ctx.get<bool>("-U", false);
+  bool sort_by_time = ctx.get<bool>("-t", false);
+  bool sort_by_size = ctx.get<bool>("-S", false);
+  bool reverse_sort = ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
+
   if (!no_sort) {
-    std::sort(entries.begin(), entries.end());
-    if (ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false)) {
+    if (sort_by_time) {
+      std::sort(entries.begin(), entries.end(),
+                [](const EntryInfo &a, const EntryInfo &b) {
+                  return CompareFileTime(&a.find_data.ftLastWriteTime,
+                                         &b.find_data.ftLastWriteTime) > 0;
+                });
+    } else if (sort_by_size) {
+      // Sort by file size (largest first), then by name for deterministic order
+      std::sort(entries.begin(), entries.end(),
+                [](const EntryInfo &a, const EntryInfo &b) {
+                  uint64_t size_a = static_cast<uint64_t>(a.find_data.nFileSizeLow) |
+                                   (static_cast<uint64_t>(a.find_data.nFileSizeHigh) << 32);
+                  uint64_t size_b = static_cast<uint64_t>(b.find_data.nFileSizeLow) |
+                                   (static_cast<uint64_t>(b.find_data.nFileSizeHigh) << 32);
+                  if (size_a != size_b) {
+                    return size_a > size_b;
+                  }
+                  // If sizes are equal, sort by name
+                  return a.name < b.name;
+                });
+    } else {
+      // Sort by name (alphabetical)
+      std::sort(entries.begin(), entries.end(),
+                [](const EntryInfo &a, const EntryInfo &b) {
+                  return a.name < b.name;
+                });
+    }
+
+    if (reverse_sort) {
       std::reverse(entries.begin(), entries.end());
     }
+  }
+
+  // Extract just names for output
+  std::vector<std::wstring> entry_names;
+  for (const auto &entry : entries) {
+    entry_names.push_back(entry.name);
   }
 
   // Determine output format
@@ -721,6 +797,7 @@ auto list_directory(const std::string &path,
   bool columns = ctx.get<bool>("-C", false);
   bool use_numeric =
       ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric-uid-gid", false);
+
   if (long_format) {
     // FileInfo struct for storing file information
     struct FileInfo {
@@ -733,30 +810,22 @@ auto list_directory(const std::string &path,
       std::string group;
     };
 
-    // Collect file information
+    // Collect file information (we already have find_data from entries)
     std::vector<FileInfo> files;
     for (const auto &entry : entries) {
-      std::wstring full_path = wpath;
-      full_path += L'\\';
-      full_path += entry;
-      WIN32_FIND_DATAW entry_data;
-      HANDLE hEntry = FindFirstFileW(full_path.c_str(), &entry_data);
-      if (hEntry != INVALID_HANDLE_VALUE) {
-        FileInfo info;
-        info.name = entry;
-        info.find_data = entry_data;
-        info.perms = get_permissions_string(entry_data);
-        info.size = get_file_size_string(entry_data, ctx);
-        info.mtime = get_modification_time_string(entry_data);
+      FileInfo info;
+      info.name = entry.name;
+      info.find_data = entry.find_data;
+      info.perms = get_permissions_string(entry.find_data);
+      info.size = get_file_size_string(entry.find_data, ctx);
+      info.mtime = get_modification_time_string(entry.find_data);
 
-        // Get owner and group
-        auto [owner, group] = get_file_owner_and_group(use_numeric);
-        info.owner = owner;
-        info.group = group;
+      // Get owner and group
+      auto [owner, group] = get_file_owner_and_group(use_numeric);
+      info.owner = owner;
+      info.group = group;
 
-        files.push_back(info);
-        FindClose(hEntry);
-      }
+      files.push_back(info);
     }
 
     // Calculate maximum widths for alignment
@@ -899,79 +968,337 @@ auto list_directory(const std::string &path,
 
     // One entry per line
     for (const auto &entry : entries) {
-      std::wstring full_path = wpath;
-      full_path += L'\\';
-      full_path += entry;
-      WIN32_FIND_DATAW entry_data;
-      HANDLE hEntry = FindFirstFileW(full_path.c_str(), &entry_data);
+      // Apply color based on file type
+      if (color_enabled) {
+        if (entry.find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+          safePrint(COLOR_DIR);
+        } else if (entry.find_data.dwFileAttributes &
+                   FILE_ATTRIBUTE_REPARSE_POINT) {
+          safePrint(COLOR_LINK);
+        } else {
+          // Check file extensions for different types
+          std::wstring ext;
+          size_t dot_pos = entry.name.find_last_of(L".");
+          if (dot_pos != std::wstring::npos && dot_pos < entry.name.length() - 1) {
+            ext = entry.name.substr(dot_pos + 1);
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+          }
 
-      if (hEntry != INVALID_HANDLE_VALUE) {
-        // Apply color based on file type
-        if (color_enabled) {
-          if (entry_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            safePrint(COLOR_DIR);
-          } else if (entry_data.dwFileAttributes &
-                     FILE_ATTRIBUTE_REPARSE_POINT) {
-            safePrint(COLOR_LINK);
-          } else {
-            // Check file extensions for different types
-            std::wstring ext;
-            size_t dot_pos = entry.find_last_of(L".");
-            if (dot_pos != std::wstring::npos && dot_pos < entry.length() - 1) {
-              ext = entry.substr(dot_pos + 1);
-              std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            }
-
-            // Check for compressed files
-            bool is_compressed = false;
-            for (const auto *comp_ext : ls_constants::COMPRESSED_EXTS) {
-              if (ext == comp_ext) {
-                is_compressed = true;
-                break;
-              }
-            }
-
-            // Check for script files
-            bool is_script = false;
-            for (const auto *script_ext : ls_constants::SCRIPT_EXTS) {
-              if (ext == script_ext) {
-                is_script = true;
-                break;
-              }
-            }
-
-            // Check for executable files
-            bool is_executable = false;
-            if (ext == L"exe" || ext == L"com" || ext == L"bat" ||
-                ext == L"cmd" || ext == L"ps1") {
-              is_executable = true;
-            }
-
-            // Apply color based on file type
-            if (is_compressed) {
-              safePrint(COLOR_ARCHIVE);
-            } else if (is_script) {
-              safePrint(COLOR_SCRIPT);
-            } else if (is_executable) {
-              safePrint(COLOR_EXEC);
-            } else {
-              safePrint(COLOR_FILE);
+          // Check for compressed files
+          bool is_compressed = false;
+          for (const auto *comp_ext : ls_constants::COMPRESSED_EXTS) {
+            if (ext == comp_ext) {
+              is_compressed = true;
+              break;
             }
           }
-        }
 
-        safePrint(entry);
-        if (color_enabled) {
-          safePrint(COLOR_RESET);
-        }
-        safePrintLn(L"");
+          // Check for script files
+          bool is_script = false;
+          for (const auto *script_ext : ls_constants::SCRIPT_EXTS) {
+            if (ext == script_ext) {
+              is_script = true;
+              break;
+            }
+          }
 
-        FindClose(hEntry);
+          // Check for executable files
+          bool is_executable = false;
+          if (ext == L"exe" || ext == L"com" || ext == L"bat" ||
+              ext == L"cmd" || ext == L"ps1") {
+            is_executable = true;
+          }
+
+          // Apply color based on file type
+          if (is_compressed) {
+            safePrint(COLOR_ARCHIVE);
+          } else if (is_script) {
+            safePrint(COLOR_SCRIPT);
+          } else if (is_executable) {
+            safePrint(COLOR_EXEC);
+          } else {
+            safePrint(COLOR_FILE);
+          }
+        }
       }
+
+      safePrint(entry.name);
+      if (color_enabled) {
+        safePrint(COLOR_RESET);
+      }
+      safePrintLn(L"");
     }
   } else {
     // Column format
-    print_columns(entries, ctx, wpath);
+    print_columns(entry_names, ctx, wpath);
+  }
+
+  return true;
+}
+
+/**
+ * @brief List a single file (not a directory)
+ * @param path Path to file
+ * @param ctx Command context
+ * @return Result with success status
+ */
+auto list_file(const std::string &path,
+               const CommandContext<LS_OPTIONS.size()> &ctx)
+    -> cp::Result<bool> {
+  std::wstring wpath = utf8_to_wstring(path);
+
+  // Extract just the filename for display
+  WIN32_FIND_DATAW find_data;
+  HANDLE hFind = FindFirstFileW(wpath.c_str(), &find_data);
+
+  if (hFind == INVALID_HANDLE_VALUE) {
+    return std::unexpected("cannot access '" + path +
+                           "': No such file or directory");
+  }
+
+  std::wstring filename = find_data.cFileName;
+  FindClose(hFind);
+
+  // Determine output format
+  bool long_format =
+      ctx.get<bool>("-l", false) || ctx.get<bool>("--long-list", false);
+  bool one_per_line = ctx.get<bool>("-1", false);
+  bool use_numeric =
+      ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric-uid-gid", false);
+
+  if (long_format) {
+    // Long format output for single file
+    auto perms = get_permissions_string(find_data);
+    auto size = get_file_size_string(find_data, ctx);
+    auto mtime = get_modification_time_string(find_data);
+    auto [owner, group] = get_file_owner_and_group(use_numeric);
+
+    // 1. Permissions and link count
+    safePrint(std::string_view(perms));
+    safePrint(" ");
+    safePrint("1");  // Windows always has 1 link
+    safePrint(" ");
+
+    // 2. Owner (left-aligned, with padding to match column width)
+    safePrint(std::string_view(owner));
+    safePrint(" ");
+
+    // 3. Group (left-aligned)
+    safePrint(std::string_view(group));
+    safePrint(" ");
+
+    // 4. File size (right-aligned, pad to at least 8 chars)
+    if (size.length() < 8) {
+      for (size_t i = 0; i < 8 - size.length(); i++) {
+        safePrint(" ");
+      }
+    }
+    safePrint(std::string_view(size));
+    safePrint(" ");
+
+    // 5. Modification time
+    safePrint(std::string_view(mtime));
+    safePrint(" ");
+
+    // 6. Filename with color
+    bool color_enabled = true;
+    std::string color_option = ctx.get<std::string>("--color", "auto");
+    if (color_option == "never") {
+      color_enabled = false;
+    } else if (color_option == "auto") {
+      color_enabled = is_terminal(stdout);
+    }
+
+    if (color_enabled) {
+      if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        safePrint(COLOR_DIR);
+      } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        safePrint(COLOR_LINK);
+      } else {
+        // Check file extension
+        std::wstring ext;
+        size_t dot_pos = filename.find_last_of(L".");
+        if (dot_pos != std::wstring::npos && dot_pos < filename.length() - 1) {
+          ext = filename.substr(dot_pos + 1);
+          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        }
+
+        bool is_compressed = false;
+        for (const auto *comp_ext : ls_constants::COMPRESSED_EXTS) {
+          if (ext == comp_ext) {
+            is_compressed = true;
+            break;
+          }
+        }
+
+        bool is_script = false;
+        for (const auto *script_ext : ls_constants::SCRIPT_EXTS) {
+          if (ext == script_ext) {
+            is_script = true;
+            break;
+          }
+        }
+
+        bool is_executable = false;
+        if (ext == L"exe" || ext == L"com" || ext == L"bat" ||
+            ext == L"cmd" || ext == L"ps1") {
+          is_executable = true;
+        }
+
+        if (is_compressed) {
+          safePrint(COLOR_ARCHIVE);
+        } else if (is_script) {
+          safePrint(COLOR_SCRIPT);
+        } else if (is_executable) {
+          safePrint(COLOR_EXEC);
+        } else {
+          safePrint(COLOR_FILE);
+        }
+      }
+    }
+
+    safePrint(wstring_to_utf8(filename));
+    if (color_enabled) {
+      safePrint(COLOR_RESET);
+    }
+    safePrintLn(L"");
+  } else {
+    // Simple output format
+    bool color_enabled = true;
+    std::string color_option = ctx.get<std::string>("--color", "auto");
+    if (color_option == "never") {
+      color_enabled = false;
+    } else if (color_option == "auto") {
+      color_enabled = is_terminal(stdout);
+    }
+
+    if (color_enabled) {
+      if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        safePrint(COLOR_DIR);
+      } else if (find_data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        safePrint(COLOR_LINK);
+      } else {
+        std::wstring ext;
+        size_t dot_pos = filename.find_last_of(L".");
+        if (dot_pos != std::wstring::npos && dot_pos < filename.length() - 1) {
+          ext = filename.substr(dot_pos + 1);
+          std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        }
+
+        bool is_compressed = false;
+        for (const auto *comp_ext : ls_constants::COMPRESSED_EXTS) {
+          if (ext == comp_ext) {
+            is_compressed = true;
+            break;
+          }
+        }
+
+        bool is_script = false;
+        for (const auto *script_ext : ls_constants::SCRIPT_EXTS) {
+          if (ext == script_ext) {
+            is_script = true;
+            break;
+          }
+        }
+
+        bool is_executable = false;
+        if (ext == L"exe" || ext == L"com" || ext == L"bat" ||
+            ext == L"cmd" || ext == L"ps1") {
+          is_executable = true;
+        }
+
+        if (is_compressed) {
+          safePrint(COLOR_ARCHIVE);
+        } else if (is_script) {
+          safePrint(COLOR_SCRIPT);
+        } else if (is_executable) {
+          safePrint(COLOR_EXEC);
+        } else {
+          safePrint(COLOR_FILE);
+        }
+      }
+    }
+
+    safePrint(wstring_to_utf8(filename));
+    if (color_enabled) {
+      safePrint(COLOR_RESET);
+    }
+    safePrintLn(L"");
+  }
+
+  return true;
+}
+
+/**
+ * @brief List directory recursively
+ * @param path Path to directory
+ * @param ctx Command context
+ * @param depth Current recursion depth
+ * @return Result with success status
+ */
+auto list_directory_recursive(const std::string &path,
+                              const CommandContext<LS_OPTIONS.size()> &ctx,
+                              int depth = 0)
+    -> cp::Result<bool> {
+  // Print header for subdirectories
+  if (depth > 0) {
+    safePrintLn(std::wstring(path.begin(), path.end()) + L":");
+  }
+
+  // List current directory
+  auto result = list_directory(path, ctx);
+  if (!result) {
+    return result;
+  }
+
+  // Collect subdirectories for recursion
+  std::wstring wpath = utf8_to_wstring(path);
+  std::wstring search_path = wpath + L"\\*";
+
+  WIN32_FIND_DATAW find_data;
+  HANDLE hFind = FindFirstFileW(search_path.c_str(), &find_data);
+
+  if (hFind == INVALID_HANDLE_VALUE) {
+    return true;  // No entries
+  }
+
+  std::vector<std::string> subdirs;
+  do {
+    std::wstring filename = find_data.cFileName;
+
+    // Skip . and ..
+    if (filename == L"." || filename == L"..") {
+      continue;
+    }
+
+    // Check if it's a directory
+    if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+      // Skip hidden directories unless -a is set
+      if ((find_data.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN) &&
+          !ctx.get<bool>("-a", false) && !ctx.get<bool>("--all", false) &&
+          !ctx.get<bool>("-A", false) &&
+          !ctx.get<bool>("--almost-all", false)) {
+        continue;
+      }
+
+      std::wstring full_path = wpath + L"\\" + filename;
+      subdirs.push_back(wstring_to_utf8(full_path));
+    }
+  } while (FindNextFileW(hFind, &find_data) != 0);
+
+  FindClose(hFind);
+
+  // Recursively list subdirectories
+  for (const auto &subdir : subdirs) {
+    auto subdir_result = list_directory_recursive(subdir, ctx, depth + 1);
+    if (!subdir_result) {
+      return subdir_result;
+    }
+
+    // Add newline between directories
+    if (&subdir != &subdirs.back()) {
+      safePrintLn(L"");
+    }
   }
 
   return true;
@@ -990,17 +1317,145 @@ auto process_paths(const std::vector<std::string> &paths,
   for (size_t i = 0; i < paths.size(); ++i) {
     const auto &path = paths[i];
 
+    // Check if path exists and determine its type
+    DWORD attr = INVALID_FILE_ATTRIBUTES;
+    std::wstring wpath = utf8_to_wstring(path);
+    attr = GetFileAttributesW(wpath.c_str());
+
     // Print path header if multiple paths
     if (paths.size() > 1) {
       safePrintLn(std::wstring(path.begin(), path.end()) + L":");
     }
 
-    auto result = list_directory(path, ctx);
-    if (!result) {
-      return std::unexpected(result.error());
-    }
-    if (!*result) {
-      success = false;
+    // If path doesn't exist, try to treat it as a pattern
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+      // Could be a wildcard pattern, try to expand it
+      std::wstring search_pattern = wpath;
+      // Check if pattern contains wildcards
+      if (search_pattern.find(L'*') != std::wstring::npos ||
+          search_pattern.find(L'?') != std::wstring::npos) {
+        WIN32_FIND_DATAW find_data;
+        HANDLE hFind = FindFirstFileW(search_pattern.c_str(), &find_data);
+
+        if (hFind == INVALID_HANDLE_VALUE) {
+          // Pattern didn't match anything
+          safePrintLn(std::wstring(L"ls: cannot access '") +
+                      std::wstring(path.begin(), path.end()) +
+                      L"': No such file or directory");
+          success = false;
+        } else {
+          // Pattern matched, process each match
+          bool first_match = true;
+          std::vector<std::string> matched_files;
+          do {
+            std::wstring filename = find_data.cFileName;
+            // Skip . and .. for patterns
+            if (filename != L"." && filename != L"..") {
+              // Get full path
+              std::wstring full_path = search_pattern;
+              size_t last_sep = full_path.find_last_of(L"\\/");
+              if (last_sep != std::wstring::npos) {
+                full_path = full_path.substr(0, last_sep + 1) + filename;
+              } else {
+                full_path = filename;
+              }
+              matched_files.push_back(wstring_to_utf8(full_path));
+            }
+          } while (FindNextFileW(hFind, &find_data) != 0);
+          FindClose(hFind);
+
+          // Process matched files
+          if (!matched_files.empty()) {
+            if (matched_files.size() == 1) {
+              // Single file, display it directly
+              auto result = list_file(matched_files[0], ctx);
+              if (!result) {
+                safePrintLn(std::wstring(L"ls: ") +
+                            std::wstring(result.error().begin(),
+                                         result.error().end()));
+                success = false;
+              }
+            } else {
+              // Multiple files, determine if they're all in same directory
+              bool all_same_dir = true;
+              std::wstring first_dir;
+              for (const auto &f : matched_files) {
+                std::wstring fw = utf8_to_wstring(f);
+                size_t last_sep = fw.find_last_of(L"\\/");
+                std::wstring dir;
+                if (last_sep != std::wstring::npos) {
+                  dir = fw.substr(0, last_sep);
+                } else {
+                  dir = L".";
+                }
+                if (first_dir.empty()) {
+                  first_dir = dir;
+                } else if (dir != first_dir) {
+                  all_same_dir = false;
+                  break;
+                }
+              }
+
+              if (all_same_dir && !first_dir.empty()) {
+                // All files in same directory, display as directory listing
+                auto result = list_directory(wstring_to_utf8(first_dir), ctx);
+                if (!result) {
+                  safePrintLn(std::wstring(L"ls: ") +
+                              std::wstring(result.error().begin(),
+                                           result.error().end()));
+                  success = false;
+                }
+              } else {
+                // Files in different directories, list each one
+                for (const auto &f : matched_files) {
+                  auto result = list_file(f, ctx);
+                  if (!result) {
+                    safePrintLn(std::wstring(L"ls: ") +
+                                std::wstring(result.error().begin(),
+                                             result.error().end()));
+                    success = false;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Not a pattern and doesn't exist
+        safePrintLn(std::wstring(L"ls: cannot access '") +
+                    std::wstring(path.begin(), path.end()) +
+                    L"': No such file or directory");
+        success = false;
+      }
+    } else if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+      // Path is a directory
+      bool recursive = ctx.get<bool>("-R", false);
+
+      if (recursive) {
+        // Recursive listing
+        auto result = list_directory_recursive(path, ctx, paths.size() > 1 ? 1 : 0);
+        if (!result) {
+          safePrintLn(std::wstring(L"ls: ") +
+                      std::wstring(result.error().begin(), result.error().end()));
+          success = false;
+        }
+      } else {
+        // Normal directory listing
+        auto result = list_directory(path, ctx);
+        if (!result) {
+          safePrintLn(std::wstring(L"ls: ") +
+                      std::wstring(result.error().begin(), result.error().end()));
+          success = false;
+        }
+      }
+    } else {
+      // Path is a file, list it
+      auto result = list_file(path, ctx);
+      if (!result) {
+        safePrintLn(std::wstring(L"ls: ") +
+                    std::wstring(result.error().begin(), result.error().end()));
+        success = false;
+      }
     }
 
     // Add newline between paths
