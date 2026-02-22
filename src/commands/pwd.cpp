@@ -1,5 +1,5 @@
-/*
- *  Copyright ? 2026 [caomengxuan666]
+﻿/*
+ *  Copyright  2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to
@@ -25,21 +25,13 @@
  */
 
 /// @contributors:
-<<<<<<< HEAD
-///   - @contributor1 arookieofc 2128194521@qq.com
-=======
 ///   - @contributor1 arookieofc <2128194521@qq.com>
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 ///   - @contributor2 <email2@example.com>
 ///   - @contributor3 <email3@example.com>
 /// @Description: Implementation for pwd.
 /// @Version: 0.1.0
 /// @License: MIT
-<<<<<<< HEAD
-/// @Copyright: Copyright ? 2026 WinuxCmd
-=======
-/// @Copyright: Copyright ©  2026 WinuxCmd
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
+/// @Copyright: Copyright  2026 WinuxCmd
 
 #include "pch/pch.h"
 //include other header after pch.h
@@ -85,7 +77,7 @@ auto get_current_directory(const CommandContext<PWD_OPTIONS.size()>& ctx)
     -> cp::Result<std::string> {
   bool physical = ctx.get<bool>("--physical", false);
   physical |= ctx.get<bool>("-P", false);
-  
+
   // Get current directory using Windows API
   DWORD bufferSize = GetCurrentDirectoryW(0, NULL);
   if (bufferSize == 0) {
@@ -101,23 +93,8 @@ auto get_current_directory(const CommandContext<PWD_OPTIONS.size()>& ctx)
   // Remove null terminator
   wCurrentDir.resize(result);
 
-<<<<<<< HEAD
-  // Convert to UTF-8
-  int utf8Size = WideCharToMultiByte(CP_UTF8, 0, wCurrentDir.c_str(), 
-                                     static_cast<int>(wCurrentDir.length()), 
-                                     NULL, 0, NULL, NULL);
-  if (utf8Size <= 0) {
-    return std::unexpected("cannot convert path to UTF-8");
-  }
-
-  std::string currentDir(utf8Size, '\0');
-  WideCharToMultiByte(CP_UTF8, 0, wCurrentDir.c_str(), 
-                      static_cast<int>(wCurrentDir.length()), 
-                      &currentDir[0], utf8Size, NULL, NULL);
-=======
   // Convert to UTF-8 using utility function
   std::string currentDir = wstring_to_utf8(wCurrentDir);
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   return currentDir;
 }
@@ -174,7 +151,7 @@ REGISTER_COMMAND(
     "WinuxCmd",
 
     /* copyright */
-    "Copyright ? 2026 WinuxCmd",
+    "Copyright  2026 WinuxCmd",
 
     /* options */
     PWD_OPTIONS) {

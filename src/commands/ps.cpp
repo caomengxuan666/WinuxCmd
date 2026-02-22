@@ -1,47 +1,10 @@
-<<<<<<< HEAD
-/// @Author: WinuxCmd
+﻿/// @Author: WinuxCmd
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
 /// @Description: Implementation for ps (process status).
 /// @Version: 0.1.0
 /// @License: MIT
-/// @Copyright: Copyright © 2026 WinuxCmd
-=======
-/*
-*  Copyright ? 2026 [caomengxuan666]
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to
- * deal in the Software without restriction, including without limitation the
- * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- * sell copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- * IN THE SOFTWARE.
- *
- *  - File: ps.cpp
- *  - Username: Administrator
- *  - CopyrightYear: 2026
- */
-
-/// @contributors:
-///   - @contributor1 arookieofc 2128194521@qq.com
-///   - @contributor2 <email2@example.com>
-///   - @contributor3 <email3@example.com>
-/// @Description: Implementation for pwd.
-/// @Version: 0.1.0
-/// @License: MIT
-/// @Copyright: Copyright ©  2026 WinuxCmd
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
+/// @Copyright: Copyright  2026 WinuxCmd
 #include "pch/pch.h"
 //include other header after pch.h
 #include "core/command_macros.h"
@@ -98,14 +61,6 @@ struct Config {
   std::string sort_key;
 };
 
-<<<<<<< HEAD
-// Get user name from process handle
-auto get_process_user(HANDLE h_process) -> std::wstring {
-  HANDLE h_token = nullptr;
-  if (!OpenProcessToken(h_process, TOKEN_QUERY, &h_token)) {
-    return L"UNKNOWN";
-  }
-=======
 // RAII wrapper for HANDLE
 struct HandleCloser {
   typedef HANDLE pointer;
@@ -116,31 +71,22 @@ using unique_handle = std::unique_ptr<HANDLE, HandleCloser>;
 // Get user name from process handle
 auto get_process_user(HANDLE h_process) -> std::wstring {
   HANDLE h_token = nullptr;
-  
+
   if (!OpenProcessToken(h_process, TOKEN_QUERY, &h_token)) {
     return L"UNKNOWN";
   }
-  
+
   // Use RAII for token handle
   unique_handle h_token_holder(h_token);
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   DWORD size = 0;
   GetTokenInformation(h_token, TokenUser, nullptr, 0, &size);
   if (size == 0) {
-<<<<<<< HEAD
-    CloseHandle(h_token);
-=======
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
     return L"UNKNOWN";
   }
 
   std::vector<BYTE> buffer(size);
   if (!GetTokenInformation(h_token, TokenUser, buffer.data(), size, &size)) {
-<<<<<<< HEAD
-    CloseHandle(h_token);
-=======
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
     return L"UNKNOWN";
   }
 
@@ -153,23 +99,6 @@ auto get_process_user(HANDLE h_process) -> std::wstring {
 
   if (LookupAccountSidW(nullptr, token_user->User.Sid, name, &name_len, domain,
                         &domain_len, &sid_type)) {
-<<<<<<< HEAD
-    CloseHandle(h_token);
-    return std::wstring(name);
-  }
-
-  CloseHandle(h_token);
-  return L"UNKNOWN";
-}
-
-// Get process command line
-auto get_process_command_line(DWORD pid) -> std::wstring {
-  HANDLE h_process =
-      OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-  if (!h_process) return L"";
-
-  // Try to read command line from PEB
-=======
     return std::wstring(name);
   }
 
@@ -180,11 +109,10 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
 auto get_process_command_line(DWORD pid) -> std::wstring {
   HANDLE h_proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
   unique_handle h_process(h_proc);
-  
+
   if (!h_process.get() || h_process.get() == INVALID_HANDLE_VALUE) return L"";
 
   // Try to read command line from PEB using official structures
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
   PROCESS_BASIC_INFORMATION pbi = {};
   typedef NTSTATUS(WINAPI * NtQueryInformationProcessFunc)(
       HANDLE, DWORD, PVOID, ULONG, PULONG);
@@ -196,35 +124,12 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
             ntdll, "NtQueryInformationProcess");
     if (NtQueryInformationProcess) {
       ULONG len = 0;
-<<<<<<< HEAD
-      if (NtQueryInformationProcess(h_process, 0, &pbi, sizeof(pbi), &len) ==
-          0) {
-        // Read ProcessParameters from PEB
-        SIZE_T read = 0;
-        PVOID pparams_addr = nullptr;
-        if (ReadProcessMemory(h_process,
-                              (PBYTE)pbi.PebBaseAddress + 0x20,  // RTL_USER_PROCESS_PARAMETERS offset
-                              &pparams_addr, sizeof(PVOID), &read) &&
-            read == sizeof(PVOID) && pparams_addr) {
-          
-          UNICODE_STRING cmd_line = {};
-          if (ReadProcessMemory(h_process, (PBYTE)pparams_addr + 0x70,  // CommandLine offset
-                                &cmd_line, sizeof(cmd_line), &read) &&
-              read == sizeof(cmd_line) && cmd_line.Length > 0) {
-            
-            std::vector<wchar_t> buffer(cmd_line.Length / sizeof(wchar_t) + 1);
-            if (ReadProcessMemory(h_process, cmd_line.Buffer, buffer.data(),
-                                  cmd_line.Length, &read)) {
-              buffer[cmd_line.Length / sizeof(wchar_t)] = L'\0';
-              CloseHandle(h_process);
-              return std::wstring(buffer.data());
-=======
       if (NtQueryInformationProcess(h_process.get(), 0, &pbi, sizeof(pbi), &len) ==
           0) {
         // Use safer approach with bounds checking
         SIZE_T read = 0;
         PVOID pparams_addr = nullptr;
-        
+
         // Validate PEB address before reading
         if (pbi.PebBaseAddress) {
           // Read ProcessParameters pointer from PEB (offset 0x20)
@@ -232,24 +137,23 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
                                 (PBYTE)pbi.PebBaseAddress + 0x20,
                                 &pparams_addr, sizeof(PVOID), &read) &&
               read == sizeof(PVOID) && pparams_addr) {
-            
+
             UNICODE_STRING cmd_line = {};
             // Read CommandLine from ProcessParameters (offset 0x70)
             if (ReadProcessMemory(h_process.get(), (PBYTE)pparams_addr + 0x70,
                                   &cmd_line, sizeof(cmd_line), &read) &&
                 read == sizeof(cmd_line) && cmd_line.Length > 0 && cmd_line.Buffer) {
-              
+
               // Validate buffer bounds before reading
               if (cmd_line.Length <= 32768) {  // Reasonable limit
                 size_t num_chars = cmd_line.Length / sizeof(wchar_t);
-                std::vector<wchar_t> buffer(num_chars + 1);
-                if (ReadProcessMemory(h_process.get(), cmd_line.Buffer, buffer.data(),
+                std::vector<wchar_t> wbuf(num_chars + 1);
+                if (ReadProcessMemory(h_process.get(), cmd_line.Buffer, wbuf.data(),
                                       cmd_line.Length, &read)) {
-                  buffer[num_chars] = L'\0';
-                  return std::wstring(buffer.data(), num_chars);  // Construct from known size
+                  wbuf[num_chars] = L'\0';
+                  return std::wstring(wbuf.data(), num_chars);
                 }
               }
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
             }
           }
         }
@@ -257,11 +161,7 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
     }
   }
 
-<<<<<<< HEAD
-  CloseHandle(h_process);
-=======
   // Fallback: return empty string if we can't read command line
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
   return L"";
 }
 
@@ -269,14 +169,9 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
 auto get_process_path(HANDLE h_process) -> std::wstring {
   wchar_t path[MAX_PATH * 2] = {0};
   DWORD size = MAX_PATH * 2;
-  
+
   if (QueryFullProcessImageNameW(h_process, 0, path, &size)) {
-<<<<<<< HEAD
-    return std::wstring(path);
-=======
-    // Ensure null termination
-    return std::wstring(path, size);  // Construct from known size
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
+    return std::wstring(path, size);
   }
   return L"";
 }
@@ -294,10 +189,7 @@ auto get_process_memory(HANDLE h_process) -> std::pair<SIZE_T, SIZE_T> {
 // Enumerate all processes
 auto enumerate_processes() -> cp::Result<std::vector<ProcessInfo>> {
   std::vector<ProcessInfo> processes;
-<<<<<<< HEAD
-=======
   processes.reserve(4096);  // Reserve for reasonable number of processes
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   HANDLE h_snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   if (h_snap == INVALID_HANDLE_VALUE) {
@@ -321,33 +213,10 @@ auto enumerate_processes() -> cp::Result<std::vector<ProcessInfo>> {
     info.thread_count = pe.cntThreads;
 
     // Try to open process for more info
-<<<<<<< HEAD
-    HANDLE h_process = OpenProcess(
-        PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, info.pid);
-    
-    if (h_process) {
-      // Get user
-      info.user = get_process_user(h_process);
-
-      // Get full path
-      info.full_path = get_process_path(h_process);
-
-      // Get times
-      FILETIME exit_time;
-      GetProcessTimes(h_process, &info.create_time, &exit_time,
-                      &info.kernel_time, &info.user_time);
-
-      // Get memory
-      auto [ws, priv] = get_process_memory(h_process);
-      info.working_set_size = ws;
-      info.private_bytes = priv;
-
-      CloseHandle(h_process);
-=======
     HANDLE h_proc = OpenProcess(
         PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, info.pid);
     unique_handle h_process(h_proc);
-    
+
     if (h_process.get() && h_process.get() != INVALID_HANDLE_VALUE) {
       // Get user
       info.user = get_process_user(h_process.get());
@@ -366,7 +235,6 @@ auto enumerate_processes() -> cp::Result<std::vector<ProcessInfo>> {
       info.private_bytes = priv;
 
       // Handle automatically closed by unique_handle destructor
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
     }
 
     // Get command line (may fail for protected processes)
@@ -392,14 +260,14 @@ auto format_time(const FILETIME& ft) -> std::wstring {
   ULARGE_INTEGER uli;
   uli.LowPart = ft.dwLowDateTime;
   uli.HighPart = ft.dwHighDateTime;
-  
+
   // Convert to seconds
   ULONGLONG total_time = uli.QuadPart / 10000000ULL;
-  
+
   int hours = static_cast<int>(total_time / 3600);
   int minutes = static_cast<int>((total_time % 3600) / 60);
   int seconds = static_cast<int>(total_time % 60);
-  
+
   wchar_t buffer[32];
   swprintf_s(buffer, L"%02d:%02d:%02d", hours, minutes, seconds);
   return buffer;
@@ -413,7 +281,7 @@ auto format_memory(SIZE_T bytes) -> std::wstring {
     swprintf_s(buffer, L"%.0fK", kb);
     return buffer;
   }
-  
+
   double mb = kb / 1024.0;
   wchar_t buffer[32];
   swprintf_s(buffer, L"%.1fM", mb);
@@ -424,12 +292,12 @@ auto format_memory(SIZE_T bytes) -> std::wstring {
 auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
-  
-  cfg.all_processes = ctx.get<bool>("-e", false) || 
+
+  cfg.all_processes = ctx.get<bool>("-e", false) ||
                       ctx.get<bool>("-A", false) ||
                       ctx.get<bool>("-a", false) ||
                       ctx.get<bool>("-x", false);
-  
+
   cfg.full_format = ctx.get<bool>("-f", false);
   cfg.long_format = ctx.get<bool>("-l", false);
   cfg.user_format = !ctx.get<std::string>("-u", "").empty();
@@ -486,35 +354,35 @@ auto print_simple(const std::vector<ProcessInfo>& processes,
   for (const auto& proc : processes) {
     // Simple format: PID, TTY, TIME, CMD
     std::wstring line;
-    
+
     // PID (5 chars, right aligned)
     wchar_t pid_buf[16];
     swprintf_s(pid_buf, L"%5lu", proc.pid);
     line += pid_buf;
     line += L" ";
-    
+
     // TTY (always ? on Windows)
     line += L"?        ";
-    
+
     // TIME (CPU time)
     ULARGE_INTEGER kernel, user;
     kernel.LowPart = proc.kernel_time.dwLowDateTime;
     kernel.HighPart = proc.kernel_time.dwHighDateTime;
     user.LowPart = proc.user_time.dwLowDateTime;
     user.HighPart = proc.user_time.dwHighDateTime;
-    
+
     ULONGLONG total_100ns = kernel.QuadPart + user.QuadPart;
     ULONGLONG total_sec = total_100ns / 10000000ULL;
-    
+
     wchar_t time_buf[16];
     swprintf_s(time_buf, L"%02llu:%02llu:%02llu",
                total_sec / 3600, (total_sec % 3600) / 60, total_sec % 60);
     line += time_buf;
     line += L" ";
-    
+
     // CMD
     line += proc.name;
-    
+
     safePrintLn(line);
   }
 }
@@ -528,51 +396,51 @@ auto print_full(const std::vector<ProcessInfo>& processes,
 
   for (const auto& proc : processes) {
     std::wstring line;
-    
+
     // UID (truncate to 10 chars)
     std::wstring uid = proc.user;
     if (uid.length() > 10) uid = uid.substr(0, 10);
     line += uid;
     line.append(11 - uid.length(), L' ');
-    
+
     // PID
     wchar_t buf[32];
     swprintf_s(buf, L"%5lu ", proc.pid);
     line += buf;
-    
+
     // PPID
     swprintf_s(buf, L"%5lu ", proc.ppid);
     line += buf;
-    
+
     // C (CPU utilization, placeholder)
     line += L" 0 ";
-    
+
     // STIME (start time - simplified)
     SYSTEMTIME st;
     FileTimeToSystemTime(&proc.create_time, &st);
     swprintf_s(buf, L"%02d:%02d ", st.wHour, st.wMinute);
     line += buf;
-    
+
     // TTY
     line += L"?        ";
-    
+
     // TIME
     ULARGE_INTEGER kernel, user;
     kernel.LowPart = proc.kernel_time.dwLowDateTime;
     kernel.HighPart = proc.kernel_time.dwHighDateTime;
     user.LowPart = proc.user_time.dwLowDateTime;
     user.HighPart = proc.user_time.dwHighDateTime;
-    
+
     ULONGLONG total_100ns = kernel.QuadPart + user.QuadPart;
     ULONGLONG total_sec = total_100ns / 10000000ULL;
-    
+
     swprintf_s(buf, L"%02llu:%02llu:%02llu ",
                total_sec / 3600, (total_sec % 3600) / 60, total_sec % 60);
     line += buf;
-    
+
     // CMD
     line += proc.command_line.empty() ? proc.name : proc.command_line;
-    
+
     safePrintLn(line);
   }
 }
@@ -586,61 +454,61 @@ auto print_user(const std::vector<ProcessInfo>& processes,
 
   for (const auto& proc : processes) {
     std::wstring line;
-    
+
     // USER (truncate to 10 chars)
     std::wstring user = proc.user;
     if (user.length() > 10) user = user.substr(0, 10);
     line += user;
     line.append(11 - user.length(), L' ');
-    
+
     // PID
     wchar_t buf[64];
     swprintf_s(buf, L"%5lu ", proc.pid);
     line += buf;
-    
+
     // %CPU (placeholder)
     line += L" 0.0 ";
-    
+
     // %MEM (placeholder)
     line += L" 0.0 ";
-    
+
     // VSZ (virtual size in KB)
     swprintf_s(buf, L"%6llu ", proc.private_bytes / 1024);
     line += buf;
-    
+
     // RSS (resident set size in KB)
     swprintf_s(buf, L"%5llu ", proc.working_set_size / 1024);
     line += buf;
-    
+
     // TTY
     line += L"?        ";
-    
+
     // STAT (status - simplified)
     line += L"R    ";
-    
+
     // START
     SYSTEMTIME st;
     FileTimeToSystemTime(&proc.create_time, &st);
     swprintf_s(buf, L"%02d:%02d ", st.wHour, st.wMinute);
     line += buf;
-    
+
     // TIME
     ULARGE_INTEGER kernel, user_t;
     kernel.LowPart = proc.kernel_time.dwLowDateTime;
     kernel.HighPart = proc.kernel_time.dwHighDateTime;
     user_t.LowPart = proc.user_time.dwLowDateTime;
     user_t.HighPart = proc.user_time.dwHighDateTime;
-    
+
     ULONGLONG total_100ns = kernel.QuadPart + user_t.QuadPart;
     ULONGLONG total_sec = total_100ns / 10000000ULL;
-    
+
     swprintf_s(buf, L"%5llu:%02llu ",
                total_sec / 60, total_sec % 60);
     line += buf;
-    
+
     // COMMAND
     line += proc.command_line.empty() ? proc.name : proc.command_line;
-    
+
     safePrintLn(line);
   }
 }
@@ -658,20 +526,11 @@ auto run(const Config& cfg) -> int {
   // Filter by user if specified
   if (!cfg.user_filter.empty()) {
     auto user_w = utf8_to_wstring(cfg.user_filter);
-<<<<<<< HEAD
-    processes.erase(
-        std::remove_if(processes.begin(), processes.end(),
-                       [&](const ProcessInfo& p) { 
-                         return p.user != user_w; 
-                       }),
-        processes.end());
-=======
     auto it = std::remove_if(processes.begin(), processes.end(),
-                            [&](const ProcessInfo& p) { 
-                              return p.user != user_w; 
-                            });
+                             [&](const ProcessInfo& p) {
+                               return p.user != user_w;
+                             });
     processes.erase(it, processes.end());
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
   }
 
   // Sort if requested
@@ -704,7 +563,7 @@ REGISTER_COMMAND(ps, "ps", "ps [options]",
                  "  ps aux\n"
                  "  ps | grep explorer",
                  "top(1), kill(1), pgrep(1)", "WinuxCmd",
-                 "Copyright © 2026 WinuxCmd", PS_OPTIONS) {
+                 "Copyright  2026 WinuxCmd", PS_OPTIONS) {
   using namespace ps_pipeline;
 
   auto cfg = build_config(ctx);
