@@ -1,5 +1,5 @@
-/*
- *  Copyright ? 2026 [caomengxuan666]
+﻿/*
+ *  Copyright  2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to
@@ -31,7 +31,7 @@
 /// @Description: Implementation for pwd.
 /// @Version: 0.1.0
 /// @License: MIT
-/// @Copyright: Copyright ©  2026 WinuxCmd
+/// @Copyright: Copyright  2026 WinuxCmd
 
 #include "pch/pch.h"
 //include other header after pch.h
@@ -77,7 +77,7 @@ auto get_current_directory(const CommandContext<PWD_OPTIONS.size()>& ctx)
     -> cp::Result<std::string> {
   bool physical = ctx.get<bool>("--physical", false);
   physical |= ctx.get<bool>("-P", false);
-  
+
   // Get current directory using Windows API
   DWORD bufferSize = GetCurrentDirectoryW(0, NULL);
   if (bufferSize == 0) {
@@ -151,7 +151,7 @@ REGISTER_COMMAND(
     "WinuxCmd",
 
     /* copyright */
-    "Copyright ? 2026 WinuxCmd",
+    "Copyright  2026 WinuxCmd",
 
     /* options */
     PWD_OPTIONS) {
