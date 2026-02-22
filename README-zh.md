@@ -53,8 +53,6 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | wc | 统计行/词/字节 | -c, -l, -w, -m, -L |
 | pwd | 显示当前工作目录 | -L (逻辑路径), -P (物理路径) |
 | ps | 查看进程状态 | -e/-A/-a/-x (全部进程), -f (完整格式), -l (长格式), -u USER (用户格式), -w (宽输出), --no-headers, --sort=KEY (排序) |
-<<<<<<< HEAD
-=======
 | tee | 从标准输入读取并写入标准输出和文件 | -a/--append, -i/--ignore-interrupts, -p/--diagnose |
 | chmod | 修改文件权限位 | -c/--changes, -f/--silent/--quiet, -v/--verbose, -R/--recursive, --reference |
 | date | 打印/设置系统日期时间 | -d/--date, -u/--utc, +格式；-s/--set 为 [NOT SUPPORT] |
@@ -67,7 +65,6 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | realpath | 打印解析的绝对路径 | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
 | xargs | 从输入构建并执行命令行 | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null；-d/--delimiter 为 [NOT SUPPORT] |
 | sed | 流编辑器 | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [基本替换：s/模式/替换/标志] |
->>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
 ## 🎯 为什么选择 WinuxCmd？
 
