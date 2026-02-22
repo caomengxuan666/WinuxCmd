@@ -131,4 +131,17 @@ struct TempDir {
     return std::string((std::istreambuf_iterator<char>(ifs)),
                        std::istreambuf_iterator<char>());
   }
+
+  /**
+   * @brief Create a subdirectory within the temporary directory
+   *
+   * Creates a directory at the specified relative path, creating
+   * parent directories as needed.
+   *
+   * @param rel Relative path of the directory to create
+   */
+  void mkdir(const std::string &rel) const {
+    auto p = path / rel;
+    std::filesystem::create_directories(p);
+  }
 };

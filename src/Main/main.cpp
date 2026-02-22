@@ -74,16 +74,11 @@ int main(int argc, char *argv[]) noexcept {
   std::string self_name = path::get_executable_name(argv[0]);
 
   // Convert command-line arguments to string_views for efficiency
-  std::vector<std::string_view> raw_args(argv + 1, argv + argc);
-
-  // Expand wildcards
-  std::vector<std::string> expanded_args = expand_all_wildcards(raw_args);
-
-  // Convert expanded args back to string_view for dispatch
+  // Note: We don't expand wildcards here anymore. Each command decides whether to expand.
   std::vector<std::string_view> args;
-  args.reserve(expanded_args.size());
-  for (const auto &arg : expanded_args) {
-    args.emplace_back(arg);
+  args.reserve(argc - 1);
+  for (int i = 1; i < argc; ++i) {
+    args.emplace_back(argv[i]);
   }
   if (self_name == "winuxcmd") {
     // Mode 1: winuxcmd <command> [args...] (e.g., winuxcmd ls -la)
