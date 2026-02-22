@@ -28,7 +28,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 2. 解压到任意目录
 3. 运行设置脚本：`winux-activate.ps1`
 
-## 📦 已实现的命令 (v0.3.0)
+## 📦 已实现的命令 (v0.4.1)
 
 | 命令 | 描述 | 支持的参数（标记 [NOT SUPPORT] 的参数会被解析但未实现） |
 |------|------|------------------------------------------------|
@@ -65,6 +65,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | realpath | 打印解析的绝对路径 | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
 | xargs | 从输入构建并执行命令行 | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null；-d/--delimiter 为 [NOT SUPPORT] |
 | sed | 流编辑器 | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [基本替换：s/模式/替换/标志] |
+| tree | 以树状格式列出目录内容 | -a/--all, -d/--directories-only, -L/--max-depth, -f/--full-path, -I/--ignore-pattern, -P/--pattern, -C/--color, -s/--size, -t/--time-sort, -o/--output |
 
 ## 🎯 为什么选择 WinuxCmd？
 

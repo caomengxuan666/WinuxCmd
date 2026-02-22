@@ -117,7 +117,7 @@ include(cmake/enable_import_std.cmake)
 include(cmake/statistics_project.cmake)
 
 project(WinuxCmd
-        VERSION 0.4.0
+        VERSION 0.4.1
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
