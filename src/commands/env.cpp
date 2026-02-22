@@ -12,6 +12,7 @@
 import std;
 import core;
 import utils;
+import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
@@ -31,7 +32,7 @@ struct Config {
   bool null_terminated = false;
   std::string unset_name;
   std::map<std::string, std::string> assignments;
-  std::vector<std::string> command;
+  SmallVector<std::string, 32> command;
 };
 
 auto parse_env_block() -> std::map<std::string, std::string> {
@@ -135,7 +136,10 @@ auto run(const Config& cfg) -> int {
   }
 
   if (!cfg.unset_name.empty()) {
-    vars.erase(cfg.unset_name);
+    auto it = vars.find(cfg.unset_name);
+    if (it != vars.end()) {
+      vars.erase(it);
+    }
   }
 
   for (const auto& [k, v] : cfg.assignments) {

@@ -88,18 +88,46 @@ class RegistryImpl {
     if (it == registry_.end()) {
       safePrintLn(L"winuxcmd: command not found: " +
                   std::wstring(cmdName.begin(), cmdName.end()));
-      return 127;  // Command not found exit code
+      return 127;
     }
 
-    // Check for help flag
+    // Get meta data from the command
+    const auto &meta = it->second.meta;
+    auto options = meta.options();  // std::span<const OptionMeta>
+
+    // Check if it contains help
+    bool wants_help = false;
     for (const auto &arg : args) {
-      if (arg == "--help" || arg == "-h") {
-        cmd::meta::Registry::print_help(cmdName);
-        return 0;
+      if (arg == "--help") {
+        wants_help = true;
+        break;
       }
     }
 
-    // Execute command handler
+    if (!wants_help) {
+      // Check if -h is already been registered
+      bool has_h_option = false;
+      for (const auto &opt : options) {
+        if (opt.short_name == "-h") {
+          has_h_option = true;
+          break;
+        }
+      }
+      if (!has_h_option) {
+        for (const auto &arg : args) {
+          if (arg == "-h") {
+            wants_help = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (wants_help) {
+      cmd::meta::Registry::print_help(cmdName);
+      return 0;
+    }
+
     return it->second.handler(args);
   }
 

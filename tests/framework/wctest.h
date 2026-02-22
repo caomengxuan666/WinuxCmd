@@ -233,6 +233,18 @@ inline void expect_eq_impl(const std::string &a, const std::string &b,
   } while (0)
 
 /**
+ * @brief Assert that expression evaluates to false
+ *
+ * Boolean assertion that checks expression is false.
+ */
+#define EXPECT_FALSE(x)                                               \
+  do {                                                                \
+    if (x) {                                                          \
+      wctest::fail(__FILE__, __LINE__, "EXPECT_FALSE(" #x ") failed"); \
+    }                                                                 \
+  } while (0)
+
+/**
  * @brief Generic EXPECT_EQ implementation for streamable types
  *
  * Template function that works with any types supporting operator==
@@ -291,6 +303,50 @@ inline std::string normalize_newlines(std::string s) {
  */
 #define EXPECT_EQ(a, b) \
   wctest::expect_eq_impl((a), (b), __FILE__, __LINE__, #a, #b)
+
+/**
+ * @brief Assert that two values are not equal
+ *
+ * Generic inequality assertion that reports failure if values are equal.
+ */
+#define EXPECT_NE(a, b)                                               \
+  do {                                                                 \
+    if ((a) == (b)) {                                                 \
+      wctest::fail(__FILE__, __LINE__, "EXPECT_NE(" #a ", " #b ") failed"); \
+    }                                                                  \
+  } while (0)
+
+/**
+ * @brief Assert that first value is less than second
+ *
+ * Generic less-than assertion that reports failure if lhs >= rhs.
+ */
+#define EXPECT_LT(a, b)                                               \
+  do {                                                                 \
+    if (!((a) < (b))) {                                               \
+      std::ostringstream oss;                                         \
+      oss << "EXPECT_LT(" #a ", " #b ") failed\n"                     \
+          << "      lhs: [" << (a) << "]\n"                           \
+          << "      rhs: [" << (b) << "]";                            \
+      wctest::fail(__FILE__, __LINE__, oss.str());                   \
+    }                                                                  \
+  } while (0)
+
+/**
+ * @brief Assert that first value is greater than second
+ *
+ * Generic greater-than assertion that reports failure if lhs <= rhs.
+ */
+#define EXPECT_GT(a, b)                                               \
+  do {                                                                 \
+    if (!((a) > (b))) {                                               \
+      std::ostringstream oss;                                         \
+      oss << "EXPECT_GT(" #a ", " #b ") failed\n"                     \
+          << "      lhs: [" << (a) << "]\n"                           \
+          << "      rhs: [" << (b) << "]";                            \
+      wctest::fail(__FILE__, __LINE__, oss.str());                   \
+    }                                                                  \
+  } while (0)
 
 /**
  * @brief Assert equality of text content with newline normalization

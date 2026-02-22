@@ -3,6 +3,7 @@
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to
+<<<<<<< HEAD
  * deal in the Software without restriction, including without limitation the
  * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the Software is
@@ -10,22 +11,44 @@
  *
  *  The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
+=======
+ *  deal in the Software without restriction, including without limitation the
+ *  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ *  sell copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ *  all copies or substantial portions of the Software.
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
  *
  *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+<<<<<<< HEAD
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
+=======
+ *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ *  IN THE SOFTWARE.
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
  *
  *  - File: kill_unit_test.cpp
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
+<<<<<<< HEAD
 TEST(kill, list_signals) {
   Pipeline p;
+=======
+TEST(kill, kill_list_signals) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
   p.add(L"kill.exe", {L"-l"});
 
   TEST_LOG_CMD_LIST("kill.exe", L"-l");
@@ -36,6 +59,7 @@ TEST(kill, list_signals) {
   TEST_LOG("kill.exe -l output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+<<<<<<< HEAD
   // Verify the output contains common signal names
   EXPECT_TRUE(r.stdout_text.find("HUP") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("INT") != std::string::npos);
@@ -48,10 +72,26 @@ TEST(kill, list_signals_long) {
   p.add(L"kill.exe", {L"--list"});
 
   TEST_LOG_CMD_LIST("kill.exe", L"--list");
+=======
+  // Should list signals
+  EXPECT_TRUE(r.stdout_text.find("HUP") != std::string::npos ||
+              r.stdout_text.find("KILL") != std::string::npos);
+}
+
+TEST(kill, kill_list_specific_signal) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"kill.exe", {L"-l", L"KILL"});
+
+  TEST_LOG_CMD_LIST("kill.exe", L"-l", L"KILL");
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   auto r = p.run();
 
   TEST_LOG_EXIT_CODE(r);
+<<<<<<< HEAD
   TEST_LOG("kill.exe --list output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
@@ -64,10 +104,28 @@ TEST(kill, list_signals_table) {
   p.add(L"kill.exe", {L"-L"});
 
   TEST_LOG_CMD_LIST("kill.exe", L"-L");
+=======
+  TEST_LOG("kill.exe -l KILL output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  // Should show signal number for KILL
+  EXPECT_TRUE(r.stdout_text.find("9") != std::string::npos);
+}
+
+TEST(kill, kill_invalid_pid) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"kill.exe", {L"999999999"});
+
+  TEST_LOG_CMD_LIST("kill.exe", L"999999999");
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   auto r = p.run();
 
   TEST_LOG_EXIT_CODE(r);
+<<<<<<< HEAD
   TEST_LOG("kill.exe -L output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
@@ -147,6 +205,19 @@ TEST(kill, invalid_signal_number) {
 
 TEST(kill, no_pid_specified) {
   Pipeline p;
+=======
+  TEST_LOG("kill.exe invalid pid output", r.stdout_text);
+
+  EXPECT_NE(r.exit_code, 0);
+  // Should fail for non-existent PID
+}
+
+TEST(kill, kill_no_arguments) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
   p.add(L"kill.exe", {});
 
   TEST_LOG_CMD_LIST("kill.exe");
@@ -154,6 +225,7 @@ TEST(kill, no_pid_specified) {
   auto r = p.run();
 
   TEST_LOG_EXIT_CODE(r);
+<<<<<<< HEAD
   TEST_LOG("kill.exe (no args) stderr", r.stderr_text);
 
   EXPECT_NE(r.exit_code, 0);
@@ -167,10 +239,28 @@ TEST(kill, invalid_pid_format) {
   p.add(L"kill.exe", {L"abc"});
 
   TEST_LOG_CMD_LIST("kill.exe", L"abc");
+=======
+  TEST_LOG("kill.exe no arguments output", r.stderr_text);
+
+  EXPECT_NE(r.exit_code, 0);
+  // Should fail when no PID provided
+  EXPECT_TRUE(r.stderr_text.find("usage") != std::string::npos);
+}
+
+TEST(kill, kill_system_process) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"kill.exe", {L"4"});  // System process (should be protected)
+
+  TEST_LOG_CMD_LIST("kill.exe", L"4");
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
 
   auto r = p.run();
 
   TEST_LOG_EXIT_CODE(r);
+<<<<<<< HEAD
   TEST_LOG("kill.exe abc stderr", r.stderr_text);
 
   EXPECT_NE(r.exit_code, 0);
@@ -283,3 +373,10 @@ TEST(kill, signal_with_sig_prefix) {
   // Should attempt to kill with SIGKILL (but PID doesn't exist)
   EXPECT_TRUE(r.stderr_text.find("kill:") != std::string::npos);
 }
+=======
+  TEST_LOG("kill.exe system process output", r.stderr_text);
+
+  // Should fail when trying to kill system process
+  EXPECT_TRUE(r.exit_code != 0 || r.stderr_text.find("cannot kill") != std::string::npos);
+}
+>>>>>>> cfe75a2379e6cc46c4d539fe09ae96767cae7b22
