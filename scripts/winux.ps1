@@ -44,6 +44,7 @@ $CommandMap = @{
     "df"     = "df.exe"
     "du"     = "du.exe"
     "kill"   = "kill.exe"
+    "tree"   = "tree.exe"
 }
 
 # ========== Backup System ==========
