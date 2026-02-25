@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: WinuxCmd - CMD Environment Initializer
-set SCRIPT_VERSION=0.4.1
+set SCRIPT_VERSION=0.4.2
 set SCRIPT_DIR=%~dp0
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
@@ -15,8 +15,8 @@ if /i "%~1"=="--help" goto :show_help
 set WINUXCMD_BIN=
 if exist "%SCRIPT_DIR%\..\build-dev\winuxcmd.exe" (
     set WINUXCMD_BIN=%SCRIPT_DIR%\..\build-dev
-) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.1-win-x64\bin\winuxcmd.exe" (
-    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.1-win-x64\bin
+) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.2-win-x64\bin\winuxcmd.exe" (
+    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.2-win-x64\bin
 ) else (
     echo [ERROR] WinuxCmd not found.
     echo Please run from development directory or install WinuxCmd.
@@ -82,8 +82,8 @@ if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 set WINUXCMD_BIN=
 if exist "%SCRIPT_DIR%\..\build-dev\winuxcmd.exe" (
     set WINUXCMD_BIN=%SCRIPT_DIR%\..\build-dev
-) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.1-win-x64\bin\winuxcmd.exe" (
-    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.1-win-x64\bin
+) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.2-win-x64\bin\winuxcmd.exe" (
+    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.4.2-win-x64\bin
 )
 
 if "%WINUXCMD_BIN%"=="" (
