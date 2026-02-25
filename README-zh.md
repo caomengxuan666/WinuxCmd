@@ -153,7 +153,28 @@ GNU coreutils（MSYS2）：~5 MB
 - 内存占用：< 2MB 每个进程
 - 无运行时依赖：纯 Win32 API
 
-### 3.1 基准测试对比：WinuxCmd vs uutils coreutils
+### 3.1 冷启动基准测试：WinuxCmd vs uutils coreutils
+
+使用 `--help` 参数测试冷启动时间（每个命令运行 20 次，数值越低越好）：
+
+| 命令 | WinuxCmd (ms) | uutils (Rust) (ms) | 比例 | 优胜者 |
+|------|---------------|-------------------|------|--------|
+| ls      | 6.36          | 7.58              | 0.84x | ✅ WinuxCmd |
+| cat     | 6.22          | 7.45              | 0.83x | ✅ WinuxCmd |
+| head    | 6.07          | 6.72              | 0.90x | ✅ WinuxCmd |
+| tail    | 6.21          | 6.83              | 0.91x | ✅ WinuxCmd |
+| grep    | 6.14          | 6.01              | 1.02x | uutils |
+| sort    | 6.10          | 7.12              | 0.86x | ✅ WinuxCmd |
+| uniq    | 6.26          | 7.68              | 0.81x | ✅ WinuxCmd |
+| wc      | 6.23          | 6.89              | 0.90x | ✅ WinuxCmd |
+
+**总结：**
+- WinuxCmd 在 7/8 个命令中获胜（87.5%）
+- 平均冷启动：WinuxCmd 6.26ms，uutils 6.24ms
+- 最佳表现：uniq（快 1.23 倍）
+- 只有 grep 慢 1.02 倍
+
+### 3.2 文件操作基准测试：WinuxCmd vs uutils coreutils
 
 使用 1000 个文件的目录进行测试，每个命令运行 10 次（数值越低越好）：
 
@@ -176,8 +197,8 @@ GNU coreutils（MSYS2）：~5 MB
 
 > **测试配置：**
 > - 测试环境：Windows 10 x64
-> - 测试数据：1000 个文件的目录
-> - 迭代次数：每个命令 10 次运行
+> - 冷启动：`--help` 参数，20 次迭代
+> - 文件操作：1000 个文件的目录，10 次迭代
 > - 版本：WinuxCmd v0.4.5, uutils coreutils v0.6.0
 > - 测试日期：2026 年 2 月 25 日
 
