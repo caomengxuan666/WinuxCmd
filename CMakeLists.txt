@@ -116,7 +116,7 @@ include(cmake/enable_import_std.cmake)
 include(cmake/statistics_project.cmake)
 
 project(WinuxCmd
-        VERSION 0.4.2
+        VERSION 0.4.3
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
@@ -426,6 +426,10 @@ endif ()
 
 include(GNUInstallDirs)
 
+# Override default bin directory to install directly to root (no bin/ subdirectory)
+# This maintains compatibility with older versions
+set(CMAKE_INSTALL_BINDIR "." CACHE PATH "Output directory for executables" FORCE)
+
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/install" CACHE PATH "Installation prefix" FORCE)
 endif ()
@@ -464,7 +468,7 @@ install(FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
         "${CMAKE_CURRENT_SOURCE_DIR}/README-ZH.md"
         "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
-        DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+        DESTINATION "."
         COMPONENT Documentation
 )
 
