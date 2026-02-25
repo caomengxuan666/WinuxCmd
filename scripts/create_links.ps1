@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.4.3"
+$Script:Version = "0.4.4"
 
 # Available commands list
 $Script:Commands = @(
@@ -52,17 +52,17 @@ function Write-ColorOutput {
         [string]$Text
     )
     
-    $Colors = @{
-        Green  = "`e[32m"
-        Yellow = "`e[33m"
-        Red    = "`e[31m"
-        Cyan   = "`e[34m"
-        Blue   = "`e[36m"
-        Gray   = "`e[90m"
-        Reset  = "`e[0m"
+    # Simple text-based markers for older terminals
+    $Markers = @{
+        Green  = "[OK]"
+        Yellow = "[INFO]"
+        Red    = "[ERROR]"
+        Cyan   = "[INFO]"
+        Blue   = "[NOTE]"
+        Gray   = "      "
     }
     
-    Write-Host "$($Colors[$Color])$Text$($Colors.Reset)"
+    Write-Host "$($Markers[$Color]) $Text"
 }
 
 function Get-WinuxCmdPath {

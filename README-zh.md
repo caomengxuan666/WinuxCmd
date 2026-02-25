@@ -15,6 +15,14 @@
 
 ## 🚀 快速开始
 
+### 系统要求
+
+- **PowerShell 7+** 推荐使用以获得最佳体验
+  - PowerShell 5.1（Windows 自带）也支持，但颜色代码可能显示为纯文本
+  - 安装 PowerShell 7：`winget install Microsoft.PowerShell` 或从 [GitHub](https://github.com/PowerShell/PowerShell/releases) 下载
+- Windows 10/11（x64 或 ARM64）
+- 安装不需要管理员权限
+
 ### 一键安装（推荐）
 
 ```powershell
