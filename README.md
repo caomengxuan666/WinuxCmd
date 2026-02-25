@@ -15,6 +15,14 @@ English | [中文](README-zh.md)
 
 ## 🚀 Quick Start
 
+### Requirements
+
+- **PowerShell 7+** recommended for best experience
+  - PowerShell 5.1 (Windows default) is supported but may display color codes as text
+  - Install PowerShell 7: `winget install Microsoft.PowerShell` or download from [GitHub](https://github.com/PowerShell/PowerShell/releases)
+- Windows 10/11 (x64 or ARM64)
+- Administrator rights not required for installation
+
 ### One-Command Installation (Recommended)
 
 ```powershell
