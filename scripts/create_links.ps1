@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     WinuxCmd Command Link Generator
 .DESCRIPTION
@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.4.4"
+$Script:Version = "0.4.5"
 
 # Available commands list
 $Script:Commands = @(
