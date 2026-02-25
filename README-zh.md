@@ -153,52 +153,33 @@ GNU coreutils（MSYS2）：~5 MB
 - 内存占用：< 2MB 每个进程
 - 无运行时依赖：纯 Win32 API
 
-### 3.1 冷启动基准测试：WinuxCmd vs uutils coreutils
+### 3.1 完整执行时间基准测试：WinuxCmd vs uutils coreutils
 
-使用 `--help` 参数测试冷启动时间（每个命令运行 20 次，数值越低越好）：
-
-| 命令 | WinuxCmd (ms) | uutils (Rust) (ms) | 比例 | 优胜者 |
-|------|---------------|-------------------|------|--------|
-| ls      | 6.36          | 7.58              | 0.84x | ✅ WinuxCmd |
-| cat     | 6.22          | 7.45              | 0.83x | ✅ WinuxCmd |
-| head    | 6.07          | 6.72              | 0.90x | ✅ WinuxCmd |
-| tail    | 6.21          | 6.83              | 0.91x | ✅ WinuxCmd |
-| grep    | 6.14          | 6.01              | 1.02x | uutils |
-| sort    | 6.10          | 7.12              | 0.86x | ✅ WinuxCmd |
-| uniq    | 6.26          | 7.68              | 0.81x | ✅ WinuxCmd |
-| wc      | 6.23          | 6.89              | 0.90x | ✅ WinuxCmd |
-
-**总结：**
-- WinuxCmd 在 7/8 个命令中获胜（87.5%）
-- 平均冷启动：WinuxCmd 6.26ms，uutils 6.24ms
-- 最佳表现：uniq（快 1.23 倍）
-- 只有 grep 慢 1.02 倍
-
-### 3.2 文件操作基准测试：WinuxCmd vs uutils coreutils
-
-使用 1000 个文件的目录进行测试，每个命令运行 10 次（数值越低越好）：
+测试完整命令执行时间（包括启动、执行和退出），使用 1000 个文件的目录，每个命令运行 20 次（数值越低越好）：
 
 | 命令 | WinuxCmd (ms) | uutils (Rust) (ms) | 比例 | 优胜者 |
 |------|---------------|-------------------|------|--------|
-| ls      | 6.22          | 7.14              | 0.87x | ✅ WinuxCmd |
-| cat     | 6.42          | 7.15              | 0.90x | ✅ WinuxCmd |
-| head    | 6.32          | 6.79              | 0.93x | ✅ WinuxCmd |
-| tail    | 6.28          | 6.83              | 0.92x | ✅ WinuxCmd |
-| grep    | 6.40          | 6.09              | 1.05x | uutils |
-| sort    | 6.24          | 7.40              | 0.84x | ✅ WinuxCmd |
-| uniq    | 6.35          | 6.85              | 0.93x | ✅ WinuxCmd |
-| wc      | 6.31          | 7.16              | 0.88x | ✅ WinuxCmd |
+| ls      | 6.30          | 7.27              | 0.87x | ✅ WinuxCmd |
+| cat     | 6.19          | 7.01              | 0.88x | ✅ WinuxCmd |
+| head    | 6.27          | 6.79              | 0.92x | ✅ WinuxCmd |
+| tail    | 6.34          | 6.84              | 0.93x | ✅ WinuxCmd |
+| grep    | 6.42          | 5.99              | 1.07x | uutils |
+| sort    | 6.31          | 7.27              | 0.87x | ✅ WinuxCmd |
+| uniq    | 6.23          | 6.84              | 0.91x | ✅ WinuxCmd |
+| wc      | 6.21          | 6.81              | 0.91x | ✅ WinuxCmd |
 
 **总结：**
 - WinuxCmd 在 7/8 个命令中获胜（87.5%）
-- 平均加速：比 uutils (Rust) 快 **1.08x**
-- 最佳表现：sort（快 1.19 倍）
-- 只有 grep 慢 1.05 倍
+- 平均执行时间：WinuxCmd 6.28ms，uutils 6.85ms
+- 整体加速：比 uutils (Rust) 快 **1.09x**
+- 最佳表现：ls 和 sort（快约 1.15 倍）
+- 只有 grep 慢 1.07 倍
 
 > **测试配置：**
 > - 测试环境：Windows 10 x64
-> - 冷启动：`--help` 参数，20 次迭代
-> - 文件操作：1000 个文件的目录，10 次迭代
+> - 测试数据：1000 个文件的目录
+> - 迭代次数：每个命令 20 次运行
+> - 测试方法：`Measure-Command { ls }`（包括启动的完整执行时间）
 > - 版本：WinuxCmd v0.4.5, uutils coreutils v0.6.0
 > - 测试日期：2026 年 2 月 25 日
 
