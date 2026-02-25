@@ -153,6 +153,34 @@ GNU coreutils（MSYS2）：~5 MB
 - 内存占用：< 2MB 每个进程
 - 无运行时依赖：纯 Win32 API
 
+### 3.1 基准测试对比：WinuxCmd vs uutils coreutils
+
+使用 1000 个文件的目录进行测试，每个命令运行 10 次（数值越低越好）：
+
+| 命令 | WinuxCmd (ms) | uutils (Rust) (ms) | 比例 | 优胜者 |
+|------|---------------|-------------------|------|--------|
+| ls      | 6.22          | 7.14              | 0.87x | ✅ WinuxCmd |
+| cat     | 6.42          | 7.15              | 0.90x | ✅ WinuxCmd |
+| head    | 6.32          | 6.79              | 0.93x | ✅ WinuxCmd |
+| tail    | 6.28          | 6.83              | 0.92x | ✅ WinuxCmd |
+| grep    | 6.40          | 6.09              | 1.05x | uutils |
+| sort    | 6.24          | 7.40              | 0.84x | ✅ WinuxCmd |
+| uniq    | 6.35          | 6.85              | 0.93x | ✅ WinuxCmd |
+| wc      | 6.31          | 7.16              | 0.88x | ✅ WinuxCmd |
+
+**总结：**
+- WinuxCmd 在 7/8 个命令中获胜（87.5%）
+- 平均加速：比 uutils (Rust) 快 **1.08x**
+- 最佳表现：sort（快 1.19 倍）
+- 只有 grep 慢 1.05 倍
+
+> **测试配置：**
+> - 测试环境：Windows 10 x64
+> - 测试数据：1000 个文件的目录
+> - 迭代次数：每个命令 10 次运行
+> - 版本：WinuxCmd v0.4.5, uutils coreutils v0.6.0
+> - 测试日期：2026 年 2 月 25 日
+
 ### 4. 自定义容器
 
 WinuxCmd 实现了自定义 C++23 容器以获得最佳性能:
