@@ -64,7 +64,7 @@ else()
     )
 
     target_link_libraries(winuxcmd-tests PRIVATE winux-test test_main)
-    
+
     target_include_directories(winuxcmd-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_precompile_headers(winuxcmd-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/framework/framework_pch.h)
 
@@ -76,6 +76,7 @@ else()
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         TEST_PREFIX ""
         PROPERTIES LABELS "WinuxCmd"
+        TIMEOUT 10
     )
     
     # Custom targets for convenience (not CTest entries)
@@ -107,6 +108,11 @@ else()
             )
         endif()
     endforeach()
+endif()
+
+# Add integration tests subdirectory
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/integration")
+    add_subdirectory(integration)
 endif()
 
 option(EXCLUDE_TESTS_FROM_DEFAULT_BUILD "Exclude test targets from default build" OFF)

@@ -1,5 +1,5 @@
 /*
-*  Copyright © 2026 [caomengxuan666]
+ *  Copyright © 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the “Software”), to
@@ -33,7 +33,7 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 /// @TODO:1.Stream reading. 2.Replace filesystem.
 #include "pch/pch.h"
-//include other header after pch.h
+// include other header after pch.h
 #include "core/command_macros.h"
 import std;
 import core;
@@ -52,47 +52,63 @@ using cmd::meta::OptionType;
  *
  * @par Options:
  *
- * - @a -E, @a --extended-regexp: PATTERNS are extended regular expressions [IMPLEMENTED]
+ * - @a -E, @a --extended-regexp: PATTERNS are extended regular expressions
+ * [IMPLEMENTED]
  * - @a -F, @a --fixed-strings: PATTERNS are strings [IMPLEMENTED]
- * - @a -G, @a --basic-regexp: PATTERNS are basic regular expressions [IMPLEMENTED]
- * - @a -P, @a --perl-regexp: PATTERNS are Perl regular expressions [NOT SUPPORT]
+ * - @a -G, @a --basic-regexp: PATTERNS are basic regular expressions
+ * [IMPLEMENTED]
+ * - @a -P, @a --perl-regexp: PATTERNS are Perl regular expressions [NOT
+ * SUPPORT]
  * - @a -e, @a --regexp: Use PATTERNS for matching [IMPLEMENTED]
  * - @a -f, @a --file: Take PATTERNS from FILE [IMPLEMENTED]
- * - @a -i, @a --ignore-case: Ignore case distinctions in patterns and data [IMPLEMENTED]
- * - @a --no-ignore-case: Do not ignore case distinctions (default) [IMPLEMENTED]
+ * - @a -i, @a --ignore-case: Ignore case distinctions in patterns and data
+ * [IMPLEMENTED]
+ * - @a --no-ignore-case: Do not ignore case distinctions (default)
+ * [IMPLEMENTED]
  * - @a -w, @a --word-regexp: Match only whole words [IMPLEMENTED]
  * - @a -x, @a --line-regexp: Match only whole lines [IMPLEMENTED]
- * - @a -z, @a --null-data: A data line ends in 0 byte, not newline [IMPLEMENTED]
+ * - @a -z, @a --null-data: A data line ends in 0 byte, not newline
+ * [IMPLEMENTED]
  * - @a -s, @a --no-messages: Suppress error messages [IMPLEMENTED]
  * - @a -v, @a --invert-match: Select non-matching lines [IMPLEMENTED]
  * - @a -m, @a --max-count: Stop after NUM selected lines [IMPLEMENTED]
- * - @a -b, @a --byte-offset: Print the byte offset with output lines [IMPLEMENTED]
+ * - @a -b, @a --byte-offset: Print the byte offset with output lines
+ * [IMPLEMENTED]
  * - @a -n, @a --line-number: Print line number with output lines [IMPLEMENTED]
  * - @a --line-buffered: Flush output on every line [IMPLEMENTED]
  * - @a -H, @a --with-filename: Print file name with output lines [IMPLEMENTED]
- * - @a -h, @a --no-filename: Suppress the file name prefix on output [IMPLEMENTED]
+ * - @a -h, @a --no-filename: Suppress the file name prefix on output
+ * [IMPLEMENTED]
  * - @a --label: Use LABEL as the standard input file name prefix [IMPLEMENTED]
- * - @a -o, @a --only-matching: Show only nonempty parts of lines that match [IMPLEMENTED]
+ * - @a -o, @a --only-matching: Show only nonempty parts of lines that match
+ * [IMPLEMENTED]
  * - @a -q, @a --quiet: Suppress all normal output [IMPLEMENTED]
  * - @a --silent: Suppress all normal output [IMPLEMENTED]
  * - @a --binary-files: Assume that binary files are TYPE [NOT SUPPORT]
  * - @a -a, @a --text: Equivalent to --binary-files=text [NOT SUPPORT]
  * - @a -I: Equivalent to --binary-files=without-match [NOT SUPPORT]
- * - @a -d, @a --directories: How to handle directories: read, recurse, skip [IMPLEMENTED]
+ * - @a -d, @a --directories: How to handle directories: read, recurse, skip
+ * [IMPLEMENTED]
  * - @a -D, @a --devices: How to handle devices/FIFOs/sockets [NOT SUPPORT]
  * - @a -r, @a --recursive: Like --directories=recurse [IMPLEMENTED]
- * - @a -R, @a --dereference-recursive: Like -r but follow symlinks [NOT SUPPORT]
+ * - @a -R, @a --dereference-recursive: Like -r but follow symlinks [NOT
+ * SUPPORT]
  * - @a --include: Search only files that match GLOB [NOT SUPPORT]
  * - @a --exclude: Skip files that match GLOB [NOT SUPPORT]
  * - @a --exclude-from: Skip files from patterns in FILE [NOT SUPPORT]
  * - @a --exclude-dir: Skip directories that match GLOB [NOT SUPPORT]
- * - @a -L, @a --files-without-match: Print only names of FILEs with no selected lines [IMPLEMENTED]
- * - @a -l, @a --files-with-matches: Print only names of FILEs with selected lines [IMPLEMENTED]
- * - @a -c, @a --count: Print only a count of selected lines per FILE [IMPLEMENTED]
+ * - @a -L, @a --files-without-match: Print only names of FILEs with no selected
+ * lines [IMPLEMENTED]
+ * - @a -l, @a --files-with-matches: Print only names of FILEs with selected
+ * lines [IMPLEMENTED]
+ * - @a -c, @a --count: Print only a count of selected lines per FILE
+ * [IMPLEMENTED]
  * - @a -T, @a --initial-tab: Make tabs line up (if needed) [NOT SUPPORT]
  * - @a -Z, @a --null: Print 0 byte after FILE name [IMPLEMENTED]
- * - @a -B, @a --before-context: Print NUM lines of leading context [NOT SUPPORT]
- * - @a -A, @a --after-context: Print NUM lines of trailing context [NOT SUPPORT]
+ * - @a -B, @a --before-context: Print NUM lines of leading context [NOT
+ * SUPPORT]
+ * - @a -A, @a --after-context: Print NUM lines of trailing context [NOT
+ * SUPPORT]
  * - @a -C, @a --context: Print NUM lines of output context [NOT SUPPORT]
  * - @a --group-separator: Print separator between groups [NOT SUPPORT]
  * - @a --no-group-separator: Do not print group separator [NOT SUPPORT]
@@ -424,7 +440,8 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
     }
     auto split = split_lines(positionals.front());
     for (const auto& p : split) raw_patterns.push_back(p);
-    positionals.erase(positionals.begin(), positionals.begin() + 1);  // Remove first element
+    positionals.erase(positionals.begin(),
+                      positionals.begin() + 1);  // Remove first element
   }
 
   if (raw_patterns.empty()) {
@@ -597,7 +614,8 @@ auto scan_text(const std::string& text, std::string_view display_name,
     const auto [b, e] = records[i];
     std::string_view whole(text.data() + b, e - b);
     bool had_delim = !whole.empty() && whole.back() == delim;
-    std::string_view line = had_delim ? whole.substr(0, whole.size() - 1) : whole;
+    std::string_view line =
+        had_delim ? whole.substr(0, whole.size() - 1) : whole;
     if (!process_selected_record(line, had_delim, display_name, show_filename,
                                  i + 1, b, cfg, selected_count))
       continue;

@@ -33,7 +33,8 @@ namespace wildcard_impl {
 
 /**
  * @brief Check if a character matches a character class pattern
- * @param char_class The character class string (e.g., "[abc]", "[a-z]", "[^0-9]")
+ * @param char_class The character class string (e.g., "[abc]", "[a-z]",
+ * "[^0-9]")
  * @param c The character to check
  * @return true if the character matches the class, false otherwise
  */
@@ -43,7 +44,8 @@ static bool match_char_class(std::wstring_view char_class, wchar_t c) {
   // Check for negation [^...]
   bool negate = (char_class[1] == L'^');
   size_t start = negate ? 2 : 1;
-  size_t end = static_cast<size_t>(char_class.size()) - 1;  // Exclude closing ']'
+  size_t end =
+      static_cast<size_t>(char_class.size()) - 1;  // Exclude closing ']'
 
   if (start >= end) return false;
 
@@ -74,14 +76,17 @@ static bool match_char_class(std::wstring_view char_class, wchar_t c) {
  * @param text The text to match against
  * @return true if text matches pattern, false otherwise
  */
-static bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view text) {
+static bool wildcard_match_impl(std::wstring_view pattern,
+                                std::wstring_view text) {
   size_t pi = 0, ti = 0;
   while (pi < static_cast<size_t>(pattern.size())) {
     if (pattern[pi] == L'*') {
-      while (pi < static_cast<size_t>(pattern.size()) && pattern[pi] == L'*') ++pi;
+      while (pi < static_cast<size_t>(pattern.size()) && pattern[pi] == L'*')
+        ++pi;
       if (pi == static_cast<size_t>(pattern.size())) return true;
       while (ti <= static_cast<size_t>(text.size())) {
-        if (wildcard_match_impl(pattern.substr(pi), text.substr(ti))) return true;
+        if (wildcard_match_impl(pattern.substr(pi), text.substr(ti)))
+          return true;
         if (ti == static_cast<size_t>(text.size())) break;
         ++ti;
       }
@@ -96,7 +101,8 @@ static bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view tex
     } else if (pattern[pi] == L'[') {
       // Find matching ']'
       size_t bracket_end = pi + 1;
-      while (bracket_end < static_cast<size_t>(pattern.size()) && pattern[bracket_end] != L']') {
+      while (bracket_end < static_cast<size_t>(pattern.size()) &&
+             pattern[bracket_end] != L']') {
         bracket_end++;
       }
 
@@ -131,10 +137,13 @@ static bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view tex
  * @brief Enhanced wildcard matching with support for *, ?, and []
  * @param pattern The wildcard pattern
  * @param text The text to match against
- * @param case_sensitive Whether to perform case-sensitive matching (default: false)
+ * @param case_sensitive Whether to perform case-sensitive matching (default:
+ * false)
  * @return true if text matches pattern, false otherwise
  */
-export bool wildcard_match(const std::wstring &pattern, const std::wstring &text, bool case_sensitive = false) {
+export bool wildcard_match(const std::wstring &pattern,
+                           const std::wstring &text,
+                           bool case_sensitive = false) {
   if (case_sensitive) {
     return wildcard_impl::wildcard_match_impl(pattern, text);
   }
@@ -165,7 +174,8 @@ export bool wildcard_match(const std::wstring &pattern, const std::wstring &text
  * - Returns sorted and deduplicated results
  * - If pattern contains no wildcards, returns the pattern itself
  */
-export std::vector<std::string> expand_wildcard(const std::string_view pattern) noexcept {
+export std::vector<std::string> expand_wildcard(
+    const std::string_view pattern) noexcept {
   std::vector<std::string> matched_files;
   const std::string pat(pattern);
 

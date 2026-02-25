@@ -25,12 +25,8 @@
  */
 
 #include "pch/pch.h"
-
-//include other header after pch.h
-
+// include other header after pch.h
 #include "core/command_macros.h"
-
-
 
 import std;
 
@@ -58,16 +54,17 @@ using cmd::meta::OptionType;
  * - @a -F: Same as --follow=name --retry [NOT SUPPORT]
  * - @a -n, @a --lines: Output the last NUM lines, instead of the last 10; or
  *   use -n +NUM to skip NUM-1 lines at the start [IMPLEMENTED]
- * - @a --max-unchanged-stats: With --follow=name, reopen a FILE which has not changed
- *   size after N iterations to see if it has been renamed [NOT SUPPORT]
+ * - @a --max-unchanged-stats: With --follow=name, reopen a FILE which has not
+ * changed size after N iterations to see if it has been renamed [NOT SUPPORT]
  * - @a --pid: With -f, terminate after process ID, PID dies [NOT SUPPORT]
  * - @a -q, @a --quiet: Never output headers giving file names [IMPLEMENTED]
  * - @a --silent: Never output headers giving file names [IMPLEMENTED]
  * - @a --retry: Keep trying to open a file if it is inaccessible [NOT SUPPORT]
- * - @a -s, @a --sleep-interval: With -f, sleep for approximately N seconds between iterations
- *   [NOT SUPPORT]
+ * - @a -s, @a --sleep-interval: With -f, sleep for approximately N seconds
+ * between iterations [NOT SUPPORT]
  * - @a -v, @a --verbose: Always output headers giving file names [IMPLEMENTED]
- * - @a -z, @a --zero-terminated: Line delimiter is NUL, not newline [IMPLEMENTED]
+ * - @a -z, @a --zero-terminated: Line delimiter is NUL, not newline
+ * [IMPLEMENTED]
  */
 auto constexpr TAIL_OPTIONS = std::array{
     OPTION("-c", "--bytes",
@@ -133,7 +130,7 @@ auto read_input(std::string_view path) -> cp::Result<std::string> {
 
 auto suffix_multiplier(std::string_view suffix)
     -> std::optional<std::uintmax_t> {
-  static constexpr auto kMultipliers = 
+  static constexpr auto kMultipliers =
       make_constexpr_map<std::string_view, std::uintmax_t>(
           std::array<std::pair<std::string_view, std::uintmax_t>, 25>{
               std::pair{std::string_view{"b"}, 512ULL},
@@ -146,25 +143,39 @@ auto suffix_multiplier(std::string_view suffix)
               std::pair{std::string_view{"GB"}, 1000ULL * 1000ULL * 1000ULL},
               std::pair{std::string_view{"G"}, 1024ULL * 1024ULL * 1024ULL},
               std::pair{std::string_view{"GiB"}, 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"TB"}, 1000ULL * 1000ULL * 1000ULL * 1000ULL},
-              std::pair{std::string_view{"T"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"TiB"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"PB"}, 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
-              std::pair{std::string_view{"P"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"PiB"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"EB"}, 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
-              std::pair{std::string_view{"E"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"EiB"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"Z"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
-              std::pair{std::string_view{"Y"}, 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"TB"},
+                        1000ULL * 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"T"},
+                        1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"TiB"},
+                        1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"PB"},
+                        1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"P"},
+                        1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"PiB"},
+                        1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{
+                  std::string_view{"EB"},
+                  1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL * 1000ULL},
+              std::pair{std::string_view{"E"}, 1024ULL * 1024ULL * 1024ULL *
+                                                   1024ULL * 1024ULL * 1024ULL},
+              std::pair{
+                  std::string_view{"EiB"},
+                  1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL},
+              std::pair{std::string_view{"Z"}, 1024ULL * 1024ULL * 1024ULL *
+                                                   1024ULL * 1024ULL * 1024ULL *
+                                                   1024ULL},
+              std::pair{std::string_view{"Y"}, 1024ULL * 1024ULL * 1024ULL *
+                                                   1024ULL * 1024ULL * 1024ULL *
+                                                   1024ULL * 1024ULL},
               std::pair{std::string_view{"R"}, 0ULL},
               std::pair{std::string_view{"Q"}, 0ULL},
               std::pair{std::string_view{"ZB"}, 0ULL},
-              std::pair{std::string_view{"YB"}, 0ULL}
-          });
-  
+              std::pair{std::string_view{"YB"}, 0ULL}});
+
   if (suffix.empty()) return 1;
-  
+
   if (auto it = kMultipliers.find(suffix); it != kMultipliers.end()) {
     auto mult = it->second;
     if (mult == 0ULL) return std::nullopt;
@@ -375,7 +386,7 @@ REGISTER_COMMAND(
     cp::report_error(config_result, L"tail");
     return 1;
   }
-auto config = *config_result;
+  auto config = *config_result;
 
   // Use SmallVector for files (max 64 files) - all stack-allocated
   SmallVector<std::string, 64> files{};

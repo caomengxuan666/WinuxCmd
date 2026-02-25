@@ -33,7 +33,7 @@
 /// @License: MIT
 /// @Copyright: Copyright ©  2026 WinuxCmd
 #include "pch/pch.h"
-//include other header after pch.h
+// include other header after pch.h
 #include "core/command_macros.h"
 
 #pragma comment(lib, "psapi.lib")
@@ -49,7 +49,9 @@ using cmd::meta::OptionType;
 auto constexpr PS_OPTIONS = std::array{
     OPTION("-e", "", "select all processes (same as -A)"),
     OPTION("-A", "", "select all processes"),
-    OPTION("-a", "", "select all processes except session leaders and not associated with a terminal"),
+    OPTION("-a", "",
+           "select all processes except session leaders and not associated "
+           "with a terminal"),
     OPTION("-f", "", "do full-format listing"),
     OPTION("-l", "", "long format"),
     OPTION("-u", "", "display user-oriented format", STRING_TYPE),
@@ -91,7 +93,9 @@ struct Config {
 // RAII wrapper for HANDLE
 struct HandleCloser {
   typedef HANDLE pointer;
-  void operator()(HANDLE h) { if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h); }
+  void operator()(HANDLE h) {
+    if (h && h != INVALID_HANDLE_VALUE) CloseHandle(h);
+  }
 };
 using unique_handle = std::unique_ptr<HANDLE, HandleCloser>;
 
@@ -134,15 +138,16 @@ auto get_process_user(HANDLE h_process) -> std::wstring {
 
 // Get process command line with safer approach
 auto get_process_command_line(DWORD pid) -> std::wstring {
-  HANDLE h_proc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+  HANDLE h_proc = OpenProcess(
+      PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
   unique_handle h_process(h_proc);
 
   if (!h_process.get() || h_process.get() == INVALID_HANDLE_VALUE) return L"";
 
   // Try to read command line from PEB using official structures
   PROCESS_BASIC_INFORMATION pbi = {};
-  typedef NTSTATUS(WINAPI * NtQueryInformationProcessFunc)(
-      HANDLE, DWORD, PVOID, ULONG, PULONG);
+  typedef NTSTATUS(WINAPI * NtQueryInformationProcessFunc)(HANDLE, DWORD, PVOID,
+                                                           ULONG, PULONG);
 
   HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
   if (ntdll) {
@@ -151,8 +156,8 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
             ntdll, "NtQueryInformationProcess");
     if (NtQueryInformationProcess) {
       ULONG len = 0;
-      if (NtQueryInformationProcess(h_process.get(), 0, &pbi, sizeof(pbi), &len) ==
-          0) {
+      if (NtQueryInformationProcess(h_process.get(), 0, &pbi, sizeof(pbi),
+                                    &len) == 0) {
         // Use safer approach with bounds checking
         SIZE_T read = 0;
         PVOID pparams_addr = nullptr;
@@ -161,22 +166,21 @@ auto get_process_command_line(DWORD pid) -> std::wstring {
         if (pbi.PebBaseAddress) {
           // Read ProcessParameters pointer from PEB (offset 0x20)
           if (ReadProcessMemory(h_process.get(),
-                                (PBYTE)pbi.PebBaseAddress + 0x20,
-                                &pparams_addr, sizeof(PVOID), &read) &&
+                                (PBYTE)pbi.PebBaseAddress + 0x20, &pparams_addr,
+                                sizeof(PVOID), &read) &&
               read == sizeof(PVOID) && pparams_addr) {
-
             UNICODE_STRING cmd_line = {};
             // Read CommandLine from ProcessParameters (offset 0x70)
             if (ReadProcessMemory(h_process.get(), (PBYTE)pparams_addr + 0x70,
                                   &cmd_line, sizeof(cmd_line), &read) &&
-                read == sizeof(cmd_line) && cmd_line.Length > 0 && cmd_line.Buffer) {
-
+                read == sizeof(cmd_line) && cmd_line.Length > 0 &&
+                cmd_line.Buffer) {
               // Validate buffer bounds before reading
               if (cmd_line.Length <= 32768) {  // Reasonable limit
                 size_t num_chars = cmd_line.Length / sizeof(wchar_t);
                 std::vector<wchar_t> wbuf(num_chars + 1);
-                if (ReadProcessMemory(h_process.get(), cmd_line.Buffer, wbuf.data(),
-                                      cmd_line.Length, &read)) {
+                if (ReadProcessMemory(h_process.get(), cmd_line.Buffer,
+                                      wbuf.data(), cmd_line.Length, &read)) {
                   wbuf[num_chars] = L'\0';
                   return std::wstring(wbuf.data(), num_chars);
                 }
@@ -322,8 +326,7 @@ auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
 
   cfg.all_processes = ctx.get<bool>("-e", false) ||
                       ctx.get<bool>("-A", false) ||
-                      ctx.get<bool>("-a", false) ||
-                      ctx.get<bool>("-x", false);
+                      ctx.get<bool>("-a", false) || ctx.get<bool>("-x", false);
 
   cfg.full_format = ctx.get<bool>("-f", false);
   cfg.long_format = ctx.get<bool>("-l", false);
@@ -333,7 +336,8 @@ auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
   cfg.no_headers = ctx.get<bool>("--no-headers", false);
   cfg.sort_key = ctx.get<std::string>("--sort", "");
 
-  // If no specific processes requested and no -e/-A, default to current user's processes
+  // If no specific processes requested and no -e/-A, default to current user's
+  // processes
   if (!cfg.all_processes && cfg.user_filter.empty()) {
     // For simplicity, show all by default (like modern ps)
     cfg.all_processes = true;
@@ -372,8 +376,8 @@ auto sort_processes(std::vector<ProcessInfo>& processes,
 }
 
 // Print processes in simple format
-auto print_simple(const std::vector<ProcessInfo>& processes,
-                  bool no_headers) -> void {
+auto print_simple(const std::vector<ProcessInfo>& processes, bool no_headers)
+    -> void {
   if (!no_headers) {
     safePrintLn(L"  PID TTY          TIME CMD");
   }
@@ -402,8 +406,8 @@ auto print_simple(const std::vector<ProcessInfo>& processes,
     ULONGLONG total_sec = total_100ns / 10000000ULL;
 
     wchar_t time_buf[16];
-    swprintf_s(time_buf, L"%02llu:%02llu:%02llu",
-               total_sec / 3600, (total_sec % 3600) / 60, total_sec % 60);
+    swprintf_s(time_buf, L"%02llu:%02llu:%02llu", total_sec / 3600,
+               (total_sec % 3600) / 60, total_sec % 60);
     line += time_buf;
     line += L" ";
 
@@ -415,8 +419,8 @@ auto print_simple(const std::vector<ProcessInfo>& processes,
 }
 
 // Print processes in full format
-auto print_full(const std::vector<ProcessInfo>& processes,
-                bool no_headers) -> void {
+auto print_full(const std::vector<ProcessInfo>& processes, bool no_headers)
+    -> void {
   if (!no_headers) {
     safePrintLn(L"UID        PID  PPID  C STIME TTY          TIME CMD");
   }
@@ -461,8 +465,8 @@ auto print_full(const std::vector<ProcessInfo>& processes,
     ULONGLONG total_100ns = kernel.QuadPart + user.QuadPart;
     ULONGLONG total_sec = total_100ns / 10000000ULL;
 
-    swprintf_s(buf, L"%02llu:%02llu:%02llu ",
-               total_sec / 3600, (total_sec % 3600) / 60, total_sec % 60);
+    swprintf_s(buf, L"%02llu:%02llu:%02llu ", total_sec / 3600,
+               (total_sec % 3600) / 60, total_sec % 60);
     line += buf;
 
     // CMD
@@ -473,10 +477,12 @@ auto print_full(const std::vector<ProcessInfo>& processes,
 }
 
 // Print processes in user format
-auto print_user(const std::vector<ProcessInfo>& processes,
-                bool no_headers) -> void {
+auto print_user(const std::vector<ProcessInfo>& processes, bool no_headers)
+    -> void {
   if (!no_headers) {
-    safePrintLn(L"USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND");
+    safePrintLn(
+        L"USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME "
+        L"COMMAND");
   }
 
   for (const auto& proc : processes) {
@@ -529,8 +535,7 @@ auto print_user(const std::vector<ProcessInfo>& processes,
     ULONGLONG total_100ns = kernel.QuadPart + user_t.QuadPart;
     ULONGLONG total_sec = total_100ns / 10000000ULL;
 
-    swprintf_s(buf, L"%5llu:%02llu ",
-               total_sec / 60, total_sec % 60);
+    swprintf_s(buf, L"%5llu:%02llu ", total_sec / 60, total_sec % 60);
     line += buf;
 
     // COMMAND
@@ -553,10 +558,9 @@ auto run(const Config& cfg) -> int {
   // Filter by user if specified
   if (!cfg.user_filter.empty()) {
     auto user_w = utf8_to_wstring(cfg.user_filter);
-    auto it = std::remove_if(processes.begin(), processes.end(),
-                             [&](const ProcessInfo& p) {
-                               return p.user != user_w;
-                             });
+    auto it =
+        std::remove_if(processes.begin(), processes.end(),
+                       [&](const ProcessInfo& p) { return p.user != user_w; });
     processes.erase(it, processes.end());
   }
 

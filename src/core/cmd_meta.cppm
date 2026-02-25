@@ -57,8 +57,9 @@ class CommandMeta {
   std::string_view m_see_also;
   std::string_view m_author;
   std::string_view m_copyright;
-  std::string_view m_brief_desc;  // Brief description for help listing
-  bool m_needs_wildcard_expansion;  // Whether to expand wildcards in positional args
+  std::string_view m_brief_desc;    // Brief description for help listing
+  bool m_needs_wildcard_expansion;  // Whether to expand wildcards in positional
+                                    // args
 
   static constexpr std::array<OptionMeta, OptionCount> with_index(
       std::array<OptionMeta, OptionCount> opts) {
@@ -74,8 +75,7 @@ class CommandMeta {
       std::string_view examples = "", std::string_view see_also = "",
       std::string_view author = "WinuxCmd Project",
       std::string_view copyright = "Copyright © 2026 WinuxCmd",
-      std::string_view brief_desc = "",
-      bool needs_wildcard_expansion = false)
+      std::string_view brief_desc = "", bool needs_wildcard_expansion = false)
       : m_name(name),
         m_synopsis(synopsis),
         m_description(description),

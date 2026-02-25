@@ -26,6 +26,7 @@
 #include <windows.h>
 
 #include <stdexcept>
+#include <vector>
 
 #include "framework/framework_pch.h"
 #include "framework/paths.h"
@@ -35,21 +36,37 @@
  *
  * Uses Windows API GetModuleFileNameW to retrieve the full path of
  * the current executable, then extracts just the directory portion.
+ * Handles long paths (> MAX_PATH) by dynamically allocating buffer.
  *
  * @return std::filesystem::path Directory containing the current executable
- * @throws std::runtime_error if GetModuleFileNameW fails or buffer is too small
+ * @throws std::runtime_error if GetModuleFileNameW fails
  */
 std::filesystem::path get_current_exe_dir() {
+  // Try with static buffer first
   wchar_t buf[MAX_PATH];
-
-  // Retrieve the full path of the current executable
   DWORD len = GetModuleFileNameW(nullptr, buf, MAX_PATH);
 
-  // Check for errors: function failed or buffer was too small
-  if (len == 0 || len == MAX_PATH) {
-    throw std::runtime_error("GetModuleFileNameW failed");
+  if (len > 0 && len < MAX_PATH) {
+    return std::filesystem::path(buf).parent_path();
   }
 
-  // Convert to filesystem path and return parent directory
-  return std::filesystem::path(buf).parent_path();
+  // If buffer was too small (len == MAX_PATH), dynamically allocate larger
+  // buffer Try with progressively larger buffers up to 32767 characters
+  for (DWORD size = MAX_PATH + 1024; size <= 32767; size += 1024) {
+    std::vector<wchar_t> dynamic_buf(size);
+    len = GetModuleFileNameW(nullptr, dynamic_buf.data(), size);
+
+    if (len > 0 && len < size) {
+      return std::filesystem::path(dynamic_buf.data()).parent_path();
+    }
+
+    if (len == 0) {
+      DWORD err = GetLastError();
+      if (err != ERROR_INSUFFICIENT_BUFFER) {
+        throw std::runtime_error("GetModuleFileNameW failed");
+      }
+    }
+  }
+
+  throw std::runtime_error("GetModuleFileNameW failed: path too long");
 }

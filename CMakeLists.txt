@@ -387,6 +387,15 @@ endforeach ()
 # Note: Hardlinks are no longer created during build.
 # Users should run create_links.ps1 in the bin directory to generate command links.
 
+# Post-build command to create command links for testing
+if (MSVC)
+    add_custom_command(TARGET winuxcmd POST_BUILD
+        COMMAND powershell.exe -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/scripts/create_links.ps1" -Force
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Creating command links for testing"
+    )
+endif ()
+
 # Scaffold tool for generating new command modules
 add_executable(scaffold
         src/tools/scaffold.cpp

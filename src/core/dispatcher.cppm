@@ -64,8 +64,7 @@ class RegistryImpl {
   // Expand wildcards in positional arguments if needed
   std::vector<std::string_view> expand_args_if_needed(
       const cmd::meta::CommandMetaHandle &meta,
-      std::span<std::string_view> args,
-      std::vector<std::string>& storage) {
+      std::span<std::string_view> args, std::vector<std::string> &storage) {
     if (!meta.needsWildcardExpansion()) {
       // Return a copy of args as string_views
       std::vector<std::string_view> result(args.begin(), args.end());
@@ -136,7 +135,8 @@ class RegistryImpl {
     std::vector<std::string_view> result;
     result.reserve(non_positionals.size() + expanded_positionals.size());
     result.insert(result.end(), non_positionals.begin(), non_positionals.end());
-    result.insert(result.end(), expanded_positionals.begin(), expanded_positionals.end());
+    result.insert(result.end(), expanded_positionals.begin(),
+                  expanded_positionals.end());
 
     return result;
   }

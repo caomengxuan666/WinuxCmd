@@ -76,6 +76,7 @@
  */
 
 #include "pch/pch.h"
+// include other header after pch.h
 #pragma comment(lib, "shlwapi.lib")
 #include "core/command_macros.h"
 

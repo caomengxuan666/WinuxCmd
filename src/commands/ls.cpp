@@ -33,7 +33,7 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 
 #include "pch/pch.h"
-//include other header after pch.h
+// include other header after pch.h
 #include "core/command_macros.h"
 
 #pragma comment(lib, "advapi32.lib")
@@ -374,9 +374,10 @@ auto get_file_owner_and_group(bool use_numeric = false)
         LPWSTR sidStr = nullptr;
         if (ConvertSidToStringSidW(pTokenUser->User.Sid, &sidStr)) {
           // Extract numeric part from SID (simulate UID 197121)
-          std::wstring sid(sidStr, wcslen(sidStr));  // Construct from known length
+          std::wstring sid(sidStr,
+                           wcslen(sidStr));  // Construct from known length
           LocalFree(sidStr);
-          
+
           size_t lastDash = sid.find_last_of(L'-');
           std::wstring uid_wstr = (lastDash != std::wstring::npos)
                                       ? sid.substr(lastDash + 1)
@@ -686,8 +687,8 @@ auto list_directory(const std::string &path,
   std::wstring wpath = utf8_to_wstring(path);
 
   // Check -d option: list directories themselves, not their contents
-  bool list_dir_only = ctx.get<bool>("-d", false) ||
-                       ctx.get<bool>("--directory", false);
+  bool list_dir_only =
+      ctx.get<bool>("-d", false) || ctx.get<bool>("--directory", false);
 
   if (list_dir_only) {
     // Get directory attributes
@@ -748,7 +749,8 @@ auto list_directory(const std::string &path,
   bool no_sort = ctx.get<bool>("-U", false);
   bool sort_by_time = ctx.get<bool>("-t", false);
   bool sort_by_size = ctx.get<bool>("-S", false);
-  bool reverse_sort = ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
+  bool reverse_sort =
+      ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
 
   if (!no_sort) {
     if (sort_by_time) {
@@ -761,10 +763,12 @@ auto list_directory(const std::string &path,
       // Sort by file size (largest first), then by name for deterministic order
       std::sort(entries.begin(), entries.end(),
                 [](const EntryInfo &a, const EntryInfo &b) {
-                  uint64_t size_a = static_cast<uint64_t>(a.find_data.nFileSizeLow) |
-                                   (static_cast<uint64_t>(a.find_data.nFileSizeHigh) << 32);
-                  uint64_t size_b = static_cast<uint64_t>(b.find_data.nFileSizeLow) |
-                                   (static_cast<uint64_t>(b.find_data.nFileSizeHigh) << 32);
+                  uint64_t size_a =
+                      static_cast<uint64_t>(a.find_data.nFileSizeLow) |
+                      (static_cast<uint64_t>(a.find_data.nFileSizeHigh) << 32);
+                  uint64_t size_b =
+                      static_cast<uint64_t>(b.find_data.nFileSizeLow) |
+                      (static_cast<uint64_t>(b.find_data.nFileSizeHigh) << 32);
                   if (size_a != size_b) {
                     return size_a > size_b;
                   }
@@ -979,7 +983,8 @@ auto list_directory(const std::string &path,
           // Check file extensions for different types
           std::wstring ext;
           size_t dot_pos = entry.name.find_last_of(L".");
-          if (dot_pos != std::wstring::npos && dot_pos < entry.name.length() - 1) {
+          if (dot_pos != std::wstring::npos &&
+              dot_pos < entry.name.length() - 1) {
             ext = entry.name.substr(dot_pos + 1);
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
           }
@@ -1140,8 +1145,8 @@ auto list_file(const std::string &path,
         }
 
         bool is_executable = false;
-        if (ext == L"exe" || ext == L"com" || ext == L"bat" ||
-            ext == L"cmd" || ext == L"ps1") {
+        if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" ||
+            ext == L"ps1") {
           is_executable = true;
         }
 
@@ -1202,8 +1207,8 @@ auto list_file(const std::string &path,
         }
 
         bool is_executable = false;
-        if (ext == L"exe" || ext == L"com" || ext == L"bat" ||
-            ext == L"cmd" || ext == L"ps1") {
+        if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" ||
+            ext == L"ps1") {
           is_executable = true;
         }
 
@@ -1238,8 +1243,7 @@ auto list_file(const std::string &path,
  */
 auto list_directory_recursive(const std::string &path,
                               const CommandContext<LS_OPTIONS.size()> &ctx,
-                              int depth = 0)
-    -> cp::Result<bool> {
+                              int depth = 0) -> cp::Result<bool> {
   // Print header for subdirectories
   if (depth > 0) {
     safePrintLn(std::wstring(path.begin(), path.end()) + L":");
@@ -1370,9 +1374,9 @@ auto process_paths(const std::vector<std::string> &paths,
               // Single file, display it directly
               auto result = list_file(matched_files[0], ctx);
               if (!result) {
-                safePrintLn(std::wstring(L"ls: ") +
-                            std::wstring(result.error().begin(),
-                                         result.error().end()));
+                safePrintLn(
+                    std::wstring(L"ls: ") +
+                    std::wstring(result.error().begin(), result.error().end()));
                 success = false;
               }
             } else {
@@ -1398,7 +1402,8 @@ auto process_paths(const std::vector<std::string> &paths,
 
               if (all_same_dir && !first_dir.empty()) {
                 // All files in same directory, list each file individually
-                // (Don't use list_directory as it would show all files, not just the matched ones)
+                // (Don't use list_directory as it would show all files, not
+                // just the matched ones)
                 for (const auto &f : matched_files) {
                   auto result = list_file(f, ctx);
                   if (!result) {
@@ -1436,18 +1441,21 @@ auto process_paths(const std::vector<std::string> &paths,
 
       if (recursive) {
         // Recursive listing
-        auto result = list_directory_recursive(path, ctx, paths.size() > 1 ? 1 : 0);
+        auto result =
+            list_directory_recursive(path, ctx, paths.size() > 1 ? 1 : 0);
         if (!result) {
-          safePrintLn(std::wstring(L"ls: ") +
-                      std::wstring(result.error().begin(), result.error().end()));
+          safePrintLn(
+              std::wstring(L"ls: ") +
+              std::wstring(result.error().begin(), result.error().end()));
           success = false;
         }
       } else {
         // Normal directory listing
         auto result = list_directory(path, ctx);
         if (!result) {
-          safePrintLn(std::wstring(L"ls: ") +
-                      std::wstring(result.error().begin(), result.error().end()));
+          safePrintLn(
+              std::wstring(L"ls: ") +
+              std::wstring(result.error().begin(), result.error().end()));
           success = false;
         }
       }

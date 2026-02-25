@@ -31,7 +31,7 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 
 #include "pch/pch.h"
-//include other header after pch.h
+// include other header after pch.h
 #include "core/command_macros.h"
 
 import std;
@@ -65,8 +65,10 @@ auto constexpr TREE_OPTIONS = std::array{
     OPTION("-d", "", "list directories only"),
     OPTION("-L", "", "max display depth of the directory tree", INT_TYPE),
     OPTION("-f", "", "print the full path prefix for each file"),
-    OPTION("-I", "", "do not list files that match the given pattern", STRING_TYPE),
-    OPTION("-P", "", "list only those files that match the given pattern", STRING_TYPE),
+    OPTION("-I", "", "do not list files that match the given pattern",
+           STRING_TYPE),
+    OPTION("-P", "", "list only those files that match the given pattern",
+           STRING_TYPE),
     OPTION("-C", "", "colorize the output"),
     OPTION("-s", "", "print the size in bytes of each file"),
     OPTION("-t", "", "sort files by last modification time"),
@@ -100,25 +102,27 @@ struct FileInfo {
 };
 
 /**
- * @brief Check if a character matches a character class (e.g., [0-9], [a-z], [abc])
+ * @brief Check if a character matches a character class (e.g., [0-9], [a-z],
+ * [abc])
  */
 bool match_char_class(std::wstring_view char_class, wchar_t c) {
-  if (char_class.size() < 2 || char_class.front() != L'[' || char_class.back() != L']') {
+  if (char_class.size() < 2 || char_class.front() != L'[' ||
+      char_class.back() != L']') {
     return false;
   }
-  
+
   std::wstring_view content = char_class.substr(1, char_class.size() - 2);
-  
+
   // Handle negation: [^...]
   bool negated = false;
   if (!content.empty() && content.front() == L'^') {
     negated = true;
     content = content.substr(1);
   }
-  
+
   bool matched = false;
   size_t i = 0;
-  
+
   while (i < content.size()) {
     if (i + 2 < content.size() && content[i + 1] == L'-') {
       // Range: [a-z]
@@ -138,28 +142,30 @@ bool match_char_class(std::wstring_view char_class, wchar_t c) {
       i++;
     }
   }
-  
+
   return negated ? !matched : matched;
 }
 
 // File extension constants
 namespace tree_constants {
-const std::array<const wchar_t*, 10> COMPRESSED_EXTS = {
-    L"zip", L"rar", L"7z", L"tar", L"gz", L"bz2", L"xz", L"iso", L"cab", L"arc"};
-const std::array<const wchar_t*, 10> SCRIPT_EXTS = {
+const std::array<const wchar_t *, 10> COMPRESSED_EXTS = {
+    L"zip", L"rar", L"7z",  L"tar", L"gz",
+    L"bz2", L"xz",  L"iso", L"cab", L"arc"};
+const std::array<const wchar_t *, 10> SCRIPT_EXTS = {
     L"sh", L"bat", L"cmd", L"py", L"pl", L"lua", L"js", L"php", L"rb", L"ps1"};
-const std::array<const wchar_t*, 10> SOURCE_EXTS = {
+const std::array<const wchar_t *, 10> SOURCE_EXTS = {
     L"c", L"cpp", L"cc", L"cxx", L"h", L"hpp", L"rs", L"ts", L"java", L"go"};
-const std::array<const wchar_t*, 10> MEDIA_EXTS = {
-    L"jpg", L"jpeg", L"png", L"gif", L"bmp", L"webp", L"mp4", L"avi", L"mkv", L"mp3"};
-}
+const std::array<const wchar_t *, 10> MEDIA_EXTS = {
+    L"jpg",  L"jpeg", L"png", L"gif", L"bmp",
+    L"webp", L"mp4",  L"avi", L"mkv", L"mp3"};
+}  // namespace tree_constants
 
 /**
  * @brief Get color for a file based on its extension
  */
 auto get_file_color(const std::wstring &filename) -> std::wstring_view {
   if (filename.empty()) return COLOR_FILE;
-  
+
   // Get extension
   std::wstring ext;
   size_t dot_pos = filename.find_last_of(L".");
@@ -169,37 +175,39 @@ auto get_file_color(const std::wstring &filename) -> std::wstring_view {
   } else {
     return COLOR_FILE;
   }
-  
+
   // Check for compressed files
   for (const auto *comp_ext : tree_constants::COMPRESSED_EXTS) {
     if (ext == comp_ext) return COLOR_ARCHIVE;
   }
-  
+
   // Check for script files
   for (const auto *script_ext : tree_constants::SCRIPT_EXTS) {
     if (ext == script_ext) return COLOR_SCRIPT;
   }
-  
+
   // Check for source code files
   for (const auto *source_ext : tree_constants::SOURCE_EXTS) {
     if (ext == source_ext) return COLOR_SOURCE;
   }
-  
+
   // Check for media files
   for (const auto *media_ext : tree_constants::MEDIA_EXTS) {
     if (ext == media_ext) return COLOR_MEDIA;
   }
-  
+
   // Check for executable files
-  if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" || ext == L"ps1") {
+  if (ext == L"exe" || ext == L"com" || ext == L"bat" || ext == L"cmd" ||
+      ext == L"ps1") {
     return COLOR_EXEC;
   }
-  
+
   return COLOR_FILE;
 }
 
 /**
- * @brief Check if a file/directory matches a wildcard pattern (helper for already lowercased strings)
+ * @brief Check if a file/directory matches a wildcard pattern (helper for
+ * already lowercased strings)
  */
 bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view text) {
   size_t pi = 0, ti = 0;
@@ -208,7 +216,8 @@ bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view text) {
       while (pi < pattern.size() && pattern[pi] == L'*') ++pi;
       if (pi == pattern.size()) return true;
       while (ti <= text.size()) {
-        if (wildcard_match_impl(pattern.substr(pi), text.substr(ti))) return true;
+        if (wildcard_match_impl(pattern.substr(pi), text.substr(ti)))
+          return true;
         if (ti == text.size()) break;
         ++ti;
       }
@@ -226,7 +235,7 @@ bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view text) {
       while (bracket_end < pattern.size() && pattern[bracket_end] != L']') {
         bracket_end++;
       }
-      
+
       if (bracket_end >= pattern.size()) {
         // No closing bracket, treat '[' as literal
         if (pattern[pi] != text[ti]) return false;
@@ -303,14 +312,16 @@ auto filetime_to_time(const FILETIME &ft) -> time_t {
   ULARGE_INTEGER ull;
   ull.LowPart = ft.dwLowDateTime;
   ull.HighPart = ft.dwHighDateTime;
-  return static_cast<time_t>((ull.QuadPart - 116444736000000000ULL) / 10000000ULL);
+  return static_cast<time_t>((ull.QuadPart - 116444736000000000ULL) /
+                             10000000ULL);
 }
 
 /**
  * @brief Collect directory contents recursively
  */
 auto collect_directory(const std::wstring &path, const Config &cfg,
-                       int current_depth = 0) -> cp::Result<std::vector<FileInfo>> {
+                       int current_depth = 0)
+    -> cp::Result<std::vector<FileInfo>> {
   if (cfg.max_depth >= 0 && current_depth >= cfg.max_depth) {
     return std::vector<FileInfo>{};
   }
@@ -402,10 +413,9 @@ auto collect_directory(const std::wstring &path, const Config &cfg,
               });
   } else {
     // Sort alphabetically
-    std::sort(entries.begin(), entries.end(),
-              [](const FileInfo &a, const FileInfo &b) {
-                return a.name < b.name;
-              });
+    std::sort(
+        entries.begin(), entries.end(),
+        [](const FileInfo &a, const FileInfo &b) { return a.name < b.name; });
   }
 
   return entries;
@@ -430,8 +440,9 @@ auto format_size(uint64_t size) -> std::string {
  * @brief Print tree with proper indentation (console output)
  */
 auto print_tree_console(const std::vector<FileInfo> &entries, const Config &cfg,
-                        const std::wstring &base_path, const std::wstring &prefix,
-                        int current_depth, size_t &total_dirs, size_t &total_files) -> void {
+                        const std::wstring &base_path,
+                        const std::wstring &prefix, int current_depth,
+                        size_t &total_dirs, size_t &total_files) -> void {
   for (size_t i = 0; i < entries.size(); ++i) {
     const auto &entry = entries[i];
     bool is_last = (i == entries.size() - 1);
@@ -489,7 +500,8 @@ auto print_tree_console(const std::vector<FileInfo> &entries, const Config &cfg,
 
     // Recursively process subdirectories
     if (entry.is_dir && (cfg.max_depth < 0 || current_depth < cfg.max_depth)) {
-      auto sub_entries = collect_directory(entry.full_path, cfg, current_depth + 1);
+      auto sub_entries =
+          collect_directory(entry.full_path, cfg, current_depth + 1);
 
       if (sub_entries.has_value() && !sub_entries->empty()) {
         std::wstring sub_prefix = prefix;
@@ -498,7 +510,8 @@ auto print_tree_console(const std::vector<FileInfo> &entries, const Config &cfg,
         } else {
           sub_prefix += L"\u2502   ";
         }
-        print_tree_console(*sub_entries, cfg, entry.full_path, sub_prefix, current_depth + 1, total_dirs, total_files);
+        print_tree_console(*sub_entries, cfg, entry.full_path, sub_prefix,
+                           current_depth + 1, total_dirs, total_files);
       }
     }
   }
@@ -553,7 +566,8 @@ auto print_tree_file(const std::vector<FileInfo> &entries, const Config &cfg,
 
     // Recursively process subdirectories
     if (entry.is_dir && (cfg.max_depth < 0 || current_depth < cfg.max_depth)) {
-      auto sub_entries = collect_directory(entry.full_path, cfg, current_depth + 1);
+      auto sub_entries =
+          collect_directory(entry.full_path, cfg, current_depth + 1);
 
       if (sub_entries.has_value() && !sub_entries->empty()) {
         std::wstring sub_prefix = prefix;
@@ -562,7 +576,8 @@ auto print_tree_file(const std::vector<FileInfo> &entries, const Config &cfg,
         } else {
           sub_prefix += L"\u2502   ";
         }
-        print_tree_file(*sub_entries, cfg, entry.full_path, sub_prefix, current_depth + 1, output, total_dirs, total_files);
+        print_tree_file(*sub_entries, cfg, entry.full_path, sub_prefix,
+                        current_depth + 1, output, total_dirs, total_files);
       }
     }
   }
@@ -571,7 +586,8 @@ auto print_tree_file(const std::vector<FileInfo> &entries, const Config &cfg,
 /**
  * @brief Execute tree command
  */
-auto execute_tree(const CommandContext<TREE_OPTIONS.size()> &ctx) -> cp::Result<bool> {
+auto execute_tree(const CommandContext<TREE_OPTIONS.size()> &ctx)
+    -> cp::Result<bool> {
   // Build configuration
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {
@@ -629,9 +645,11 @@ auto execute_tree(const CommandContext<TREE_OPTIONS.size()> &ctx) -> cp::Result<
     DWORD attrs = GetFileAttributesW(abs_path.c_str());
     if (attrs == INVALID_FILE_ATTRIBUTES) {
       if (output_to_file) {
-        file_output << "tree: cannot access '" << wstring_to_utf8(abs_path) << "': No such file or directory" << std::endl;
+        file_output << "tree: cannot access '" << wstring_to_utf8(abs_path)
+                    << "': No such file or directory" << std::endl;
       } else {
-        safePrintLn(L"tree: cannot access '" + abs_path + L"': No such file or directory");
+        safePrintLn(L"tree: cannot access '" + abs_path +
+                    L"': No such file or directory");
       }
       return false;
     }
@@ -651,16 +669,19 @@ auto execute_tree(const CommandContext<TREE_OPTIONS.size()> &ctx) -> cp::Result<
     auto entries = collect_directory(abs_path, cfg, 0);
     if (entries.has_value()) {
       size_t total_dirs = 0, total_files = 0;
-      
+
       if (output_to_file) {
         file_output << wstring_to_utf8(abs_path) << std::endl;
-        print_tree_file(*entries, cfg, abs_path, L"", 0, file_output, total_dirs, total_files);
+        print_tree_file(*entries, cfg, abs_path, L"", 0, file_output,
+                        total_dirs, total_files);
       } else {
         safePrintLn(abs_path);
-        print_tree_console(*entries, cfg, abs_path, L"", 0, total_dirs, total_files);
+        print_tree_console(*entries, cfg, abs_path, L"", 0, total_dirs,
+                           total_files);
 
         // Print summary
-        safePrintLn(std::to_wstring(total_dirs) + L" directories, " + std::to_wstring(total_files) + L" files");
+        safePrintLn(std::to_wstring(total_dirs) + L" directories, " +
+                    std::to_wstring(total_files) + L" files");
       }
     }
   }
@@ -689,17 +710,25 @@ REGISTER_COMMAND(
     /* cmd_name */ "tree",
     /* cmd_synopsis */ "list contents of directories in a tree-like format",
     /* cmd_desc */
-    "tree is a recursive directory listing program that produces a depth indented\n"
-    "listing of files. Color is supported ala dircolors if the LS_COLORS environment\n"
+    "tree is a recursive directory listing program that produces a depth "
+    "indented\n"
+    "listing of files. Color is supported ala dircolors if the LS_COLORS "
+    "environment\n"
     "variable is set, outputting to tty.\n\n"
-    "With no arguments, tree lists the files in the current directory. When directory\n"
-    "arguments are given, tree lists all the files and/or directories found in the\n"
-    "given directories each in turn. Upon completion of listing all files/directories\n"
-    "found, tree returns the total number of files and/or directories listed.\n\n"
-    "By default, when a symbolic link is encountered, the path that the symbolic link\n"
+    "With no arguments, tree lists the files in the current directory. When "
+    "directory\n"
+    "arguments are given, tree lists all the files and/or directories found in "
+    "the\n"
+    "given directories each in turn. Upon completion of listing all "
+    "files/directories\n"
+    "found, tree returns the total number of files and/or directories "
+    "listed.\n\n"
+    "By default, when a symbolic link is encountered, the path that the "
+    "symbolic link\n"
     "refers to is printed after the name of the link in the format:\n"
     "    name -> real-path\n\n"
-    "If the -f option is given, then each entry is printed with its full path prefix.",
+    "If the -f option is given, then each entry is printed with its full path "
+    "prefix.",
     /* examples */
     "  tree              # List files in current directory\n"
     "  tree -L 2         # List with depth limit of 2\n"

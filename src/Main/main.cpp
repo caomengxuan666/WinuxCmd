@@ -74,7 +74,8 @@ int main(int argc, char *argv[]) noexcept {
   std::string self_name = path::get_executable_name(argv[0]);
 
   // Convert command-line arguments to string_views for efficiency
-  // Note: We don't expand wildcards here anymore. Each command decides whether to expand.
+  // Note: We don't expand wildcards here anymore. Each command decides whether
+  // to expand.
   std::vector<std::string_view> args;
   args.reserve(argc - 1);
   for (int i = 1; i < argc; ++i) {

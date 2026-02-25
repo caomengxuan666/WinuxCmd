@@ -91,7 +91,7 @@
         std::string_view(cmd_name), std::string_view(cmd_synopsis),            \
         std::string_view(cmd_desc), options, std::string_view(examples),       \
         std::string_view(see_also), std::string_view(author),                  \
-        std::string_view(copyright), std::string_view(cmd_synopsis), false);    \
+        std::string_view(copyright), std::string_view(cmd_synopsis), false);   \
   }                                                                            \
                                                                                \
   template <size_t N>                                                          \
@@ -111,9 +111,10 @@
   template <size_t N>                                                          \
   int execute##name(CommandContext<N>& ctx) noexcept
 
-// Variant of REGISTER_COMMAND that enables wildcard expansion on positional arguments
+// Variant of REGISTER_COMMAND that enables wildcard expansion on positional
+// arguments
 #define REGISTER_COMMAND_WILDCARD(name, cmd_name, cmd_synopsis, cmd_desc,      \
-                                   examples, see_also, author, copyright, ...)  \
+                                  examples, see_also, author, copyright, ...)  \
                                                                                \
   namespace command_##name##_internal {                                        \
     template <typename T>                                                      \
@@ -170,7 +171,7 @@
         std::string_view(cmd_name), std::string_view(cmd_synopsis),            \
         std::string_view(cmd_desc), options, std::string_view(examples),       \
         std::string_view(see_also), std::string_view(author),                  \
-        std::string_view(copyright), std::string_view(cmd_synopsis), true);     \
+        std::string_view(copyright), std::string_view(cmd_synopsis), true);    \
   }                                                                            \
                                                                                \
   template <size_t N>                                                          \
