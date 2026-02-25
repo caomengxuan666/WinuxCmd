@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30.0)
+﻿cmake_minimum_required(VERSION 3.30.0)
 # CMake Module start from 3.30.0
 # Ignore some warnings
 set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS ON CACHE BOOL "" FORCE)
@@ -116,7 +116,7 @@ include(cmake/enable_import_std.cmake)
 include(cmake/statistics_project.cmake)
 
 project(WinuxCmd
-        VERSION 0.4.4
+        VERSION 0.4.5
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )

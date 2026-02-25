@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 WinuxCmd Profile Initializer - One-time setup
 .DESCRIPTION
@@ -308,40 +308,6 @@ function global:winux {
         Write-Host "winuxcmd.exe not found at: $winuxCmdPath"
     }
 }
-
-# Find winuxcmd.exe and set alias for it.
-function Update-WinuxCmdAlias {
-    $baseDir = "$env:LOCALAPPDATA\WinuxCmd"
-    if (-not (Test-Path $baseDir)) {
-        return
-    }
-
-    $dirs = Get-ChildItem -Path $baseDir -Directory -Filter "WinuxCmd-*" -ErrorAction SilentlyContinue
-    $latestExe = $null
-
-    foreach ($dir in $dirs) {
-        if ($dir.Name -match 'WinuxCmd-(\d+\.\d+\.\d+)-win-(x64|arm64)') {
-            $exePath = Join-Path $dir.FullName "bin\winuxcmd.exe"
-            if (Test-Path $exePath) {
-                $latestExe = $exePath
-                # continue search for potential latest version.
-            }
-        }
-    }
-
-    if ($latestExe) {
-        Set-Alias -Name winuxcmd -Value $latestExe -Scope Global -Force -ErrorAction SilentlyContinue
-    }
-}
-
-# set alias
-Update-WinuxCmdAlias
-
-# update the alias when launch the powershell.
-if ($null -ne (Get-EventSubscriber -SourceIdentifier "PowerShell.Exiting" -ErrorAction SilentlyContinue)) {
-    Unregister-Event -SourceIdentifier "PowerShell.Exiting" -Force -ErrorAction SilentlyContinue
-}
-
 Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
     $baseDir = "$env:LOCALAPPDATA\WinuxCmd"
     if (Test-Path $baseDir) {
