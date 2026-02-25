@@ -45,8 +45,7 @@ set_property(CACHE BUILD_MODE PROPERTY STRINGS "DEV" "RELEASE" "DEBUG_RELEASE")
 
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
-# Option to use hardlinks for commands instead of separate executables
-option(USE_HARDLINKS "Use hardlinks for commands instead of separate executables" ON)
+
 # Option to enable UPX compression
 option(ENABLE_UPX "Enable UPX compression for executables" OFF)
 # Generate the map info(For the developers to collect binary information)
@@ -117,7 +116,7 @@ include(cmake/enable_import_std.cmake)
 include(cmake/statistics_project.cmake)
 
 project(WinuxCmd
-        VERSION 0.4.1
+        VERSION 0.4.2
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
@@ -385,22 +384,8 @@ foreach (CMD_FILE ${COMMAND_FILES})
     list(APPEND COMMANDS ${CMD_NAME})
 endforeach ()
 
-# Create individual command executables or hardlinks
-if (NOT USE_HARDLINKS)
-    foreach (CMD ${COMMANDS})
-        create_command_executable(${CMD})
-    endforeach ()
-else ()
-    # Create hardlinks after winuxcmd is built
-    foreach (CMD ${COMMANDS})
-        add_custom_command(TARGET winuxcmd POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E create_hardlink
-                $<TARGET_FILE:winuxcmd>
-                "$<TARGET_FILE_DIR:winuxcmd>/${CMD}.exe"
-                COMMENT "Creating hardlink for ${CMD}"
-        )
-    endforeach ()
-endif ()
+# Note: Hardlinks are no longer created during build.
+# Users should run create_links.ps1 in the bin directory to generate command links.
 
 # Scaffold tool for generating new command modules
 add_executable(scaffold
@@ -445,38 +430,10 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/install" CACHE PATH "Installation prefix" FORCE)
 endif ()
 
-if (NOT USE_HARDLINKS)
-    install(TARGETS winuxcmd ls cat cp mv rm mkdir
-            RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            COMPONENT Runtime
-    )
-else ()
-    install(TARGETS winuxcmd
-            RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            COMPONENT Runtime
-    )
-
-    foreach (CMD ${COMMANDS})
-        install(CODE "
-            execute_process(
-                COMMAND \${CMAKE_COMMAND} -E create_hardlink
-                winuxcmd.exe
-                ${CMD}.exe
-                WORKING_DIRECTORY \${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}
-                RESULT_VARIABLE result
-            )
-            if(result)
-                message(WARNING \"Failed to create hardlink for ${CMD}, copying instead\")
-                execute_process(
-                    COMMAND \${CMAKE_COMMAND} -E copy
-                    winuxcmd.exe
-                    ${CMD}.exe
-                    WORKING_DIRECTORY \${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}
-                )
-            endif()
-        " COMPONENT Runtime)
-    endforeach ()
-endif ()
+install(TARGETS winuxcmd
+        RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
+)
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winux.ps1"
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -494,6 +451,11 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winuxcmd_init.cmd"
 )
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winuxcmd_uninstall.cmd"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
+)
+
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/create_links.ps1"
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
         COMPONENT Runtime
 )
@@ -555,8 +517,8 @@ message(STATUS "Map Info Generation: ${GENERATE_MAP_INFO}")
 message(STATUS "Unity Build: ${ENABLE_UNITY_BUILD}")
 message(STATUS "UPX Compression: ${ENABLE_UPX} (PERMANENTLY DISABLED)")
 message(STATUS "Static CRT: ${USE_STATIC_CRT}")
-message(STATUS "Hardlinks: ${USE_HARDLINKS}")
 message(STATUS "Note: UPX compression has been permanently disabled for reliability")
+message(STATUS "Note: Run create_links.ps1 in bin directory to generate command links")
 message(STATUS "=================================================================")
 
 # Print out supported the amount of supported commands
