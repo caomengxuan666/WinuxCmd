@@ -52,7 +52,6 @@ jobs:
             -DCMAKE_CXX_COMPILER_TARGET=${{ matrix.arch }} ^
             -DBUILD_MODE=RELEASE ^
             -DUSE_STATIC_CRT=ON ^
-            -DUSE_HARDLINKS=ON ^
             -DCMAKE_CXX_STANDARD=23 ^
             -DCMAKE_CXX_STANDARD_REQUIRED=ON ^
             -DCMAKE_EXPERIMENTAL_CXX_MODULE_STD=ON ^
@@ -166,7 +165,19 @@ jobs:
             ### Usage:
             1. Download the appropriate package for your architecture
             2. Extract to your desired directory
-            3. Add the extracted `bin` directory to PATH
+            3. Navigate to the `bin` directory
+            4. Run `create_links.ps1` to generate command links
+               ```powershell
+               # For NTFS filesystems (recommended)
+               .\create_links.ps1
+               
+               # For non-NTFS filesystems, use symbolic links
+               .\create_links.ps1 -UseSymbolicLinks
+               
+               # To remove all links later
+               .\create_links.ps1 -Remove
+               ```
+            5. Add the `bin` directory to your PATH
           draft: false
           prerelease: false
           generate_release_notes: true

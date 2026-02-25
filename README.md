@@ -15,6 +15,14 @@ English | [中文](README-zh.md)
 
 ## 🚀 Quick Start
 
+### Requirements
+
+- **PowerShell 7+** recommended for best experience
+  - PowerShell 5.1 (Windows default) is supported but may display color codes as text
+  - Install PowerShell 7: `winget install Microsoft.PowerShell` or download from [GitHub](https://github.com/PowerShell/PowerShell/releases)
+- Windows 10/11 (x64 or ARM64)
+- Administrator rights not required for installation
+
 ### One-Command Installation (Recommended)
 
 ```powershell
@@ -26,7 +34,19 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 1. Download from Releases
 2. Extract to any directory
-3. Run the setup script: `winux-activate.ps1`
+3. Navigate to the `bin` directory
+4. Run `create_links.ps1` to generate command links
+   ```powershell
+   # For NTFS filesystems (recommended)
+   .\create_links.ps1
+   
+   # For non-NTFS filesystems, use symbolic links
+   .\create_links.ps1 -UseSymbolicLinks
+   
+   # To remove all links later
+   .\create_links.ps1 -Remove
+   ```
+5. Add the `bin` directory to your PATH
 
 ## 📦 Currently Implemented Commands (v0.4.1)
 
@@ -95,17 +115,26 @@ WinuxCmd provides native Linux command syntax on Windows without emulation layer
 
 ## 💡 Technical Highlights
 
-### 1. Hardlink Distribution (Zero-Duplication)
+### 1. Minimal Distribution
+
+WinuxCmd packages contain only `winuxcmd.exe` (single executable) and setup scripts. Command links are generated on-demand by the user using `create_links.ps1`:
 
 ```bash
-# All commands are hardlinks to the same executable
+# After running create_links.ps1, all commands become links:
 $ ls -i *.exe
-12345 ls.exe    # Same inode
-12345 cat.exe   # Same inode
-12345 cp.exe    # Same inode
+12345 winuxcmd.exe   # The main executable
+12345 ls.exe         # Hardlink to winuxcmd.exe
+12345 cat.exe        # Hardlink to winuxcmd.exe
+12345 cp.exe         # Hardlink to winuxcmd.exe
 
-# Result: 300 commands ≈ 400KB, not 300×400KB
+# Result: Single executable + on-demand links = ultra-fast downloads
 ```
+
+**Advantages:**
+- Smaller download size (single ~900KB executable instead of 34 separate files)
+- Users choose which commands to install
+- Automatic fallback: if hardlinks fail, uses symbolic links
+- Works on both NTFS and non-NTFS filesystems
 
 ### 2. Extreme Size Optimization
 
@@ -207,7 +236,8 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_TESTS=ON -DGENERATE_MAP_INFO=ON
 
 ### Design Choices
 
-- Hardlinks over symlinks: Better performance, native Windows support
+- Single executable distribution: Minimal download, on-demand link generation
+- Hardlinks with symbolic link fallback: Best performance on NTFS, compatibility elsewhere
 - Static linking: No VC++ runtime dependencies
 - No RTTI/Exceptions: Reduced binary size
 - Module-based: Faster compilation, cleaner dependencies

@@ -15,6 +15,14 @@
 
 ## 🚀 快速开始
 
+### 系统要求
+
+- **PowerShell 7+** 推荐使用以获得最佳体验
+  - PowerShell 5.1（Windows 自带）也支持，但颜色代码可能显示为纯文本
+  - 安装 PowerShell 7：`winget install Microsoft.PowerShell` 或从 [GitHub](https://github.com/PowerShell/PowerShell/releases) 下载
+- Windows 10/11（x64 或 ARM64）
+- 安装不需要管理员权限
+
 ### 一键安装（推荐）
 
 ```powershell
@@ -26,7 +34,19 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 1. 从 Releases 下载
 2. 解压到任意目录
-3. 运行设置脚本：`winux-activate.ps1`
+3. 进入 `bin` 目录
+4. 运行 `create_links.ps1` 生成命令链接
+   ```powershell
+   # 对于 NTFS 文件系统（推荐）
+   .\create_links.ps1
+   
+   # 对于非 NTFS 文件系统，使用符号链接
+   .\create_links.ps1 -UseSymbolicLinks
+   
+   # 若需删除所有链接
+   .\create_links.ps1 -Remove
+   ```
+5. 将 `bin` 目录添加到 PATH
 
 ## 📦 已实现的命令 (v0.4.1)
 
@@ -95,17 +115,26 @@ WinuxCmd 在 Windows 上提供原生的 Linux 命令语法，无需仿真层。
 
 ## 💡 技术亮点
 
-### 1. 硬链接分发（零重复）
+### 1. 最小化分发
+
+WinuxCmd 的发布包仅包含 `winuxcmd.exe`（单个可执行文件）和设置脚本。命令链接由用户通过 `create_links.ps1` 按需生成：
 
 ```
-# 所有命令都是同一个可执行文件的硬链接
+# 运行 create_links.ps1 后，所有命令都变为链接：
 $ ls -i *.exe
-12345 ls.exe    # 相同的 inode
-12345 cat.exe   # 相同的 inode
-12345 cp.exe    # 相同的 inode
+12345 winuxcmd.exe   # 主可执行文件
+12345 ls.exe         # 指向 winuxcmd.exe 的硬链接
+12345 cat.exe        # 指向 winuxcmd.exe 的硬链接
+12345 cp.exe         # 指向 winuxcmd.exe 的硬链接
 
-# 结果：300 个命令 ≈ 400KB，而不是 300×400KB
+# 结果：单个可执行文件 + 按需链接 = 超快下载速度
 ```
+
+**优势：**
+- 更小的下载体积（单个 ~900KB 可执行文件，而非 34 个独立文件）
+- 用户选择要安装哪些命令
+- 自动回退：如果硬链接失败，使用符号链接
+- 同时支持 NTFS 和非 NTFS 文件系统
 
 ### 2. 极致的体积优化
 
@@ -191,7 +220,8 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
 
 ### 设计选择
 
-- 硬链接而非符号链接：更好的性能，原生 Windows 支持
+- 单一可执行文件分发：最小化下载，按需生成链接
+- 硬链接优先，符号链接回退：NTFS 上最佳性能，其他系统兼容
 - 静态链接：无 VC++ 运行时依赖
 - 禁用 RTTI/异常：减少二进制大小
 - 基于模块：更快的编译，更清晰的依赖
