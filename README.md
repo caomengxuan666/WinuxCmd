@@ -153,6 +153,36 @@ Single ls.exe (C/CMake):~1.5 MB
 - Memory usage: < 2MB per process
 - No runtime dependencies: Pure Win32 API
 
+### 3.1 Full Execution Benchmark: WinuxCmd vs uutils coreutils
+
+Tested complete command execution (startup + execution + exit) with 1000 files directory, 20 iterations each (lower is better):
+
+| Command | WinuxCmd (ms) | uutils (Rust) (ms) | Ratio | Winner |
+|---------|---------------|-------------------|-------|--------|
+| ls      | 6.30          | 7.27              | 0.87x | ✅ WinuxCmd |
+| cat     | 6.19          | 7.01              | 0.88x | ✅ WinuxCmd |
+| head    | 6.27          | 6.79              | 0.92x | ✅ WinuxCmd |
+| tail    | 6.34          | 6.84              | 0.93x | ✅ WinuxCmd |
+| grep    | 6.42          | 5.99              | 1.07x | uutils |
+| sort    | 6.31          | 7.27              | 0.87x | ✅ WinuxCmd |
+| uniq    | 6.23          | 6.84              | 0.91x | ✅ WinuxCmd |
+| wc      | 6.21          | 6.81              | 0.91x | ✅ WinuxCmd |
+
+**Summary:**
+- WinuxCmd wins in 7/8 commands (87.5%)
+- Average execution time: WinuxCmd 6.28ms, uutils 6.85ms
+- Overall speedup: **1.09x faster** than uutils (Rust)
+- Best performance: ls & sort (1.15x faster)
+- Only grep is slower by 1.07x
+
+> **Test Configuration:**
+> - Test Environment: Windows 10 x64
+> - Test Data: 1000 files directory
+> - Iterations: 20 runs per command
+> - Test Method: `Measure-Command { ls }` (complete execution including startup)
+> - Versions: WinuxCmd v0.4.5, uutils coreutils v0.6.0
+> - Date: February 25, 2026
+
 ### 4. Custom Containers
 
 WinuxCmd implements custom C++23 containers for optimal performance:

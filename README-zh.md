@@ -153,6 +153,36 @@ GNU coreutils（MSYS2）：~5 MB
 - 内存占用：< 2MB 每个进程
 - 无运行时依赖：纯 Win32 API
 
+### 3.1 完整执行时间基准测试：WinuxCmd vs uutils coreutils
+
+测试完整命令执行时间（包括启动、执行和退出），使用 1000 个文件的目录，每个命令运行 20 次（数值越低越好）：
+
+| 命令 | WinuxCmd (ms) | uutils (Rust) (ms) | 比例 | 优胜者 |
+|------|---------------|-------------------|------|--------|
+| ls      | 6.30          | 7.27              | 0.87x | ✅ WinuxCmd |
+| cat     | 6.19          | 7.01              | 0.88x | ✅ WinuxCmd |
+| head    | 6.27          | 6.79              | 0.92x | ✅ WinuxCmd |
+| tail    | 6.34          | 6.84              | 0.93x | ✅ WinuxCmd |
+| grep    | 6.42          | 5.99              | 1.07x | uutils |
+| sort    | 6.31          | 7.27              | 0.87x | ✅ WinuxCmd |
+| uniq    | 6.23          | 6.84              | 0.91x | ✅ WinuxCmd |
+| wc      | 6.21          | 6.81              | 0.91x | ✅ WinuxCmd |
+
+**总结：**
+- WinuxCmd 在 7/8 个命令中获胜（87.5%）
+- 平均执行时间：WinuxCmd 6.28ms，uutils 6.85ms
+- 整体加速：比 uutils (Rust) 快 **1.09x**
+- 最佳表现：ls 和 sort（快约 1.15 倍）
+- 只有 grep 慢 1.07 倍
+
+> **测试配置：**
+> - 测试环境：Windows 10 x64
+> - 测试数据：1000 个文件的目录
+> - 迭代次数：每个命令 20 次运行
+> - 测试方法：`Measure-Command { ls }`（包括启动的完整执行时间）
+> - 版本：WinuxCmd v0.4.5, uutils coreutils v0.6.0
+> - 测试日期：2026 年 2 月 25 日
+
 ### 4. 自定义容器
 
 WinuxCmd 实现了自定义 C++23 容器以获得最佳性能:
