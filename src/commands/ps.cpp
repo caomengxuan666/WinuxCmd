@@ -52,7 +52,8 @@ auto constexpr PS_OPTIONS = std::array{
     OPTION("-a", "", "select all processes except session leaders and not associated with a terminal"),
     OPTION("-f", "", "do full-format listing"),
     OPTION("-l", "", "long format"),
-    OPTION("-u", "", "display user-oriented format", STRING_TYPE),
+    OPTION("-u", "", "display user-oriented format"),
+    OPTION("", "--user", "filter processes by user name", STRING_TYPE),
     OPTION("-x", "", "lift the BSD-style \"must have a tty\" restriction"),
     OPTION("-w", "", "wide output (do not truncate command lines)"),
     OPTION("", "--no-headers", "print no header line"),
@@ -327,8 +328,8 @@ auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
 
   cfg.full_format = ctx.get<bool>("-f", false);
   cfg.long_format = ctx.get<bool>("-l", false);
-  cfg.user_format = !ctx.get<std::string>("-u", "").empty();
-  cfg.user_filter = ctx.get<std::string>("-u", "");
+  cfg.user_format = ctx.get<bool>("-u", false);
+  cfg.user_filter = ctx.get<std::string>("--user", "");
   cfg.wide_output = ctx.get<bool>("-w", false);
   cfg.no_headers = ctx.get<bool>("--no-headers", false);
   cfg.sort_key = ctx.get<std::string>("--sort", "");
