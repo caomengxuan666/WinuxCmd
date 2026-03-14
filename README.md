@@ -72,7 +72,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | env | Print/modify environment | -i/--ignore-environment, -u NAME, -0/--null; -S/--split-string, -C/--chdir, running COMMAND [NOT SUPPORT] |
 | wc | Count lines/words/bytes | -c, -l, -w, -m, -L |
 | pwd | Print working directory | -L (logical), -P (physical) |
-| ps | Report process status | -e/-A/-a/-x (all processes), -f (full format), -l (long format), -u USER (user format), -w (wide output), --no-headers, --sort=KEY (sort by column) |
+| ps | Report process status | -e/-A/-a/-x (all processes), -f (full format), -l (long format), -u (user format), --user USER (filter by user), -w (wide output), --no-headers, --sort=KEY (sort by column) |
 | tee | Read from stdin and write to stdout and files | -a/--append, -i/--ignore-interrupts, -p/--diagnose |
 | chmod | Change file mode bits | -c/--changes, -f/--silent/--quiet, -v/--verbose, -R/--recursive, --reference |
 | date | Print or set system date/time | -d/--date, -u/--utc, +FORMAT; -s/--set [NOT SUPPORT] |
