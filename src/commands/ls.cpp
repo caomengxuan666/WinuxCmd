@@ -518,7 +518,10 @@ auto print_columns(const std::vector<std::wstring> &entries,
   // "always" or any other value enables color
 
   // Get terminal width or use specified width
-  int width = ctx.get<int>("-w", 0) || ctx.get<int>("--width", 0);
+  int width = ctx.get<int>("-w", 0);
+  if (width <= 0) {
+    width = ctx.get<int>("--width", 0);
+  }
   if (width <= 0) {
     width = get_terminal_width();
   }

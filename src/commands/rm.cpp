@@ -95,20 +95,53 @@ constexpr auto RM_OPTIONS = std::array{
 namespace rm_pipeline {
 namespace cp = core::pipeline;
 
+auto get_system_error_message(DWORD error) -> std::wstring {
+  LPWSTR raw = nullptr;
+  DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                FORMAT_MESSAGE_IGNORE_INSERTS;
+  // Use English to avoid multibyte encoding issues in non-Unicode console paths
+  DWORD len = FormatMessageW(flags, nullptr, error,
+                             MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+                             (LPWSTR)&raw, 0, nullptr);
+  if (len == 0 || raw == nullptr) {
+    // Fallback to system default language
+    len = FormatMessageW(flags, nullptr, error,
+                         MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                         (LPWSTR)&raw, 0, nullptr);
+  }
+  if (len == 0 || raw == nullptr) {
+    return L"unknown error";
+  }
+
+  std::wstring message(raw, len);
+  LocalFree(raw);
+  while (!message.empty() &&
+         (message.back() == L'\r' || message.back() == L'\n' ||
+          message.back() == L' ' || message.back() == L'\t')) {
+    message.pop_back();
+  }
+  return message;
+}
+
 /**
- * @brief Helper function to convert wstring to UTF-8 string
- * @param wstr Wide string to convert
- * @return UTF-8 string
+ * @brief Convert a path to Windows extended-length path (\\?\) format.
+ *
+ * This bypasses reserved device name resolution (nul, con, prn, aux, com*, lpt*)
+ * and also removes the MAX_PATH limit. The path is first resolved to an
+ * absolute path via GetFullPathNameW, then prefixed with "\\?\\\\". If
+ * resolution fails the original path is returned unchanged.
  */
-auto wstringToUtf8(const std::wstring& wstr) -> std::string {
-  int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0,
-                                 nullptr, nullptr);
-  if (size == 0) return "";
-  std::string result(size, 0);
-  WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &result[0], size, nullptr,
-                      nullptr);
-  result.pop_back();  // Remove trailing null character
-  return result;
+auto to_extended_path(const std::wstring& path) -> std::wstring {
+  // Already in extended form
+  if (path.size() >= 4 && path.compare(0, 4, L"\\\\?\\" ) == 0) {
+    return path;
+  }
+  wchar_t abs_buf[32768];
+  DWORD len = GetFullPathNameW(path.c_str(), 32768, abs_buf, nullptr);
+  if (len == 0 || len >= 32768) {
+    return path;  // fallback: use original
+  }
+  return L"\\\\?\\" + std::wstring(abs_buf, len);
 }
 
 /**
@@ -132,7 +165,10 @@ auto check_paths(const std::vector<std::string>& paths)
  */
 auto remove_path(const std::string& path,
                  const CommandContext<RM_OPTIONS.size()>& ctx) -> bool {
-  std::wstring wpath = utf8_to_wstring(path);
+  // Use extended-length path to bypass Windows reserved device names
+  // (nul, con, prn, aux, com0-9, lpt0-9) which would otherwise redirect
+  // file operations to the corresponding device instead of the actual file.
+  std::wstring wpath = to_extended_path(utf8_to_wstring(path));
   DWORD attr = GetFileAttributesW(wpath.c_str());
 
   bool force = ctx.get<bool>("--force", false) || ctx.get<bool>("-f", false);
@@ -204,11 +240,8 @@ auto remove_path(const std::string& path,
             // Delete file
             if (!DeleteFileW(itemPath.c_str())) {
               DWORD error = GetLastError();
-              char errorMsg[256];
-              FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0,
-                             errorMsg, sizeof(errorMsg), NULL);
-              // OPTIMIZED: Direct conversion and avoid multiple conversions
               std::string itemPathStr = wstring_to_utf8(itemPath);
+              std::wstring errorMsg = get_system_error_message(error);
               safeErrorPrint("rm: cannot remove file '");
               safeErrorPrint(itemPathStr);
               safeErrorPrint("': ");
@@ -243,11 +276,8 @@ auto remove_path(const std::string& path,
       // Finally, remove the directory itself
       if (!RemoveDirectoryW(dirPath.c_str())) {
         DWORD error = GetLastError();
-        char errorMsg[256];
-        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
-                       sizeof(errorMsg), NULL);
-        // OPTIMIZED: Direct conversion
         std::string dirPathStr = wstring_to_utf8(dirPath);
+        std::wstring errorMsg = get_system_error_message(error);
         safeErrorPrint("rm: cannot remove directory '");
         safeErrorPrint(dirPathStr);
         safeErrorPrint("': ");
@@ -274,9 +304,7 @@ auto remove_path(const std::string& path,
     BOOL success = DeleteFileW(wpath.c_str());
     if (!success) {
       DWORD error = GetLastError();
-      char errorMsg[256];
-      FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, errorMsg,
-                     sizeof(errorMsg), NULL);
+      std::wstring errorMsg = get_system_error_message(error);
       // OPTIMIZED: Avoid redundant conversions
       safeErrorPrint("rm: cannot remove file '");
       safeErrorPrint(path);
