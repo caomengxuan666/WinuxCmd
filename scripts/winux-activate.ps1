@@ -370,7 +370,101 @@ Write-Color "Cyan" "WinuxCmd Profile Initializer"
 Write-Color "Cyan" "==========================="
 Write-Host ""
 
-Write-Color "Yellow" "Setting up WinuxCmd in PowerShell profile..."
+# ── New: --install flag for one-shot permanent setup ──────────────────────────
+param(
+    [switch]$Install,
+    [switch]$Uninstall
+)
+
+if ($Install) {
+    Write-Color "Yellow" "Permanent installation: PATH + Tab completion..."
+    Write-Host ""
+
+    $binDir = Get-WinuxBinDir
+    if (-not $binDir) {
+        Write-Color "Red" "WinuxCmd installation not found."
+        exit 1
+    }
+    Write-Color "Cyan" "Found WinuxCmd at: $binDir"
+
+    # 1. Add bin dir to HKCU\Environment\PATH (no admin required)
+    $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($userPath -notlike "*$binDir*") {
+        $newPath = if ($userPath) { "$binDir;$userPath" } else { $binDir }
+        [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+        Write-Color "Green" "Added '$binDir' to user PATH registry."
+        Write-Host "       (Effective in new sessions / after re-login)"
+    } else {
+        Write-Color "Green" "Already in user PATH."
+    }
+    # Also add to current session
+    $env:PATH = "$binDir;$env:PATH"
+
+    # 2. Dot-source completion script from $PROFILE
+    $completionScript = Join-Path $binDir "winuxcmd-completions.ps1"
+    if (-not (Test-Path $completionScript)) {
+        # Try script directory
+        $completionScript = Join-Path (Split-Path $MyInvocation.MyCommand.Path) "winuxcmd-completions.ps1"
+    }
+    if (Test-Path $completionScript) {
+        $marker  = "# WinuxCmd Tab Completion"
+        $profPath = $PROFILE.CurrentUserCurrentHost
+        $profDir  = Split-Path $profPath
+        if ($profDir -and -not (Test-Path $profDir)) {
+            New-Item $profDir -ItemType Directory -Force | Out-Null
+        }
+        if (-not (Test-Path $profPath)) {
+            New-Item $profPath -ItemType File -Force | Out-Null
+        }
+        $content = Get-Content $profPath -Raw -ErrorAction SilentlyContinue
+        if ($content -notlike "*$marker*") {
+            Add-Content $profPath "`r`n$marker`r`. '$completionScript'`r`n"
+            Write-Color "Green" "Tab completion added to: $profPath"
+        } else {
+            Write-Color "Green" "Tab completion already in profile."
+        }
+        # Load immediately in this session
+        . $completionScript
+        Write-Color "Green" "Tab completion active in this session NOW."
+    } else {
+        Write-Color "Yellow" "winuxcmd-completions.ps1 not found - skipping Tab completion setup."
+        Write-Host "       Copy winuxcmd-completions.ps1 next to winuxcmd.exe and re-run."
+    }
+
+    Write-Host ""
+    Write-Color "Green" "Installation complete!"
+    Write-Host "  - Open a new PowerShell window: ls, grep, tree etc. are on PATH"
+    Write-Host "  - Tab completes commands and their options with descriptions"
+    Write-Host "  - No need to run this script again"
+    exit 0
+}
+
+if ($Uninstall) {
+    Write-Color "Yellow" "Removing permanent installation..."
+    $binDir = Get-WinuxBinDir
+    if ($binDir) {
+        $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        if ($userPath -like "*$binDir*") {
+            $newPath = ($userPath -split ";" | Where-Object { $_ -ne $binDir }) -join ";"
+            [System.Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
+            Write-Color "Green" "Removed from user PATH registry."
+        }
+    }
+    # Remove completion line from profile
+    foreach ($prof in @($PROFILE.CurrentUserCurrentHost, $PROFILE.CurrentUserAllHosts)) {
+        if (-not $prof -or -not (Test-Path $prof)) { continue }
+        $lines = Get-Content $prof | Where-Object {
+            $_ -notmatch '# WinuxCmd Tab Completion' -and
+            $_ -notmatch "winuxcmd-completions\.ps1"
+        }
+        Set-Content $prof $lines -Encoding UTF8
+        Write-Color "Green" "Cleaned profile: $prof"
+    }
+    Write-Color "Green" "Uninstall complete. Open a new shell to take effect."
+    exit 0
+}
+
+# ── Legacy flow (no flags) ────────────────────────────────────────────────────
 
 # Find WinuxCmd (For Verify Installation)
 $binDir = Get-WinuxBinDir

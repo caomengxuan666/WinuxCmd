@@ -44,6 +44,13 @@ struct CommandEntry {
       : meta(std::move(m)), handler(h), brief_desc(meta.brief_desc()) {}
 };
 
+// Per-option information returned for completion
+export struct OptionInfo {
+  std::string short_name;
+  std::string long_name;
+  std::string description;
+};
+
 struct CommandEntryErased {
   cmd::meta::CommandMetaHandle meta;
   std::function<int(std::span<std::string_view>)> handler;
@@ -228,6 +235,21 @@ class RegistryImpl {
     }
     return commands;
   }
+
+  // Get options for a specific command (for completion)
+  std::vector<OptionInfo> command_options(std::string_view cmdName) {
+    auto it = registry_.find(cmdName);
+    if (it == registry_.end()) return {};
+    auto opts = it->second.meta.options();
+    std::vector<OptionInfo> result;
+    result.reserve(opts.size());
+    for (const auto &opt : opts) {
+      result.push_back({std::string(opt.short_name),
+                        std::string(opt.long_name),
+                        std::string(opt.description)});
+    }
+    return result;
+  }
 };
 
 // Get singleton instance
@@ -262,5 +284,19 @@ export class CommandRegistry {
   static std::vector<std::pair<std::string_view, std::string_view>>
   getAllCommands() noexcept {
     return getImpl().list();
+  }
+
+  // Get options for a command (for completion)
+  static std::vector<OptionInfo> getCommandOptions(
+      std::string_view cmdName) noexcept {
+    return getImpl().command_options(cmdName);
+  }
+
+  // Check whether a command is registered.
+  static bool hasCommand(std::string_view cmdName) noexcept {
+    auto all = getImpl().list();
+    return std::ranges::any_of(all, [cmdName](const auto &item) {
+      return item.first == cmdName;
+    });
   }
 };

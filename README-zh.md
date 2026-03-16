@@ -1,8 +1,8 @@
-# WinuxCmd：Windows 上的 Linux 命令集
+# WinuxCmd：Windows 上的 Linux 命令集 自动补全
 
 [English](README.md) | 中文
 
-轻量级、原生 Windows 的 Linux 命令实现 | 仅 900KB | AI友好
+轻量级、原生 Windows 的 Linux 命令实现 | 仅 400KB | AI友好
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
 ![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
@@ -14,14 +14,6 @@
 [![Star History Chart](https://api.star-history.com/svg?repos=caomengxuan666/WinuxCmd&type=date&legend=top-left)](https://www.star-history.com/#caomengxuan666/WinuxCmd&type=date&legend=top-left)
 
 ## 🚀 快速开始
-
-### 系统要求
-
-- **PowerShell 7+** 推荐使用以获得最佳体验
-  - PowerShell 5.1（Windows 自带）也支持，但颜色代码可能显示为纯文本
-  - 安装 PowerShell 7：`winget install Microsoft.PowerShell` 或从 [GitHub](https://github.com/PowerShell/PowerShell/releases) 下载
-- Windows 10/11（x64 或 ARM64）
-- 安装不需要管理员权限
 
 ### 一键安装（推荐）
 
@@ -37,22 +29,60 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 3. 进入 `bin` 目录
 4. 运行 `create_links.ps1` 生成命令链接
    ```powershell
-   # 对于 NTFS 文件系统（推荐）
+   # NTFS 文件系统（推荐）
    .\create_links.ps1
    
-   # 对于非 NTFS 文件系统，使用符号链接
+   # 非 NTFS 文件系统，使用符号链接
    .\create_links.ps1 -UseSymbolicLinks
    
-   # 若需删除所有链接
+   # 后续移除所有链接
    .\create_links.ps1 -Remove
    ```
-5. 将 `bin` 目录添加到 PATH
+5. 将 `bin` 目录加入 PATH
 
-## 📦 已实现的命令 (v0.4.1)
+### 自动补全功能
+<video width="320" height="240" controls>
+    <source src="DOCS\images\autoComplete.mp4" type="video/mp4">
+</video>
+目前支持当前项目实现的命令,后续会提供原生Windows命令的补全
+
+### Shell 集成说明（PowerShell + CMD）
+
+1. PowerShell 可通过 `$PROFILE` 自动进入 `winuxcmd`（仅交互会话）。
+在`"C:\Users\<username>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"`下添加以下内容
+请将` $devExe = 'your winuxcmd.exe path'`填写为你自己的path
+```powershell
+# 自动进入 WinuxCmd 交互环境
+$cliArgs = [Environment]::GetCommandLineArgs() | ForEach-Object { $_.ToLowerInvariant() }
+$isNonInteractiveLaunch = ($cliArgs -contains '-command') -or ($cliArgs -contains '-c') -or ($cliArgs -contains '-file') -or ($cliArgs -contains '-f')
+if ($Host.Name -eq 'ConsoleHost' -and -not $isNonInteractiveLaunch -and $env:WINUXCMD_BOOTSTRAPPED -ne '1') {
+    $env:WINUXCMD_BOOTSTRAPPED = '1'
+    $winuxExe = (Get-Command winuxcmd -ErrorAction SilentlyContinue).Source
+    if (-not $winuxExe) {
+        $devExe = 'your winuxcmd.exe path'
+        if (Test-Path $devExe) {
+            $winuxExe = $devExe
+        }
+    }
+    if ($winuxExe -and (Test-Path $winuxExe)) {
+        & $winuxExe
+    }
+}
+```
+2. 对于 CMD，推荐使用专用启动入口：
+在Windows terminal的启动参数更改为:
+![示例](DOCS\images\WindowsTerminal.png)
+```bat
+%SystemRoot%\System32\cmd.exe /k winuxcmd
+```
+
+3. 脚本中避免写死用户绝对路径。建议使用动态定位方式（`where winuxcmd`、`%LOCALAPPDATA%`、`%~dp0`、`$PSScriptRoot`）保证可移植性。
+
+## 📦 已实现的命令 (v0.1.x)
 
 | 命令 | 描述 | 支持的参数（标记 [NOT SUPPORT] 的参数会被解析但未实现） |
 |------|------|------------------------------------------------|
-| ls | 列出目录内容 | -l, -a, -A, -h, -r, -t, -n, -g, -o, -1, -C, -w/--width, --color；-b/-B/-c/-d/-f/-F/-i/-k/-L/-m/-N/-p/-q/-Q/-R/-s/-S/-T/-u/-U/-v/-x/-X/-Z 为 [NOT SUPPORT] |
+| ls | 列出目录内容 | -l, -a, -h, -r, -t, -n, --color |
 | cat | 显示文件内容 | -n, -E, -s, -T |
 | cp | 复制文件/目录 | -r, -v, -f, -i |
 | mv | 移动/重命名文件 | -v, -f, -i, -n |
@@ -60,7 +90,7 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | mkdir | 创建目录 | -p, -v, -m MODE |
 | rmdir | 删除空目录 | --ignore-fail-on-non-empty, -p/--parents, -v |
 | touch | 更新时间戳/创建文件 | -a, -c/--no-create, -d/--date, -h/--no-dereference, -m, -r/--reference, -t, --time |
-| echo | 显示文本 | -n, -e, -E, -u/--upper, -r/--repeat N |
+| echo | 显示文本 | -n, -e, -E |
 | head | 输出文件前部 | -n/--lines, -c/--bytes, -q/--quiet/--silent, -v/--verbose, -z/--zero-terminated |
 | tail | 输出文件尾部 | -n/--lines, -c/--bytes, -z/--zero-terminated, -f/--follow [NOT SUPPORT], -F [NOT SUPPORT], --pid [NOT SUPPORT], --sleep-interval [NOT SUPPORT] |
 | find | 查找文件 | -name, -iname, -type(d/f/l), -mindepth, -maxdepth, -print, -print0, -P, -quit；-L/-H/-delete/-exec/-ok/-printf/-prune 为 [NOT SUPPORT] |
@@ -71,21 +101,6 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 | which | 查找可执行文件 | -a；--skip-dot/--skip-tilde/--show-dot/--show-tilde 为 [NOT SUPPORT] |
 | env | 查看/修改环境变量 | -i/--ignore-environment, -u 名称, -0/--null；-S/--split-string、-C/--chdir、执行 COMMAND 为 [NOT SUPPORT] |
 | wc | 统计行/词/字节 | -c, -l, -w, -m, -L |
-| pwd | 显示当前工作目录 | -L (逻辑路径), -P (物理路径) |
-| ps | 查看进程状态 | -e/-A/-a/-x (全部进程), -f (完整格式), -l (长格式), -u USER (用户格式), -w (宽输出), --no-headers, --sort=KEY (排序) |
-| tee | 从标准输入读取并写入标准输出和文件 | -a/--append, -i/--ignore-interrupts, -p/--diagnose |
-| chmod | 修改文件权限位 | -c/--changes, -f/--silent/--quiet, -v/--verbose, -R/--recursive, --reference |
-| date | 打印/设置系统日期时间 | -d/--date, -u/--utc, +格式；-s/--set 为 [NOT SUPPORT] |
-| df | 报告文件系统磁盘空间使用情况 | -h/--human-readable, -H/--si, -T/--print-type, -i/--inodes, -t/--type, -x/--exclude-type, -a/--all |
-| du | 估算文件空间使用情况 | -h/--human-readable, -H/--si, -s/--summarize, -c/--total, -d/--max-depth, -a/--all |
-| kill | 向进程发送信号 | -l/--list, -s/--signal；支持 -9/-KILL/-15/-TERM 等信号 |
-| ln | 创建文件链接 | -s/--symbolic, -f/--force, -i/--interactive, -v/--verbose, -n/--no-dereference |
-| diff | 逐行比较文件 | -u/--unified, -q/--brief, -i/--ignore-case, -w/--ignore-all-space, -B/--ignore-blank-lines, -y/--side-by-side [NOT SUPPORT], -r/--recursive [NOT SUPPORT] |
-| file | 确定文件类型 | -b/--brief, -i/--mime, -z/--compress, --mime-type, --mime-encoding |
-| realpath | 打印解析的绝对路径 | -e/--canonicalize-existing, -m/--canonicalize-missing, -s/--strip, -z/--zero |
-| xargs | 从输入构建并执行命令行 | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null；-d/--delimiter 为 [NOT SUPPORT] |
-| sed | 流编辑器 | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [基本替换：s/模式/替换/标志] |
-| tree | 以树状格式列出目录内容 | -a/--all, -d/--directories-only, -L/--max-depth, -f/--full-path, -I/--ignore-pattern, -P/--pattern, -C/--color, -s/--size, -t/--time-sort, -o/--output |
 
 ## 🎯 为什么选择 WinuxCmd？
 
@@ -115,33 +130,24 @@ WinuxCmd 在 Windows 上提供原生的 Linux 命令语法，无需仿真层。
 
 ## 💡 技术亮点
 
-### 1. 最小化分发
-
-WinuxCmd 的发布包仅包含 `winuxcmd.exe`（单个可执行文件）和设置脚本。命令链接由用户通过 `create_links.ps1` 按需生成：
+### 1. 硬链接分发（零重复）
 
 ```
-# 运行 create_links.ps1 后，所有命令都变为链接：
+# 所有命令都是同一个可执行文件的硬链接
 $ ls -i *.exe
-12345 winuxcmd.exe   # 主可执行文件
-12345 ls.exe         # 指向 winuxcmd.exe 的硬链接
-12345 cat.exe        # 指向 winuxcmd.exe 的硬链接
-12345 cp.exe         # 指向 winuxcmd.exe 的硬链接
+12345 ls.exe    # 相同的 inode
+12345 cat.exe   # 相同的 inode
+12345 cp.exe    # 相同的 inode
 
-# 结果：单个可执行文件 + 按需链接 = 超快下载速度
+# 结果：300 个命令 ≈ 400KB，而不是 300×400KB
 ```
-
-**优势：**
-- 更小的下载体积（单个 ~900KB 可执行文件，而非 34 个独立文件）
-- 用户选择要安装哪些命令
-- 自动回退：如果硬链接失败，使用符号链接
-- 同时支持 NTFS 和非 NTFS 文件系统
 
 ### 2. 极致的体积优化
 
 ```
 # 体积对比（Release 构建，x64）：
-WinuxCmd（静态）：    ~900 KB
-WinuxCmd（动态）：    ~150 KB
+WinuxCmd（静态）：    ~400 KB
+WinuxCmd（动态）：    ~60 KB
 BusyBox Windows：    ~1.24 MB
 GNU coreutils（MSYS2）：~5 MB
 单个 ls.exe（C/CMake）：~1.5 MB
@@ -149,75 +155,11 @@ GNU coreutils（MSYS2）：~5 MB
 
 ### 3. 性能表现
 
-- 启动时间：10-25ms（vs GNU coreutils/MSYS2、Git Bash 的 70-80ms）
+- 启动时间：< 5ms（PowerShell 别名为 15ms）
 - 内存占用：< 2MB 每个进程
 - 无运行时依赖：纯 Win32 API
 
-### 3.1 完整执行时间基准测试：WinuxCmd vs uutils coreutils
-
-测试完整命令执行时间（包括启动、执行和退出），使用 1000 个文件的目录，每个命令运行 20 次（数值越低越好）：
-
-| 命令 | WinuxCmd (ms) | uutils (Rust) (ms) | 比例 | 优胜者 |
-|------|---------------|-------------------|------|--------|
-| ls      | 6.30          | 7.27              | 0.87x | ✅ WinuxCmd |
-| cat     | 6.19          | 7.01              | 0.88x | ✅ WinuxCmd |
-| head    | 6.27          | 6.79              | 0.92x | ✅ WinuxCmd |
-| tail    | 6.34          | 6.84              | 0.93x | ✅ WinuxCmd |
-| grep    | 6.42          | 5.99              | 1.07x | uutils |
-| sort    | 6.31          | 7.27              | 0.87x | ✅ WinuxCmd |
-| uniq    | 6.23          | 6.84              | 0.91x | ✅ WinuxCmd |
-| wc      | 6.21          | 6.81              | 0.91x | ✅ WinuxCmd |
-
-**总结：**
-- WinuxCmd 在 7/8 个命令中获胜（87.5%）
-- 平均执行时间：WinuxCmd 6.28ms，uutils 6.85ms
-- 整体加速：比 uutils (Rust) 快 **1.09x**
-- 最佳表现：ls 和 sort（快约 1.15 倍）
-- 只有 grep 慢 1.07 倍
-
-> **测试配置：**
-> - 测试环境：Windows 10 x64
-> - 测试数据：1000 个文件的目录
-> - 迭代次数：每个命令 20 次运行
-> - 测试方法：`Measure-Command { ls }`（包括启动的完整执行时间）
-> - 版本：WinuxCmd v0.4.5, uutils coreutils v0.6.0
-> - 测试日期：2026 年 2 月 25 日
-
-### 4. 自定义容器
-
-WinuxCmd 实现了自定义 C++23 容器以获得最佳性能:
-
-#### SmallVector
-栈分配的向量，具备小缓冲优化 (SBO):
-- 小规模 (< 64 元素) 时比 std::vector 快 5-10 倍
-- 典型命令场景下减少 80%+ 的堆分配
-- 超过容量时自动回退到堆分配
-
-**基准测试结果:**
-```
-BM_SmallVectorPushBack/4    6.13 ns    (vs StdVector: 45.0 ns, 快 7.3 倍)
-BM_SmallVectorPushBack/8    11.1 ns    (vs StdVector: 47.8 ns, 快 4.3 倍)
-BM_SmallVectorPushBack/64   86.0 ns    (vs StdVector: 106 ns,  快 1.2 倍)
-```
-
-#### ConstexprMap
-编译时哈希映射表，用于固定大小的键值对:
-- 零初始化开销
-- 运行时 O(1) 查找
-- 完美适用于配置表和映射
-
-**基准测试结果:**
-```
-BM_ConstexprMapLookup       99.6 ns    (16.67 G/s 迭代速度)
-BM_UnorderedMapLookup       34.8 ns    (113.33 M/s 迭代速度)
-BM_ConstexprMapIterate      1.19 ns    (常数时间访问)
-```
-
-**已优化的命令:**
-- find, cat, env, mv, xargs, grep, sed, head, tail, tee, wc, uniq, which (使用 SmallVector)
-- tail (使用 ConstexprMap 实现后缀乘数: K, M, G, T, P, E)
-
-### 5. 为 AI 友好而设计
+### 4. 为 AI 友好而设计
 
 ```
 # AI 现在可以安全地在 Windows 上输出 Linux 命令
@@ -250,8 +192,7 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
 
 ### 设计选择
 
-- 单一可执行文件分发：最小化下载，按需生成链接
-- 硬链接优先，符号链接回退：NTFS 上最佳性能，其他系统兼容
+- 硬链接而非符号链接：更好的性能，原生 Windows 支持
 - 静态链接：无 VC++ 运行时依赖
 - 禁用 RTTI/异常：减少二进制大小
 - 基于模块：更快的编译，更清晰的依赖
@@ -416,6 +357,14 @@ find . -name "*.tmp" -delete
 ### 问：为什么用 C++ 而不是 Rust/Go？
 
 答：为了最大性能、最小依赖和直接的 Windows API 访问。
+
+### 使用了winuxcmd shell补全功能会导致原生Windows命令不能用吗?
+
+答: 不会,我们有回退机制,winuxcmd无法解析的命令会在原生Windows命令行中运行
+
+### 考虑做补全排序按照用户使用习惯排序吗?
+
+答: 后续会加入这方面的算法
 
 ## 📚 文档
 
