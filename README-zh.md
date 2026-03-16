@@ -41,10 +41,64 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 5. 将 `bin` 目录加入 PATH
 
 ### 自动补全功能
-<video width="320" height="240" controls>
-    <source src="DOCS\images\autoComplete.mp4" type="video/mp4">
-</video>
-目前支持当前项目实现的命令,后续会提供原生Windows命令的补全
+![自动补全演示](DOCS/images/auto.gif)
+
+WinuxCmd 现在的补全包含：
+
+- 项目内置命令
+- Windows 系统命令（内置白名单 + 说明）
+- 常见 Windows 命令参数补全（例如：`dir`、`taskkill`、`netstat`、`findstr`、`ipconfig`）
+
+默认不再扫描 PATH 中第三方可执行文件，避免补全列表噪声。
+
+#### 用户可扩展补全（第三方命令）
+
+你可以通过文本文件自行扩展命令和参数补全。
+
+默认用户文件路径：
+
+`%USERPROFILE%\.winuxcmd\completions\user-completions.txt`
+
+也可以通过环境变量指定自定义文件：
+
+```powershell
+# 临时设置（仅当前终端）
+$env:WINUXCMD_COMPLETION_FILE = "C:\path\to\user-completions.txt"
+
+# 持久设置（当前用户）
+[Environment]::SetEnvironmentVariable(
+  "WINUXCMD_COMPLETION_FILE",
+  "C:\path\to\user-completions.txt",
+  "User"
+)
+```
+
+文件格式：
+
+```text
+# 添加命令：cmd|<command>|<description>
+cmd|git|Distributed version control
+
+# 添加参数：opt|<command>|<option>|<description>
+opt|git|pull|Fetch from and integrate with another repository
+opt|git|push|Update remote refs along with associated objects
+```
+
+参考模板：`scripts/user-completions.sample.txt`
+
+#### 补全缓存（更快启动）
+
+用户补全文本会在首次解析后生成二进制缓存文件：
+
+- 源文件：`<你的补全文件>`
+- 缓存文件：`<你的补全文件>.cache.bin`
+
+例如：
+
+- `C:\Users\<你>\.winuxcmd\completions\user-completions.txt`
+- `C:\Users\<你>\.winuxcmd\completions\user-completions.txt.cache.bin`
+
+当源文件元数据（修改时间 + 文件大小）未变化时，会直接命中缓存；源文件变化后会自动重建缓存。
 
 ### Shell 集成说明（PowerShell + CMD）
 
@@ -71,7 +125,7 @@ if ($Host.Name -eq 'ConsoleHost' -and -not $isNonInteractiveLaunch -and $env:WIN
 ```
 2. 对于 CMD，推荐使用专用启动入口：
 在Windows terminal的启动参数更改为:
-![示例](DOCS\images\WindowsTerminal.png)
+![示例](DOCS/images/WindowsTerminal.png)
 ```bat
 %SystemRoot%\System32\cmd.exe /k winuxcmd
 ```

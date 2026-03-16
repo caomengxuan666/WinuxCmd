@@ -50,11 +50,66 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 ### Auto Completion
 
-<video width="320" height="240" controls>
-    <source src="DOCS\images\autoComplete.mp4" type="video/mp4">
-</video>
+![Auto Completion Demo](DOCS/images/auto.gif)
 
-Currently supports commands implemented in this project. Native Windows command completion will be added later.
+WinuxCmd completion now includes:
+
+- Project commands implemented by WinuxCmd
+- Built-in Windows system commands (curated list with descriptions)
+- Windows option completion for common commands (for example: `dir`, `taskkill`, `netstat`, `findstr`, `ipconfig`)
+
+By default, third-party executables in PATH are not auto-listed to avoid noisy suggestions.
+
+#### User-Extensible Completion (Third-Party Commands)
+
+You can add your own command/option completions with a text file.
+
+Default user file path:
+
+`%USERPROFILE%\.winuxcmd\completions\user-completions.txt`
+
+Or set an environment variable to use a custom file:
+
+```powershell
+# Temporary (current shell only)
+$env:WINUXCMD_COMPLETION_FILE = "C:\path\to\user-completions.txt"
+
+# Persistent (current user)
+[Environment]::SetEnvironmentVariable(
+  "WINUXCMD_COMPLETION_FILE",
+  "C:\path\to\user-completions.txt",
+  "User"
+)
+```
+
+File format:
+
+```text
+# Add command: cmd|<command>|<description>
+cmd|git|Distributed version control
+
+# Add option: opt|<command>|<option>|<description>
+opt|git|pull|Fetch from and integrate with another repository
+opt|git|push|Update remote refs along with associated objects
+```
+
+Reference template:
+
+`scripts/user-completions.sample.txt`
+
+#### Completion Cache (Fast Startup)
+
+User completion text is parsed once and persisted as a binary cache:
+
+- Source file: `<your-completions-file>`
+- Cache file: `<your-completions-file>.cache.bin`
+
+Examples:
+
+- `C:\Users\<you>\.winuxcmd\completions\user-completions.txt`
+- `C:\Users\<you>\.winuxcmd\completions\user-completions.txt.cache.bin`
+
+Cache is reused when source file metadata matches (`last write time + file size`), and rebuilt automatically when the source changes.
 
 ### Shell Integration Notes (PowerShell + CMD)
 
@@ -86,7 +141,7 @@ if ($Host.Name -eq 'ConsoleHost' -and -not $isNonInteractiveLaunch -and $env:WIN
 2. For CMD, the recommended startup entry is:
 
 Set Windows Terminal startup command to:
-![Example](DOCS\images\WindowsTerminal.png)
+![Example](DOCS/images/WindowsTerminal.png)
 
 ```bat
 %SystemRoot%\System32\cmd.exe /k winuxcmd
