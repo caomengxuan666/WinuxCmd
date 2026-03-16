@@ -26,7 +26,19 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 1. 从 Releases 下载
 2. 解压到任意目录
-3. 运行设置脚本：`winux-activate.ps1`
+3. 进入 `bin` 目录
+4. 运行 `create_links.ps1` 生成命令链接
+   ```powershell
+   # NTFS 文件系统（推荐）
+   .\create_links.ps1
+   
+   # 非 NTFS 文件系统，使用符号链接
+   .\create_links.ps1 -UseSymbolicLinks
+   
+   # 后续移除所有链接
+   .\create_links.ps1 -Remove
+   ```
+5. 将 `bin` 目录加入 PATH
 
 ### 自动补全功能
 <video width="320" height="240" controls>
