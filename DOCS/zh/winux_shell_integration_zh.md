@@ -24,7 +24,7 @@
 主要改动：
 
 1. 提示符从固定前缀改为动态路径提示，并带 `winux` 标识。  
-   示例：`winux C:\Users\hzz> `
+   示例：`winux <current-path> >`
 2. 新增未知命令判断，未命中 WinuxCmd 注册命令时执行原生命令回退。
 3. 回退执行从简单 `_wsystem` 调整为 `CreateProcessW + WaitForSingleObject`，降低控制台状态异常概率。
 4. 调整交互输入模式设置，避免命令执行后滚轮/输入状态异常。
@@ -34,7 +34,7 @@
 
 修改文件：
 
-- `C:\Users\hzz\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
+- 用户 PowerShell Profile（`$PROFILE` 对应文件）
 
 主要改动：
 
@@ -46,7 +46,7 @@
 
 修改文件：
 
-- `C:\Users\hzz\AppData\Local\WinuxCmd\winuxcmd_autorun.cmd`
+- 用户 CMD AutoRun 脚本（由安装脚本写入 `%LOCALAPPDATA%\WinuxCmd\winuxcmd_autorun.cmd`）
 - `scripts/winuxcmd_init.cmd`
 
 主要改动：

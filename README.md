@@ -48,6 +48,52 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
    ```
 5. Add the `bin` directory to your PATH
 
+### Auto Completion
+
+<video width="320" height="240" controls>
+    <source src="DOCS\images\autoComplete.mp4" type="video/mp4">
+</video>
+
+Currently supports commands implemented in this project. Native Windows command completion will be added later.
+
+### Shell Integration Notes (PowerShell + CMD)
+
+1. PowerShell can auto-enter `winuxcmd` through `$PROFILE` (interactive sessions only).
+Add the following to:
+`C:\Users\<username>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
+
+Replace `$devExe = 'your winuxcmd.exe path'` with your real local path.
+
+```powershell
+# Auto-enter WinuxCmd interactive mode
+$cliArgs = [Environment]::GetCommandLineArgs() | ForEach-Object { $_.ToLowerInvariant() }
+$isNonInteractiveLaunch = ($cliArgs -contains '-command') -or ($cliArgs -contains '-c') -or ($cliArgs -contains '-file') -or ($cliArgs -contains '-f')
+if ($Host.Name -eq 'ConsoleHost' -and -not $isNonInteractiveLaunch -and $env:WINUXCMD_BOOTSTRAPPED -ne '1') {
+    $env:WINUXCMD_BOOTSTRAPPED = '1'
+    $winuxExe = (Get-Command winuxcmd -ErrorAction SilentlyContinue).Source
+    if (-not $winuxExe) {
+        $devExe = 'your winuxcmd.exe path'
+        if (Test-Path $devExe) {
+            $winuxExe = $devExe
+        }
+    }
+    if ($winuxExe -and (Test-Path $winuxExe)) {
+        & $winuxExe
+    }
+}
+```
+
+2. For CMD, the recommended startup entry is:
+
+Set Windows Terminal startup command to:
+![Example](DOCS\images\WindowsTerminal.png)
+
+```bat
+%SystemRoot%\System32\cmd.exe /k winuxcmd
+```
+
+3. Avoid hardcoded user-specific paths in scripts. Use dynamic discovery (`where winuxcmd`, `%LOCALAPPDATA%`, `%~dp0`, `$PSScriptRoot`) to keep setups portable.
+
 ## 📦 Currently Implemented Commands (v0.4.1)
 
 | Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
@@ -432,6 +478,14 @@ A: Yes. All code is open-source, no internet connections, no telemetry.
 ### Q: Why C++ instead of Rust/Go?
 
 A: Maximum performance, minimal dependencies, and direct Windows API access.
+
+### Q: Will enabling WinuxCmd shell completion break native Windows commands?
+
+A: No. WinuxCmd has a fallback mechanism. Commands it cannot parse are executed by native Windows command shell.
+
+### Q: Will completion ranking be optimized by user behavior?
+
+A: Yes, this is planned for a future update.
 
 ## 📚 Documentation
 
