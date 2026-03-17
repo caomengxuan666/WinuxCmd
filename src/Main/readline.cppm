@@ -62,6 +62,22 @@ struct RenderState {
   int   prev_lines = 0;     // how many completion rows were drawn last time
 };
 
+// Move to the previous UTF-8 code-point boundary.
+size_t prevUtf8Pos(const std::string& s, size_t pos) noexcept {
+  if (pos == 0) return 0;
+  size_t i = pos - 1;
+  while (i > 0 && (static_cast<unsigned char>(s[i]) & 0xC0) == 0x80) --i;
+  return i;
+}
+
+// Move to the next UTF-8 code-point boundary.
+size_t nextUtf8Pos(const std::string& s, size_t pos) noexcept {
+  if (pos >= s.size()) return s.size();
+  size_t i = pos + 1;
+  while (i < s.size() && (static_cast<unsigned char>(s[i]) & 0xC0) == 0x80) ++i;
+  return i;
+}
+
 void scrollUp(HANDLE hOut, SHORT width, SHORT height, SHORT lines,
               WORD fillAttr) noexcept {
   if (lines <= 0 || width <= 0 || height <= 0) return;
@@ -106,7 +122,7 @@ void writeAt(HANDLE hOut, COORD pos, const std::wstring& text,
 
 // Redraw the input line and the completion popup.
 void redraw(HANDLE hOut, RenderState& state, const std::string& buffer,
-            const std::vector<CompletionItem>& completions,
+            size_t cursor_bytes, const std::vector<CompletionItem>& completions,
             int selected) noexcept {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   GetConsoleScreenBufferInfo(hOut, &csbi);
@@ -151,15 +167,7 @@ void redraw(HANDLE hOut, RenderState& state, const std::string& buffer,
     }
   }
 
-  // ── 4. Save the cursor position (this is the user's editing caret) ──
-  COORD caretPos;
-  {
-    CONSOLE_SCREEN_BUFFER_INFO tmp;
-    GetConsoleScreenBufferInfo(hOut, &tmp);
-    caretPos = tmp.dwCursorPosition;
-  }
-
-  // ── 5. Draw completions ──
+  // ── 4. Draw completions ──
   int available = H - state.input_start.Y - 1;
   int count = std::min({(int)completions.size(), MAX_COMPLETIONS, available});
 
@@ -184,8 +192,17 @@ void redraw(HANDLE hOut, RenderState& state, const std::string& buffer,
 
   state.prev_lines = count;
 
-  // ── 6. Restore caret ──
-  moveTo(hOut, caretPos.X, caretPos.Y);
+  // ── 5. Restore caret to the requested UTF-8 cursor position ──
+  moveTo(hOut, state.input_start.X, state.input_start.Y);
+  {
+    std::string  prefix = buffer.substr(0, std::min(cursor_bytes, buffer.size()));
+    std::wstring wprefix = utf8_to_wstring(prefix);
+    if (!wprefix.empty()) {
+      DWORD written = 0;
+      WriteConsoleW(hOut, wprefix.c_str(), (DWORD)wprefix.size(), &written,
+                    nullptr);
+    }
+  }
 }
 
 }  // namespace
@@ -224,9 +241,12 @@ export std::string readInteractiveLine(const std::wstring& prompt,
   // Raw-ish key input: keep most existing flags and only disable line/echo
   // buffering so we can process keys while preserving host behavior.
   DWORD inModeInteractive = inModeOrig;
-  inModeInteractive &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+  // Disable processed input so Ctrl+C is delivered as a key event instead of
+  // a process-level CTRL_C_EVENT that terminates winuxcmd.
+  inModeInteractive &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT |
+                         ENABLE_PROCESSED_INPUT);
   inModeInteractive |= (ENABLE_EXTENDED_FLAGS | ENABLE_WINDOW_INPUT |
-                        ENABLE_MOUSE_INPUT | ENABLE_PROCESSED_INPUT);
+                        ENABLE_MOUSE_INPUT);
   SetConsoleMode(hIn, inModeInteractive);
   // Enable virtual-terminal processing so ANSI codes work in the host.
   SetConsoleMode(hOut, outModeOrig | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
@@ -247,8 +267,37 @@ export std::string readInteractiveLine(const std::wstring& prompt,
   }
 
   std::string                buffer;
+  size_t                     cursor = 0;
   int                        selected = -1;
   std::vector<CompletionItem> completions;
+  static std::vector<std::string> history;
+  std::optional<size_t>      history_index;
+  std::string                history_draft;
+  auto historyUp = [&]() {
+    if (history.empty()) return;
+    if (!history_index.has_value()) {
+      history_draft = buffer;
+      history_index = history.size();
+    }
+    if (*history_index > 0) {
+      --(*history_index);
+      buffer = history[*history_index];
+      cursor = buffer.size();
+      selected = -1;
+    }
+  };
+  auto historyDown = [&]() {
+    if (!history_index.has_value()) return;
+    if (*history_index + 1 < history.size()) {
+      ++(*history_index);
+      buffer = history[*history_index];
+    } else {
+      history_index.reset();
+      buffer = history_draft;
+    }
+    cursor = buffer.size();
+    selected = -1;
+  };
 
   // ── Main input loop ──
   while (true) {
@@ -258,7 +307,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
     else
       completions.clear();
 
-    redraw(hOut, state, buffer, completions, selected);
+    redraw(hOut, state, buffer, cursor, completions, selected);
 
     // Read one raw input event.
     INPUT_RECORD ir;
@@ -279,10 +328,16 @@ export std::string readInteractiveLine(const std::wstring& prompt,
     if (vk == VK_RETURN) {
       if (selected >= 0 && selected < (int)completions.size())
         buffer = completions[selected].text;
+      cursor = buffer.size();
       // Clear popup, advance to next line.
-      redraw(hOut, state, buffer, {}, -1);
+      redraw(hOut, state, buffer, cursor, {}, -1);
       DWORD written = 0;
       WriteConsoleW(hOut, L"\r\n", 2, &written, nullptr);
+      bool has_non_ws = std::ranges::any_of(buffer, [](unsigned char c) {
+        return c != ' ' && c != '\t' && c != '\r' && c != '\n';
+      });
+      if (has_non_ws && (history.empty() || history.back() != buffer))
+        history.push_back(buffer);
       break;
     }
 
@@ -292,25 +347,47 @@ export std::string readInteractiveLine(const std::wstring& prompt,
       continue;
     }
 
-    // ── Arrow up: move selection up ──
+    // ── Arrow up: completion selection OR history ──
     if (vk == VK_UP) {
-      if (!completions.empty()) {
-        if (selected <= 0)
-          selected = (int)completions.size() - 1;
-        else
-          --selected;
+      if (!completions.empty() && selected > 0) {
+        --selected;
+      } else if (!completions.empty() && selected == 0) {
+        // Leaving completion list from top falls back to history behavior.
+        selected = -1;
+        historyUp();
+      } else {
+        historyUp();
       }
       continue;
     }
 
-    // ── Arrow down: move selection down ──
+    // ── Arrow down: enter/continue completion selection OR history ──
     if (vk == VK_DOWN) {
       if (!completions.empty()) {
-        if (selected < 0 || selected >= (int)completions.size() - 1)
+        if (selected < 0)
           selected = 0;
-        else
+        else if (selected < (int)completions.size() - 1)
           ++selected;
+        else {
+          // Leaving completion list from bottom falls back to history.
+          selected = -1;
+          historyDown();
+        }
+      } else {
+        historyDown();
       }
+      continue;
+    }
+
+    // ── Arrow left / right: move caret inside line ──
+    if (vk == VK_LEFT) {
+      cursor = prevUtf8Pos(buffer, cursor);
+      selected = -1;
+      continue;
+    }
+    if (vk == VK_RIGHT) {
+      cursor = nextUtf8Pos(buffer, cursor);
+      selected = -1;
       continue;
     }
 
@@ -319,19 +396,21 @@ export std::string readInteractiveLine(const std::wstring& prompt,
       if (!completions.empty()) {
         int idx = (selected >= 0) ? selected : 0;
         buffer  = completions[idx].text + " ";
+        cursor = buffer.size();
         selected = -1;
+        history_index.reset();
       }
       continue;
     }
 
     // ── Backspace ──
     if (vk == VK_BACK) {
-      if (!buffer.empty()) {
-        // Strip the last UTF-8 code-point (handle multi-byte sequences).
-        while (!buffer.empty() && (buffer.back() & 0xC0) == 0x80)
-          buffer.pop_back();
-        if (!buffer.empty()) buffer.pop_back();
+      if (!buffer.empty() && cursor > 0) {
+        size_t prev = prevUtf8Pos(buffer, cursor);
+        buffer.erase(prev, cursor - prev);
+        cursor = prev;
         selected = -1;
+        history_index.reset();
       }
       continue;
     }
@@ -339,7 +418,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
     // ── Ctrl+C: abort ──
     if (vk == 'C' &&
         (ctrl & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))) {
-      redraw(hOut, state, "", {}, -1);
+      redraw(hOut, state, "", 0, {}, -1);
       DWORD written = 0;
       WriteConsoleW(hOut, L"^C\r\n", 4, &written, nullptr);
       SetConsoleMode(hIn, inModeOrig);
@@ -351,7 +430,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
     if (vk == 'D' &&
         (ctrl & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))) {
       if (buffer.empty()) {
-        redraw(hOut, state, "", {}, -1);
+        redraw(hOut, state, "", 0, {}, -1);
         DWORD written = 0;
         WriteConsoleW(hOut, L"\r\n", 2, &written, nullptr);
         SetConsoleMode(hIn, inModeOrig);
@@ -367,8 +446,10 @@ export std::string readInteractiveLine(const std::wstring& prompt,
       char mb[4] = {};
       int  len =
           WideCharToMultiByte(CP_UTF8, 0, &ch, 1, mb, 4, nullptr, nullptr);
-      for (int i = 0; i < len; ++i) buffer += mb[i];
+      buffer.insert(cursor, mb, static_cast<size_t>(len));
+      cursor += static_cast<size_t>(len);
       selected = -1;
+      history_index.reset();
       continue;
     }
   }

@@ -148,7 +148,11 @@ static int runNativeFallback(const std::string &line) noexcept {
     return 127;
   }
 
+  // While waiting for native child process, ignore Ctrl+C in parent so only
+  // the child (e.g. ping) handles the interrupt and winuxcmd REPL survives.
+  SetConsoleCtrlHandler(nullptr, TRUE);
   WaitForSingleObject(pi.hProcess, INFINITE);
+  SetConsoleCtrlHandler(nullptr, FALSE);
   DWORD exit_code = 0;
   GetExitCodeProcess(pi.hProcess, &exit_code);
   CloseHandle(pi.hThread);
@@ -224,7 +228,7 @@ static void runReplMode() noexcept {
   safePrintLn(
       L"WinuxCmd " + utf8_to_wstring(std::string("0.4.5")) +
       L"  (interactive)  Type 'exit' to quit, '--help' for command list.");
-  safePrintLn(L"Use \u2191\u2193 arrows or Tab to navigate completions.\n");
+  safePrintLn(L"Use Tab for completions; \u2191\u2193 for history; \u2190\u2192 to move cursor.\n");
 
   auto completer = makeCompleter();
 
