@@ -114,9 +114,13 @@ endif ()
 
 include(cmake/enable_import_std.cmake)
 include(cmake/statistics_project.cmake)
+include(cmake/ReadVersionFile.cmake)
+
+# read from env
+read_version_file()
 
 project(WinuxCmd
-        VERSION 0.5.1
+        VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX
 )
