@@ -1,10 +1,15 @@
-﻿<#
+<#
 .SYNOPSIS
 WinuxCmd Profile Initializer - One-time setup
 .DESCRIPTION
 Adds winux wrapper to PowerShell profile without PATH dependency
 Run this ONCE after installing WinuxCmd.
 #>
+
+param(
+    [switch]$Install,
+    [switch]$Uninstall
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -371,11 +376,6 @@ Write-Color "Cyan" "==========================="
 Write-Host ""
 
 # ── New: --install flag for one-shot permanent setup ──────────────────────────
-param(
-    [switch]$Install,
-    [switch]$Uninstall
-)
-
 if ($Install) {
     Write-Color "Yellow" "Permanent installation: PATH + Tab completion..."
     Write-Host ""
