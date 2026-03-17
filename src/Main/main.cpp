@@ -1,8 +1,8 @@
 /*
- *  Copyright © 2026 [caomengxuan666]
+ *  Copyright (c) 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the “Software”), to
+ *  of this software and associated documentation files (the "Software"), to
  * deal in the Software without restriction, including without limitation the
  * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the Software is
@@ -11,7 +11,7 @@
  *  The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
  *
- *  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -30,6 +30,66 @@ import core;
 import utils;
 import wildcard_handler;
 import readline;
+import native_completion;
+
+namespace {
+
+static std::string toLowerAscii(std::string s) {
+  std::ranges::transform(s, s.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return s;
+}
+
+static bool startsWithCaseInsensitive(std::string_view text,
+                                      std::string_view prefix) {
+  if (prefix.size() > text.size()) return false;
+  for (size_t i = 0; i < prefix.size(); ++i) {
+    unsigned char a = static_cast<unsigned char>(text[i]);
+    unsigned char b = static_cast<unsigned char>(prefix[i]);
+    if (std::tolower(a) != std::tolower(b)) return false;
+  }
+  return true;
+}
+
+static std::vector<CompletionItem>
+getCommandCompletions(std::string_view prefix) {
+  std::vector<CompletionItem> items;
+  auto all = CommandRegistry::getAllCommands();
+  items.reserve(all.size() + 64);
+
+  std::unordered_set<std::string> seen;
+  seen.reserve(all.size() * 2 + 128);
+
+  for (auto &[name, desc] : all) {
+    if (!startsWithCaseInsensitive(name, prefix)) continue;
+    std::string key(name);
+    if (seen.insert(toLowerAscii(key)).second)
+      items.push_back({std::move(key), std::string(desc)});
+  }
+
+  auto native = queryNativeCommandCompletions(prefix);
+  for (const auto &item : native) {
+    if (seen.insert(toLowerAscii(item.text)).second)
+      items.push_back({item.text, item.hint});
+  }
+
+  std::ranges::sort(items, {}, &CompletionItem::text);
+  return items;
+}
+
+static std::vector<CompletionItem>
+getWindowsOptionCompletions(std::string_view cmd_name, std::string_view prefix) {
+  std::vector<CompletionItem> items;
+  auto native = queryNativeOptionCompletions(cmd_name, prefix);
+  items.reserve(native.size());
+  for (const auto &item : native) {
+    items.push_back({item.text, item.hint});
+  }
+  return items;
+}
+
+}  // namespace
 
 /**
  * @brief Print help information
@@ -88,7 +148,11 @@ static int runNativeFallback(const std::string &line) noexcept {
     return 127;
   }
 
+  // While waiting for native child process, ignore Ctrl+C in parent so only
+  // the child (e.g. ping) handles the interrupt and winuxcmd REPL survives.
+  SetConsoleCtrlHandler(nullptr, TRUE);
   WaitForSingleObject(pi.hProcess, INFINITE);
+  SetConsoleCtrlHandler(nullptr, FALSE);
   DWORD exit_code = 0;
   GetExitCodeProcess(pi.hProcess, &exit_code);
   CloseHandle(pi.hThread);
@@ -96,60 +160,75 @@ static int runNativeFallback(const std::string &line) noexcept {
   return static_cast<int>(exit_code);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Interactive REPL
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 /// Build a completer function that suggests command names (prefix match) and
 /// command options (after a space).
 static Completer makeCompleter() {
   return [](std::string_view input) -> std::vector<CompletionItem> {
-    // Find the first space to decide whether we're completing a command name
-    // or an option for an already-typed command.
-    auto space = input.find(' ');
+    // Complete only the segment after the last pipe.
+    std::string full_input(input);
+    size_t      seg_start = 0;
+    if (auto pipe_pos = full_input.rfind('|'); pipe_pos != std::string::npos) {
+      seg_start = pipe_pos + 1;
+      while (seg_start < full_input.size() && full_input[seg_start] == ' ')
+        ++seg_start;
+    }
 
-    if (space == std::string_view::npos) {
-      // ── Complete command name ──
-      auto all = CommandRegistry::getAllCommands();
-      std::vector<CompletionItem> items;
-      for (auto &[name, desc] : all) {
-        if (name.starts_with(input))
-          items.push_back({std::string(name), std::string(desc)});
-      }
-      std::ranges::sort(items, {}, &CompletionItem::text);
+    std::string prefix_before = full_input.substr(0, seg_start);
+    std::string segment = full_input.substr(seg_start);
+    auto        space = segment.find(' ');
+
+    if (space == std::string::npos) {
+      auto items = getCommandCompletions(segment);
+      for (auto &item : items) item.text = prefix_before + item.text;
       return items;
     }
 
-    // ── Complete option for a known command ──
-    std::string_view cmd_name  = input.substr(0, space);
-    std::string_view opt_input = input.substr(space + 1);
-    // Skip extra spaces
-    while (!opt_input.empty() && opt_input.front() == ' ')
-      opt_input.remove_prefix(1);
+    std::string cmd_name = segment.substr(0, space);
+    std::string rest = segment.substr(space + 1);
+    while (!rest.empty() && rest.front() == ' ')
+      rest.erase(rest.begin());
 
-    auto opts = CommandRegistry::getCommandOptions(cmd_name);
+    size_t token_start_in_rest = 0;
+    if (auto pos = rest.find_last_of(" \t"); pos != std::string::npos)
+      token_start_in_rest = pos + 1;
+    std::string current_token = rest.substr(token_start_in_rest);
+
+    auto buildFullText = [&](std::string_view replacement) {
+      std::string replaced = segment.substr(0, space + 1);
+      replaced += rest.substr(0, token_start_in_rest);
+      replaced += replacement;
+      return prefix_before + replaced;
+    };
+
     std::vector<CompletionItem> items;
-
+    auto opts = CommandRegistry::getCommandOptions(cmd_name);
     for (auto &opt : opts) {
-      // Check both short and long forms
       for (const std::string *form : {&opt.short_name, &opt.long_name}) {
         if (form->empty()) continue;
-        if (opt_input.empty() || form->starts_with(opt_input)) {
-          std::string full = std::string(cmd_name) + " " + *form;
-          items.push_back({std::move(full), opt.description});
+        if (current_token.empty() || form->starts_with(current_token)) {
+          items.push_back({buildFullText(*form), opt.description});
         }
       }
+    }
+    if (!items.empty()) return items;
+
+    auto nativeOpts = getWindowsOptionCompletions(cmd_name, current_token);
+    for (auto &opt : nativeOpts) {
+      items.push_back({buildFullText(opt.text), opt.hint});
     }
     return items;
   };
 }
-
 /// Run WinuxCmd in interactive REPL mode.
 static void runReplMode() noexcept {
   safePrintLn(
       L"WinuxCmd " + utf8_to_wstring(std::string("0.4.5")) +
       L"  (interactive)  Type 'exit' to quit, '--help' for command list.");
-  safePrintLn(L"Use \u2191\u2193 arrows or Tab to navigate completions.\n");
+  safePrintLn(L"Use Tab for completions; \u2191\u2193 for history; \u2190\u2192 to move cursor.\n");
 
   auto completer = makeCompleter();
 
@@ -229,23 +308,19 @@ int main(int argc, char *argv[]) noexcept {
       return printHelp();
     }
 
-    // ── Machine-readable completion query: winuxcmd --complete-cmd [prefix] ──
+    // Machine-readable completion query: winuxcmd --complete-cmd [prefix]
     if (args[0] == "--complete-cmd") {
       std::string_view prefix = args.size() >= 2 ? args[1] : "";
-      auto all = CommandRegistry::getAllCommands();
-      std::vector<std::pair<std::string_view, std::string_view>> sorted(all.begin(), all.end());
-      std::ranges::sort(sorted, {}, [](const auto &p) { return p.first; });
-      for (auto &[name, desc] : sorted) {
-        if (name.starts_with(prefix)) {
-          safePrint(name);
-          safePrint("\t");
-          safePrintLn(desc);
-        }
+      auto items = getCommandCompletions(prefix);
+      for (const auto &item : items) {
+        safePrint(item.text);
+        safePrint("\t");
+        safePrintLn(item.hint);
       }
       return 0;
     }
 
-    // ── Machine-readable option query: winuxcmd --complete-opt <cmd> [prefix] ──
+    // Machine-readable option query: winuxcmd --complete-opt <cmd> [prefix]
     if (args[0] == "--complete-opt" && args.size() >= 2) {
       std::string_view cmd    = args[1];
       std::string_view prefix = args.size() >= 3 ? args[2] : "";
@@ -258,6 +333,14 @@ int main(int argc, char *argv[]) noexcept {
             safePrint("\t");
             safePrintLn(opt.description);
           }
+        }
+      }
+      if (opts.empty()) {
+        auto items = getWindowsOptionCompletions(cmd, prefix);
+        for (const auto& item : items) {
+          safePrint(item.text);
+          safePrint("\t");
+          safePrintLn(item.hint);
         }
       }
       return 0;
