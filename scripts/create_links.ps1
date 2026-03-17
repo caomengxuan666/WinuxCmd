@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.5.1"
+$Script:Version = "0.5.2"
 
 # Available commands list
 $Script:Commands = @(
@@ -294,3 +294,4 @@ if ($Remove) {
 else {
     New-CommandLinks -WinuxCmdPath $WinuxCmdPath -UseSymbolic $UseSymbolicLinks
 }
+
