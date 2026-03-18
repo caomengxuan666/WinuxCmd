@@ -89,6 +89,56 @@ getWindowsOptionCompletions(std::string_view cmd_name, std::string_view prefix) 
   return items;
 }
 
+static std::vector<CompletionItem>
+getPathCompletions(std::string_view token_prefix) {
+  std::vector<CompletionItem> items;
+  std::string prefix(token_prefix);
+
+  std::filesystem::path base_dir = ".";
+  std::string           name_prefix = prefix;
+  bool                  has_dir_part = false;
+
+  // Support both '/' and '\' separators on Windows input.
+  size_t slash_pos = prefix.find_last_of("/\\");
+  if (slash_pos != std::string::npos) {
+    has_dir_part = true;
+    std::string dir_part = prefix.substr(0, slash_pos + 1);
+    name_prefix = prefix.substr(slash_pos + 1);
+    std::error_code ec;
+    std::filesystem::path p = std::filesystem::path(dir_part);
+    if (p.empty())
+      base_dir = ".";
+    else
+      base_dir = p;
+    if (!std::filesystem::exists(base_dir, ec) || ec) return items;
+  }
+
+  std::error_code ec;
+  if (!std::filesystem::exists(base_dir, ec) || ec) return items;
+  if (!std::filesystem::is_directory(base_dir, ec) || ec) return items;
+
+  for (const auto& entry :
+       std::filesystem::directory_iterator(
+           base_dir, std::filesystem::directory_options::skip_permission_denied,
+           ec)) {
+    if (ec) break;
+    auto name = entry.path().filename().string();
+    if (!startsWithCaseInsensitive(name, name_prefix)) continue;
+
+    std::string candidate;
+    if (has_dir_part) {
+      candidate = prefix.substr(0, slash_pos + 1) + name;
+    } else {
+      candidate = name;
+    }
+    if (entry.is_directory(ec) && !ec) candidate += "\\";
+    items.push_back({candidate, entry.is_directory(ec) ? "Directory" : "File"});
+  }
+
+  std::ranges::sort(items, {}, &CompletionItem::text);
+  return items;
+}
+
 }  // namespace
 
 /**
@@ -160,6 +210,17 @@ static int runNativeFallback(const std::string &line) noexcept {
   return static_cast<int>(exit_code);
 }
 
+static std::string trimAscii(std::string s) {
+  auto is_ws = [](unsigned char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+  };
+  while (!s.empty() && is_ws(static_cast<unsigned char>(s.front())))
+    s.erase(s.begin());
+  while (!s.empty() && is_ws(static_cast<unsigned char>(s.back())))
+    s.pop_back();
+  return s;
+}
+
 // -----------------------------------------------------------------------------
 // Interactive REPL
 // -----------------------------------------------------------------------------
@@ -205,21 +266,35 @@ static Completer makeCompleter() {
     };
 
     std::vector<CompletionItem> items;
+    std::unordered_set<std::string> seen;
+    auto addItem = [&](std::string text, std::string hint) {
+      std::string key = toLowerAscii(text);
+      if (seen.insert(std::move(key)).second)
+        items.push_back({std::move(text), std::move(hint)});
+    };
+
     auto opts = CommandRegistry::getCommandOptions(cmd_name);
     for (auto &opt : opts) {
       for (const std::string *form : {&opt.short_name, &opt.long_name}) {
         if (form->empty()) continue;
         if (current_token.empty() || form->starts_with(current_token)) {
-          items.push_back({buildFullText(*form), opt.description});
+          addItem(buildFullText(*form), opt.description);
         }
       }
     }
-    if (!items.empty()) return items;
 
     auto nativeOpts = getWindowsOptionCompletions(cmd_name, current_token);
     for (auto &opt : nativeOpts) {
-      items.push_back({buildFullText(opt.text), opt.hint});
+      addItem(buildFullText(opt.text), opt.hint);
     }
+
+    // File/dir completion should not be overshadowed by option completion.
+    auto pathItems = getPathCompletions(current_token);
+    for (auto &p : pathItems) {
+      addItem(buildFullText(p.text), p.hint);
+    }
+
+    std::ranges::sort(items, {}, &CompletionItem::text);
     return items;
   };
 }
@@ -256,6 +331,37 @@ static void runReplMode() noexcept {
       while (iss >> tok) tokens.push_back(std::move(tok));
     }
     if (tokens.empty()) continue;
+
+    // REPL built-ins: keep cwd changes in current winuxcmd process.
+    std::string lower_cmd = toLowerAscii(tokens[0]);
+    if (lower_cmd == "cd" || lower_cmd == "chdir") {
+      std::string arg = line.substr(tokens[0].size());
+      arg = trimAscii(arg);
+      if (arg.empty()) {
+        safePrintLn(std::filesystem::current_path().wstring());
+        continue;
+      }
+      if (arg.size() >= 2 &&
+          ((arg.front() == '"' && arg.back() == '"') ||
+           (arg.front() == '\'' && arg.back() == '\''))) {
+        arg = arg.substr(1, arg.size() - 2);
+      }
+      std::wstring warg = utf8_to_wstring(arg);
+      if (!SetCurrentDirectoryW(warg.c_str())) {
+        safePrintLn(L"cd: cannot change directory: " + utf8_to_wstring(arg));
+      }
+      continue;
+    }
+
+    if (tokens[0].size() == 2 &&
+        std::isalpha(static_cast<unsigned char>(tokens[0][0])) &&
+        tokens[0][1] == ':') {
+      std::wstring wdrive = utf8_to_wstring(tokens[0]);
+      if (!SetCurrentDirectoryW(wdrive.c_str())) {
+        safePrintLn(L"cd: cannot change drive: " + wdrive);
+      }
+      continue;
+    }
 
     std::vector<std::string_view> args;
     args.reserve(tokens.size());
