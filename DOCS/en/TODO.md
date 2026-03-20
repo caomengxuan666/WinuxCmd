@@ -157,9 +157,10 @@
 - [ ] zip/unzip (ZIP archive manipulation)
 
 ### System Commands
-- [ ] ps (report process status)
-- [ ] kill (send signal to processes)
-- [ ] df (report file system disk space usage)
+- [x] ps (report process status)
+- [x] kill (send signal to processes)
+- [x] df (report file system disk space usage)
+- [x] lsof (report open file)
 - [ ] du (estimate file space usage)
 
 ## Testing and Optimization (Ongoing)
