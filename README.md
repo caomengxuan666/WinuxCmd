@@ -1,8 +1,8 @@
-# WinuxCmd: Linux Commands for Windows
+﻿# WinuxCmd: Linux Commands for Windows
 
-English | [中文](README-zh.md)
+English | [涓枃](README-zh.md)
 
-> Lightweight, native Windows implementation of Linux commands | 900KB only | AI-friendly
+> Lightweight, native Windows implementation of Linux commands | 900KB only | AI-friendly | Windows  Linux pipelines
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
 ![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
@@ -10,10 +10,10 @@ English | [中文](README-zh.md)
 ![GitHub license](https://img.shields.io/github/license/caomengxuan666/WinuxCmd)
 ![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
 
-## ⭐ Star History
+## 猸?Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=caomengxuan666/WinuxCmd&type=date&legend=top-left)](https://www.star-history.com/#caomengxuan666/WinuxCmd&type=date&legend=top-left)
 
-## 🚀 Quick Start
+## 馃殌 Quick Start
 
 ### Requirements
 
@@ -149,7 +149,7 @@ Set Windows Terminal startup command to:
 
 3. Avoid hardcoded user-specific paths in scripts. Use dynamic discovery (`where winuxcmd`, `%LOCALAPPDATA%`, `%~dp0`, `$PSScriptRoot`) to keep setups portable.
 
-## 📦 Currently Implemented Commands (v0.4.1)
+## 馃摝 Currently Implemented Commands (v0.4.1)
 
 | Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
 |---------|-------------|---------------------------------------------------------------|
@@ -187,8 +187,9 @@ Set Windows Terminal startup command to:
 | xargs | Build and execute command lines from input | -n/--max-args, -I/--replace, -P/--max-procs, -t/--verbose, -0/--null; -d/--delimiter [NOT SUPPORT] |
 | sed | Stream editor | -n/--quiet, -e/--expression, -f/--file, -i/--in-place [basic substitution: s/pattern/replacement/flags] |
 | tree | List contents of directories in a tree-like format | -a/--all, -d/--directories-only, -L/--max-depth, -f/--full-path, -I/--ignore-pattern, -P/--pattern, -C/--color, -s/--size, -t/--time-sort, -o/--output |
+| lsof | List open files and handle-backed resources | -p PID/--pid PID (filter by process), -a/--all (include unnamed and non-file handles), -i/--internet (internet-focused view), -F/--field (machine-readable output), -n/--numeric (keep native device paths), --no-headers, -t/--timeout-ms MS (NtQueryObject timeout) |
 
-## 🎯 Why WinuxCmd?
+## 馃幆 Why WinuxCmd?
 
 ### The Problem
 
@@ -204,6 +205,14 @@ Get-ChildItem -Force
 Get-ChildItem -Recurse -Filter "*.cpp" | Select-String "pattern"
 ```
 
+Worse, mixing native Windows tools with Linux-style filtering is impossible without a bridge:
+
+```bash
+# This fails in plain PowerShell/CMD:
+netstat -ano | grep 8080
+tasklist | grep chrome | awk '{print $2}'
+```
+
 ### Existing solutions have drawbacks
 
 - WSL: Heavy, requires virtualization
@@ -212,9 +221,17 @@ Get-ChildItem -Recurse -Filter "*.cpp" | Select-String "pattern"
 
 ### Our Solution
 
-WinuxCmd provides native Linux command syntax on Windows without emulation layers.
+WinuxCmd provides native Linux command syntax on Windows **and bridges Windows tools with Linux pipelines** 鈥?no emulation layers, no separate terminal.
 
-## 💡 Technical Highlights
+```bash
+# These all work out of the box with WinuxCmd:
+netstat -ano | grep 8080
+tasklist | grep chrome
+ipconfig | grep -i "ipv4"
+dir /b | sort | uniq -c
+```
+
+## 馃挕 Technical Highlights
 
 ### 1. Minimal Distribution
 
@@ -260,14 +277,14 @@ Tested complete command execution (startup + execution + exit) with 1000 files d
 
 | Command | WinuxCmd (ms) | uutils (Rust) (ms) | Ratio | Winner |
 |---------|---------------|-------------------|-------|--------|
-| ls      | 6.30          | 7.27              | 0.87x | ✅ WinuxCmd |
-| cat     | 6.19          | 7.01              | 0.88x | ✅ WinuxCmd |
-| head    | 6.27          | 6.79              | 0.92x | ✅ WinuxCmd |
-| tail    | 6.34          | 6.84              | 0.93x | ✅ WinuxCmd |
+| ls      | 6.30          | 7.27              | 0.87x | 鉁?WinuxCmd |
+| cat     | 6.19          | 7.01              | 0.88x | 鉁?WinuxCmd |
+| head    | 6.27          | 6.79              | 0.92x | 鉁?WinuxCmd |
+| tail    | 6.34          | 6.84              | 0.93x | 鉁?WinuxCmd |
 | grep    | 6.42          | 5.99              | 1.07x | uutils |
-| sort    | 6.31          | 7.27              | 0.87x | ✅ WinuxCmd |
-| uniq    | 6.23          | 6.84              | 0.91x | ✅ WinuxCmd |
-| wc      | 6.21          | 6.81              | 0.91x | ✅ WinuxCmd |
+| sort    | 6.31          | 7.27              | 0.87x | 鉁?WinuxCmd |
+| uniq    | 6.23          | 6.84              | 0.91x | 鉁?WinuxCmd |
+| wc      | 6.21          | 6.81              | 0.91x | 鉁?WinuxCmd |
 
 **Summary:**
 - WinuxCmd wins in 7/8 commands (87.5%)
@@ -318,15 +335,41 @@ BM_ConstexprMapIterate      1.19 ns    (constant-time access)
 - find, cat, env, mv, xargs, grep, sed, head, tail, tee, wc, uniq, which (SmallVector)
 - tail (ConstexprMap for suffix multipliers: K, M, G, T, P, E)
 
-### 5. AI-Friendly by Design
+### 5. Cross-Platform Pipeline
+
+WinuxCmd's pipeline is a **first-class bridge** between native Windows commands and Linux utilities. The shell's pipe operator (`|`) connects them seamlessly 鈥?output from any Windows command flows directly into Linux filters, and vice versa.
+
+```bash
+# Network: find which process owns port 8080
+netstat -ano | grep 8080
+
+# Process: find Chrome PIDs
+tasklist | grep -i chrome
+
+# Disk: list top 10 largest files
+dir /s /b /a-d | xargs wc -c 2>nul | sort -n | tail -10
+
+# Network config: show only IPv4 addresses
+ipconfig | grep -i "ipv4"
+
+# Open files: inspect a specific port
+lsof -i
+
+# Environment: grep for proxy settings
+set | grep -i proxy
+```
+
+No special syntax, no adapters 鈥?Windows stdout IS Linux stdin.
+
+### 6. AI-Friendly by Design
 
 ```bash
 # AI can now safely output Linux commands on Windows
 ls -la | grep ".cpp" | xargs cat
-# ↑ Works directly with WinuxCmd installed
+# 鈫?Works directly with WinuxCmd installed
 ```
 
-### 5. Color Support
+### 7. Color Support
 
 ```bash
 # ls with color support (enabled by default)
@@ -339,7 +382,7 @@ ls --color=always | grep "\.cpp$"
 
 
 
-## 🔧 Technical Details
+## 馃敡 Technical Details
 
 ### Compilation (MSVC Only)
 
@@ -373,7 +416,7 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_TESTS=ON -DGENERATE_MAP_INFO=ON
 - No RTTI/Exceptions: Reduced binary size
 - Module-based: Faster compilation, cleaner dependencies
 
-## 🛠 Usage Examples
+## 馃洜 Usage Examples
 
 ### Basic Usage
 
@@ -425,21 +468,21 @@ winux activate
 
 # Output:
 # Activating WinuxCmd...
-#   ✓ cat
-#   ✓ cp
-#   ✓ mkdir
-#   ✓ ls
-#   ✓ mv
-#   ✓ rm
+#   鉁?cat
+#   鉁?cp
+#   鉁?mkdir
+#   鉁?ls
+#   鉁?mv
+#   鉁?rm
 # Activation complete!
 # Available WinuxCmd Commands:
 # =============================
-#   cat -> cat.exe [✓]
-#   cp -> cp.exe [✓]
-#   ls -> ls.exe [✓]
-#   mkdir -> mkdir.exe [✓]
-#   mv -> mv.exe [✓]
-#   rm -> rm.exe [✓]
+#   cat -> cat.exe [鉁揮
+#   cp -> cp.exe [鉁揮
+#   ls -> ls.exe [鉁揮
+#   mkdir -> mkdir.exe [鉁揮
+#   mv -> mv.exe [鉁揮
+#   rm -> rm.exe [鉁揮
 
 # Now you can use commands directly
 ls -la
@@ -470,6 +513,38 @@ ls -la | Select-Object -First 10
 Get-Process | grep "chrome"
 ```
 
+### Cross-Platform Pipeline Examples
+
+```bash
+# Find which process is using port 8080
+netstat -ano | grep 8080
+
+# List all listening ports and filter
+netstat -an | grep LISTENING | awk '{print $2}' | sort -u
+
+# Find Chrome process IDs
+tasklist | grep -i chrome | awk '{print $2}'
+
+# Check open files/connections for a port
+lsof -i
+
+# Show IPv4 addresses only
+ipconfig | grep -i "ipv4"
+
+# Count files by extension in current directory
+dir /b /a-d | grep -oP '\.[^.]+$' | sort | uniq -c | sort -rn
+
+# Search environment variables
+set | grep -i path | head -5
+```
+
+### lsof Notes (Windows-specific)
+
+`lsof` on Windows uses handle enumeration and `NtQueryObject`.
+
+- Some handle types (for example, named pipes or certain pending network objects) can block in `NtQueryObject`; WinuxCmd runs these queries in a worker thread with `--timeout-ms` protection.
+- Inspecting handles from other processes may require `SeDebugPrivilege`; when privilege is unavailable, WinuxCmd degrades gracefully and reports partial-output warnings instead of crashing.
+
 ### Batch Scripts
 
 ```batch
@@ -479,7 +554,7 @@ ls -la > files.txt
 find . -name "*.tmp" -delete
 ```
 
-## 📈 Roadmap
+## 馃搱 Roadmap
 
 ### Phase 1: Core Utilities (Current)
 
@@ -499,7 +574,7 @@ find . -name "*.tmp" -delete
 - VS Code/IDE plugins
 - Docker/CI support
 
-## 🤝 Contributing
+## 馃 Contributing
 
 We welcome contributions! As a student-led project, we especially encourage:
 
@@ -516,7 +591,7 @@ See CONTRIBUTING.md for details.
 - Add colored output to ls
 - Improve error messages
 
-## ❓ FAQ
+## 鉂?FAQ
 
 ### Q: How is this different from WSL?
 
@@ -542,7 +617,7 @@ A: No. WinuxCmd has a fallback mechanism. Commands it cannot parse are executed 
 
 A: Yes, this is planned for a future update.
 
-## 📚 Documentation
+## 馃摎 Documentation
 
 - [API Reference](DOCS/en/overview.md)
 - [Building from Source](DOCS/en/commands_implementation_en.md)
@@ -560,5 +635,5 @@ GitHub: @caomengxuan666
 Website: blog.caomengxuan666.com
 Product: https://dl.caomengxuan666.com
 
-📄 License
-MIT License © 2026 caomengxuan666. See LICENSE for details.
+馃搫 License
+MIT License 漏 2026 caomengxuan666. See LICENSE for details.

@@ -33,6 +33,7 @@ import readline;
 import native_completion;
 
 namespace {
+static std::string g_repl_executable_path;
 
 static std::string toLowerAscii(std::string s) {
   std::ranges::transform(s, s.begin(), [](unsigned char c) {
@@ -221,6 +222,39 @@ static std::string trimAscii(std::string s) {
   return s;
 }
 
+static bool hasShellMeta(std::string_view line) {
+  return line.find('|') != std::string_view::npos ||
+         line.find('>') != std::string_view::npos ||
+         line.find('<') != std::string_view::npos ||
+         line.find('&') != std::string_view::npos;
+}
+
+static std::optional<std::string> rewriteSudoBuiltinLine(
+    const std::string& line) {
+  std::istringstream iss(line);
+  std::string first;
+  std::string second;
+  if (!(iss >> first)) return std::nullopt;
+  if (toLowerAscii(first) != "sudo") return std::nullopt;
+  if (!(iss >> second)) return std::nullopt;
+  if (g_repl_executable_path.empty()) return std::nullopt;
+
+  if (!CommandRegistry::hasCommand(second)) {
+    auto lowered = toLowerAscii(second);
+    if (!CommandRegistry::hasCommand(lowered)) return std::nullopt;
+    second = std::move(lowered);
+  }
+
+  size_t rest_start = line.find_first_not_of(" \t", first.size());
+  if (rest_start == std::string::npos) return std::nullopt;
+  std::string rest = line.substr(rest_start);
+
+  // Use explicit winuxcmd.exe path so native Windows sudo can elevate and
+  // execute built-in commands that do not exist as standalone binaries.
+  std::string rewritten = "sudo \"" + g_repl_executable_path + "\" " + rest;
+  return rewritten;
+}
+
 // -----------------------------------------------------------------------------
 // Interactive REPL
 // -----------------------------------------------------------------------------
@@ -323,6 +357,18 @@ static void runReplMode() noexcept {
 
     if (line == "exit" || line == "quit") break;
 
+    if (auto rewritten = rewriteSudoBuiltinLine(line); rewritten.has_value()) {
+      runNativeFallback(*rewritten);
+      continue;
+    }
+
+    // REPL does not implement a full shell parser.
+    // Route shell-style compound commands to cmd.exe fallback.
+    if (hasShellMeta(line)) {
+      runNativeFallback(line);
+      continue;
+    }
+
     // Tokenise (simple whitespace split; no quoting yet)
     std::vector<std::string> tokens;
     {
@@ -408,6 +454,7 @@ int main(int argc, char *argv[]) noexcept {
       HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
       DWORD  mode = 0;
       if (isOutputConsole() && GetConsoleMode(hIn, &mode)) {
+        g_repl_executable_path = path::get_executable_path(argv[0]);
         runReplMode();
         return 0;
       }
