@@ -1,6 +1,6 @@
 ﻿# WinuxCmd: Linux Commands for Windows
 
-English | [涓枃](README-zh.md)
+English | [中文](README-zh.md)
 
 > Lightweight, native Windows implementation of Linux commands | 900KB only | AI-friendly | Windows  Linux pipelines
 
@@ -10,10 +10,10 @@ English | [涓枃](README-zh.md)
 ![GitHub license](https://img.shields.io/github/license/caomengxuan666/WinuxCmd)
 ![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
 
-## 猸?Star History
+## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=caomengxuan666/WinuxCmd&type=date&legend=top-left)](https://www.star-history.com/#caomengxuan666/WinuxCmd&type=date&legend=top-left)
 
-## 馃殌 Quick Start
+## Quick Start
 
 ### Requirements
 
@@ -149,7 +149,7 @@ Set Windows Terminal startup command to:
 
 3. Avoid hardcoded user-specific paths in scripts. Use dynamic discovery (`where winuxcmd`, `%LOCALAPPDATA%`, `%~dp0`, `$PSScriptRoot`) to keep setups portable.
 
-## 馃摝 Currently Implemented Commands (v0.4.1)
+## Currently Implemented Commands (v0.4.1)
 
 | Command | Description | Supported Flags ( [NOT SUPPORT] = parsed but not implemented ) |
 |---------|-------------|---------------------------------------------------------------|
@@ -189,7 +189,7 @@ Set Windows Terminal startup command to:
 | tree | List contents of directories in a tree-like format | -a/--all, -d/--directories-only, -L/--max-depth, -f/--full-path, -I/--ignore-pattern, -P/--pattern, -C/--color, -s/--size, -t/--time-sort, -o/--output |
 | lsof | List open files and handle-backed resources | -p PID/--pid PID (filter by process), -a/--all (include unnamed and non-file handles), -i/--internet (internet-focused view), -F/--field (machine-readable output), -n/--numeric (keep native device paths), --no-headers, -t/--timeout-ms MS (NtQueryObject timeout) |
 
-## 馃幆 Why WinuxCmd?
+## Why WinuxCmd?
 
 ### The Problem
 
@@ -221,7 +221,7 @@ tasklist | grep chrome | awk '{print $2}'
 
 ### Our Solution
 
-WinuxCmd provides native Linux command syntax on Windows **and bridges Windows tools with Linux pipelines** 鈥?no emulation layers, no separate terminal.
+WinuxCmd provides native Linux command syntax on Windows **and bridges Windows tools with Linux pipelines** - no emulation layers, no separate terminal.
 
 ```bash
 # These all work out of the box with WinuxCmd:
@@ -231,7 +231,7 @@ ipconfig | grep -i "ipv4"
 dir /b | sort | uniq -c
 ```
 
-## 馃挕 Technical Highlights
+## Technical Highlights
 
 ### 1. Minimal Distribution
 
@@ -277,14 +277,14 @@ Tested complete command execution (startup + execution + exit) with 1000 files d
 
 | Command | WinuxCmd (ms) | uutils (Rust) (ms) | Ratio | Winner |
 |---------|---------------|-------------------|-------|--------|
-| ls      | 6.30          | 7.27              | 0.87x | 鉁?WinuxCmd |
-| cat     | 6.19          | 7.01              | 0.88x | 鉁?WinuxCmd |
-| head    | 6.27          | 6.79              | 0.92x | 鉁?WinuxCmd |
-| tail    | 6.34          | 6.84              | 0.93x | 鉁?WinuxCmd |
+| ls      | 6.30          | 7.27              | 0.87x | WinuxCmd |
+| cat     | 6.19          | 7.01              | 0.88x | WinuxCmd |
+| head    | 6.27          | 6.79              | 0.92x | WinuxCmd |
+| tail    | 6.34          | 6.84              | 0.93x | WinuxCmd |
 | grep    | 6.42          | 5.99              | 1.07x | uutils |
-| sort    | 6.31          | 7.27              | 0.87x | 鉁?WinuxCmd |
-| uniq    | 6.23          | 6.84              | 0.91x | 鉁?WinuxCmd |
-| wc      | 6.21          | 6.81              | 0.91x | 鉁?WinuxCmd |
+| sort    | 6.31          | 7.27              | 0.87x | WinuxCmd |
+| uniq    | 6.23          | 6.84              | 0.91x | WinuxCmd |
+| wc      | 6.21          | 6.81              | 0.91x | WinuxCmd |
 
 **Summary:**
 - WinuxCmd wins in 7/8 commands (87.5%)
@@ -337,7 +337,7 @@ BM_ConstexprMapIterate      1.19 ns    (constant-time access)
 
 ### 5. Cross-Platform Pipeline
 
-WinuxCmd's pipeline is a **first-class bridge** between native Windows commands and Linux utilities. The shell's pipe operator (`|`) connects them seamlessly 鈥?output from any Windows command flows directly into Linux filters, and vice versa.
+WinuxCmd's pipeline is a **first-class bridge** between native Windows commands and Linux utilities. The shell's pipe operator (`|`) connects them seamlessly - output from any Windows command flows directly into Linux filters, and vice versa.
 
 ```bash
 # Network: find which process owns port 8080
@@ -359,14 +359,14 @@ lsof -i
 set | grep -i proxy
 ```
 
-No special syntax, no adapters 鈥?Windows stdout IS Linux stdin.
+No special syntax, no adapters - Windows stdout IS Linux stdin.
 
 ### 6. AI-Friendly by Design
 
 ```bash
 # AI can now safely output Linux commands on Windows
 ls -la | grep ".cpp" | xargs cat
-# 鈫?Works directly with WinuxCmd installed
+# -> Works directly with WinuxCmd installed
 ```
 
 ### 7. Color Support
@@ -382,7 +382,7 @@ ls --color=always | grep "\.cpp$"
 
 
 
-## 馃敡 Technical Details
+## Technical Details
 
 ### Compilation (MSVC Only)
 
@@ -416,7 +416,7 @@ cmake .. -DUSE_STATIC_CRT=ON -DENABLE_TESTS=ON -DGENERATE_MAP_INFO=ON
 - No RTTI/Exceptions: Reduced binary size
 - Module-based: Faster compilation, cleaner dependencies
 
-## 馃洜 Usage Examples
+## Usage Examples
 
 ### Basic Usage
 
@@ -468,21 +468,21 @@ winux activate
 
 # Output:
 # Activating WinuxCmd...
-#   鉁?cat
-#   鉁?cp
-#   鉁?mkdir
-#   鉁?ls
-#   鉁?mv
-#   鉁?rm
+#   cat
+#   cp
+#   mkdir
+#   ls
+#   mv
+#   rm
 # Activation complete!
 # Available WinuxCmd Commands:
 # =============================
-#   cat -> cat.exe [鉁揮
-#   cp -> cp.exe [鉁揮
-#   ls -> ls.exe [鉁揮
-#   mkdir -> mkdir.exe [鉁揮
-#   mv -> mv.exe [鉁揮
-#   rm -> rm.exe [鉁揮
+#   cat -> cat.exe [ok]
+#   cp -> cp.exe [ok]
+#   ls -> ls.exe [ok]
+#   mkdir -> mkdir.exe [ok]
+#   mv -> mv.exe [ok]
+#   rm -> rm.exe [ok]
 
 # Now you can use commands directly
 ls -la
@@ -554,7 +554,7 @@ ls -la > files.txt
 find . -name "*.tmp" -delete
 ```
 
-## 馃搱 Roadmap
+## Roadmap
 
 ### Phase 1: Core Utilities (Current)
 
@@ -574,7 +574,7 @@ find . -name "*.tmp" -delete
 - VS Code/IDE plugins
 - Docker/CI support
 
-## 馃 Contributing
+## Contributing
 
 We welcome contributions! As a student-led project, we especially encourage:
 
@@ -591,7 +591,7 @@ See CONTRIBUTING.md for details.
 - Add colored output to ls
 - Improve error messages
 
-## 鉂?FAQ
+## FAQ
 
 ### Q: How is this different from WSL?
 
@@ -617,7 +617,7 @@ A: No. WinuxCmd has a fallback mechanism. Commands it cannot parse are executed 
 
 A: Yes, this is planned for a future update.
 
-## 馃摎 Documentation
+## Documentation
 
 - [API Reference](DOCS/en/overview.md)
 - [Building from Source](DOCS/en/commands_implementation_en.md)
@@ -635,5 +635,5 @@ GitHub: @caomengxuan666
 Website: blog.caomengxuan666.com
 Product: https://dl.caomengxuan666.com
 
-馃搫 License
-MIT License 漏 2026 caomengxuan666. See LICENSE for details.
+## License
+MIT License (c) 2026 caomengxuan666. See LICENSE for details.
