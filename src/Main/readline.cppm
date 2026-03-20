@@ -109,15 +109,22 @@ void eraseChars(HANDLE hOut, COORD pos, DWORD count, WORD attr) noexcept {
   FillConsoleOutputAttribute(hOut, attr, count, pos, &written);
 }
 
-// Write text at a specific screen position (no cursor advance side-effect
-// because WriteConsoleOutputCharacterW does not move the cursor).
+// Write text at a specific screen position (no cursor advance side-effect).
+// Uses WriteConsoleOutputW to write characters + attributes in a single call.
 void writeAt(HANDLE hOut, COORD pos, const std::wstring& text,
              WORD attr) noexcept {
   if (text.empty()) return;
-  DWORD written = 0;
-  FillConsoleOutputAttribute(hOut, attr, (DWORD)text.size(), pos, &written);
-  WriteConsoleOutputCharacterW(hOut, text.c_str(), (DWORD)text.size(), pos,
-                               &written);
+  std::vector<CHAR_INFO> cells(text.size());
+  for (size_t i = 0; i < text.size(); ++i) {
+    cells[i].Char.UnicodeChar = text[i];
+    cells[i].Attributes       = attr;
+  }
+  COORD     bufSize{static_cast<SHORT>(text.size()), 1};
+  COORD     bufCoord{0, 0};
+  SMALL_RECT region{pos.X, pos.Y,
+                    static_cast<SHORT>(pos.X + static_cast<SHORT>(text.size()) - 1),
+                    pos.Y};
+  WriteConsoleOutputW(hOut, cells.data(), bufSize, bufCoord, &region);
 }
 
 // Redraw the input line and the completion popup.
@@ -159,12 +166,10 @@ void redraw(HANDLE hOut, RenderState& state, const std::string& buffer,
 
   // ── 3. Write buffer text at input_start ──
   moveTo(hOut, state.input_start.X, state.input_start.Y);
-  {
-    std::wstring wbuf = utf8_to_wstring(buffer);
-    if (!wbuf.empty()) {
-      DWORD written = 0;
-      WriteConsoleW(hOut, wbuf.c_str(), (DWORD)wbuf.size(), &written, nullptr);
-    }
+  const std::wstring wbuf = utf8_to_wstring(buffer);  // converted once, reused in step 5
+  if (!wbuf.empty()) {
+    DWORD written = 0;
+    WriteConsoleW(hOut, wbuf.c_str(), (DWORD)wbuf.size(), &written, nullptr);
   }
 
   // ── 4. Draw completions ──
@@ -176,15 +181,18 @@ void redraw(HANDLE hOut, RenderState& state, const std::string& buffer,
     if (rowY >= H) break;
 
     // Build display string: "  <text><padding><hint>"
-    std::wstring line = L"  " + utf8_to_wstring(completions[i].text);
-    while ((int)line.size() < CMD_COLUMN_WIDTH)
-      line += L' ';
+    std::wstring line;
+    line.reserve(static_cast<size_t>(W));
+    line  = L"  ";
+    line += utf8_to_wstring(completions[i].text);
+    if (static_cast<int>(line.size()) < CMD_COLUMN_WIDTH)
+      line.append(static_cast<size_t>(CMD_COLUMN_WIDTH - static_cast<int>(line.size())), L' ');
     if (!completions[i].hint.empty())
       line += utf8_to_wstring(completions[i].hint);
 
     // Truncate to console width
-    if ((int)line.size() >= W - 1)
-      line.resize((size_t)(W - 1));
+    if (static_cast<int>(line.size()) >= W - 1)
+      line.resize(static_cast<size_t>(W - 1));
 
     WORD attr = (i == selected) ? ATTR_SELECTED : ATTR_SUGGESTION;
     writeAt(hOut, {0, rowY}, line, attr);
@@ -194,13 +202,16 @@ void redraw(HANDLE hOut, RenderState& state, const std::string& buffer,
 
   // ── 5. Restore caret to the requested UTF-8 cursor position ──
   moveTo(hOut, state.input_start.X, state.input_start.Y);
-  {
-    std::string  prefix = buffer.substr(0, std::min(cursor_bytes, buffer.size()));
-    std::wstring wprefix = utf8_to_wstring(prefix);
-    if (!wprefix.empty()) {
+  // Reuse wbuf; compute wchar offset for cursor_bytes without extra allocation.
+  if (!wbuf.empty() && cursor_bytes > 0) {
+    int wchar_cursor = MultiByteToWideChar(
+        CP_UTF8, 0, buffer.c_str(),
+        static_cast<int>(std::min(cursor_bytes, buffer.size())),
+        nullptr, 0);
+    if (wchar_cursor > 0) {
       DWORD written = 0;
-      WriteConsoleW(hOut, wprefix.c_str(), (DWORD)wprefix.size(), &written,
-                    nullptr);
+      WriteConsoleW(hOut, wbuf.c_str(), static_cast<DWORD>(wchar_cursor),
+                    &written, nullptr);
     }
   }
 }
@@ -266,10 +277,11 @@ export std::string readInteractiveLine(const std::wstring& prompt,
     state.input_start = csbi.dwCursorPosition;
   }
 
-  std::string                buffer;
-  size_t                     cursor = 0;
-  int                        selected = -1;
+  std::string                 buffer;
+  size_t                      cursor = 0;
+  int                         selected = -1;
   std::vector<CompletionItem> completions;
+  bool                        completions_dirty = true;
   static std::vector<std::string> history;
   std::optional<size_t>      history_index;
   std::string                history_draft;
@@ -284,6 +296,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
       buffer = history[*history_index];
       cursor = buffer.size();
       selected = -1;
+      completions_dirty = true;
     }
   };
   auto historyDown = [&]() {
@@ -297,15 +310,19 @@ export std::string readInteractiveLine(const std::wstring& prompt,
     }
     cursor = buffer.size();
     selected = -1;
+    completions_dirty = true;
   };
 
   // ── Main input loop ──
   while (true) {
-    // Compute completions for the current buffer.
-    if (completer)
-      completions = completer(buffer);
-    else
-      completions.clear();
+    // Compute completions only when the buffer has changed.
+    if (completions_dirty) {
+      if (completer)
+        completions = completer(buffer);
+      else
+        completions.clear();
+      completions_dirty = false;
+    }
 
     redraw(hOut, state, buffer, cursor, completions, selected);
 
@@ -399,6 +416,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
         cursor = buffer.size();
         selected = -1;
         history_index.reset();
+        completions_dirty = true;
       }
       continue;
     }
@@ -411,6 +429,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
         cursor = prev;
         selected = -1;
         history_index.reset();
+        completions_dirty = true;
       }
       continue;
     }
@@ -450,6 +469,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
       cursor += static_cast<size_t>(len);
       selected = -1;
       history_index.reset();
+      completions_dirty = true;
       continue;
     }
   }
