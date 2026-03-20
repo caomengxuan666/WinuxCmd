@@ -1,8 +1,8 @@
-# WinuxCmd：Windows 上的 Linux 命令集 自动补全
+# WinuxCmd：为 Windows 带来 Linux 命令 × 跨平台管道
 
 [English](README.md) | 中文
 
-轻量级、原生 Windows 的 Linux 命令实现 | 仅 400KB | AI友好
+> 原生 Windows 实现的 Linux 命令集 | 仅 ~900KB | 无需 WSL/WSL2 | Windows 命令 × Linux 过滤器无缝互通
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
 ![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
@@ -11,7 +11,22 @@
 ![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
 
 ## ⭐ Star 趋势
+
 [![Star History Chart](https://api.star-history.com/svg?repos=caomengxuan666/WinuxCmd&type=date&legend=top-left)](https://www.star-history.com/#caomengxuan666/WinuxCmd&type=date&legend=top-left)
+
+## ✨ 核心亮点
+
+| | 特性 | 说明 |
+|---|---|---|
+| 🔗 | **Windows × Linux 管道直连** | `netstat -ano \| grep 8080` 开箱即用，Windows 工具输出直接喂给 Linux 过滤器 |
+| ⚡ | **极速启动** | < 10ms，比 GNU coreutils/MSYS2 快 2–8 倍 |
+| 🪶 | **超轻量** | 单个可执行文件 ~900KB，35 条命令零冗余 |
+| 🤖 | **AI 友好** | AI 生成的 Linux 命令在 Windows 上直接运行，无需改写 |
+| 🔍 | **智能补全** | 内置命令 + Windows 系统命令 + 用户自定义，Tab 键即达 |
+| 🚫 | **无需管理员** | 安装与运行均不需要提权 |
+| 📦 | **无外部依赖** | 纯 Win32 API，无 VC++ 运行时依赖 |
+
+---
 
 ## 🚀 快速开始
 
@@ -24,418 +39,207 @@ irm https://dl.caomengxuan666.com/install.ps1 | iex
 
 ### 手动安装
 
-1. 从 Releases 下载
-2. 解压到任意目录
-3. 进入 `bin` 目录
-4. 运行 `create_links.ps1` 生成命令链接
-   ```powershell
-   # NTFS 文件系统（推荐）
-   .\create_links.ps1
-   
-   # 非 NTFS 文件系统，使用符号链接
-   .\create_links.ps1 -UseSymbolicLinks
-   
-   # 后续移除所有链接
-   .\create_links.ps1 -Remove
-   ```
-5. 将 `bin` 目录加入 PATH
-
-### 自动补全功能
-![自动补全演示](DOCS/images/auto.gif)
-
-WinuxCmd 现在的补全包含：
-
-- 项目内置命令
-- Windows 系统命令（内置白名单 + 说明）
-- 常见 Windows 命令参数补全（例如：`dir`、`taskkill`、`netstat`、`findstr`、`ipconfig`）
-
-默认不再扫描 PATH 中第三方可执行文件，避免补全列表噪声。
-
-#### 用户可扩展补全（第三方命令）
-
-你可以通过文本文件自行扩展命令和参数补全。
-
-默认用户文件路径：
-
-`%USERPROFILE%\.winuxcmd\completions\user-completions.txt`
-
-也可以通过环境变量指定自定义文件：
+1. 从 [Releases](https://github.com/caomengxuan666/WinuxCmd/releases) 下载
+2. 解压到任意目录，进入 `bin` 目录
+3. 运行 `create_links.ps1` 生成命令链接
+4. 将 `bin` 目录加入 PATH
 
 ```powershell
-# 临时设置（仅当前终端）
-$env:WINUXCMD_COMPLETION_FILE = "C:\path\to\user-completions.txt"
-
-# 持久设置（当前用户）
-[Environment]::SetEnvironmentVariable(
-  "WINUXCMD_COMPLETION_FILE",
-  "C:\path\to\user-completions.txt",
-  "User"
-)
+.\create_links.ps1                    # NTFS 文件系统（推荐）
+.\create_links.ps1 -UseSymbolicLinks  # 非 NTFS 文件系统
+.\create_links.ps1 -Remove            # 移除全部链接
 ```
 
-文件格式：
+### Shell 集成
 
-```text
-# 添加命令：cmd|<command>|<description>
-cmd|git|Distributed version control
+**PowerShell** — 在 `$PROFILE` 中加入以下内容，打开终端自动进入 WinuxCmd：
 
-# 添加参数：opt|<command>|<option>|<description>
-opt|git|pull|Fetch from and integrate with another repository
-opt|git|push|Update remote refs along with associated objects
-```
-
-参考模板：`scripts/user-completions.sample.txt`
-
-#### 补全缓存（更快启动）
-
-用户补全文本会在首次解析后生成二进制缓存文件：
-
-- 源文件：`<你的补全文件>`
-- 缓存文件：`<你的补全文件>.cache.bin`
-
-例如：
-
-- `C:\Users\<你>\.winuxcmd\completions\user-completions.txt`
-- `C:\Users\<你>\.winuxcmd\completions\user-completions.txt.cache.bin`
-
-当源文件元数据（修改时间 + 文件大小）未变化时，会直接命中缓存；源文件变化后会自动重建缓存。
-
-### Shell 集成说明（PowerShell + CMD）
-
-1. PowerShell 可通过 `$PROFILE` 自动进入 `winuxcmd`（仅交互会话）。
-在`"C:\Users\<username>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"`下添加以下内容
-请将` $devExe = 'your winuxcmd.exe path'`填写为你自己的path
 ```powershell
-# 自动进入 WinuxCmd 交互环境
 $cliArgs = [Environment]::GetCommandLineArgs() | ForEach-Object { $_.ToLowerInvariant() }
 $isNonInteractiveLaunch = ($cliArgs -contains '-command') -or ($cliArgs -contains '-c') -or ($cliArgs -contains '-file') -or ($cliArgs -contains '-f')
 if ($Host.Name -eq 'ConsoleHost' -and -not $isNonInteractiveLaunch -and $env:WINUXCMD_BOOTSTRAPPED -ne '1') {
     $env:WINUXCMD_BOOTSTRAPPED = '1'
     $winuxExe = (Get-Command winuxcmd -ErrorAction SilentlyContinue).Source
     if (-not $winuxExe) {
-        $devExe = 'your winuxcmd.exe path'
-        if (Test-Path $devExe) {
-            $winuxExe = $devExe
-        }
+        $devExe = 'your\winuxcmd.exe\path'  # 替换为实际路径
+        if (Test-Path $devExe) { $winuxExe = $devExe }
     }
-    if ($winuxExe -and (Test-Path $winuxExe)) {
-        & $winuxExe
-    }
+    if ($winuxExe -and (Test-Path $winuxExe)) { & $winuxExe }
 }
 ```
-2. 对于 CMD，推荐使用专用启动入口：
-在Windows terminal的启动参数更改为:
-![示例](DOCS/images/WindowsTerminal.png)
+
+**CMD / Windows Terminal** — 将命令行配置改为：
+
 ```bat
 %SystemRoot%\System32\cmd.exe /k winuxcmd
 ```
 
-3. 脚本中避免写死用户绝对路径。建议使用动态定位方式（`where winuxcmd`、`%LOCALAPPDATA%`、`%~dp0`、`$PSScriptRoot`）保证可移植性。
+### 自动补全
 
-## 📦 已实现的命令 (v0.1.x)
+![自动补全演示](DOCS/images/auto.gif)
 
-| 命令 | 描述 | 支持的参数（标记 [NOT SUPPORT] 的参数会被解析但未实现） |
-|------|------|------------------------------------------------|
-| ls | 列出目录内容 | -l, -a, -h, -r, -t, -n, --color |
-| cat | 显示文件内容 | -n, -E, -s, -T |
-| cp | 复制文件/目录 | -r, -v, -f, -i |
-| mv | 移动/重命名文件 | -v, -f, -i, -n |
-| rm | 删除文件/目录 | -r, -f, -v, -i |
-| mkdir | 创建目录 | -p, -v, -m MODE |
-| rmdir | 删除空目录 | --ignore-fail-on-non-empty, -p/--parents, -v |
-| touch | 更新时间戳/创建文件 | -a, -c/--no-create, -d/--date, -h/--no-dereference, -m, -r/--reference, -t, --time |
-| echo | 显示文本 | -n, -e, -E |
-| head | 输出文件前部 | -n/--lines, -c/--bytes, -q/--quiet/--silent, -v/--verbose, -z/--zero-terminated |
-| tail | 输出文件尾部 | -n/--lines, -c/--bytes, -z/--zero-terminated, -f/--follow [NOT SUPPORT], -F [NOT SUPPORT], --pid [NOT SUPPORT], --sleep-interval [NOT SUPPORT] |
-| find | 查找文件 | -name, -iname, -type(d/f/l), -mindepth, -maxdepth, -print, -print0, -P, -quit；-L/-H/-delete/-exec/-ok/-printf/-prune 为 [NOT SUPPORT] |
-| grep | 文本搜索 | -E/-F/-G, -e, -f, -i/--no-ignore-case, -w, -x, -z, -s, -v, -m NUM, -b, -n, --line-buffered, -H/-h, --label, --binary-files, -r/-R, --include/--exclude/--exclude-dir, -L/-l, -c, -T, -Z, --color；-P 为 [NOT SUPPORT] |
-| sort | 排序 | -b, -f, -n, -r, -u, -z, -o FILE, -t SEP, -k KEY；-d/-g/-i/-h/-M/-m/-R/-s 为 [NOT SUPPORT] |
-| uniq | 去重 | -c, -d, -f NUM, -i, -s NUM, -u, -w NUM, -z；-D、--group 为 [NOT SUPPORT] |
-| cut | 按列截取 | -d 分隔符, -f 列表, -s, -z；-b/-c/--output-delimiter 为 [NOT SUPPORT] |
-| which | 查找可执行文件 | -a；--skip-dot/--skip-tilde/--show-dot/--show-tilde 为 [NOT SUPPORT] |
-| env | 查看/修改环境变量 | -i/--ignore-environment, -u 名称, -0/--null；-S/--split-string、-C/--chdir、执行 COMMAND 为 [NOT SUPPORT] |
-| wc | 统计行/词/字节 | -c, -l, -w, -m, -L |
+内置三层补全，Tab 键直达：
+
+- WinuxCmd 命令及其参数
+- Windows 系统命令白名单（含说明）
+- 用户自定义扩展：`%USERPROFILE%\.winuxcmd\completions\user-completions.txt`
+
+```text
+# 用户补全文件格式
+cmd|git|Distributed version control
+opt|git|pull|Fetch from and integrate with another repository
+```
+
+> 📖 详见 [补全配置文档](DOCS/zh/overview_zh.md)
+
+---
+
+## 📦 已实现的命令（35 个）
+
+> 完整参数列表见 [命令实现文档](DOCS/zh/commands_implementation.md)
+
+| 命令 | 描述 | 命令 | 描述 |
+|------|------|------|------|
+| `ls` | 列出目录内容 | `ps` | 进程列表 |
+| `cat` | 显示文件内容 | `kill` | 发送信号 |
+| `grep` | 文本搜索 | `lsof` | 打开文件与网络连接 |
+| `find` | 查找文件 | `sed` | 流式编辑器 |
+| `cp` / `mv` / `rm` | 文件操作 | `sort` / `uniq` / `cut` | 文本处理 |
+| `mkdir` / `rmdir` | 目录操作 | `head` / `tail` / `wc` | 文本工具 |
+| `chmod` / `ln` / `touch` | 文件系统 | `df` / `du` / `diff` | 磁盘/比较 |
+| `echo` / `env` / `which` | 工具类 | `pwd` / `realpath` / `tree` | 路径工具 |
+| `date` / `tee` / `xargs` | 实用命令 | `file` | 文件类型识别 |
+
+---
 
 ## 🎯 为什么选择 WinuxCmd？
 
 ### 问题所在
 
-AI 工具（GitHub Copilot、Cursor、Claude Code）在 Windows 上经常输出 Linux 命令，导致错误：
+- **AI 工具**（GitHub Copilot、Cursor）生成的 Linux 命令在 Windows 直接报错
+- **Windows 原生管道**无法连接 Windows 命令与 Linux 过滤器
+- **PowerShell** 没有交互式智能补全
 
+```bash
+# 这些在纯 Windows 上全部失败：
+netstat -ano | grep 8080        # grep 不存在
+tasklist | awk '{print $2}'     # awk 不存在
+ls -la | grep ".cpp"            # ls、grep 不存在
 ```
-# AI 输出：
-ls -la
-find . -name "*.cpp" -exec grep -l "pattern" {} \;
 
-# 但 Windows 需要：
-Get-ChildItem -Force
-Get-ChildItem -Recurse -Filter "*.cpp" | Select-String "pattern"
+### 解决方案
+
+```bash
+# ✅ 安装 WinuxCmd 后，全部开箱即用：
+netstat -ano | grep 8080                      # 查占用端口的进程
+tasklist | grep -i chrome | awk '{print $2}'  # 找 Chrome PID
+ipconfig | grep -i "ipv4"                     # 只看 IP 地址
+lsof -i :8080                                 # 查端口归属（支持 :PORT / tcp:PORT）
+ls -la | grep ".cpp" | xargs wc -l            # 统计 C++ 代码行数
+set | grep -i proxy                           # 检查代理环境变量
 ```
 
-### 现有解决方案的缺点
-
-- WSL：重量级，需要虚拟化
-- Git Bash/MSYS2：独立终端，集成问题
-- PowerShell 别名：有限，参数不兼容
-
-### 我们的解决方案
-
-WinuxCmd 在 Windows 上提供原生的 Linux 命令语法，无需仿真层。
+---
 
 ## 💡 技术亮点
 
-### 1. 硬链接分发（零重复）
+### 1. 跨平台管道 — 最大差异化特性
 
-```
-# 所有命令都是同一个可执行文件的硬链接
-$ ls -i *.exe
-12345 ls.exe    # 相同的 inode
-12345 cat.exe   # 相同的 inode
-12345 cp.exe    # 相同的 inode
+WinuxCmd 的管道符（`|`）是 **Windows 工具与 Linux 工具的直连桥梁**。任何 Windows 命令的 stdout，无需任何转换，直接作为 Linux 过滤器的 stdin。
 
-# 结果：300 个命令 ≈ 400KB，而不是 300×400KB
-```
+```bash
+# 网络诊断
+netstat -an | grep LISTENING | awk '{print $2}' | sort -u   # 所有监听端口
+lsof -i :8080                     # 查端口归属
+lsof -i tcp:443                   # 过滤协议 + 端口
 
-### 2. 极致的体积优化
+# 进程管理
+tasklist | grep -i chrome | awk '{print $2}'   # 提取 Chrome PID
 
-```
-# 体积对比（Release 构建，x64）：
-WinuxCmd（静态）：    ~400 KB
-WinuxCmd（动态）：    ~60 KB
-BusyBox Windows：    ~1.24 MB
-GNU coreutils（MSYS2）：~5 MB
-单个 ls.exe（C/CMake）：~1.5 MB
+# 系统分析
+dir /b /a-d | grep -oP '\.[^.]+$' | sort | uniq -c | sort -rn  # 按扩展名统计
 ```
 
-### 3. 性能表现
+### 2. 启动性能
 
-- 启动时间：< 5ms（PowerShell 别名为 15ms）
-- 内存占用：< 2MB 每个进程
-- 无运行时依赖：纯 Win32 API
+完整命令执行耗时（启动 + 执行 + 退出），1000 文件目录，20 次迭代：
 
-### 4. 为 AI 友好而设计
+| 命令 | WinuxCmd (ms) | uutils Rust (ms) | 胜负 |
+|:----:|:---:|:---:|:---:|
+| ls   | 6.30 | 7.27 | ✅ WinuxCmd |
+| cat  | 6.19 | 7.01 | ✅ WinuxCmd |
+| sort | 6.31 | 7.27 | ✅ WinuxCmd |
+| grep | 6.42 | 5.99 | uutils |
 
-```
-# AI 现在可以安全地在 Windows 上输出 Linux 命令
-ls -la | grep ".cpp" | xargs cat
-# ↑ 安装 WinuxCmd 后直接可用
-```
+**7/8 命令胜出，整体比 uutils (Rust) 快 1.09x；比 MSYS2 快 2–8 倍**
 
-
-
-## 🔧 技术细节
-
-### 编译（仅 MSVC）
+### 3. 体积对比
 
 ```
-# 使用 Visual Studio 2026 构建
-mkdir build && cd build
-cmake .. -G "Visual Studio 17 2026" -A x64
-cmake --build . --config Release
-
-# 高级选项
-cmake .. -DUSE_STATIC_CRT=ON -DENABLE_UPX=OFF -DOPTIMIZE_SIZE=ON
+WinuxCmd（静态）：        ~900 KB
+BusyBox Windows：        ~1.24 MB
+GNU coreutils（MSYS2）：  ~5 MB
+单个 ls.exe（C/CMake）：  ~1.5 MB
 ```
 
-### 架构
+所有命令共用同一个可执行文件的硬链接，35 个命令只占 1 份体积。
 
-- 语言：现代 C++23 带模块支持
-- Windows API：纯 Win32（无 MFC/ATL）
-- 编译：MSVC 扩展以获得最佳性能
-- 链接：默认静态 CRT 以获得可移植性
+---
 
-### 设计选择
+## 🔧 构建
 
-- 硬链接而非符号链接：更好的性能，原生 Windows 支持
-- 静态链接：无 VC++ 运行时依赖
-- 禁用 RTTI/异常：减少二进制大小
-- 基于模块：更快的编译，更清晰的依赖
+> 需要 MSVC 与 CMake 3.30+，详见 [构建模式文档](DOCS/zh/build_modes.md)
 
-## 🛠 使用示例
-
-### 基本使用
-
-```
-# 直接使用（无需激活）
-winux ls -lah
-winux cat -n file.txt
-winux cp -rv source/ dest/
-winux rm -rf node_modules/
-winux mkdir -p path/to/new/dir
-
-# 或者激活后直接使用命令
-winux activate
-ls -lah
-cat -n file.txt
+```powershell
+cmake --preset dev        # 配置开发模式
+cmake --build build-dev   # 构建
 ```
 
-### 管理命令
-
-```
-# WinuxCmd v0.1.4 - GNU Coreutils for Windows
-# ===================================================
-
-# 管理命令:
-winux activate          - 启用 GNU 命令
-winux deactivate        - 恢复原始命令
-winux status            - 检查激活状态
-winux list              - 列出可用命令
-winux version           - 显示版本
-winux help              - 显示此帮助
-
-# GNU 命令（直接）:
-winux ls -la            - 列出文件
-winux cp source dest    - 复制文件
-winux mv source dest    - 移动文件
-winux rm file           - 删除文件
-winux cat file          - 显示文件内容
-winux mkdir dir         - 创建目录
-
-# 直接访问:
-winuxcmd --help         - 显示 winuxcmd 帮助
-```
-
-### 激活示例
-
-```
-# 激活 WinuxCmd
-winux activate
-
-# 输出:
-# Activating WinuxCmd...
-#   ✓ cat
-#   ✓ cp
-#   ✓ mkdir
-#   ✓ ls
-#   ✓ mv
-#   ✓ rm
-# Activation complete!
-# Available WinuxCmd Commands:
-# =============================
-#   cat -> cat.exe [✓]
-#   cp -> cp.exe [✓]
-#   ls -> ls.exe [✓]
-#   mkdir -> mkdir.exe [✓]
-#   mv -> mv.exe [✓]
-#   rm -> rm.exe [✓]
-
-# 现在可以直接使用命令
-ls -la
-cat file.txt
-```
-
-### 停用示例
-
-```
-# 停用 WinuxCmd
-winux deactivate
-
-# 输出:
-# Deactivating WinuxCmd...
-# Deactivation complete! All original commands restored.
-```
-
-### 与 PowerShell 集成
-
-```
-# 直接使用
-winux ls -la | Select-Object -First 10
-Get-Process | winux grep "chrome"
-
-# 激活后使用
-winux activate
-ls -la | Select-Object -First 10
-Get-Process | grep "chrome"
-```
-
-### 批处理脚本
-
-```
-@echo off
-:: 现在可以在批处理文件中使用 Linux 命令
-ls -la > files.txt
-find . -name "*.tmp" -delete
-```
-
-## 📈 开发路线图
-
-### 第一阶段：核心工具（当前）
-
-- ls, cat, cp, mv, rm, mkdir, echo
-- grep, find, wget, curl, tar, gzip
-- chmod, chown, touch, ln, pwd
-
-### 第二阶段：高级工具
-
-- sed, awk, xargs, tee
-- ssh, scp, rsync
-- git 风格的 porcelain 命令
-
-### 第三阶段：生态系统
-
-- 包管理器集成
-- VS Code/IDE 插件
-- Docker/CI 支持
+---
 
 ## 🤝 参与贡献
 
-我们欢迎贡献！作为一个个人项目，我们特别鼓励：
+欢迎提交 PR！详见 [CONTRIBUTING_ZH.MD](CONTRIBUTING_ZH.MD)。
 
-- 命令实现（遵循我们的模板）
-- 文档改进
-- 错误报告和测试
-
-详情请参阅 CONTRIBUTING.md。
-
-### 适合新手的任务
-
-- 为所有命令添加 -h/--help 支持
-- 实现 wc（字数统计）命令
-- 为 ls 添加彩色输出
+**新手友好任务：**
+- 为命令添加 `-h/--help` 支持
 - 改进错误信息
+
+---
 
 ## ❓ 常见问题
 
-### 问：这和 WSL 有什么区别？
+**Q：和 WSL 有什么区别？**  
+A：WSL 是完整的 Linux 子系统；WinuxCmd 是理解 Linux 语法的原生 Windows 可执行文件，无虚拟化开销。
 
-答：WSL 是完整的 Linux 子系统。WinuxCmd 是理解 Linux 语法的原生 Windows 可执行文件。
+**Q：会影响原生 Windows 命令吗？**  
+A：不会。WinuxCmd 无法识别的命令自动回退到 Windows 原生命令行执行。
 
-### 问：它会替代 PowerShell 吗？
+**Q：安全吗？**  
+A：开源，无网络连接，无遥测。
 
-答：不会，它是对 PowerShell 的补充。脚本编写时使用 Linux 命令，Windows 管理时使用 PowerShell。
+**Q：为什么用 C++ 而不是 Rust/Go？**  
+A：最大性能、最小依赖、直接访问 Win32 API。
 
-### 问：使用安全吗？
-
-答：安全。所有代码都是开源的，无网络连接，无遥测。
-
-### 问：为什么用 C++ 而不是 Rust/Go？
-
-答：为了最大性能、最小依赖和直接的 Windows API 访问。
-
-### 使用了winuxcmd shell补全功能会导致原生Windows命令不能用吗?
-
-答: 不会,我们有回退机制,winuxcmd无法解析的命令会在原生Windows命令行中运行
-
-### 考虑做补全排序按照用户使用习惯排序吗?
-
-答: 后续会加入这方面的算法
+---
 
 ## 📚 文档
 
-- [API 参考](DOCS/zh/overview_zh.md)
-- [从源码构建](DOCS/zh/commands_implementation.md)
-- [命令兼容性矩阵](DOCS/zh/commands_implementation.md)
-- [测试框架](DOCS/zh/testing_framework.md)
-- [选项处理指南](DOCS/zh/option-handling_zh.md)
-- [构建模式指南](DOCS/zh/build_modes.md)
+| 文档 | 说明 |
+|------|------|
+| [概览与架构](DOCS/zh/overview_zh.md) | 模块设计、核心 API |
+| [命令实现细节](DOCS/zh/commands_implementation.md) | 完整参数兼容性矩阵 |
+| [构建模式](DOCS/zh/build_modes.md) | Dev / Release / ASan 预设 |
+| [选项处理指南](DOCS/zh/option-handling_zh.md) | 如何添加新命令 |
+| [测试框架](DOCS/zh/testing_framework.md) | wctest 使用说明 |
+| [Shell 集成](DOCS/zh/winux_shell_integration_zh.md) | PowerShell / CMD 详细配置 |
+
+---
 
 ## 关于作者
 
-本项目作为改善 Windows 开发体验的个人项目而开发。
-
-联系：<2507560089@qq.com>
-GitHub：@caomengxuan666
+联系：<2507560089@qq.com>  
+GitHub：[@caomengxuan666](https://github.com/caomengxuan666)  
 产品：https://dl.caomengxuan666.com
 
-📄 许可证
-MIT 许可证 © 2026 caomengxuan666。详见 LICENSE。
+📄 MIT 许可证 © 2026 caomengxuan666。详见 [LICENSE](LICENSE)。
