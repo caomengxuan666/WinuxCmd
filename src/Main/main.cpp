@@ -31,6 +31,7 @@ import utils;
 import wildcard_handler;
 import readline;
 import native_completion;
+#include "version.hpp"
 
 namespace {
 static std::string g_repl_executable_path;
@@ -386,7 +387,7 @@ static Completer makeCompleter() {
 /// Run WinuxCmd in interactive REPL mode.
 static void runReplMode() noexcept {
   safePrintLn(
-      L"WinuxCmd " + utf8_to_wstring(std::string("0.4.5")) +
+      L"WinuxCmd " + utf8_to_wstring(WinuxCmd::VERSION_STRING) +
       L"  (interactive)  Type 'exit' to quit, '--help' for command list.");
   safePrintLn(L"Use Tab for completions; \u2191\u2193 for history; \u2190\u2192 to move cursor.\n");
 

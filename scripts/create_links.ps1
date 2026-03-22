@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.5.2"
+$Script:Version = "0.5.3"
 
 # Available commands list
 $Script:Commands = @(
