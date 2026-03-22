@@ -249,10 +249,61 @@ static std::optional<std::string> rewriteSudoBuiltinLine(
   if (rest_start == std::string::npos) return std::nullopt;
   std::string rest = line.substr(rest_start);
 
+  auto exe = g_repl_executable_path;
+  if (exe.find(' ') != std::string::npos || exe.find('\t') != std::string::npos) {
+    exe = "\"" + exe + "\"";
+  }
+
   // Use explicit winuxcmd.exe path so native Windows sudo can elevate and
   // execute built-in commands that do not exist as standalone binaries.
-  std::string rewritten = "sudo \"" + g_repl_executable_path + "\" " + rest;
+  std::string rewritten = "sudo " + exe + " " + rest;
   return rewritten;
+}
+
+static std::string rewritePipeBuiltinsLine(const std::string& line) {
+  if (line.find('|') == std::string::npos || g_repl_executable_path.empty()) {
+    return line;
+  }
+
+  std::vector<std::string> parts;
+  size_t start = 0;
+  while (start <= line.size()) {
+    size_t pos = line.find('|', start);
+    if (pos == std::string::npos) {
+      parts.push_back(line.substr(start));
+      break;
+    }
+    parts.push_back(line.substr(start, pos - start));
+    start = pos + 1;
+  }
+
+  for (auto& part : parts) {
+    auto trimmed = trimAscii(part);
+    if (trimmed.empty()) continue;
+
+    std::istringstream iss(trimmed);
+    std::string first;
+    if (!(iss >> first)) continue;
+
+    std::string lowered = toLowerAscii(first);
+    if (!CommandRegistry::hasCommand(first) &&
+        !CommandRegistry::hasCommand(lowered)) {
+      continue;
+    }
+
+    auto exe = g_repl_executable_path;
+    if (exe.find(' ') != std::string::npos || exe.find('\t') != std::string::npos) {
+      exe = "\"" + exe + "\"";
+    }
+    part = exe + " " + trimmed;
+  }
+
+  std::string out;
+  for (size_t i = 0; i < parts.size(); ++i) {
+    if (i > 0) out += " | ";
+    out += trimAscii(parts[i]);
+  }
+  return out;
 }
 
 // -----------------------------------------------------------------------------
@@ -357,22 +408,23 @@ static void runReplMode() noexcept {
 
     if (line == "exit" || line == "quit") break;
 
-    if (auto rewritten = rewriteSudoBuiltinLine(line); rewritten.has_value()) {
-      runNativeFallback(*rewritten);
-      continue;
+    std::string resolved_line = line;
+    if (auto rewritten = rewriteSudoBuiltinLine(resolved_line);
+        rewritten.has_value()) {
+      resolved_line = *rewritten;
     }
 
     // REPL does not implement a full shell parser.
     // Route shell-style compound commands to cmd.exe fallback.
-    if (hasShellMeta(line)) {
-      runNativeFallback(line);
+    if (hasShellMeta(resolved_line)) {
+      runNativeFallback(rewritePipeBuiltinsLine(resolved_line));
       continue;
     }
 
     // Tokenise (simple whitespace split; no quoting yet)
     std::vector<std::string> tokens;
     {
-      std::istringstream iss(line);
+      std::istringstream iss(resolved_line);
       std::string tok;
       while (iss >> tok) tokens.push_back(std::move(tok));
     }
@@ -418,7 +470,7 @@ static void runReplMode() noexcept {
     if (CommandRegistry::hasCommand(cmd_name)) {
       CommandRegistry::dispatch(cmd_name, cmd_args);
     } else {
-      runNativeFallback(line);
+      runNativeFallback(resolved_line);
     }
   }
 
