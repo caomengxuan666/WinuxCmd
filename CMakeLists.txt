@@ -125,6 +125,14 @@ project(WinuxCmd
         LANGUAGES CXX
 )
 
+# Generate version header file
+string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S" UTC)
+configure_file(
+    ${CMAKE_SOURCE_DIR}/src/version.hpp.in
+    ${CMAKE_BINARY_DIR}/version.hpp
+    @ONLY
+)
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -286,7 +294,7 @@ if (ENABLE_UPX)
 endif ()
 
 # Add include directories for main executable
-target_include_directories(winuxcmd PRIVATE ${SRC_DIR})
+target_include_directories(winuxcmd PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
 
 # MSVC-specific configuration - common settings
 if (MSVC)
