@@ -72,7 +72,8 @@ getCommandCompletions(std::string_view prefix) {
       items.push_back({std::move(key), std::string(desc)});
   }
 
-  auto native = queryNativeCommandCompletions(prefix);
+  bool includePowerShell = (g_repl_fallback_shell == FallbackShell::PowerShell);
+  auto native = queryNativeCommandCompletionsForShell(prefix, includePowerShell);
   for (const auto &item : native) {
     if (seen.insert(toLowerAscii(item.text)).second)
       items.push_back({item.text, item.hint});
@@ -85,7 +86,9 @@ getCommandCompletions(std::string_view prefix) {
 static std::vector<CompletionItem>
 getWindowsOptionCompletions(std::string_view cmd_name, std::string_view prefix) {
   std::vector<CompletionItem> items;
-  auto native = queryNativeOptionCompletions(cmd_name, prefix);
+  bool includePowerShell = (g_repl_fallback_shell == FallbackShell::PowerShell);
+  auto native = queryNativeOptionCompletionsForShell(cmd_name, prefix,
+                                                      includePowerShell);
   items.reserve(native.size());
   for (const auto &item : native) {
     items.push_back({item.text, item.hint});
@@ -545,7 +548,7 @@ static void runReplMode() noexcept {
     }
 
     // REPL does not implement a full shell parser.
-    // Route shell-style compound commands to cmd.exe fallback.
+    // Route shell-style compound commands to native-shell fallback.
     if (hasShellMeta(resolved_line)) {
       runNativeFallback(rewritePipeBuiltinsLine(resolved_line));
       continue;
@@ -619,6 +622,7 @@ int main(int argc, char *argv[]) noexcept {
   }
   // Automatically set console or pipe output.
   setupConsoleForUnicode();
+  detectReplFallbackShell();
   // Get the executable name (stem only)
   std::string self_name = path::get_executable_name(argv[0]);
 
@@ -637,7 +641,6 @@ int main(int argc, char *argv[]) noexcept {
       DWORD  mode = 0;
       if (isOutputConsole() && GetConsoleMode(hIn, &mode)) {
         g_repl_executable_path = path::get_executable_path(argv[0]);
-        detectReplFallbackShell();
         runReplMode();
         return 0;
       }
