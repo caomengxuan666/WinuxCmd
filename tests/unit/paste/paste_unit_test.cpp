@@ -19,35 +19,50 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: paste_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(paste, paste_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("file1.txt", "a\nb\nc\n");
+  tmp.write("file2.txt", "1\n2\n3\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"paste.exe", {L"file1.txt", L"file2.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("a\t1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("b\t2") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("c\t3") != std::string::npos);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(paste, paste_single_file) {
+  TempDir tmp;
+  tmp.write("file1.txt", "a\nb\nc\n");
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"paste.exe", {L"file1.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_EQ_TEXT(r.stdout_text, "a\nb\nc\n");
+}
+
+TEST(paste, paste_stdin) {
+  Pipeline p;
+  p.set_stdin("a\nb\nc\n");
+  p.add(L"paste.exe", {});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a\nb\nc\n");
 }

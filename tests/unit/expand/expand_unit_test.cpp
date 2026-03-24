@@ -19,35 +19,50 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: expand_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(expand, expand_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("test.txt", "hello\tworld\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"expand.exe", {L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Tab should be converted to spaces (default 8 spaces)
+  EXPECT_TRUE(r.stdout_text.find("hello") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("world") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\t") == std::string::npos);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(expand, expand_custom_tab) {
+  TempDir tmp;
+  tmp.write("test.txt", "hello\tworld\n");
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"expand.exe", {L"-t", L"4", L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("\t") == std::string::npos);
+}
+
+TEST(expand, expand_stdin) {
+  Pipeline p;
+  p.set_stdin("hello\tworld\n");
+  p.add(L"expand.exe", {});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("\t") == std::string::npos);
 }

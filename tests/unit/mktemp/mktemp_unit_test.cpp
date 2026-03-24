@@ -19,35 +19,65 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: mktemp_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(mktemp, mktemp_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"mktemp.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Remove trailing newline
+  std::string filename = r.stdout_text;
+  if (!filename.empty() && filename.back() == '\n') {
+    filename.pop_back();
+  }
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / filename));
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(mktemp, mktemp_custom_prefix) {
+  TempDir tmp;
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"mktemp.exe", {L"test_XXXXXX"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_FALSE(r.stdout_text.empty());
+  std::string filename = r.stdout_text;
+  if (!filename.empty() && filename.back() == '\n') {
+    filename.pop_back();
+  }
+  EXPECT_TRUE(filename.find("test_") != std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / filename));
+}
+
+TEST(mktemp, mktemp_dry_run) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"mktemp.exe", {L"-u", L"test_XXXXXX"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+  // With -u, file should not actually be created
+  std::string filename = r.stdout_text;
+  if (!filename.empty() && filename.back() == '\n') {
+    filename.pop_back();
+  }
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / filename));
 }

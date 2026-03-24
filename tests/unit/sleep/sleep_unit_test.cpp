@@ -19,35 +19,34 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: sleep_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
+#include <chrono>
+#include <thread>
 
-TEST(sha256sum, sha256sum_basic_file) {
-  TempDir tmp;
-  tmp.write("test.txt", "hello\n");
-
+TEST(sleep, sleep_zero) {
   Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"sleep.exe", {L"0"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(sleep, sleep_short) {
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.add(L"sleep.exe", {L"0.1"});
 
+  auto start = std::chrono::steady_clock::now();
   auto r = p.run();
+  auto end = std::chrono::steady_clock::now();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Should sleep for at least 0.1 seconds
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  EXPECT_TRUE(duration.count() >= 90); // Allow some tolerance
+  EXPECT_TRUE(duration.count() <= 200); // But not too long
 }

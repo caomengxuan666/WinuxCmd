@@ -19,35 +19,47 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: split_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(split, split_by_lines) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("input.txt", "line1\nline2\nline3\nline4\nline5\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"split.exe", {L"-l", L"2", L"input.txt", L"part"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Check that split files were created
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "partaa") || std::filesystem::exists(tmp.path / "partaa.txt"));
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(split, split_by_bytes) {
+  TempDir tmp;
+  tmp.write("input.txt", "hello world\n");
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"split.exe", {L"-b", L"5", L"input.txt", L"part"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "partaa") || std::filesystem::exists(tmp.path / "partaa.txt"));
+}
+
+TEST(split, split_stdin) {
+  Pipeline p;
+  p.set_stdin("line1\nline2\nline3\n");
+  p.add(L"split.exe", {L"-l", L"1", L"-", L"part"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
 }

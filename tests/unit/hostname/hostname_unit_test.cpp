@@ -19,35 +19,35 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: hostname_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
-  TempDir tmp;
-  tmp.write("test.txt", "hello\n");
-
+TEST(hostname, hostname_basic) {
   Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"hostname.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Remove trailing newline
+  std::string hostname = r.stdout_text;
+  if (!hostname.empty() && hostname.back() == '\n') {
+    hostname.pop_back();
+  }
+  EXPECT_FALSE(hostname.empty());
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(hostname, hostname_long) {
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.add(L"hostname.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Should return the full hostname
+  EXPECT_FALSE(r.stdout_text.empty());
 }

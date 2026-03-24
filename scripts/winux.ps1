@@ -60,6 +60,51 @@ $CommandMap = @{
     "column" = "column.exe"
     "seq"    = "seq.exe"
     "stat"   = "stat.exe"
+    # New commands added in v0.7.0 - Hash tools
+    "sha1sum" = "sha1sum.exe"
+    "sha224sum" = "sha224sum.exe"
+    "sha384sum" = "sha384sum.exe"
+    "sha512sum" = "sha512sum.exe"
+    "b2sum" = "b2sum.exe"
+    # New commands added in v0.7.0 - Text processing
+    "paste" = "paste.exe"
+    "join" = "join.exe"
+    "comm" = "comm.exe"
+    "split" = "split.exe"
+    "csplit" = "csplit.exe"
+    "cmp" = "cmp.exe"
+    "nl" = "nl.exe"
+    "fold" = "fold.exe"
+    "fmt" = "fmt.exe"
+    # New commands added in v0.7.0 - Text conversion
+    "expand" = "expand.exe"
+    "unexpand" = "unexpand.exe"
+    "tac" = "tac.exe"
+    # New commands added in v0.7.0 - System information
+    "hostname" = "hostname.exe"
+    "whoami" = "whoami.exe"
+    "arch" = "arch.exe"
+    "uname" = "uname.exe"
+    "id" = "id.exe"
+    "who" = "who.exe"
+    "users" = "users.exe"
+    "groups" = "groups.exe"
+    # New commands added in v0.7.0 - File operations
+    "truncate" = "truncate.exe"
+    "mktemp" = "mktemp.exe"
+    "install" = "install.exe"
+    "readlink" = "readlink.exe"
+    "cksum" = "cksum.exe"
+    "sum" = "sum.exe"
+    "mkfifo" = "mkfifo.exe"
+    # New commands added in v0.7.0 - Other tools
+    "sleep" = "sleep.exe"
+    "timeout" = "timeout.exe"
+    "uptime" = "uptime.exe"
+    "shuf" = "shuf.exe"
+    "pr" = "pr.exe"
+    "yes" = "yes.exe"
+    "ptx" = "ptx.exe"
 }
 
 # ========== Backup System ==========

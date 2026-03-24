@@ -19,35 +19,33 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: yes_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
-  TempDir tmp;
-  tmp.write("test.txt", "hello\n");
-
+TEST(yes, yes_default) {
   Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"yes.exe", {});
+  p.add(L"head.exe", {L"-n", L"5"});  // Limit output to 5 lines
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
+  // Should output "y" 5 times
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("y") != std::string::npos);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(yes, yes_custom_string) {
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.add(L"yes.exe", {L"hello"});
+  p.add(L"head.exe", {L"-n", L"3"});  // Limit output to 3 lines
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Should output "hello" 3 times
+  EXPECT_TRUE(r.stdout_text.find("hello") != std::string::npos);
 }

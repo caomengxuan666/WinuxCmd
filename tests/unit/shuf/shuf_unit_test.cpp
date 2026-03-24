@@ -19,35 +19,50 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: shuf_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(shuf, shuf_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("test.txt", "line1\nline2\nline3\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"shuf.exe", {L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // All lines should be present
+  EXPECT_TRUE(r.stdout_text.find("line1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line2") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line3") != std::string::npos);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(shuf, shuf_stdin) {
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_stdin("line1\nline2\nline3\n");
+  p.add(L"shuf.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("line1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line2") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line3") != std::string::npos);
+}
+
+TEST(shuf, shuf_echo_mode) {
+  Pipeline p;
+  p.add(L"shuf.exe", {L"-e", L"a", L"b", L"c"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("a") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("b") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("c") != std::string::npos);
 }

@@ -19,35 +19,50 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: tac_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(tac, tac_basic_file) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("test.txt", "line1\nline2\nline3\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"tac.exe", {L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // tac should print lines in reverse order
+  EXPECT_TRUE(r.stdout_text.find("line3") < r.stdout_text.find("line2"));
+  EXPECT_TRUE(r.stdout_text.find("line2") < r.stdout_text.find("line1"));
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(tac, tac_stdin) {
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_stdin("line1\nline2\nline3\n");
+  p.add(L"tac.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("line3") < r.stdout_text.find("line2"));
+  EXPECT_TRUE(r.stdout_text.find("line2") < r.stdout_text.find("line1"));
+}
+
+TEST(tac, tac_single_line) {
+  TempDir tmp;
+  tmp.write("single.txt", "only one line\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"tac.exe", {L"single.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "only one line\n");
 }

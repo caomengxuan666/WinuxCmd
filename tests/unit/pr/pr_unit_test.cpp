@@ -19,35 +19,34 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: pr_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(pr, pr_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("test.txt", "line1\nline2\nline3\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"pr.exe", {L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  // Should format output for printing
+  EXPECT_FALSE(r.stdout_text.empty());
+}
+
+TEST(pr, pr_stdin) {
+  Pipeline p;
+  p.set_stdin("line1\nline2\n");
+  p.add(L"pr.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
-}
-
-TEST(sha256sum, sha256sum_stdin) {
-  Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
-
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
 }

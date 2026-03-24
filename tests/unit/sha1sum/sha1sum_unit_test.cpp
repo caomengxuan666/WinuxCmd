@@ -19,35 +19,50 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: sha1sum_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(sha1sum, sha1sum_basic_file) {
   TempDir tmp;
   tmp.write("test.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"sha1sum.exe", {L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // SHA1 of "hello\n" is: f572d396fae9206628714fb2ce00f72e94f2258f
+  EXPECT_TRUE(r.stdout_text.find("f572d396fae9206628714fb2ce00f72e94f2258f") != std::string::npos);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(sha1sum, sha1sum_stdin) {
   Pipeline p;
   p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.add(L"sha1sum.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("f572d396fae9206628714fb2ce00f72e94f2258f") != std::string::npos);
+}
+
+TEST(sha1sum, sha1sum_empty_file) {
+  TempDir tmp;
+  tmp.write("empty.txt", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sha1sum.exe", {L"empty.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  // SHA1 of empty string is: da39a3ee5e6b4b0d3255bfef95601890afd80709
+  EXPECT_TRUE(r.stdout_text.find("da39a3ee5e6b4b0d3255bfef95601890afd80709") != std::string::npos);
 }
