@@ -75,6 +75,27 @@ constexpr std::pair<std::string_view, std::string_view> kBuiltinCommands[] = {
     {"xcopy", "Copy files and directory trees"},
 };
 
+constexpr std::pair<std::string_view, std::string_view> kPowerShellCommands[] = {
+    {"Get-Process", "Get processes on local/remote machine"},
+    {"Get-Service", "Get services on local/remote machine"},
+    {"Get-Command", "Get all available commands"},
+    {"Get-ChildItem", "List files/directories (PowerShell)"},
+    {"Get-Content", "Read file content"},
+    {"Set-Content", "Write content to file"},
+    {"Set-Location", "Change current location"},
+    {"Select-String", "Search text patterns"},
+    {"Where-Object", "Filter objects by script block"},
+    {"Select-Object", "Select object properties"},
+    {"Sort-Object", "Sort objects"},
+    {"ForEach-Object", "Process each pipeline object"},
+    {"Measure-Object", "Compute count/sum/avg/min/max"},
+    {"Start-Process", "Start one or more processes"},
+    {"Stop-Process", "Stop one or more running processes"},
+    {"Test-Path", "Check whether path exists"},
+    {"Out-File", "Send output to file"},
+    {"Tee-Object", "Write output to file and pipeline"},
+};
+
 constexpr BuiltinOptionDef kBuiltinOptions[] = {
     {"dir", "/a", "Show files with specified attributes"},
     {"dir", "/b", "Bare format (no heading/summary)"},
@@ -136,6 +157,37 @@ constexpr BuiltinOptionDef kBuiltinOptions[] = {
     {"netstat", "-o", "Show owning process ID"},
     {"netstat", "-b", "Show executable involved in each connection"},
     {"netstat", "-r", "Display routing table"},
+};
+
+constexpr BuiltinOptionDef kPowerShellOptions[] = {
+    {"get-process", "-Name", "Filter by process name"},
+    {"get-process", "-Id", "Filter by process id"},
+    {"get-service", "-Name", "Filter by service name"},
+    {"get-command", "-Name", "Filter command names"},
+    {"get-childitem", "-Path", "Target path"},
+    {"get-childitem", "-Recurse", "Include subdirectories"},
+    {"get-childitem", "-File", "Only files"},
+    {"get-content", "-Path", "Input file path"},
+    {"get-content", "-Raw", "Read full file as one string"},
+    {"set-content", "-Path", "Output file path"},
+    {"select-string", "-Pattern", "Pattern to search"},
+    {"select-string", "-Path", "Target file path"},
+    {"where-object", "-FilterScript", "Filter script block"},
+    {"select-object", "-First", "Select first N"},
+    {"select-object", "-Last", "Select last N"},
+    {"sort-object", "-Property", "Sort by property"},
+    {"sort-object", "-Descending", "Sort descending"},
+    {"foreach-object", "-Process", "Process script block"},
+    {"measure-object", "-Property", "Measure property"},
+    {"measure-object", "-Sum", "Calculate sum"},
+    {"measure-object", "-Average", "Calculate average"},
+    {"start-process", "-FilePath", "Executable path"},
+    {"start-process", "-ArgumentList", "Argument list"},
+    {"stop-process", "-Name", "Target process name"},
+    {"stop-process", "-Id", "Target process id"},
+    {"test-path", "-Path", "Path to test"},
+    {"out-file", "-FilePath", "Output file path"},
+    {"tee-object", "-FilePath", "File to tee output"},
 };
 
 constexpr uint32_t kCacheMagic   = 0x57434331u;  // WCC1
@@ -363,7 +415,8 @@ static const UserCompletionData& getUserCompletionData() {
 }  // namespace
 
 export std::vector<NativeCompletionItem>
-queryNativeCommandCompletions(std::string_view prefix) noexcept {
+queryNativeCommandCompletionsForShell(std::string_view prefix,
+                                      bool includePowerShell) noexcept {
   std::vector<NativeCompletionItem> items;
   std::unordered_set<std::string>   seenLower;
   seenLower.reserve(128);
@@ -376,6 +429,9 @@ queryNativeCommandCompletions(std::string_view prefix) noexcept {
   };
 
   for (const auto& [cmd, hint] : kBuiltinCommands) tryAdd(cmd, hint);
+  if (includePowerShell) {
+    for (const auto& [cmd, hint] : kPowerShellCommands) tryAdd(cmd, hint);
+  }
   for (const auto& c : getUserCompletionData().commands) tryAdd(c.text, c.hint);
 
   std::ranges::sort(items, {}, &NativeCompletionItem::text);
@@ -383,8 +439,9 @@ queryNativeCommandCompletions(std::string_view prefix) noexcept {
 }
 
 export std::vector<NativeCompletionItem>
-queryNativeOptionCompletions(std::string_view command,
-                             std::string_view prefix) noexcept {
+queryNativeOptionCompletionsForShell(std::string_view command,
+                                     std::string_view prefix,
+                                     bool includePowerShell) noexcept {
   std::vector<NativeCompletionItem> items;
   std::unordered_set<std::string>   seenLower;
   seenLower.reserve(64);
@@ -401,11 +458,28 @@ queryNativeOptionCompletions(std::string_view command,
     if (equalsCaseInsensitive(def.command, commandLower))
       tryAdd(def.option, def.hint);
   }
+  if (includePowerShell) {
+    for (const auto& def : kPowerShellOptions) {
+      if (equalsCaseInsensitive(def.command, commandLower))
+        tryAdd(def.option, def.hint);
+    }
+  }
   for (const auto& o : getUserCompletionData().options) {
     if (o.command_lower == commandLower) tryAdd(o.option, o.hint);
   }
 
   std::ranges::sort(items, {}, &NativeCompletionItem::text);
   return items;
+}
+
+export std::vector<NativeCompletionItem>
+queryNativeCommandCompletions(std::string_view prefix) noexcept {
+  return queryNativeCommandCompletionsForShell(prefix, false);
+}
+
+export std::vector<NativeCompletionItem>
+queryNativeOptionCompletions(std::string_view command,
+                             std::string_view prefix) noexcept {
+  return queryNativeOptionCompletionsForShell(command, prefix, false);
 }
 

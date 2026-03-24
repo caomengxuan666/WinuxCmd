@@ -35,6 +35,9 @@ import native_completion;
 
 namespace {
 static std::string g_repl_executable_path;
+enum class FallbackShell { Cmd, PowerShell };
+static FallbackShell g_repl_fallback_shell = FallbackShell::Cmd;
+static std::wstring g_repl_powershell_exe = L"powershell.exe";
 
 static std::string toLowerAscii(std::string s) {
   std::ranges::transform(s, s.begin(), [](unsigned char c) {
@@ -70,7 +73,8 @@ getCommandCompletions(std::string_view prefix) {
       items.push_back({std::move(key), std::string(desc)});
   }
 
-  auto native = queryNativeCommandCompletions(prefix);
+  bool includePowerShell = (g_repl_fallback_shell == FallbackShell::PowerShell);
+  auto native = queryNativeCommandCompletionsForShell(prefix, includePowerShell);
   for (const auto &item : native) {
     if (seen.insert(toLowerAscii(item.text)).second)
       items.push_back({item.text, item.hint});
@@ -83,7 +87,9 @@ getCommandCompletions(std::string_view prefix) {
 static std::vector<CompletionItem>
 getWindowsOptionCompletions(std::string_view cmd_name, std::string_view prefix) {
   std::vector<CompletionItem> items;
-  auto native = queryNativeOptionCompletions(cmd_name, prefix);
+  bool includePowerShell = (g_repl_fallback_shell == FallbackShell::PowerShell);
+  auto native = queryNativeOptionCompletionsForShell(cmd_name, prefix,
+                                                      includePowerShell);
   items.reserve(native.size());
   for (const auto &item : native) {
     items.push_back({item.text, item.hint});
@@ -180,9 +186,136 @@ static std::wstring buildReplPrompt() noexcept {
   }
 }
 
+static std::string base64Encode(const std::vector<unsigned char>& data) {
+  static constexpr char kTable[] =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  std::string out;
+  out.reserve(((data.size() + 2) / 3) * 4);
+  size_t i = 0;
+  while (i + 3 <= data.size()) {
+    unsigned int n =
+        (static_cast<unsigned int>(data[i]) << 16) |
+        (static_cast<unsigned int>(data[i + 1]) << 8) |
+        static_cast<unsigned int>(data[i + 2]);
+    out.push_back(kTable[(n >> 18) & 0x3F]);
+    out.push_back(kTable[(n >> 12) & 0x3F]);
+    out.push_back(kTable[(n >> 6) & 0x3F]);
+    out.push_back(kTable[n & 0x3F]);
+    i += 3;
+  }
+  size_t rem = data.size() - i;
+  if (rem == 1) {
+    unsigned int n = static_cast<unsigned int>(data[i]) << 16;
+    out.push_back(kTable[(n >> 18) & 0x3F]);
+    out.push_back(kTable[(n >> 12) & 0x3F]);
+    out.push_back('=');
+    out.push_back('=');
+  } else if (rem == 2) {
+    unsigned int n =
+        (static_cast<unsigned int>(data[i]) << 16) |
+        (static_cast<unsigned int>(data[i + 1]) << 8);
+    out.push_back(kTable[(n >> 18) & 0x3F]);
+    out.push_back(kTable[(n >> 12) & 0x3F]);
+    out.push_back(kTable[(n >> 6) & 0x3F]);
+    out.push_back('=');
+  }
+  return out;
+}
+
+static std::string toPowerShellEncodedCommand(const std::wstring& script) {
+  // PowerShell -EncodedCommand expects UTF-16LE bytes.
+  std::vector<unsigned char> bytes;
+  bytes.reserve(script.size() * 2);
+  for (wchar_t ch : script) {
+    auto u = static_cast<unsigned int>(ch);
+    bytes.push_back(static_cast<unsigned char>(u & 0xFF));
+    bytes.push_back(static_cast<unsigned char>((u >> 8) & 0xFF));
+  }
+  return base64Encode(bytes);
+}
+
+static bool isPowerShellProcessName(std::wstring_view name) {
+  std::wstring lower(name);
+  std::ranges::transform(lower, lower.begin(), [](wchar_t c) {
+    return static_cast<wchar_t>(std::towlower(c));
+  });
+  return lower == L"powershell.exe" || lower == L"pwsh.exe";
+}
+
+static std::optional<std::wstring> getProcessExeNameByPid(DWORD pid) {
+  HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return std::nullopt;
+  PROCESSENTRY32W pe{};
+  pe.dwSize = sizeof(pe);
+  if (!Process32FirstW(snap, &pe)) {
+    CloseHandle(snap);
+    return std::nullopt;
+  }
+  do {
+    if (pe.th32ProcessID == pid) {
+      std::wstring name = pe.szExeFile;
+      CloseHandle(snap);
+      return name;
+    }
+  } while (Process32NextW(snap, &pe));
+  CloseHandle(snap);
+  return std::nullopt;
+}
+
+static std::optional<DWORD> getParentPid(DWORD pid) {
+  HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return std::nullopt;
+  PROCESSENTRY32W pe{};
+  pe.dwSize = sizeof(pe);
+  if (!Process32FirstW(snap, &pe)) {
+    CloseHandle(snap);
+    return std::nullopt;
+  }
+  do {
+    if (pe.th32ProcessID == pid) {
+      DWORD ppid = pe.th32ParentProcessID;
+      CloseHandle(snap);
+      return ppid;
+    }
+  } while (Process32NextW(snap, &pe));
+  CloseHandle(snap);
+  return std::nullopt;
+}
+
+static void detectReplFallbackShell() {
+  g_repl_fallback_shell = FallbackShell::Cmd;
+  g_repl_powershell_exe = L"powershell.exe";
+
+  auto maybe_parent_pid = getParentPid(GetCurrentProcessId());
+  if (!maybe_parent_pid.has_value()) return;
+  auto maybe_parent_name = getProcessExeNameByPid(*maybe_parent_pid);
+  if (!maybe_parent_name.has_value()) return;
+  if (!isPowerShellProcessName(*maybe_parent_name)) return;
+
+  g_repl_fallback_shell = FallbackShell::PowerShell;
+  std::wstring lowered = *maybe_parent_name;
+  std::ranges::transform(lowered, lowered.begin(), [](wchar_t c) {
+    return static_cast<wchar_t>(std::towlower(c));
+  });
+  if (lowered == L"pwsh.exe") {
+    g_repl_powershell_exe = L"pwsh.exe";
+  } else {
+    g_repl_powershell_exe = L"powershell.exe";
+  }
+}
+
 static int runNativeFallback(const std::string &line) noexcept {
   if (line.empty()) return 0;
-  std::wstring cmdline = L"cmd.exe /d /c " + utf8_to_wstring(line);
+  std::wstring cmdline;
+  if (g_repl_fallback_shell == FallbackShell::PowerShell) {
+    std::wstring script = utf8_to_wstring(line);
+    std::string encoded = toPowerShellEncodedCommand(script);
+    cmdline = g_repl_powershell_exe +
+              L" -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -EncodedCommand " +
+              utf8_to_wstring(encoded);
+  } else {
+    cmdline = L"cmd.exe /d /c " + utf8_to_wstring(line);
+  }
 
   STARTUPINFOW        si{};
   PROCESS_INFORMATION pi{};
@@ -416,7 +549,7 @@ static void runReplMode() noexcept {
     }
 
     // REPL does not implement a full shell parser.
-    // Route shell-style compound commands to cmd.exe fallback.
+    // Route shell-style compound commands to native-shell fallback.
     if (hasShellMeta(resolved_line)) {
       runNativeFallback(rewritePipeBuiltinsLine(resolved_line));
       continue;
@@ -490,6 +623,7 @@ int main(int argc, char *argv[]) noexcept {
   }
   // Automatically set console or pipe output.
   setupConsoleForUnicode();
+  detectReplFallbackShell();
   // Get the executable name (stem only)
   std::string self_name = path::get_executable_name(argv[0]);
 
