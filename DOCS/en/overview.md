@@ -1,417 +1,70 @@
-# WinuxCmd: Windows Compatible Linux Command Set
+﻿# WinuxCmd Overview
 
-## Overview
+## What WinuxCmd Is
 
-WinuxCmd is a lightweight Windows executable program that provides compatibility for popular Linux commands on Windows systems. This project aims to solve the problem where AI models might execute Linux commands that are not natively supported on Windows environments.
+WinuxCmd is a native Windows command-line toolset that provides Linux-style command usability without requiring WSL.
 
-## Core Positioning & Objectives
+Core goals:
 
-### Project Core
+- Keep command usage familiar for Linux users
+- Keep execution native and lightweight on Windows
+- Improve reliability of AI-generated command workflows on Windows
 
-Provide Windows-native, lightweight, AI-agnostic compatible Linux command set for Windows (PowerShell/CMD), with reserved cross-platform expansion space.
+## Key Differentiators
 
-### Quantitative Objectives
+1. Native Windows runtime
+2. Linux-style command ergonomics
+3. Cross-tool pipelines in Windows terminal workflows
+4. Small binary and fast startup
 
-- Support 20+ high-frequency Linux commands with core parameters (1:1 compatible with Linux behavior)
-- Combined main program `winuxcmd.exe` size ~400KB (static) / ~60KB (dynamic)
-- Individual command executable (e.g., `ls.exe`) size ~400KB (hardlinked) per file
-- Implemented with pure Windows API, no third-party library dependencies
-- Developed in C++23 with modern module system architecture
-- Support multiple build modes: DEV, RELEASE, DEBUG_RELEASE
+## Shell Behavior (Important)
 
-## Technology Stack
+WinuxCmd REPL supports built-in commands and fallback execution.
 
-- **Programming Language**: C++23 (MSVC 2022+ with C++23 support)
-- **Build Tool**: CMake (primary build system)
-- **Compiler**: Microsoft Visual Studio 2022+ (MSVC 19.34+)
-- **Core Library**: Windows API (no third-party dependencies)
-- **Module System**: C++23 Modules (separate interface/implementation files)
+- Known WinuxCmd command: dispatched internally
+- Unknown command: fallback to native shell
+- Fallback shell is selected by parent shell session:
+  - entered from PowerShell/pwsh -> fallback uses PowerShell
+  - entered from cmd -> fallback uses cmd
 
-## C++23 Modules Implementation
+This keeps `Get-Process`/`Where-Object` usable when you entered from PowerShell.
 
-This project demonstrates modern C++23 module architecture with separate interface and implementation files:
+## Completion
 
-### Module Interface (`.cppm` files)
+User completion file:
 
-- Define module exports using `export module`
-- Declare public API with `export` keyword
-- Example: `src/commands/ls.cppm`
+![Auto Completion Demo](../images/auto.gif)
 
-### Module Implementation (`.cpp` files)
+- default: `%USERPROFILE%\.winuxcmd\completions\user-completions.txt`
+- env override: `WINUXCMD_COMPLETION_FILE`
 
-- Implement module functionality using `module` (no `export`)
-- Access module interface declarations automatically
-- Example: `src/commands/ls.cpp`
+Format:
 
-### CMake Configuration
-
-- Uses CMake's CXX_MODULES support
-- Automatically handles module dependencies
-- Configures module output directory
-- Supports MSVC's `/std:c++latest` flag
-
-## Architecture Design
-
-### Pipeline-Based Architecture
-
-The project uses a **pipeline-based architecture** that separates command processing into distinct stages, providing better modularity and testability:
-
-- **Pipeline components**: Commands are implemented as a series of pipeline components
-- **CommandContext**: Provides type-safe access to command options and arguments
-- **Declarative option definitions**: Uses constexpr arrays to define command options
-
-```cpp
-// Example pipeline-based architecture
-namespace ls_pipeline {
-  namespace cp = core::pipeline;
-  
-  // Validate arguments
-  auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>>;
-  
-  // Main pipeline
-  template<size_t N>
-  auto process_command(const CommandContext<N>& ctx) -> cp::Result<std::vector<std::string>>;
-}
+```text
+cmd|<command>|<description>
+opt|<command>|<option>|<description>
 ```
 
-### Command Dispatcher
+## Shell Integration
 
-A central command dispatcher manages command registration and execution:
+- [Shell Integration Guide (EN)](winux_shell_integration_en.md)
+- [Shell Integration Guide (ZH)](../zh/winux_shell_integration_zh.md)
 
-- **Automatic registration**: Commands register themselves using the `REGISTER_COMMAND` macro
-- **Dual-mode execution**: Supports both `winuxcmd <command>` and `<command>.exe` formats
-- **Efficient dispatching**: Uses a hash map for fast command lookup
+## Command Matrix
 
-```cpp
-// Command registration example
-REGISTER_COMMAND(ls,
-                 /* name */ "ls",
-                 /* synopsis */ "list directory contents",
-                 /* description */ "List information about the FILEs",
-                 /* examples */ "  ls -la",
-                 /* see_also */ "cp, mv, rm",
-                 /* author */ "WinuxCmd Team",
-                 /* copyright */ "Copyright © 2026 WinuxCmd",
-                 /* options */ LS_OPTIONS
-) {
-  // Command implementation
-}
+- [Command Compatibility Matrix](commands_implementation_en.md)
 
-// Command execution example
-int exit_code = CommandRegistry::dispatch("ls", args);
-```
+## Build and Test
 
-### CommandContext
+- Build modes: [build_modes_en.md](build_modes_en.md)
+- Testing: [testing_framework_en.md](testing_framework_en.md)
 
-The `CommandContext` class provides a type-safe way to access command options and arguments:
+## Contribution Reality
 
-- **Type-safe option access**: Uses `ctx.get<bool>("--verbose", false)` to access options
-- **Positionals access**: Provides access to positional arguments via `ctx.positionals`
-- **Automatic option parsing**: Handles option parsing and validation automatically
+The project has many users but relatively few maintainers/contributors.
 
-### Pipeline Components
+High-impact contributions:
 
-Each command is structured with pipeline components:
-
-1. **Validation**: Validates command arguments and options
-2. **Processing**: Contains the main command logic
-3. **Output**: Handles command output
-
-This structure improves code organization, testability, and maintainability.
-
-## Features
-
-### Command Compatibility
-
-- Each command implements only Linux core parameters (e.g., `ls` supports `-l/-a/-h/-r`)
-- Command output format 1:1 aligned with Linux native output
-- Linux-style error message format
-
-### Dual-Mode Execution
-
-- **Individual Command Mode**: Each command compiled as separate .exe (e.g., `ls.exe`)
-- **Combined Mode**: Main program `winuxcmd.exe` with built-in all commands (e.g., `winuxcmd ls -l`)
-
-### Performance Optimizations
-
-- RTTI and exceptions disabled for size optimization
-- Windows native API prioritized (FindFirstFileW, WriteConsoleA, etc.)
-- Stack memory prioritized over heap allocation
-- Extreme size optimization with MSVC compilation flags
-
-## Current Supported Commands
-
-### File Management
-- **ls**: List directory contents (with color support)
-  - Options: -l (long format), -a (show all), -h (human-readable), -r (reverse), --color
-- **cat**: Concatenate files and print on the standard output
-  - Options: -n (number lines), -E (show $ at end), -s (squeeze empty lines)
-- **cp**: Copy files and directories
-  - Options: -r (recursive), -v (verbose), -f (force), -i (interactive)
-- **mv**: Move/rename files
-  - Options: -v (verbose), -f (force), -i (interactive), -n (no-clobber)
-- **rm**: Remove files or directories
-  - Options: -r (recursive), -f (force), -v (verbose), -i (interactive)
-- **mkdir**: Create directories
-  - Options: -p (parents), -v (verbose), -m (mode)
-- **rmdir**: Remove empty directories
-  - Options: -p (parents), -v (verbose)
-- **touch**: Update file timestamps or create files
-  - Options: -a (access time), -m (modification time), -c (no-create)
-
-### Text Processing
-- **echo**: Display a line of text
-  - Options: -n (no newline), -e (escape sequences), -E (no escapes)
-- **grep**: Print lines matching patterns
-  - Options: -E/-F/-G (regex types), -i (ignore case), -n (line numbers), -v (invert)
-- **find**: Search for files
-  - Options: -name, -type, -mindepth, -maxdepth
-- **head**: Output first part of files
-  - Options: -n (lines), -c (bytes), -q (quiet)
-- **tail**: Output last part of files
-  - Options: -n (lines), -c (bytes), -f (follow)
-- **sort**: Sort lines
-  - Options: -n (numeric), -r (reverse), -u (unique), -k (key)
-- **uniq**: Report or omit repeated lines
-  - Options: -c (count), -d (duplicates), -u (unique)
-- **cut**: Cut fields from lines
-  - Options: -d (delimiter), -f (fields), -s (suppress)
-- **wc**: Count lines/words/bytes
-  - Options: -l (lines), -w (words), -c (bytes), -m (chars)
-- **sed**: Stream editor
-  - Options: -e (script), -f (file), -n (quiet), -i (in-place)
-
-### System Information
-- **which**: Locate commands in PATH
-  - Options: -a (all matches)
-- **env**: Print/modify environment
-  - Options: -i (ignore environment), -u (unset), -0 (null separator)
-
-## Adding New Commands
-
-To add a new command, follow these steps:
-
-1. **Use the scaffold tool** to generate a command template
-2. **Update the command options** in the generated file
-3. **Implement the pipeline components** for validation and processing
-4. **Add command logic** in the registered command function
-5. **Build the project** to include the new command
-
-Example for a new command `echo`:
-
-```cpp
-// src/commands/echo.cppm
-export module cmd:echo;
-
-import std;
-import core;
-import utils;
-namespace fs = std::filesystem;
-
-using cmd::meta::OptionMeta;
-using cmd::meta::OptionType;
-
-// ======================================================
-// Constants
-// ======================================================
-namespace echo_constants {
-  // Add constants here
-}
-
-// ======================================================
-// Options (constexpr)
-// ======================================================
-
-export auto constexpr ECHO_OPTIONS =
-    std::array{OPTION("-n", "--no-newline", "do not output the trailing newline"),
-               // Add more options here
-              };
-
-// ======================================================
-// Pipeline components
-// ======================================================
-namespace echo_pipeline {
-   namespace cp=core::pipeline;
-  
-  // ----------------------------------------------
-  // 1. Validate arguments
-  // ----------------------------------------------
-  auto validate_arguments(std::span<const std::string_view> args) -> cp::Result<std::vector<std::string>> {
-    std::vector<std::string> texts;
-    for (auto arg : args) {
-      texts.push_back(std::string(arg));
-    }
-    return texts;
-  }
-
-  // ----------------------------------------------
-  // 2. Main pipeline
-  // ----------------------------------------------
-  template<size_t N>
-  auto process_command(const CommandContext<N>& ctx)
-      -> cp::Result<std::vector<std::string>>
-  {
-    return validate_arguments(ctx.positionals)
-        // Add more pipeline steps here
-        ;
-  }
-
-}
-
-// ======================================================
-// Command registration
-// ======================================================
-
-REGISTER_COMMAND(echo,
-                 /* name */
-                 "echo",
-
-                 /* synopsis */
-                 "echo [OPTION]... [STRING]...",
-
-                 /* description */
-                 "Display a line of text. With no arguments, outputs a blank line.",
-
-                 /* examples */
-                 "  echo Hello World        Display 'Hello World'\n"
-                 "  echo -n Hello           Display 'Hello' without trailing newline",
-
-                 /* see_also */
-                 "printf",
-
-                 /* author */
-                 "WinuxCmd Team",
-
-                 /* copyright */
-                 "Copyright © 2026 WinuxCmd",
-
-                 /* options */
-                 ECHO_OPTIONS
-) {
-  using namespace echo_pipeline;
-
-  auto result = process_command(ctx);
-  if (!result) {
-    cp::report_error(result, L"echo");
-    return 1;
-  }
-
-  auto texts = *result;
-
-  // Command logic
-  for (size_t i = 0; i < texts.size(); ++i) {
-    safePrint(utf8_to_wstring(texts[i]));
-    if (i != texts.size() - 1) {
-      safePrint(L" ");
-    }
-  }
-
-  if (!ctx.get<bool>("--no-newline", false)) {
-    safePrintLn(L"");
-  }
-
-  return 0;
-}
-```
-
-## Directory Structure
-
-```
-winuxcmd/
-├── src/
-│   ├── core/         # Core module implementation
-│   │   ├── dispatcher.cppm    # Command dispatcher
-│   │   ├── cmd_meta.cppm      # Command metadata
-│   │   └── opt.cppm           # Option parsing
-│   ├── commands/     # Individual command implementations
-│   │   ├── ls.cppm   # ls command module
-│   │   ├── cat.cppm  # cat command module
-│   │   └── ...       # Other commands
-│   ├── utils/        # Utility modules
-│   │   ├── console.cppm       # Console utilities
-│   │   └── utf8.cppm          # UTF-8 handling
-│   └── Main/         # Main program entry
-│       └── main.cpp
-├── tests/            # Unit tests
-├── cmake/            # CMake modules
-├── DOCS/             # Documentation files
-├── scripts/          # Helper scripts
-├── CMakeLists.txt    # Main CMake configuration
-├── CMakePresets.json # CMake presets configuration
-├── Project_Rules.md  # Development guidelines
-├── README.md         # Project documentation (English)
-└── TODO.md           # Project TODO list (English)
-```
-
-## Build Instructions
-
-### Prerequisites
-
-- Windows 10/11 (64-bit)
-- Microsoft Visual Studio 2022+ (with C++23 support)
-- CMake 3.30+ (supports C++23 modules)
-- Ninja build system (recommended)
-
-### Build Commands
-
-```bash
-# Create build directory
-mkdir build
-cd build
-
-# Configure CMake with build mode
-cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBUILD_MODE=RELEASE
-
-# Build project
-cmake --build .
-
-# Alternative build modes:
-cmake .. -DBUILD_MODE=DEV          # Development mode (fast incremental)
-cmake .. -DBUILD_MODE=DEBUG_RELEASE # Release with debug features
-```
-
-## Usage Examples
-
-### Direct Usage (No Activation Required)
-
-```bash
-# Use winux prefix for direct command access
-winux ls -la
-winux grep "pattern" file.txt
-winux cp source.txt dest.txt
-```
-
-### With Activation
-
-```bash
-# Activate for direct command access
-winux activate
-
-# Now use commands directly
-ls -la
-grep "pattern" file.txt
-cp source.txt dest.txt
-
-# Deactivate when done
-winux deactivate
-```
-
-### Combined Mode
-
-```bash
-# Use main executable directly
-winuxcmd ls -lh
-winuxcmd grep "pattern" file.txt
-```
-
-## Versioning
-
-Semantic Versioning (e.g., v1.0.0), `<major>.<minor>.<patch>`
-
-## License
-
-MIT License
-
-## Contributing
-
-Please read Project_Rules.md for details on our code of conduct and the process for submitting pull requests.
+1. shell compatibility fixes
+2. regression tests for REPL and fallback logic
+3. documentation improvements

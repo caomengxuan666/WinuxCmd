@@ -78,6 +78,24 @@ size_t nextUtf8Pos(const std::string& s, size_t pos) noexcept {
   return i;
 }
 
+std::optional<std::string> readClipboardUtf8SingleLine() noexcept {
+  if (!OpenClipboard(nullptr)) return std::nullopt;
+  std::optional<std::string> result;
+  HANDLE hText = GetClipboardData(CF_UNICODETEXT);
+  if (hText != nullptr) {
+    auto* text = static_cast<const wchar_t*>(GlobalLock(hText));
+    if (text != nullptr) {
+      std::wstring normalized(text);
+      std::ranges::replace(normalized, L'\r', L' ');
+      std::ranges::replace(normalized, L'\n', L' ');
+      result = wstring_to_utf8(normalized);
+      GlobalUnlock(hText);
+    }
+  }
+  CloseClipboard();
+  return result;
+}
+
 void scrollUp(HANDLE hOut, SHORT width, SHORT height, SHORT lines,
               WORD fillAttr) noexcept {
   if (lines <= 0 || width <= 0 || height <= 0) return;
@@ -256,8 +274,7 @@ export std::string readInteractiveLine(const std::wstring& prompt,
   // a process-level CTRL_C_EVENT that terminates winuxcmd.
   inModeInteractive &= ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT |
                          ENABLE_PROCESSED_INPUT);
-  inModeInteractive |= (ENABLE_EXTENDED_FLAGS | ENABLE_WINDOW_INPUT |
-                        ENABLE_MOUSE_INPUT);
+  inModeInteractive |= (ENABLE_EXTENDED_FLAGS | ENABLE_WINDOW_INPUT);
   SetConsoleMode(hIn, inModeInteractive);
   // Enable virtual-terminal processing so ANSI codes work in the host.
   SetConsoleMode(hOut, outModeOrig | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
@@ -434,9 +451,24 @@ export std::string readInteractiveLine(const std::wstring& prompt,
       continue;
     }
 
+    if ((vk == 'V' &&
+         (ctrl & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))) ||
+        (vk == VK_INSERT && (ctrl & SHIFT_PRESSED))) {
+      auto clip = readClipboardUtf8SingleLine();
+      if (clip.has_value() && !clip->empty()) {
+        buffer.insert(cursor, *clip);
+        cursor += clip->size();
+        selected = -1;
+        history_index.reset();
+        completions_dirty = true;
+      }
+      continue;
+    }
+
     // ── Ctrl+C: abort ──
     if (vk == 'C' &&
-        (ctrl & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))) {
+        (ctrl & (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) &&
+        (ctrl & (SHIFT_PRESSED | LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) == 0) {
       redraw(hOut, state, "", 0, {}, -1);
       DWORD written = 0;
       WriteConsoleW(hOut, L"^C\r\n", 4, &written, nullptr);
