@@ -19,35 +19,24 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: b2sum_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(b2sum, b2sum_basic) {
   TempDir tmp;
   tmp.write("test.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"b2sum.exe", {L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
-}
-
-TEST(sha256sum, sha256sum_stdin) {
-  Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
-
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // BLAKE2 produces 128-character hash (b2sum uses 512-bit by default)
+  EXPECT_TRUE(r.stdout_text.length() > 128);
 }

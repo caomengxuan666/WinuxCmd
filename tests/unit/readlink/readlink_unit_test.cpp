@@ -19,35 +19,35 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: readlink_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(readlink, readlink_file) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("target.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"readlink.exe", {L"target.txt"});
 
   auto r = p.run();
 
+  // readlink should handle regular files gracefully
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(readlink, readlink_nonexistent) {
+  TempDir tmp;
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"readlink.exe", {L"nonexistent.txt"});
 
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  // Should fail for non-existent file
+  EXPECT_NE(r.exit_code, 0);
 }

@@ -19,35 +19,35 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: unexpand_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(unexpand, unexpand_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("test.txt", "hello        world\n"); // 8 spaces between words
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"unexpand.exe", {L"-t", L"8", L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  // Spaces at tab positions should be converted to tabs
+  EXPECT_TRUE(r.stdout_text.find("hello") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("world") != std::string::npos);
+}
+
+TEST(unexpand, unexpand_stdin) {
+  Pipeline p;
+  p.set_stdin("hello        world\n");
+  p.add(L"unexpand.exe", {L"-t", L"8"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
-}
-
-TEST(sha256sum, sha256sum_stdin) {
-  Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
-
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
 }

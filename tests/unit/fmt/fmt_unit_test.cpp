@@ -19,35 +19,33 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: fmt_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(fmt, fmt_basic) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("test.txt", "This is a long line that should be formatted to fit within a specified width.\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"fmt.exe", {L"-w", L"40", L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(fmt, fmt_stdin) {
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_stdin("This is a long line that should be formatted.\n");
+  p.add(L"fmt.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_FALSE(r.stdout_text.empty());
 }

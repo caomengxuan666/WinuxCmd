@@ -19,35 +19,49 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: cksum_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(cksum, cksum_basic) {
   TempDir tmp;
   tmp.write("test.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"cksum.exe", {L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  // Should output checksum and byte count
+  EXPECT_FALSE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stdout_text.find("6") != std::string::npos); // byte count of "hello\n"
+}
+
+TEST(cksum, cksum_stdin) {
+  Pipeline p;
+  p.set_stdin("hello\n");
+  p.add(L"cksum.exe", {});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(cksum, cksum_empty) {
+  TempDir tmp;
+  tmp.write("empty.txt", "");
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"cksum.exe", {L"empty.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.find("0") != std::string::npos);
 }

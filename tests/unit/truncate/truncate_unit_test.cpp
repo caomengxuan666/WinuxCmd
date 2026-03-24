@@ -19,35 +19,52 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: truncate_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(truncate, truncate_create) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"truncate.exe", {L"-s", L"100", L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "test.txt"));
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(truncate, truncate_shrink) {
+  TempDir tmp;
+  tmp.write("test.txt", "hello world, this is a long string");
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"truncate.exe", {L"-s", L"5", L"test.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "test.txt"));
+  std::string content = tmp.read("test.txt");
+  EXPECT_EQ(content, "hello");
+}
+
+TEST(truncate, truncate_empty) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"truncate.exe", {L"-s", L"0", L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "test.txt"));
+  std::string content = tmp.read("test.txt");
+  EXPECT_TRUE(content.empty());
 }

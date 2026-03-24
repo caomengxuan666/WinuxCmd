@@ -19,35 +19,54 @@
  *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  *  IN THE SOFTWARE.
  *
- *  - File: sha256sum_unit_test.cpp
+ *  - File: cmp_unit_test.cpp
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
 #include "framework/winuxtest.h"
 
-TEST(sha256sum, sha256sum_basic_file) {
+TEST(cmp, cmp_same_files) {
   TempDir tmp;
-  tmp.write("test.txt", "hello\n");
+  tmp.write("file1.txt", "hello\n");
+  tmp.write("file2.txt", "hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sha256sum.exe", {L"test.txt"});
+  p.add(L"cmp.exe", {L"file1.txt", L"file2.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
-  // SHA256 of "hello\n" is known value
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_TRUE(r.stdout_text.empty());
 }
 
-TEST(sha256sum, sha256sum_stdin) {
+TEST(cmp, cmp_different_files) {
+  TempDir tmp;
+  tmp.write("file1.txt", "hello\n");
+  tmp.write("file2.txt", "world\n");
+
   Pipeline p;
-  p.set_stdin("hello\n");
-  p.add(L"sha256sum.exe", {});
+  p.set_cwd(tmp.wpath());
+  p.add(L"cmp.exe", {L"file1.txt", L"file2.txt"});
 
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.length() > 64);
+  EXPECT_EQ(r.exit_code, 1);
+  // cmp should output the first differing byte
+  EXPECT_FALSE(r.stdout_text.empty());
+}
+
+TEST(cmp, cmp_quiet_mode) {
+  TempDir tmp;
+  tmp.write("file1.txt", "hello\n");
+  tmp.write("file2.txt", "world\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cmp.exe", {L"-s", L"file1.txt", L"file2.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
 }

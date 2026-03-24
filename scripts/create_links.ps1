@@ -42,7 +42,19 @@ $Script:Commands = @(
     "tree", "uniq", "wc", "which", "xargs",
     # New commands added in v0.6.0
     "base64", "tr", "less", "watch", "jq", "md5sum", "sha256sum",
-    "basename", "dirname", "free", "column", "seq", "stat"
+    "basename", "dirname", "free", "column", "seq", "stat",
+    # New commands added in v0.6.0 - Hash tools
+    "sha1sum", "sha224sum", "sha384sum", "sha512sum", "b2sum",
+    # New commands added in v0.6.0 - Text processing
+    "paste", "join", "comm", "split", "csplit", "cmp", "nl", "fold", "fmt",
+    # New commands added in v0.6.0 - Text conversion
+    "expand", "unexpand", "tac",
+    # New commands added in v0.6.0 - System information
+    "hostname", "whoami", "arch", "uname", "id", "who", "users", "groups",
+    # New commands added in v0.6.0 - File operations
+    "truncate", "mktemp", "install", "readlink", "cksum", "sum", "mkfifo",
+    # New commands added in v0.6.0 - Other tools
+    "sleep", "timeout", "uptime", "shuf", "pr", "yes", "ptx"
 )
 
 function Write-ColorOutput {

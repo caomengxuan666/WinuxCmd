@@ -84,7 +84,7 @@ grep -n "TODO" README.md
 Add this to your PowerShell profile (`$PROFILE`) to auto-enter WinuxCmd for interactive terminal sessions:
 
 ```powershell
-# 自动进入 WinuxCmd 交互环境
+# Automatically entering winuxcmd REPL env.
 $cliArgs = [Environment]::GetCommandLineArgs() | ForEach-Object { $_.ToLowerInvariant() }
 $isNonInteractiveLaunch = ($cliArgs -contains '-command') -or ($cliArgs -contains '-c') -or ($cliArgs -contains '-file') -or ($cliArgs -contains '-f')
 $isRealTerminal = $env:WT_SESSION -or $env:TERM_PROGRAM
