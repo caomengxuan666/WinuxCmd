@@ -45,6 +45,21 @@ $CommandMap = @{
     "du"     = "du.exe"
     "kill"   = "kill.exe"
     "tree"   = "tree.exe"
+    "lsof"   = "lsof.exe"
+    # New commands added in v0.5.3
+    "base64" = "base64.exe"
+    "tr"     = "tr.exe"
+    "less"   = "less.exe"
+    "watch"  = "watch.exe"
+    "jq"     = "jq.exe"
+    "md5sum" = "md5sum.exe"
+    "sha256sum" = "sha256sum.exe"
+    "basename" = "basename.exe"
+    "dirname" = "dirname.exe"
+    "free"   = "free.exe"
+    "column" = "column.exe"
+    "seq"    = "seq.exe"
+    "stat"   = "stat.exe"
 }
 
 # ========== Backup System ==========

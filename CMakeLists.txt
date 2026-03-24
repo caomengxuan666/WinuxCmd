@@ -261,7 +261,6 @@ target_sources(winuxcmd PRIVATE ${COMMAND_SOURCES})
 target_compile_options(winuxcmd PRIVATE
         $<$<CONFIG:Release>:/O2 /Os>
         /GR-  # Keep RTTI disabled for size
-        /EHsc-
 )
 
 target_compile_definitions(winuxcmd PRIVATE
@@ -344,6 +343,7 @@ macro(create_command_executable CMD)
             src/utils/utils.cppm
             src/utils/console.cppm
             src/utils/utf8.cppm
+            src/utils/json.cppm
             src/Main/wildcard_handler.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
@@ -387,6 +387,9 @@ macro(create_command_executable CMD)
     endif ()
 endmacro()
 
+# Option to build standalone executables for each command
+option(BUILD_STANDALONE "Build individual standalone executables for each command" OFF)
+
 # Automatically collect commands from src/commands directory
 file(GLOB COMMAND_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/*.cpp")
 set(COMMANDS)
@@ -395,6 +398,139 @@ foreach (CMD_FILE ${COMMAND_FILES})
     get_filename_component(CMD_NAME "${CMD_FILE}" NAME_WE)
     list(APPEND COMMANDS ${CMD_NAME})
 endforeach ()
+
+# Build standalone executables for each command if enabled
+if(BUILD_STANDALONE)
+    message(STATUS "=== Building Standalone Command Executables ===")
+    message(STATUS "Commands: ${COMMANDS}")
+    
+    # Step 1: Create a static library with ONLY core modules (no commands)
+    add_library(winuxcmd-core STATIC)
+    
+    # Add PCH to core library
+    target_precompile_headers(winuxcmd-core PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
+    
+    # Add only core C++23 module interfaces (not commands)
+    target_sources(winuxcmd-core
+        PUBLIC
+        FILE_SET CXX_MODULES
+        TYPE CXX_MODULES
+        BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
+        FILES
+        src/core/core.cppm
+        src/core/cmd_meta.cppm
+        src/core/command_context.cppm
+        src/core/dispatcher.cppm
+        src/core/opt.cppm
+        src/core/pipeline.cppm
+        src/utils/utils.cppm
+        src/utils/console.cppm
+        src/utils/path.cppm
+        src/utils/utf8.cppm
+        src/utils/wildcard.cppm
+        src/utils/json.cppm
+        src/container/container.cppm
+        src/container/small_vector.cppm
+        src/container/constexpr_map.cppm
+        src/Main/readline.cppm
+        src/Main/wildcard_handler.cppm
+        src/Main/native_completion.cppm
+    )
+    
+    # Set core library properties
+    target_compile_options(winuxcmd-core PRIVATE
+        $<$<CONFIG:Release>:/O2 /Os>
+        /GR-  # Keep RTTI disabled for size
+        /EHsc-
+    )
+    
+    target_compile_definitions(winuxcmd-core PRIVATE
+        _UNICODE
+        UNICODE
+        _CRT_DISABLE_PERFCRIT_LOCKS
+        _HAS_RTTI=0
+    )
+    
+    target_link_options(winuxcmd-core PRIVATE
+        $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+    )
+    
+    if (USE_STATIC_CRT AND MSVC)
+        target_compile_options(winuxcmd-core PRIVATE /MT /Os /Oy /GS-)
+    endif ()
+    
+    # Import std and enable C++23
+    target_compile_features(winuxcmd-core PRIVATE cxx_std_23)
+    
+    # Add include directories
+    target_include_directories(winuxcmd-core PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
+    
+    # Generate version header for core library
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/src/version.hpp.in
+        ${CMAKE_BINARY_DIR}/version.hpp
+        @ONLY
+    )
+    
+    message(STATUS "Core library: winuxcmd-core.lib (core modules only)")
+    
+    # Step 2: Create standalone executables with only ONE command each
+    foreach(CMD_NAME ${COMMANDS})
+        set(CMD_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/${CMD_NAME}.cpp")
+        set(CMD_EXE_NAME "${CMD_NAME}")
+        
+        # Create standalone executable
+        add_executable(${CMD_EXE_NAME})
+        
+        # Add main.cpp and ONLY this command's .cpp file
+        target_sources(${CMD_EXE_NAME} PRIVATE
+            src/Main/main.cpp
+            ${CMD_FILE}
+        )
+        
+        # Link against core library (contains all core modules but NO commands)
+        target_link_libraries(${CMD_EXE_NAME} PRIVATE winuxcmd-core)
+        
+        # Add PCH (same as core library)
+        target_precompile_headers(${CMD_EXE_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
+        
+        # Set minimal compile options
+        target_compile_options(${CMD_EXE_NAME} PRIVATE
+            $<$<CONFIG:Release>:/O2 /Os>
+            /GR-
+            /EHsc-
+        )
+        
+        target_compile_definitions(${CMD_EXE_NAME} PRIVATE
+            _UNICODE
+            UNICODE
+            _CRT_DISABLE_PERFCRIT_LOCKS
+            _HAS_RTTI=0
+        )
+        
+        target_link_options(${CMD_EXE_NAME} PRIVATE
+            $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+        )
+        
+        if (USE_STATIC_CRT AND MSVC)
+            target_compile_options(${CMD_EXE_NAME} PRIVATE /MT /Os /Oy /GS-)
+        endif ()
+        
+        # Add include directories
+        target_include_directories(${CMD_EXE_NAME} PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
+        
+        # Import std and enable C++23
+        target_compile_features(${CMD_EXE_NAME} PRIVATE cxx_std_23)
+        
+        # Set output name
+        set_target_properties(${CMD_EXE_NAME} PROPERTIES
+            OUTPUT_NAME "${CMD_EXE_NAME}"
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+        )
+        
+        message(STATUS "  - ${CMD_EXE_NAME}.exe")
+    endforeach()
+endif()
 
 # Note: Hardlinks are no longer created during build.
 # Users should run create_links.ps1 in the bin directory to generate command links.
@@ -434,6 +570,12 @@ add_subdirectory(examples)
 if (ENABLE_TESTS)
     include(CTest)
     add_subdirectory(tests)
+    
+    # Ensure create-test-links depends on winuxcmd executable
+    # This prevents the links script from running before winuxcmd.exe is built
+    if(TARGET create-test-links)
+        add_dependencies(create-test-links winuxcmd)
+    endif()
 endif ()
 
 include(GNUInstallDirs)

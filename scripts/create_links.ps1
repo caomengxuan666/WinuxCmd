@@ -37,9 +37,12 @@ $Script:Version = "0.5.3"
 # Available commands list
 $Script:Commands = @(
     "cat", "chmod", "cp", "cut", "date", "df", "diff", "du", "echo", "env",
-    "file", "find", "grep", "head", "kill", "ln", "ls", "mkdir", "mv", "ps",
+    "file", "find", "grep", "head", "kill", "ln", "ls", "lsof", "mkdir", "mv", "ps",
     "pwd", "realpath", "rm", "rmdir", "sed", "sort", "tail", "tee", "touch",
-    "tree", "uniq", "wc", "which", "xargs"
+    "tree", "uniq", "wc", "which", "xargs",
+    # New commands added in v0.5.3
+    "base64", "tr", "less", "watch", "jq", "md5sum", "sha256sum",
+    "basename", "dirname", "free", "column", "seq", "stat"
 )
 
 function Write-ColorOutput {
