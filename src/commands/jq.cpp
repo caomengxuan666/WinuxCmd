@@ -82,119 +82,31 @@ auto build_config(const CommandContext<JQ_OPTIONS.size()>& ctx)
     cfg.files.push_back(std::string(arg));
   }
 
-  if (cfg.files.empty()) {
-    return std::unexpected("missing filter expression");
-  }
+  // Check if first positional is a file (if no explicit filter provided)
+  if (!cfg.files.empty()) {
+    // Check if the first argument is a file
+    std::ifstream test_file(cfg.files[0]);
+    bool is_file = test_file.good();
+    test_file.close();
 
-  // First positional argument is the filter
-  cfg.filter = cfg.files[0];
-  SmallVector<std::string, 16> new_files;
-  for (size_t i = 1; i < cfg.files.size(); ++i) {
-    new_files.push_back(cfg.files[i]);
+    if (is_file) {
+      // First argument is a file, use default filter "."
+      cfg.filter = ".";
+    } else {
+      // First argument is a filter
+      cfg.filter = cfg.files[0];
+      SmallVector<std::string, 16> new_files;
+      for (size_t i = 1; i < cfg.files.size(); ++i) {
+        new_files.push_back(cfg.files[i]);
+      }
+      cfg.files = std::move(new_files);
+    }
+  } else {
+    // No arguments, will read from stdin with default filter
+    cfg.filter = ".";
   }
-  cfg.files = std::move(new_files);
 
   return cfg;
-}
-
-// Simple JSON formatter (basic implementation)
-auto format_json(const std::string& json, bool compact, bool sort_keys) -> std::string {
-  // This is a simplified JSON formatter
-  // A full implementation would use a proper JSON parser
-  if (compact) {
-    // Remove extra whitespace for compact output
-    std::string result;
-    bool in_string = false;
-    bool escape = false;
-    for (char c : json) {
-      if (escape) {
-        result += c;
-        escape = false;
-        continue;
-      }
-      if (c == '\\') {
-        result += c;
-        escape = true;
-        continue;
-      }
-      if (c == '"') {
-        in_string = !in_string;
-        result += c;
-        continue;
-      }
-      if (in_string) {
-        result += c;
-        continue;
-      }
-      if (!isspace(static_cast<unsigned char>(c))) {
-        result += c;
-      }
-    }
-    return result;
-  } else {
-    // Add indentation for pretty printing
-    std::string result;
-    int indent = 0;
-    bool in_string = false;
-    bool escape = false;
-
-    for (size_t i = 0; i < json.size(); ++i) {
-      char c = json[i];
-
-      if (escape) {
-        result += c;
-        escape = false;
-        continue;
-      }
-      if (c == '\\') {
-        result += c;
-        escape = true;
-        continue;
-      }
-      if (c == '"') {
-        in_string = !in_string;
-        result += c;
-        continue;
-      }
-      if (in_string) {
-        result += c;
-        continue;
-      }
-
-      switch (c) {
-        case '{':
-        case '[':
-          result += c;
-          indent += 2;
-          result += '\n';
-          result.append(indent, ' ');
-          break;
-        case '}':
-        case ']':
-          result += '\n';
-          indent -= 2;
-          result.append(indent, ' ');
-          result += c;
-          break;
-        case ',':
-          result += c;
-          result += '\n';
-          result.append(indent, ' ');
-          break;
-        case ':':
-          result += c;
-          result += ' ';
-          break;
-        default:
-          if (!isspace(static_cast<unsigned char>(c))) {
-            result += c;
-          }
-          break;
-      }
-    }
-
-    return result;
-  }
 }
 
 auto read_json(const std::string& filename) -> cp::Result<std::string> {
@@ -224,9 +136,7 @@ auto read_json(const std::string& filename) -> cp::Result<std::string> {
 }
 
 auto run(const Config& cfg) -> int {
-  // For simplicity, this is a basic JSON formatter
-  // A full jq implementation would include a complete query language parser
-
+  // Read JSON input
   std::string json_input;
 
   if (cfg.null_input) {
@@ -254,24 +164,32 @@ auto run(const Config& cfg) -> int {
     }
   }
 
+  // Parse JSON with comment support enabled
+  nlohmann::json data;
+  try {
+    data = nlohmann::json::parse(
+        json_input,
+        /* callback */ nullptr,
+        /* allow exceptions */ true,
+        /* ignore_comments */ true  // Support // and /* */ comments
+    );
+  } catch (const nlohmann::json::exception& e) {
+    safePrintLn(std::string("parse error: ") + e.what());
+    return 1;
+  }
+
   // Format and output JSON
-  std::string formatted = format_json(json_input, cfg.compact_output, cfg.sort_keys);
+  int indent = cfg.compact_output ? -1 : 2;
+  auto formatted = data.dump(indent, ' ', true);  // true = ensure ASCII
 
   if (cfg.raw_output) {
     // Try to extract string value if it's a simple string
-    if (formatted.size() >= 2 && formatted.front() == '"' && formatted.back() == '"') {
-      formatted = formatted.substr(1, formatted.size() - 2);
-      // Unescape basic characters
-      size_t pos = 0;
-      while ((pos = formatted.find("\\n", pos)) != std::string::npos) {
-        formatted.replace(pos, 2, "\n");
-        pos += 1;
+    try {
+      if (data.is_string()) {
+        formatted = data.get<std::string>();
       }
-      pos = 0;
-      while ((pos = formatted.find("\\t", pos)) != std::string::npos) {
-        formatted.replace(pos, 2, "\t");
-        pos += 1;
-      }
+    } catch (const nlohmann::json::exception&) {
+      // Keep the formatted JSON
     }
   }
 
@@ -283,17 +201,22 @@ auto run(const Config& cfg) -> int {
 
 REGISTER_COMMAND(jq, "jq",
                  "jq [OPTIONS]... FILTER [FILES...]",
-                 "jq is a lightweight and flexible command-line JSON processor.\n"
+                 "jq is a command-line JSON processor powered by nlohmann/json.\n"
                  "\n"
-                 "This is a simplified implementation that provides basic JSON\n"
-                 "formatting and pretty-printing capabilities.\n"
+                 "Features:\n"
+                 "- Parse and format JSON with nlohmann/json library\n"
+                 "- Support for JSON comments (// and /* */)\n"
+                 "- Pretty-printed or compact output\n"
+                 "- Raw string output mode\n"
+                 "- Sort keys alphabetically\n"
                  "\n"
-                 "For the full jq implementation with advanced query language,\n"
-                 "please use the official jq from https://jqlang.org/.",
+                 "Note: This is a formatter with basic comment support.\n"
+                 "For full jq query language features, use official jq from https://jqlang.org/.",
                  "  echo '{\"name\":\"John\",\"age\":30}' | jq\n"
-                 "  echo '{\"name\":\"John\"}' | jq '.name'\n"
+                 "  echo '{\"name\":\"John\"}' | jq '.'\n"
                  "  echo '[1,2,3]' | jq -c\n"
-                 "  cat file.json | jq -S",
+                 "  cat file.json | jq -S\n"
+                 "  cat config.json | jq  # Supports // and /* */ comments",
                  "https://jqlang.org/manual/", "WinuxCmd",
                  "Copyright © 2026 WinuxCmd", JQ_OPTIONS) {
   using namespace jq_pipeline;

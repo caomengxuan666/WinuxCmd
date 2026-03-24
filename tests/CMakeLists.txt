@@ -127,10 +127,15 @@ if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 endif()
 
+# Get the path to winuxcmd.exe (it should be in the same directory)
+set(WINUXCMD_EXE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/winuxcmd.exe")
+
 # Custom target to create command links using PowerShell script
+# Add DEPENDS on winuxcmd.exe to ensure it exists before running
 add_custom_target(create-test-links
     COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/create_links.ps1" -Force
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    DEPENDS ${WINUXCMD_EXE_PATH}
     COMMENT "Creating WinuxCmd command links in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}..."
     VERBATIM
 )

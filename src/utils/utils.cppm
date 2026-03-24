@@ -29,3 +29,4 @@ export import :utf8;
 export import :console;
 export import :wildcard;
 export import :path;
+export import :json;
