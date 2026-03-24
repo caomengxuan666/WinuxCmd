@@ -117,3 +117,46 @@ if(EXCLUDE_TESTS_FROM_DEFAULT_BUILD)
             COMMENT "Building test executable..."
     )
 endif()
+
+# Create command links for testing
+find_program(POWERSHELL_EXE powershell REQUIRED)
+
+# Use CMAKE_RUNTIME_OUTPUT_DIRECTORY directly instead of trying to get it from target
+# This is more reliable as it's set before targets are processed
+if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+endif()
+
+# Get the path to winuxcmd.exe (it should be in the same directory)
+set(WINUXCMD_EXE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/winuxcmd.exe")
+
+# Custom target to create command links using PowerShell script
+# Add DEPENDS on winuxcmd.exe to ensure it exists before running
+add_custom_target(create-test-links
+    COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/create_links.ps1" -Force
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    DEPENDS ${WINUXCMD_EXE_PATH}
+    COMMENT "Creating WinuxCmd command links in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}..."
+    VERBATIM
+)
+
+# Make sure links are created before running tests
+add_dependencies(winuxcmd-tests create-test-links)
+
+# Also add dependency to test-all target
+if(TARGET test-all)
+    add_dependencies(test-all create-test-links)
+endif()
+
+# Add dependency to individual test group targets
+foreach(src ${ALL_TEST_SOURCES})
+    get_filename_component(test_dir ${src} DIRECTORY)
+    file(RELATIVE_PATH rel_path ${CMAKE_CURRENT_SOURCE_DIR}/unit ${test_dir})
+    get_filename_component(group_name ${rel_path} NAME)
+    
+    if(NOT "${group_name}" STREQUAL "" AND NOT "${group_name}" IN_LIST TEST_GROUPS)
+        if(TARGET test-${group_name})
+            add_dependencies(test-${group_name} create-test-links)
+        endif()
+    endif()
+endforeach()

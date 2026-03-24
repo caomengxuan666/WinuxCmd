@@ -19,7 +19,7 @@ using cmd::meta::OptionType;
 // Options (constexpr)
 // ======================================================
 
-export auto constexpr SED_OPTIONS =
+auto constexpr SED_OPTIONS =
     std::array{OPTION("-n", "--quiet", "suppress automatic printing of pattern space"),
                OPTION("", "--silent", "alias for -n"),
                OPTION("-e", "--expression", "add the script to the commands to be executed",
