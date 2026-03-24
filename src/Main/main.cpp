@@ -310,7 +310,7 @@ static int runNativeFallback(const std::string &line) noexcept {
     std::wstring script = utf8_to_wstring(line);
     std::string encoded = toPowerShellEncodedCommand(script);
     cmdline = g_repl_powershell_exe +
-              L" -NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand " +
+              L" -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -EncodedCommand " +
               utf8_to_wstring(encoded);
   } else {
     cmdline = L"cmd.exe /d /c " + utf8_to_wstring(line);
