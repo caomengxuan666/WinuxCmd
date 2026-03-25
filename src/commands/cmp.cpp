@@ -48,8 +48,6 @@ auto constexpr CMP_OPTIONS = std::array{
     OPTION("-l", "--verbose", "output byte numbers of differing bytes", BOOL_TYPE),
     OPTION("-n", "--bytes", "compare specified number of bytes", STRING_TYPE),
     OPTION("-s", "--quiet", "silent mode", BOOL_TYPE)
-    // -v, --version (not implemented)
-    // --help (not implemented)
 };
 
 namespace cmp_pipeline {

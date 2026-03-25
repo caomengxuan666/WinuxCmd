@@ -30,3 +30,4 @@ export import :console;
 export import :wildcard;
 export import :path;
 export import :json;
+export import :file_io;

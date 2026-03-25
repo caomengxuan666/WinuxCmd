@@ -44,9 +44,7 @@ using cmd::meta::OptionType;
 
 auto constexpr UPTIME_OPTIONS = std::array{
     OPTION("-p", "--pretty", "show uptime in pretty format", BOOL_TYPE),
-    OPTION("-s", "--since", "system up since", BOOL_TYPE),
-    OPTION("-h", "--help", "display this help and exit", BOOL_TYPE),
-    OPTION("-V", "--version", "output version information and exit", BOOL_TYPE)
+    OPTION("-s", "--since", "system up since", BOOL_TYPE)
 };
 
 namespace uptime_pipeline {

@@ -1,6 +1,8 @@
 <#
 .SYNOPSIS
-WinuxCmd - Complete system backup and restore solution for PowerShell commands
+WinuxCmd - GNU Coreutils for Windows
+.DESCRIPTION
+Simple activation script that adds WinuxCmd to PATH and handles alias conflicts
 #>
 
 param(
@@ -9,6 +11,16 @@ param(
 )
 
 $ScriptDir = $PSScriptRoot
+
+# PowerShell aliases that conflict with WinuxCmd commands
+# Note: echo, cp, where are excluded because they have AllScope option and cannot be removed
+$ConflictedAliases = @(
+    "cat", "clear", "diff", "group", "kill", "ls", 
+    "mv", "ps", "pwd", "rm", "rmdir", "sleep", "sort", "tee", "type"
+)
+
+# Aliases with AllScope that cannot be removed - users must use .exe extension
+$AllScopeAliases = @("echo", "cp", "where")
 
 $CommandMap = @{
     "ls"     = "ls.exe"
@@ -96,7 +108,6 @@ $CommandMap = @{
     "readlink" = "readlink.exe"
     "cksum" = "cksum.exe"
     "sum" = "sum.exe"
-    "mkfifo" = "mkfifo.exe"
     # New commands added in v0.7.0 - Other tools
     "sleep" = "sleep.exe"
     "timeout" = "timeout.exe"
@@ -105,185 +116,186 @@ $CommandMap = @{
     "pr" = "pr.exe"
     "yes" = "yes.exe"
     "ptx" = "ptx.exe"
+    # New commands added in v0.7.0 - Basic utilities
+    "clear" = "clear.exe"
+    "true" = "true.exe"
+    "false" = "false.exe"
+    "tty" = "tty.exe"
+    "sync" = "sync.exe"
+    "reset" = "reset.exe"
+    "logname" = "logname.exe"
+    "printenv" = "printenv.exe"
+    # New commands added in v0.7.0 - Text processing
+    "rev" = "rev.exe"
+    "d2u" = "d2u.exe"
+    "u2d" = "u2d.exe"
+    "dos2unix" = "dos2unix.exe"
+    "unix2dos" = "unix2dos.exe"
+    "base32" = "base32.exe"
+    "basenc" = "basenc.exe"
+    "cygpath" = "cygpath.exe"
+    "pathchk" = "pathchk.exe"
+    # New commands added in v0.7.0 - Programming tools
+    "printf" = "printf.exe"
+    "expr" = "expr.exe"
+    "test" = "test.exe"
+    "[" = "[.exe"
+    # New commands added in v0.7.0 - Binary tools
+    "od" = "od.exe"
+    "xxd" = "xxd.exe"
+    "dd" = "dd.exe"
+    "shred" = "shred.exe"
+    # New commands added in v0.7.0 - System utilities
+    "numfmt" = "numfmt.exe"
+    "hmac256" = "hmac256.exe"
+    "nice" = "nice.exe"
+    "nohup" = "nohup.exe"
+    "stdbuf" = "stdbuf.exe"
+    # New commands added in v0.7.0 - Development tools
+    "patch" = "patch.exe"
+    "diff3" = "diff3.exe"
+    "sdiff" = "sdiff.exe"
+    # New commands added in v0.7.0 - Calendar and sorting
+    "cal" = "cal.exe"
+    "tsort" = "tsort.exe"
+    # New commands added in v0.7.0 - Terminal tools
+    "tput" = "tput.exe"
+    "infocmp" = "infocmp.exe"
+    "tic" = "tic.exe"
+    "toe" = "toe.exe"
+    # New commands added in v0.7.0 - System information
+    "hostid" = "hostid.exe"
+    "locale" = "locale.exe"
+    "tzset" = "tzset.exe"
+    "pinky" = "pinky.exe"
+    "mpicalc" = "mpicalc.exe"
+    # New commands added in v0.7.0 - Archive tools
+    "cpio" = "cpio.exe"
+    # New commands added in v0.7.0 - System utilities
+    "nproc" = "nproc.exe"
+    "getconf" = "getconf.exe"
+    "link" = "link.exe"
+    "unlink" = "unlink.exe"
+    "factor" = "factor.exe"
 }
 
-# ========== Backup System ==========
+# ========== Functions ==========
 
-function Get-CommandBackup {
-    param([string]$CommandName)
+function Save-ConflictedAliases {
+    $global:Winux_SavedAliases = @{}
 
-    $cmd = Get-Command $CommandName -ErrorAction SilentlyContinue
-    if (-not $cmd) { return $null }
-
-    $backup = @{
-        Name         = $cmd.Name
-        CommandType  = $cmd.CommandType.ToString()
-        ModuleName   = $cmd.ModuleName
-        Source       = $cmd.Source
-        Definition   = $cmd.Definition
-        BackupTime   = [DateTime]::Now
-    }
-
-    switch ($cmd.CommandType) {
-        "Alias" {
-            $backup.ResolvedCommand = (Get-Command $cmd.Definition -ErrorAction SilentlyContinue)
-            $backup.Options = $cmd.Options -join ","
-        }
-        "Function" {
-            $backup.ScriptBlock = $cmd.ScriptBlock.ToString()
-            $backup.Parameters = $cmd.Parameters.Keys -join ","
-        }
-    }
-
-    return $backup
-}
-
-function Save-CommandBackups {
-    $global:Winux_Backups = @{}
-
-    foreach ($cmdName in $CommandMap.Keys) {
-        $backup = Get-CommandBackup -CommandName $cmdName
-        if ($backup) {
-            $global:Winux_Backups[$cmdName] = $backup
-        }
-    }
-}
-
-function Restore-FromBackups {
-    if (-not $global:Winux_Backups) { return }
-
-    foreach ($cmdName in $global:Winux_Backups.Keys) {
-        $backup = $global:Winux_Backups[$cmdName]
-
-        try {
-            Remove-Item "Function:\global:$cmdName" -Force -ErrorAction SilentlyContinue
-
-            switch ($backup.CommandType) {
-                "Alias" {
-                    $alias = Get-Alias $cmdName -ErrorAction SilentlyContinue
-                    if (-not $alias) {
-                        Set-Alias -Name $cmdName -Value $backup.Definition -Scope Global -Force
-                    }
-                }
-                "Function" {
-                    if ($backup.ScriptBlock) {
-                        $scriptBlock = [scriptblock]::Create($backup.ScriptBlock)
-                        Set-Item -Path "Function:\global:$cmdName" -Value $scriptBlock -Force
-                    }
-                }
+    foreach ($aliasName in $ConflictedAliases) {
+        $alias = Get-Alias -Name $aliasName -ErrorAction SilentlyContinue
+        if ($alias) {
+            $global:Winux_SavedAliases[$aliasName] = @{
+                Definition = $alias.Definition
+                Options = $alias.Options -join ","
             }
         }
-        catch {
-	Write-Warning "Failed to restore ${cmdName}: $_"
-        }
     }
 }
 
-# ========== Main Functions ==========
+function Remove-ConflictedAliases {
+    foreach ($aliasName in $ConflictedAliases) {
+        Remove-Item -Path "Alias:\$aliasName" -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Restore-ConflictedAliases {
+    if (-not $global:Winux_SavedAliases) { return }
+
+    foreach ($aliasName in $global:Winux_SavedAliases.Keys) {
+        $saved = $global:Winux_SavedAliases[$aliasName]
+        
+        try {
+            Set-Alias -Name $aliasName -Value $saved.Definition -Scope Global -Force
+        }
+        catch {
+            # If restore fails, ignore it
+        }
+    }
+
+    Remove-Variable Winux_SavedAliases -Scope Global -ErrorAction SilentlyContinue
+}
+
+    foreach ($aliasName in $global:Winux_SavedAliases.Keys) {
+        $saved = $global:Winux_SavedAliases[$aliasName]
+        Set-Alias -Name $aliasName -Value $saved.Definition -Scope Global -Force
+    }
+
+    Remove-Variable Winux_SavedAliases -Scope Global -ErrorAction SilentlyContinue
+
 
 function Show-CommandList {
     Write-Host "Available WinuxCmd Commands:" -ForegroundColor Cyan
-    Write-Host "=============================" -ForegroundColor Cyan
+    Write-Host "============================" -ForegroundColor Cyan
 
     foreach ($cmd in $CommandMap.Keys | Sort-Object) {
-        $exePath = Join-Path $ScriptDir $CommandMap[$cmd]
-        $exeExists = Test-Path $exePath
-        $exeStatus = if ($exeExists) { "✓" } else { "✗" }
-
         Write-Host "  $cmd" -ForegroundColor Yellow -NoNewline
-        Write-Host " -> $($CommandMap[$cmd]) [$exeStatus]"
+        Write-Host " -> $($CommandMap[$cmd])"
     }
 
     Write-Host ""
+    Write-Host "Total: $($CommandMap.Count) commands" -ForegroundColor Yellow
     Write-Host "To use these commands, run: .\winux.ps1 activate" -ForegroundColor Green
 }
 
 function Show-Status {
-    Write-Host "WinuxCmd Status Report" -ForegroundColor Cyan
-    Write-Host "======================" -ForegroundColor Cyan
+    Write-Host "WinuxCmd Status:" -ForegroundColor Cyan
+    Write-Host "================" -ForegroundColor Cyan
 
-    $activeCommands = @()
-    foreach ($cmd in $CommandMap.Keys) {
-        $current = Get-Command $cmd -ErrorAction SilentlyContinue
-        if ($current -and $current.Definition -like "*.exe*") {
-            $activeCommands += $cmd
-        }
-    }
-
-    if ($activeCommands.Count -gt 0) {
+    # Check if WinuxCmd is in PATH
+    $winuxInPath = $env:PATH -split ';' | Where-Object { $_ -eq $ScriptDir }
+    
+    if ($winuxInPath) {
         Write-Host "Status: ACTIVE" -ForegroundColor Green
-        Write-Host "Active commands: $($activeCommands -join ', ')" -ForegroundColor Yellow
+        Write-Host "Directory: $ScriptDir" -ForegroundColor Gray
+        Write-Host "Commands: $($CommandMap.Count) available" -ForegroundColor Yellow
     } else {
         Write-Host "Status: INACTIVE" -ForegroundColor Gray
+        Write-Host "Run '.\winux.ps1 activate' to enable" -ForegroundColor Gray
     }
 
     Write-Host ""
-    Write-Host "Run '.\winux.ps1 list' to see available commands" -ForegroundColor Gray
+    Write-Host "Run '.\winux.ps1 list' to see all commands" -ForegroundColor Gray
 }
 
 function Invoke-Activate {
     Write-Host "Activating WinuxCmd..." -ForegroundColor Green
 
-    Save-CommandBackups
-
-    foreach ($cmd in $CommandMap.Keys) {
-
-        # Remove regular aliases/functions
-        if (Test-Path "Alias:\$cmd") {
-            Remove-Item "Alias:\$cmd" -Force -ErrorAction SilentlyContinue
-        }
-
-        if (Test-Path "Alias:\global:$cmd") {
-            Remove-Item "Alias:\global:$cmd" -Force -ErrorAction SilentlyContinue
-        }
-
-        if (Test-Path "Function:\$cmd") {
-            Remove-Item "Function:\$cmd" -Force -ErrorAction SilentlyContinue
-        }
-
-        if (Test-Path "Function:\global:$cmd") {
-            Remove-Item "Function:\global:$cmd" -Force -ErrorAction SilentlyContinue
-        }
-    }
+    Save-ConflictedAliases
+    Remove-ConflictedAliases
 
     # Add WinuxCmd bin directory to PATH
     if ($env:PATH -notlike "$ScriptDir*") {
         $env:PATH = "$ScriptDir;$env:PATH"
     }
 
-    Write-Host "Activation complete! (native pipeline enabled)" -ForegroundColor Green
+    Write-Host "Activation complete!" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Total: $($CommandMap.Count) commands" -ForegroundColor Yellow
+    Write-Host "Directory: $ScriptDir" -ForegroundColor Gray
+    Write-Host ""
 
-    # ----- Special notice for echo and cp -----
-    $specialCmds = @("echo", "cp")
-    foreach ($special in $specialCmds) {
-        $exePath = Join-Path $ScriptDir $CommandMap[$special]
-        if (Test-Path $exePath) {
-            Write-Host "Warning: '$special' is a built-in PowerShell alias. Use '$special.exe' to run the WinuxCmd version." -ForegroundColor Magenta
-        }
+    # Show warning for AllScope aliases
+    if ($AllScopeAliases.Count -gt 0) {
+        Write-Host "Note: The following commands have AllScope option and cannot be overridden:" -ForegroundColor Yellow
+        Write-Host "  $($AllScopeAliases -join ', ')" -ForegroundColor Magenta
+        Write-Host "  Use `.exe` extension to run WinuxCmd version, e.g.:" -ForegroundColor Cyan
+        Write-Host "  echo.exe, cp.exe, where.exe" -ForegroundColor Green
+        Write-Host ""
     }
 
-    # ----- Print all command mappings -----
-    Write-Host ""
-    Write-Host "WinuxCmd Command Mapping:" -ForegroundColor Cyan
-    Write-Host "========================" -ForegroundColor Cyan
-    foreach ($cmd in $CommandMap.Keys | Sort-Object) {
-        $exePath = Join-Path $ScriptDir $CommandMap[$cmd]
-        $exists = if (Test-Path $exePath) { "✓" } else { "✗" }
-        Write-Host ("{0,-8} -> {1,-15} [{2}]" -f $cmd, $CommandMap[$cmd], $exists)
-    }
-
-    Write-Host ""
-    Write-Host "Use commands directly (except 'echo' and 'cp' need '.exe')." -ForegroundColor Cyan
+    Write-Host "Run 'winux status' for details" -ForegroundColor Cyan
+    Write-Host "Run 'winux list' to see all commands" -ForegroundColor Cyan
 }
-
 
 function Invoke-Deactivate {
     Write-Host "Deactivating WinuxCmd..." -ForegroundColor Green
 
-    Restore-FromBackups
-    Remove-Variable Winux_Backups -Scope Global -ErrorAction SilentlyContinue 2>$null
+    Restore-ConflictedAliases
 
-    Write-Host "Deactivation complete! All original commands restored." -ForegroundColor Green
+    Write-Host "Deactivation complete! All original aliases restored." -ForegroundColor Green
 }
 
 # ========== Main Logic ==========
@@ -296,11 +308,9 @@ switch ($Action) {
     default      { Invoke-Activate }
 }
 
+# Cleanup on exit
 Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
-    if ($global:Winux_Backups) {
-        foreach ($cmd in $CommandMap.Keys) {
-            Remove-Item "Function:\global:$cmd" -Force -ErrorAction SilentlyContinue 2>$null
-        }
-        Remove-Variable Winux_Backups -Scope Global -ErrorAction SilentlyContinue 2>$null
+    if ($global:Winux_SavedAliases) {
+        Restore-ConflictedAliases
     }
 } | Out-Null

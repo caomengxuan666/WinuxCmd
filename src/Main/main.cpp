@@ -31,7 +31,8 @@ import utils;
 import wildcard_handler;
 import readline;
 import native_completion;
-#include "version.hpp"
+import version;
+#include <version.hpp>
 
 namespace {
 static std::string g_repl_executable_path;

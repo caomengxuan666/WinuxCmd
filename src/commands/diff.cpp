@@ -202,7 +202,7 @@ auto compute_diff(const std::vector<std::string> &lines1,
  * @param path File path
  * @return Result with vector of lines
  */
-auto read_file_lines(const std::string &path)
+auto read_file_lines_result(const std::string &path)
     -> cp::Result<std::vector<std::string>> {
   std::ifstream file(path, std::ios::binary);
   if (!file.is_open()) {
@@ -231,12 +231,12 @@ auto read_file_lines(const std::string &path)
  */
 auto compare_files(const std::string &path1, const std::string &path2,
                    bool brief) -> cp::Result<bool> {
-  auto lines1_result = read_file_lines(path1);
+  auto lines1_result = read_file_lines_result(path1);
   if (!lines1_result) {
     return std::unexpected(lines1_result.error());
   }
 
-  auto lines2_result = read_file_lines(path2);
+  auto lines2_result = read_file_lines_result(path2);
   if (!lines2_result) {
     return std::unexpected(lines2_result.error());
   }
@@ -474,7 +474,7 @@ REGISTER_COMMAND(diff, "diff",
   }
 
   // Read both files
-  auto lines1_result = read_file_lines(file1);
+  auto lines1_result = read_file_lines_result(file1);
   if (!lines1_result) {
     safeErrorPrint("diff: ");
     safeErrorPrint(lines1_result.error());
@@ -482,7 +482,7 @@ REGISTER_COMMAND(diff, "diff",
     return 1;
   }
 
-  auto lines2_result = read_file_lines(file2);
+  auto lines2_result = read_file_lines_result(file2);
   if (!lines2_result) {
     safeErrorPrint("diff: ");
     safeErrorPrint(lines2_result.error());

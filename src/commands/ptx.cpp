@@ -66,6 +66,13 @@ auto constexpr PTX_OPTIONS = std::array{
 namespace ptx_pipeline {
 namespace cp = core::pipeline;
 
+struct WordEntry {
+  std::string word;
+  int line_number;
+  std::string line_context;
+  int position;
+};
+
 struct Config {
   bool auto_reference = false;
   bool copyright = false;
@@ -172,25 +179,117 @@ auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
   return cfg;
 }
 
+auto read_file_content(const std::string& filename) -> std::vector<std::string> {
+  std::vector<std::string> lines;
+  
+  if (filename == "-") {
+    // Read from stdin
+    std::string line;
+    while (std::getline(std::cin, line)) {
+      if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+      }
+      lines.push_back(line);
+    }
+  } else {
+    // Read from file
+    lines = read_file_lines(filename);
+  }
+  
+  return lines;
+}
+
+auto extract_words(const std::vector<std::string>& lines, bool ignore_case) -> std::vector<WordEntry> {
+  std::vector<WordEntry> entries;
+  
+  for (size_t line_num = 0; line_num < lines.size(); ++line_num) {
+    const std::string& line = lines[line_num];
+    std::string word;
+    
+    for (size_t i = 0; i <= line.size(); ++i) {
+      if (i < line.size() && std::isalpha(static_cast<unsigned char>(line[i]))) {
+        word += line[i];
+      } else {
+        if (!word.empty()) {
+          std::string word_key = word;
+          if (ignore_case) {
+            std::transform(word_key.begin(), word_key.end(), word_key.begin(), ::tolower);
+          }
+          
+          WordEntry entry;
+          entry.word = word_key;
+          entry.line_number = static_cast<int>(line_num + 1);
+          entry.line_context = line;
+          entry.position = static_cast<int>(i) - static_cast<int>(word.size());
+          
+          entries.push_back(entry);
+          word.clear();
+        }
+      }
+    }
+  }
+  
+  return entries;
+}
+
+auto compare_entries(const WordEntry& a, const WordEntry& b, bool ignore_case) -> bool {
+  std::string a_word = a.word;
+  std::string b_word = b.word;
+  
+  if (ignore_case) {
+    std::transform(a_word.begin(), a_word.end(), a_word.begin(), ::tolower);
+    std::transform(b_word.begin(), b_word.end(), b_word.begin(), ::tolower);
+  }
+  
+  if (a_word != b_word) {
+    return a_word < b_word;
+  }
+  
+  // If words are equal, sort by line number
+  return a.line_number < b.line_number;
+}
+
+auto format_output(const std::vector<WordEntry>& entries, const Config& cfg) -> void {
+  for (const auto& entry : entries) {
+    std::string output;
+    
+    if (cfg.right_side_refs) {
+      // Word context, then reference on right
+      output = entry.line_context;
+      output += "\t(" + std::to_string(entry.line_number) + ")";
+    } else {
+      // Reference, then word context
+      output = "(" + std::to_string(entry.line_number) + ")\t";
+      output += entry.line_context;
+    }
+    
+    safePrintLn(output);
+  }
+}
+
 auto run(const Config& cfg) -> int {
-  // Note: ptx is a very complex command that generates a permuted index
-  // This is a placeholder implementation that just explains the command
+  std::vector<WordEntry> all_entries;
   
-  safePrintLn("ptx: permuted index generator");
-  safePrintLn("");
-  safePrintLn("The ptx command generates a permuted index of file contents,");
-  safePrintLn("listing all words alphabetically with their context.");
-  safePrintLn("");
-  safePrintLn("This is a complex command that requires:");
-  safePrintLn("  - Word extraction and tokenization");
-  safePrintLn("  - Context tracking (lines before/after each word)");
-  safePrintLn("  - Alphabetical sorting");
-  safePrintLn("  - Formatting the output");
-  safePrintLn("");
-  safePrintLn("Note: Full implementation is not provided due to complexity.");
-  safePrintLn("This command is mainly used for building book indexes.");
+  for (const auto& file : cfg.files) {
+    auto lines = read_file_content(file);
+    if (lines.empty()) {
+      continue;
+    }
+    
+    auto entries = extract_words(lines, cfg.ignore_case);
+    all_entries.insert(all_entries.end(), entries.begin(), entries.end());
+  }
   
-  return 1;
+  // Sort entries
+  std::sort(all_entries.begin(), all_entries.end(), 
+    [&cfg](const WordEntry& a, const WordEntry& b) {
+      return compare_entries(a, b, cfg.ignore_case);
+    });
+  
+  // Output
+  format_output(all_entries, cfg);
+  
+  return 0;
 }
 
 }  // namespace ptx_pipeline

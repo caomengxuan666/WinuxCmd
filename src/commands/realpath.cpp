@@ -176,9 +176,7 @@ REGISTER_COMMAND(realpath,
 
                  /* synopsis */
                  "print the resolved absolute path",
-
-                 /* description */
-                 "Print the resolved absolute path for each FILE. If no FILE is given,\n"
+"Print the resolved absolute path for each FILE. If no FILE is given,\n"
                  "print the resolved absolute path of the current directory.\n\n"
                  "All components of the path must exist (no symlinks are followed).\n"
                  "The last component may be non-existent.\n\n"
@@ -190,23 +188,13 @@ REGISTER_COMMAND(realpath,
                  "  -q, --quiet                   suppress most error messages\n"
                  "  -s, --strip                   remove trailing separators\n"
                  "  -z, --zero                    end output with NUL instead of newline",
-
-                 /* examples */
-                 "  realpath /tmp/../etc/passwd\n"
+"  realpath /tmp/../etc/passwd\n"
                  "  realpath -s /tmp/\n"
                  "  realpath file.txt",
-
-                 /* see_also */
-                 "readlink(1)",
-
-                 /* author */
-                 "caomengxuan666",
-
-                 /* copyright */
-                 "Copyright © 2026 WinuxCmd",
-
-                 /* options */
-                 REALPATH_OPTIONS
+"readlink(1)",
+"caomengxuan666",
+"Copyright © 2026 WinuxCmd",
+REALPATH_OPTIONS
 ) {
   using namespace realpath_pipeline;
 

@@ -32,29 +32,37 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.6.0"
+$Script:Version = "0.7.0"
 
-# Available commands list
+# Escape special characters for PowerShell path handling
+function Escape-WildcardChars {
+    param([string]$Path)
+    $specialChars = @('[', ']', '*', '?')
+    foreach ($char in $specialChars) {
+        $Path = $Path.Replace($char, "`$char")
+    }
+    return $Path
+}
+
+# Available commands list (auto-generated from src/commands/*.cpp)
 $Script:Commands = @(
-    "cat", "chmod", "cp", "cut", "date", "df", "diff", "du", "echo", "env",
-    "file", "find", "grep", "head", "kill", "ln", "ls", "lsof", "mkdir", "mv", "ps",
-    "pwd", "realpath", "rm", "rmdir", "sed", "sort", "tail", "tee", "touch",
-    "tree", "uniq", "wc", "which", "xargs",
-    # New commands added in v0.6.0
-    "base64", "tr", "less", "watch", "jq", "md5sum", "sha256sum",
-    "basename", "dirname", "free", "column", "seq", "stat",
-    # New commands added in v0.6.0 - Hash tools
-    "sha1sum", "sha224sum", "sha384sum", "sha512sum", "b2sum",
-    # New commands added in v0.6.0 - Text processing
-    "paste", "join", "comm", "split", "csplit", "cmp", "nl", "fold", "fmt",
-    # New commands added in v0.6.0 - Text conversion
-    "expand", "unexpand", "tac",
-    # New commands added in v0.6.0 - System information
-    "hostname", "whoami", "arch", "uname", "id", "who", "users", "groups",
-    # New commands added in v0.6.0 - File operations
-    "truncate", "mktemp", "install", "readlink", "cksum", "sum", "mkfifo",
-    # New commands added in v0.6.0 - Other tools
-    "sleep", "timeout", "uptime", "shuf", "pr", "yes", "ptx"
+    "arch", "b2sum", "base32", "base64", "basename", "basenc", "cal", "cat",
+    "chmod", "cksum", "clear", "cmp", "column", "comm", "cp", "cpio", "csplit",
+    "cut", "cygpath", "d2u", "date", "dd", "df", "diff", "diff3", "dirname",
+    "dos2unix", "du", "echo", "env", "expand", "expr", "factor", "false", "file",
+    "find", "fmt", "fold", "free", "getconf", "grep", "groups", "head",
+    "hmac256", "hostid", "hostname", "id", "infocmp", "install", "join", "jq",
+    "kill", "less", "link", "ln", "locale", "logname", "ls", "lsof", "md5sum",
+    "mkdir", "mktemp", "mpicalc", "mv", "nice", "nl", "nohup",
+    "nproc", "numfmt", "od", "paste", "patch", "pathchk", "pinky", "pr",
+    "printenv", "printf", "ps", "ptx", "pwd", "readlink", "realpath", "reset",
+    "rev", "rm", "rmdir", "sdiff", "sed", "seq", "sha1sum", "sha224sum",
+    "sha256sum", "sha384sum", "sha512sum", "shred", "shuf", "sleep", "sort",
+    "split", "stat", "stdbuf", "sum", "sync", "tac", "tail", "tee", "test",
+    "[", "tic", "timeout", "toe", "touch", "tput", "tr", "tree", "true",
+    "truncate", "tsort", "tty", "tzset", "u2d", "uname", "unexpand", "uniq",
+    "unix2dos", "unlink", "uptime", "users", "watch", "wc", "which", "who",
+    "whoami", "xargs", "xxd", "yes"
 )
 
 function Write-ColorOutput {
@@ -82,16 +90,16 @@ function Write-ColorOutput {
 
 function Get-WinuxCmdPath {
     $currentDir = Get-Location
-    $winuxcmdPath = Join-Path $currentDir "winuxcmd.exe"
+    $WinuxCmdPath = Join-Path $currentDir "winuxcmd.exe"
     
-    if (-not (Test-Path $winuxcmdPath)) {
+    if (-not (Test-Path $WinuxCmdPath)) {
         Write-ColorOutput "Red" "Error: winuxcmd.exe not found in current directory."
         Write-ColorOutput "Yellow" "Current directory: $currentDir"
         Write-ColorOutput "Gray" "Please run this script from the WinuxCmd bin directory."
         exit 1
     }
     
-    return $winuxcmdPath
+    return $WinuxCmdPath
 }
 
 function Get-FileSystemType {
@@ -125,26 +133,17 @@ function Remove-CommandLinks {
     
     foreach ($cmd in $Script:Commands) {
         $cmdPath = Join-Path (Get-Location) "$cmd.exe"
-        
-        if (-not (Test-Path $cmdPath)) {
+
+        if (-not (Test-Path -LiteralPath $cmdPath)) {
             continue
         }
         
         try {
-            # Verify it's actually a link (either hardlink or symlink)
-            $file = Get-Item $cmdPath -Force
-            
-            # Check if it's a reparse point (symlink) or has same attributes as winuxcmd (hardlink)
-            if ($file.LinkType -eq "HardLink" -or $file.LinkType -eq "SymbolicLink" -or 
-                ($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
-                
-                Remove-Item $cmdPath -Force -ErrorAction Stop
+            # Use winuxcmd rm to remove the file
+            $process = Start-Process -FilePath $WinuxCmdPath -ArgumentList @("rm", "-f", $cmdPath) -Wait -NoNewWindow -PassThru
+            if ($process.ExitCode -eq 0) {
                 Write-ColorOutput "Green" "  [Removed] $cmd.exe"
                 $removedCount++
-            }
-            else {
-                Write-ColorOutput "Yellow" "  [Skipped] $cmd.exe (not a WinuxCmd link)"
-                $skippedCount++
             }
         }
         catch {
@@ -206,7 +205,7 @@ function New-CommandLinks {
     $existingFiles = @()
     foreach ($cmd in $Script:Commands) {
         $cmdPath = Join-Path (Get-Location) "$cmd.exe"
-        if (Test-Path $cmdPath) {
+        if (Test-Path -LiteralPath $cmdPath) {
             $existingFiles += $cmd
         }
     }
@@ -225,50 +224,46 @@ function New-CommandLinks {
         }
     }
     
-    Write-ColorOutput "Cyan" "Creating links..."
+    Write-ColorOutput "Cyan" "Creating links (batch mode)..."
     Write-Host ""
     
+    # Build all target paths for batch creation
+    $allTargets = @()
     foreach ($cmd in $Script:Commands) {
         $cmdPath = Join-Path (Get-Location) "$cmd.exe"
+        $allTargets += $cmdPath
+    }
+    
+    try {
+        # Build ln command arguments for batch creation
+        $lnArgs = @("ln")
+        if ($UseSymbolic) {
+            $lnArgs += @("-s")
+        }
+        if ($Force) {
+            $lnArgs += @("-f")
+        }
+        $lnArgs += @($WinuxCmdPath)  # Source
+        $lnArgs += $allTargets       # All targets
         
-        try {
-            # Remove existing file if it exists
-            if (Test-Path $cmdPath) {
-                Remove-Item $cmdPath -Force -ErrorAction Stop
-            }
-            
-            # Create the link
-            if ($UseSymbolic) {
-                New-Item -ItemType SymbolicLink -Path $cmdPath -Target $WinuxCmdPath -ErrorAction Stop | Out-Null
-            }
-            else {
-                New-Item -ItemType HardLink -Path $cmdPath -Target $WinuxCmdPath -ErrorAction Stop | Out-Null
-            }
-            
-            Write-ColorOutput "Green" "  [Created] $cmd.exe"
-            $createdCount++
+        # Create all links in a single process call
+        $process = Start-Process -FilePath $WinuxCmdPath -ArgumentList $lnArgs -Wait -NoNewWindow -PassThru
+        
+        if ($process.ExitCode -eq 0) {
+            # All links created successfully
+            Write-ColorOutput "Green" "  [Batch Created] $($Script:Commands.Count) command links"
+            $createdCount = $Script:Commands.Count
         }
-        catch {
-            $errorMsg = $_.Exception.Message
-            
-            # If hardlink failed and not already using symbolic links, try fallback
-            if (-not $UseSymbolic -and $errorMsg -match "hardlink|reparse") {
-                Write-ColorOutput "Yellow" "  [Fallback] $cmd.exe (hardlink failed, trying symbolic link)"
-                try {
-                    Remove-Item $cmdPath -Force -ErrorAction SilentlyContinue
-                    New-Item -ItemType SymbolicLink -Path $cmdPath -Target $WinuxCmdPath -ErrorAction Stop | Out-Null
-                    Write-ColorOutput "Green" "  [Created] $cmd.exe (symbolic link)"
-                    $createdCount++
-                    continue
-                }
-                catch {
-                    $errorMsg = $_.Exception.Message
-                }
-            }
-            
-            Write-ColorOutput "Red" "  [Failed] $cmd.exe: $errorMsg"
-            $errorsCount++
+        else {
+            # Batch creation failed, show error
+            Write-ColorOutput "Red" "  [Batch Failed] winuxcmd ln returned exit code $($process.ExitCode)"
+            $errorsCount = $Script:Commands.Count
         }
+    }
+    catch {
+        $errorMsg = $_.Exception.Message
+        Write-ColorOutput "Red" "  [Batch Failed] $errorMsg"
+        $errorsCount = $Script:Commands.Count
     }
     
     Write-Host ""
