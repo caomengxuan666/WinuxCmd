@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.6.0"
+$Script:Version = "0.7.0"
 
 # Available commands list
 $Script:Commands = @(
@@ -40,21 +40,41 @@ $Script:Commands = @(
     "file", "find", "grep", "head", "kill", "ln", "ls", "lsof", "mkdir", "mv", "ps",
     "pwd", "realpath", "rm", "rmdir", "sed", "sort", "tail", "tee", "touch",
     "tree", "uniq", "wc", "which", "xargs",
-    # New commands added in v0.6.0
+    # New commands added in v0.7.0
     "base64", "tr", "less", "watch", "jq", "md5sum", "sha256sum",
     "basename", "dirname", "free", "column", "seq", "stat",
-    # New commands added in v0.6.0 - Hash tools
+    # New commands added in v0.7.0 - Hash tools
     "sha1sum", "sha224sum", "sha384sum", "sha512sum", "b2sum",
-    # New commands added in v0.6.0 - Text processing
+    # New commands added in v0.7.0 - Text processing
     "paste", "join", "comm", "split", "csplit", "cmp", "nl", "fold", "fmt",
-    # New commands added in v0.6.0 - Text conversion
+    # New commands added in v0.7.0 - Text conversion
     "expand", "unexpand", "tac",
-    # New commands added in v0.6.0 - System information
+    # New commands added in v0.7.0 - System information
     "hostname", "whoami", "arch", "uname", "id", "who", "users", "groups",
-    # New commands added in v0.6.0 - File operations
+    # New commands added in v0.7.0 - File operations
     "truncate", "mktemp", "install", "readlink", "cksum", "sum", "mkfifo",
-    # New commands added in v0.6.0 - Other tools
-    "sleep", "timeout", "uptime", "shuf", "pr", "yes", "ptx"
+    # New commands added in v0.7.0 - Other tools
+    "sleep", "timeout", "uptime", "shuf", "pr", "yes", "ptx",
+    # New commands added in v0.7.0 - Basic utilities
+    "clear", "true", "false", "tty", "sync", "reset", "logname", "printenv",
+    # New commands added in v0.7.0 - Text processing
+    "rev", "d2u", "u2d", "dos2unix", "unix2dos", "base32", "basenc", "cygpath", "pathchk",
+    # New commands added in v0.7.0 - Programming tools
+    "printf", "expr", "test", "[",
+    # New commands added in v0.7.0 - Binary tools
+    "od", "xxd", "dd", "shred",
+    # New commands added in v0.7.0 - System utilities
+    "numfmt", "hmac256", "nice", "nohup", "stdbuf",
+    # New commands added in v0.7.0 - Development tools
+    "patch", "diff3", "sdiff",
+    # New commands added in v0.7.0 - Calendar and sorting
+    "cal", "tsort",
+    # New commands added in v0.7.0 - Terminal tools
+    "tput", "infocmp", "tic", "toe",
+    # New commands added in v0.7.0 - System information
+    "hostid", "locale", "tzset", "pinky", "mpicalc",
+    # New commands added in v0.7.0 - Archive tools
+    "cpio"
 )
 
 function Write-ColorOutput {

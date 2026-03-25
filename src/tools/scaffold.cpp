@@ -76,7 +76,7 @@ std::string generateCommandModule(const std::string &cmdName) {
   moduleContent += "// Options (constexpr)\n";
   moduleContent +=
       "// ======================================================\n\n";
-  moduleContent += "export auto constexpr " + upperCmdName + "_OPTIONS =\n";
+  moduleContent += "auto constexpr " + upperCmdName + "_OPTIONS =\n";
   moduleContent +=
       "    std::array{OPTION(\"-v\", \"--verbose\", \"explain what is being "
       "done\"),\n";

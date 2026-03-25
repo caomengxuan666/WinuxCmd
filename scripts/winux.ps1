@@ -105,6 +105,67 @@ $CommandMap = @{
     "pr" = "pr.exe"
     "yes" = "yes.exe"
     "ptx" = "ptx.exe"
+    # New commands added in v0.7.0 - Basic utilities
+    "clear" = "clear.exe"
+    "true" = "true.exe"
+    "false" = "false.exe"
+    "tty" = "tty.exe"
+    "sync" = "sync.exe"
+    "reset" = "reset.exe"
+    "logname" = "logname.exe"
+    "printenv" = "printenv.exe"
+    # New commands added in v0.7.0 - Text processing
+    "rev" = "rev.exe"
+    "d2u" = "d2u.exe"
+    "u2d" = "u2d.exe"
+    "dos2unix" = "dos2unix.exe"
+    "unix2dos" = "unix2dos.exe"
+    "base32" = "base32.exe"
+    "basenc" = "basenc.exe"
+    "cygpath" = "cygpath.exe"
+    "pathchk" = "pathchk.exe"
+    # New commands added in v0.7.0 - Programming tools
+    "printf" = "printf.exe"
+    "expr" = "expr.exe"
+    "test" = "test.exe"
+    "[" = "[.exe"
+    # New commands added in v0.7.0 - Binary tools
+    "od" = "od.exe"
+    "xxd" = "xxd.exe"
+    "dd" = "dd.exe"
+    "shred" = "shred.exe"
+    # New commands added in v0.7.0 - System utilities
+    "numfmt" = "numfmt.exe"
+    "hmac256" = "hmac256.exe"
+    "nice" = "nice.exe"
+    "nohup" = "nohup.exe"
+    "stdbuf" = "stdbuf.exe"
+    # New commands added in v0.7.0 - Development tools
+    "patch" = "patch.exe"
+    "diff3" = "diff3.exe"
+    "sdiff" = "sdiff.exe"
+    # New commands added in v0.7.0 - Calendar and sorting
+    "cal" = "cal.exe"
+    "tsort" = "tsort.exe"
+    # New commands added in v0.7.0 - Terminal tools
+    "tput" = "tput.exe"
+    "infocmp" = "infocmp.exe"
+    "tic" = "tic.exe"
+    "toe" = "toe.exe"
+    # New commands added in v0.7.0 - System information
+    "hostid" = "hostid.exe"
+    "locale" = "locale.exe"
+    "tzset" = "tzset.exe"
+    "pinky" = "pinky.exe"
+    "mpicalc" = "mpicalc.exe"
+    # New commands added in v0.7.0 - Archive tools
+    "cpio" = "cpio.exe"
+    # New commands added in v0.7.0 - System utilities
+    "nproc" = "nproc.exe"
+    "getconf" = "getconf.exe"
+    "link" = "link.exe"
+    "unlink" = "unlink.exe"
+    "factor" = "factor.exe"
 }
 
 # ========== Backup System ==========
