@@ -102,7 +102,7 @@
     _Registrar_##name() {                                                      \
       constexpr size_t N = command_##name##_internal::option_count;            \
       CommandRegistry::registerCommand<N>(                                     \
-          #name, command_##name##_internal::meta, execute##name<N>);           \
+          cmd_name, command_##name##_internal::meta, execute##name<N>);        \
     }                                                                          \
   };                                                                           \
   _Registrar_##name _registrar_instance_##name;                                \
@@ -181,7 +181,7 @@
     _Registrar_##name() {                                                      \
       constexpr size_t N = command_##name##_internal::option_count;            \
       CommandRegistry::registerCommand<N>(                                     \
-          #name, command_##name##_internal::meta, execute##name<N>);           \
+          cmd_name, command_##name##_internal::meta, execute##name<N>);        \
     }                                                                          \
   };                                                                           \
   _Registrar_##name _registrar_instance_##name;                                \

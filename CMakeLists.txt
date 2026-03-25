@@ -128,7 +128,7 @@ project(WinuxCmd
 # Generate version header file
 string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S" UTC)
 configure_file(
-    ${CMAKE_SOURCE_DIR}/src/version.hpp.in
+    ${CMAKE_SOURCE_DIR}/src/version/version.hpp.in
     ${CMAKE_BINARY_DIR}/version.hpp
     @ONLY
 )
@@ -467,7 +467,7 @@ if(BUILD_STANDALONE)
     
     # Generate version header for core library
     configure_file(
-        ${CMAKE_SOURCE_DIR}/src/version.hpp.in
+        ${CMAKE_SOURCE_DIR}/src/version/version.hpp.in
         ${CMAKE_BINARY_DIR}/version.hpp
         @ONLY
     )

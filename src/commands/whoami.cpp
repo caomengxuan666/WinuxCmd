@@ -56,8 +56,6 @@ auto constexpr WHOAMI_OPTIONS = std::array{
     // -r, --runlevel (not implemented - print runlevel)
     // -t, --time (not implemented - print last system clock change)
     // -u, --users (not implemented - print logged in users)
-    // --version (not implemented)
-    // --help (not implemented)
 };
 
 namespace whoami_pipeline {

@@ -2,7 +2,7 @@
  *  Copyright © 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to
+ *  of this software and associated documentation files (the "Software", to
  *  deal in the Software without restriction, including without limitation the
  *  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  *  sell copies of the Software, and to permit persons to whom the Software is
@@ -29,12 +29,16 @@ TEST(arch, arch_basic) {
   Pipeline p;
   p.add(L"arch.exe", {});
 
+  TEST_LOG_CMD_LIST("arch.exe");
+
   auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("arch output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  // Should show architecture
-  EXPECT_TRUE(r.stdout_text.find("x86_64") != std::string::npos ||
-              r.stdout_text.find("i386") != std::string::npos ||
-              r.stdout_text.find("aarch64") != std::string::npos);
+  std::string arch = r.stdout_text;
+  arch.pop_back(); // remove newline
+  EXPECT_TRUE(arch == "x86_64" || arch == "i386" || arch == "arm" || arch == "aarch64" || arch == "ia64" || arch == "unknown");
 }

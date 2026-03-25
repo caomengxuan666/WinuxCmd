@@ -191,7 +191,7 @@ REGISTER_COMMAND(ln, "ln",
   bool verbose = ctx.get<bool>("-v", false) ||
                  ctx.get<bool>("--verbose", false);
 
-  // Need at least source and target
+  // Need at least source and one target
   if (ctx.positionals.size() < 2) {
     safeErrorPrint("ln: missing operand\n");
     safeErrorPrint("Try 'ln --help' for more information.\n");
@@ -199,30 +199,49 @@ REGISTER_COMMAND(ln, "ln",
   }
 
   std::string source = std::string(ctx.positionals[0]);
-  std::string target = std::string(ctx.positionals[1]);
+  
+  // Batch mode: first param is source, rest are targets
+  size_t target_count = ctx.positionals.size() - 1;
+  size_t success_count = 0;
+  size_t error_count = 0;
 
-  // Remove existing target if force is set
-  if (force) {
-    auto result = remove_existing(target);
+  if (verbose && target_count > 1) {
+    safePrint("ln: creating " + std::to_string(target_count) + " links from '" + source + "'...\n");
+  }
+
+  for (size_t i = 1; i < ctx.positionals.size(); ++i) {
+    std::string target = std::string(ctx.positionals[i]);
+
+    // Remove existing target if force is set
+    if (force) {
+      auto result = remove_existing(target);
+      if (!result) {
+        safeErrorPrint("ln: ");
+        safeErrorPrint(result.error());
+        safeErrorPrint("\n");
+        error_count++;
+        continue;
+      }
+    }
+
+    // Create the link
+    auto result = symbolic
+                    ? create_symlink(source, target, verbose)
+                    : create_hardlink(source, target, verbose);
+
     if (!result) {
       safeErrorPrint("ln: ");
       safeErrorPrint(result.error());
       safeErrorPrint("\n");
-      return 1;
+      error_count++;
+    } else {
+      success_count++;
     }
   }
 
-  // Create the link
-  auto result = symbolic
-                    ? create_symlink(source, target, verbose)
-                    : create_hardlink(source, target, verbose);
-
-  if (!result) {
-    safeErrorPrint("ln: ");
-    safeErrorPrint(result.error());
-    safeErrorPrint("\n");
-    return 1;
+  if (verbose) {
+    safePrint("ln: " + std::to_string(success_count) + " links created, " + std::to_string(error_count) + " errors\n");
   }
 
-  return 0;
+  return (error_count > 0) ? 1 : 0;
 }

@@ -105,7 +105,7 @@ opt|git|pull|Fetch from and integrate with another repository
 
 ---
 
-## 📦 已实现命令（133 个）
+## 📦 已实现命令（136 个）
 
 > 完整参数列表见 [命令实现文档](DOCS/zh/commands_implementation.md)
 

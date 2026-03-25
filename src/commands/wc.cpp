@@ -25,7 +25,7 @@
  */
 
 #include "pch/pch.h"
-//include other header after pch.h
+// include other header after pch.h
 #include "core/command_macros.h"
 import std;
 import core;
@@ -62,7 +62,6 @@ namespace wc_constants {
  * - @a -L, @a --max-line-length: Print the maximum display width [IMPLEMENTED]
  * - @a -w, @a --words: Print the word counts [IMPLEMENTED]
  * - @a --total=WHEN: When to print a line with total counts [IMPLEMENTED]
- * - @a --help: Display this help and exit [IMPLEMENTED]
  * - @a --version: Output version information and exit [IMPLEMENTED]
  */
 auto constexpr WC_OPTIONS = std::array{
@@ -76,9 +75,7 @@ auto constexpr WC_OPTIONS = std::array{
     OPTION("-L", "--max-line-length", "print the maximum display width"),
     OPTION("-w", "--words", "print the word counts"),
     OPTION("--total", "", "when to print a line with total counts",
-           STRING_TYPE),
-    OPTION("--help", "", "display this help and exit"),
-    OPTION("--version", "", "output version information and exit")};
+           STRING_TYPE)};
 
 // ======================================================
 // Pipeline components
@@ -340,24 +337,6 @@ REGISTER_COMMAND(
     /* options */
     WC_OPTIONS) {
   using namespace wc_pipeline;
-
-  // Check for --help or --version
-  if (ctx.get<bool>("--help", false)) {
-    // Help is automatically handled by the framework
-    return 0;
-  }
-
-  if (ctx.get<bool>("--version", false)) {
-    // OPTIMIZED: Use string literals instead of wstring
-    safePrintLn("wc (WinuxCmd) 0.1.0");
-    safePrintLn("Copyright © 2026 WinuxCmd");
-    safePrintLn(
-        "This is free software; see the source for copying conditions.");
-    safePrintLn(
-        "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A "
-        "PARTICULAR PURPOSE.");
-    return 0;
-  }
 
   auto result = process_command(ctx);
   if (!result) {
