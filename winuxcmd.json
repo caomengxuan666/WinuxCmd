@@ -19,10 +19,6 @@
                 [
                     "winuxcmd.exe",
                     "winuxcmd"
-                ],
-                [
-                    "winux.ps1",
-                    "winux"
                 ]
             ],
     "post_install":  [
