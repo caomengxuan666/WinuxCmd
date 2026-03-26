@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.7.0"
+$Script:Version = "0.7.1"
 
 # Escape special characters for PowerShell path handling
 function Escape-WildcardChars {
@@ -59,7 +59,7 @@ $Script:Commands = @(
     "rev", "rm", "rmdir", "sdiff", "sed", "seq", "sha1sum", "sha224sum",
     "sha256sum", "sha384sum", "sha512sum", "shred", "shuf", "sleep", "sort",
     "split", "stat", "stdbuf", "sum", "sync", "tac", "tail", "tee", "test",
-    "[", "tic", "timeout", "toe", "touch", "tput", "tr", "tree", "true",
+    "[", "tic", "timeout", "toe", "top", "touch", "tput", "tr", "tree", "true",
     "truncate", "tsort", "tty", "tzset", "u2d", "uname", "unexpand", "uniq",
     "unix2dos", "unlink", "uptime", "users", "watch", "wc", "which", "who",
     "whoami", "xargs", "xxd", "yes"
