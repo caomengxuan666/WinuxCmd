@@ -28,40 +28,52 @@ function Write-Color {
 
 # ========== Find WinuxCmd installation ==========
 function Get-WinuxBinDir {
-    $baseDir = "$env:LOCALAPPDATA\WinuxCmd"
-
-    if (-not (Test-Path $baseDir)) {
-        Write-Color "Red" "WinuxCmd not found in: $baseDir"
-        return $null
+    # Priority 1: Check current directory (Scoop installation scenario)
+    if (Test-Path ".\winuxcmd.exe") {
+        return (Get-Location).Path
     }
-
-    # Find any WinuxCmd-* directory
-    $versionDir = Get-ChildItem -Path $baseDir -Directory -Filter "WinuxCmd-*" |
-                  Select-Object -First 1
-
-    if (-not $versionDir) {
-        Write-Color "Red" "No WinuxCmd version directory found"
-        return $null
+    
+    # Priority 2: Check script directory
+    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "winuxcmd.exe"))) {
+        return $PSScriptRoot
     }
-
-    # Find bin directory
-    $binDir = Join-Path $versionDir.FullName "bin"
-
-    if (-not (Test-Path $binDir)) {
-        # Try to find winuxcmd.exe to locate bin directory
-        $exeFile = Get-ChildItem -Path $versionDir.FullName -Filter "winuxcmd.exe" -Recurse -File |
-                   Select-Object -First 1
-        if ($exeFile) {
-            $binDir = $exeFile.DirectoryName
+    
+    # Priority 3: Check environment variable
+    if ($env:WINUXCMD_HOME -and (Test-Path $env:WINUXCMD_HOME)) {
+        $winuxExe = Join-Path $env:WINUXCMD_HOME "winuxcmd.exe"
+        if (Test-Path $winuxExe) {
+            return $env:WINUXCMD_HOME
         }
     }
-
-    if (-not (Test-Path $binDir)) {
-        Write-Color "Red" "bin directory not found"
-        return $null
+    
+    # Priority 4: Check $env:LOCALAPPDATA\WinuxCmd (traditional installation)
+    $baseDir = "$env:LOCALAPPDATA\WinuxCmd"
+    if (Test-Path $baseDir) {
+        $versionDir = Get-ChildItem -Path $baseDir -Directory -Filter "WinuxCmd-*" |
+                      Select-Object -First 1
+        if ($versionDir) {
+            $binDir = Join-Path $versionDir.FullName "bin"
+            if (-not (Test-Path $binDir)) {
+                $exeFile = Get-ChildItem -Path $versionDir.FullName -Filter "winuxcmd.exe" -Recurse -File |
+                           Select-Object -First 1
+                if ($exeFile) {
+                    $binDir = $exeFile.DirectoryName
+                }
+            }
+            if (Test-Path $binDir) {
+                return $binDir
+            }
+        }
     }
-
-    return $binDir
+    
+    # Priority 5: Check PATH for winuxcmd.exe
+    $winuxPath = Get-Command winuxcmd.exe -ErrorAction SilentlyContinue
+    if ($winuxPath) {
+        return Split-Path $winuxPath.Source
+    }
+    
+    Write-Color "Red" "WinuxCmd not found. Please install WinuxCmd first."
+    return $null
 }
 
 # ========== Install to Profile ==========
