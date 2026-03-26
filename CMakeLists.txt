@@ -565,6 +565,49 @@ add_custom_command(TARGET scaffold POST_BUILD
         COMMENT "Copying scaffold to project root"
 )
 
+# Winux Package Manager (wpm) tool
+add_executable(wpm
+        src/tools/wpm.cpp
+)
+
+# Add necessary modules for wpm
+target_sources(wpm
+        PUBLIC
+        FILE_SET CXX_MODULES
+        TYPE CXX_MODULES
+        BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
+        FILES
+        src/utils/utils.cppm
+        src/utils/console.cppm
+        src/utils/json.cppm
+        src/utils/cppbar.cppm
+        src/utils/utf8.cppm
+        src/utils/path.cppm
+        src/utils/wildcard.cppm
+        src/utils/file_io.cppm
+)
+
+# Set C++ standard for wpm tool
+set_target_properties(wpm PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+)
+
+# Add include directories for wpm tool
+target_include_directories(wpm PRIVATE ${SRC_DIR})
+
+# MSVC-specific configuration for wpm tool
+if (MSVC)
+    target_compile_options(wpm PRIVATE
+            /std:c++latest
+            /experimental:module
+            /interface
+            /GR-
+    )
+    target_include_directories(wpm PRIVATE "${MODULES_DIR}")
+endif ()
+
 add_subdirectory(examples)
 
 if (ENABLE_TESTS)

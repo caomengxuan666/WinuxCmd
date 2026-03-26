@@ -163,6 +163,7 @@ $CommandMap = @{
     "infocmp" = "infocmp.exe"
     "tic" = "tic.exe"
     "toe" = "toe.exe"
+    "top" = "top.exe"
     # New commands added in v0.7.0 - System information
     "hostid" = "hostid.exe"
     "locale" = "locale.exe"

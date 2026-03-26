@@ -221,8 +221,21 @@ auto remove_path(const std::string& path,
       HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
 
       if (hFind == INVALID_HANDLE_VALUE) {
-        // Directory might be empty or inaccessible
-        return true;
+        DWORD error = GetLastError();
+        if (error == ERROR_FILE_NOT_FOUND) {
+          // Directory is empty, this is expected and not an error
+          return true;
+        } else {
+          // Directory is inaccessible or other error
+          std::string dirPathStr = wstring_to_utf8(dirPath);
+          std::wstring errorMsg = get_system_error_message(error);
+          safeErrorPrint("rm: cannot access directory '");
+          safeErrorPrint(dirPathStr);
+          safeErrorPrint("': ");
+          safeErrorPrint(errorMsg);
+          safeErrorPrint("\n");
+          return false;
+        }
       }
 
       std::vector<std::wstring> subdirs;

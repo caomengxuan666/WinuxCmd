@@ -29,6 +29,10 @@ import std;
 import :utf8;
 import :path;
 
+#ifndef INVALID_HANDLE_VALUE
+#define INVALID_HANDLE_VALUE HANDLE(-1)
+#endif
+
 namespace wildcard_impl {
 
 /**
