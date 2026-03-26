@@ -32,7 +32,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.7.1"
+$Script:Version = "0.7.2"
 
 # Escape special characters for PowerShell path handling
 function Escape-WildcardChars {
