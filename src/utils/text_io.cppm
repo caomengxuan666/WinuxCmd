@@ -72,8 +72,8 @@ auto decode_utf16(std::string_view bytes, bool little_endian) -> std::string {
 }  // namespace
 
 export auto read_text_stream(std::istream& in) -> std::string {
-  std::string bytes(std::istreambuf_iterator<char>(in),
-                    std::istreambuf_iterator<char>());
+  std::string bytes{std::istreambuf_iterator<char>{in},
+                    std::istreambuf_iterator<char>{}};
   if (bytes.empty()) return bytes;
 
   EncodingHint encoding = EncodingHint::Utf8;
