@@ -615,6 +615,7 @@ target_sources(wpm
         src/utils/utf8.cppm
         src/utils/path.cppm
         src/utils/wildcard.cppm
+        src/utils/text_io.cppm
         src/utils/file_io.cppm
 )
 
@@ -634,6 +635,7 @@ if (MSVC)
             /std:c++latest
             /experimental:module
             /interface
+            /EHsc
             /GR-
     )
     target_include_directories(wpm PRIVATE "${MODULES_DIR}")

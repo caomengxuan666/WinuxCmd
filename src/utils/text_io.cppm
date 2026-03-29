@@ -23,7 +23,7 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-export module utils:text_io;
+export module utils:textio;
 
 import std;
 import :utf8;
@@ -56,11 +56,11 @@ auto decode_utf16(std::string_view bytes, bool little_endian) -> std::string {
 
   size_t i = 0;
   while (i + 1 < bytes.size()) {
-    const uint8_t b0 = static_cast<uint8_t>(bytes[i]);
-    const uint8_t b1 = static_cast<uint8_t>(bytes[i + 1]);
-    const uint16_t u16 = little_endian
-                             ? static_cast<uint16_t>(b0 | (static_cast<uint16_t>(b1) << 8))
-                             : static_cast<uint16_t>((static_cast<uint16_t>(b0) << 8) | b1);
+    const std::uint8_t b0 = static_cast<std::uint8_t>(bytes[i]);
+    const std::uint8_t b1 = static_cast<std::uint8_t>(bytes[i + 1]);
+    const std::uint16_t u16 = little_endian
+                                  ? static_cast<std::uint16_t>(b0 | (static_cast<std::uint16_t>(b1) << 8))
+                                  : static_cast<std::uint16_t>((static_cast<std::uint16_t>(b0) << 8) | b1);
     i += 2;
 
     if (u16 == 0xFEFF) continue;  // Drop BOM markers, including repeated per-line BOMs.
@@ -77,11 +77,11 @@ export auto read_text_stream(std::istream& in) -> std::string {
   if (bytes.empty()) return bytes;
 
   EncodingHint encoding = EncodingHint::Utf8;
-  if (bytes.size() >= 2 && static_cast<uint8_t>(bytes[0]) == 0xFF &&
-      static_cast<uint8_t>(bytes[1]) == 0xFE) {
+  if (bytes.size() >= 2 && static_cast<std::uint8_t>(bytes[0]) == 0xFF &&
+      static_cast<std::uint8_t>(bytes[1]) == 0xFE) {
     encoding = EncodingHint::Utf16Le;
-  } else if (bytes.size() >= 2 && static_cast<uint8_t>(bytes[0]) == 0xFE &&
-             static_cast<uint8_t>(bytes[1]) == 0xFF) {
+  } else if (bytes.size() >= 2 && static_cast<std::uint8_t>(bytes[0]) == 0xFE &&
+             static_cast<std::uint8_t>(bytes[1]) == 0xFF) {
     encoding = EncodingHint::Utf16Be;
   } else if (auto guessed = guess_utf16_from_nuls(bytes); guessed.has_value()) {
     encoding = *guessed;
@@ -91,9 +91,9 @@ export auto read_text_stream(std::istream& in) -> std::string {
   if (encoding == EncodingHint::Utf16Be) return decode_utf16(bytes, false);
 
   // Strip UTF-8 BOM if present.
-  if (bytes.size() >= 3 && static_cast<uint8_t>(bytes[0]) == 0xEF &&
-      static_cast<uint8_t>(bytes[1]) == 0xBB &&
-      static_cast<uint8_t>(bytes[2]) == 0xBF) {
+  if (bytes.size() >= 3 && static_cast<std::uint8_t>(bytes[0]) == 0xEF &&
+      static_cast<std::uint8_t>(bytes[1]) == 0xBB &&
+      static_cast<std::uint8_t>(bytes[2]) == 0xBF) {
     bytes.erase(0, 3);
   }
   return bytes;

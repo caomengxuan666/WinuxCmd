@@ -27,7 +27,7 @@ export module utils;
 
 export import :utf8;
 export import :console;
-export import :text_io;
+export import :textio;
 export import :wildcard;
 export import :path;
 export import :json;
