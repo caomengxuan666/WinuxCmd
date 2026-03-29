@@ -489,9 +489,35 @@ if(BUILD_STANDALONE)
             src/Main/main.cpp
             ${CMD_FILE}
         )
-        
-        # Link against core library (contains all core modules but NO commands)
-        target_link_libraries(${CMD_EXE_NAME} PRIVATE winuxcmd-core)
+
+        # Add core module interfaces directly for reliable module partition resolution
+        # across standalone command targets on MSVC/CMake.
+        target_sources(${CMD_EXE_NAME}
+            PUBLIC
+            FILE_SET CXX_MODULES
+            TYPE CXX_MODULES
+            BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
+            FILES
+            src/core/core.cppm
+            src/core/cmd_meta.cppm
+            src/core/command_context.cppm
+            src/core/dispatcher.cppm
+            src/core/opt.cppm
+            src/core/pipeline.cppm
+            src/utils/utils.cppm
+            src/utils/console.cppm
+            src/utils/text_io.cppm
+            src/utils/path.cppm
+            src/utils/utf8.cppm
+            src/utils/wildcard.cppm
+            src/utils/json.cppm
+            src/container/container.cppm
+            src/container/small_vector.cppm
+            src/container/constexpr_map.cppm
+            src/Main/readline.cppm
+            src/Main/wildcard_handler.cppm
+            src/Main/native_completion.cppm
+        )
         
         # Add PCH (same as core library)
         target_precompile_headers(${CMD_EXE_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
@@ -520,6 +546,9 @@ if(BUILD_STANDALONE)
         
         # Add include directories
         target_include_directories(${CMD_EXE_NAME} PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
+        if (MSVC)
+            target_include_directories(${CMD_EXE_NAME} PRIVATE "${MODULES_DIR}")
+        endif ()
         
         # Import std and enable C++23
         target_compile_features(${CMD_EXE_NAME} PRIVATE cxx_std_23)
