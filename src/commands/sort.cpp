@@ -94,8 +94,7 @@ struct Config {
 };
 
 auto read_all(std::istream& in) -> std::string {
-  return std::string(std::istreambuf_iterator<char>(in),
-                     std::istreambuf_iterator<char>());
+  return read_text_stream(in);
 }
 
 auto read_source(std::string_view path) -> cp::Result<std::string> {

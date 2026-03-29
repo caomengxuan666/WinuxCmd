@@ -89,3 +89,24 @@ TEST(sort, sort_unsupported_merge) {
 
   EXPECT_EQ(r.exit_code, 2);
 }
+
+TEST(sort, sort_uniq_pipeline_accepts_utf16le_stdin_with_bom) {
+  // Simulate PowerShell native pipeline output with UTF-16LE and per-line BOM.
+  std::u16string u16 = u"\ufeffdog\r\n\ufeffdog\r\n\ufeffcat\r\n";
+  std::string bytes;
+  bytes.reserve(u16.size() * 2);
+  for (char16_t ch : u16) {
+    bytes.push_back(static_cast<char>(ch & 0xFF));
+    bytes.push_back(static_cast<char>((ch >> 8) & 0xFF));
+  }
+
+  Pipeline p;
+  p.set_stdin(bytes);
+  p.add(L"sort.exe", {});
+  p.add(L"uniq.exe", {L"-c"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("1 cat") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("2 dog") != std::string::npos);
+}

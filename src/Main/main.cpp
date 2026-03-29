@@ -687,9 +687,28 @@ int main(int argc, char *argv[]) noexcept {
       return 0;
     }
 
-    // Check for --help flag
-    if (args.size() == 1 && args[0] == "--help") {
+    // Check for top-level help flags/alias
+    if (args.size() == 1 && (args[0] == "--help" || args[0] == "-h")) {
       return printHelp();
+    }
+    if (!args.empty() && args[0] == "help") {
+      if (args.size() == 1) return printHelp();
+      if (args.size() == 2) {
+        std::string topic(args[1]);
+        if (CommandRegistry::hasCommand(topic)) {
+          CommandRegistry::printHelp(topic);
+          return 0;
+        }
+        std::string lowered = toLowerAscii(topic);
+        if (CommandRegistry::hasCommand(lowered)) {
+          CommandRegistry::printHelp(lowered);
+          return 0;
+        }
+        safeErrorPrintLn("winuxcmd: no help topic for '" + topic + "'");
+        return 1;
+      }
+      safeErrorPrintLn("winuxcmd: help accepts at most one command name");
+      return 1;
     }
 
     // Extract command name and remaining arguments
