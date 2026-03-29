@@ -45,8 +45,6 @@ using cmd::meta::OptionType;
 auto constexpr EXPAND_OPTIONS = std::array{
     OPTION("-t", "--tabs", "specify tab stop positions (default: 8)", STRING_TYPE),
     OPTION("-i", "--initial", "only convert tabs at the beginning of lines", BOOL_TYPE)
-    // --help (not implemented)
-    // --version (not implemented)
 };
 
 namespace expand_pipeline {

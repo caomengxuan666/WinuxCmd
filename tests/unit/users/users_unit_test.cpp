@@ -2,7 +2,7 @@
  *  Copyright © 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to
+ *  of this software and associated documentation files (the "Software", to
  *  deal in the Software without restriction, including without limitation the
  *  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
  *  sell copies of the Software, and to permit persons to whom the Software is
@@ -29,9 +29,13 @@ TEST(users, users_basic) {
   Pipeline p;
   p.add(L"users.exe", {});
 
+  TEST_LOG_CMD_LIST("users.exe");
+
   auto r = p.run();
 
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("users output", r.stdout_text);
+
   EXPECT_EQ(r.exit_code, 0);
-  // Should display logged-in users
   EXPECT_FALSE(r.stdout_text.empty());
 }

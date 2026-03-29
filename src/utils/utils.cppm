@@ -31,3 +31,5 @@ export import :text_io;
 export import :wildcard;
 export import :path;
 export import :json;
+export import :file_io;
+export import :cppbar;

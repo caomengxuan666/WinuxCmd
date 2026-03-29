@@ -29,6 +29,7 @@
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
+// *** SIMPLIFIED IMPLEMENTATION - Some features may not be fully supported ***
 
 #include "pch/pch.h"
 //include other header after pch.h

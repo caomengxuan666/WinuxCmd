@@ -153,7 +153,7 @@ ps -ef | grep winuxcmd
 
 ## Implemented Commands
 
-35 commands are currently implemented. See full compatibility and option details:
+137 commands are currently implemented. See full compatibility and option details:
 
 - [Command Compatibility Matrix (EN)](DOCS/en/commands_implementation_en.md)
 - [命令兼容性矩阵 (ZH)](DOCS/zh/commands_implementation.md)

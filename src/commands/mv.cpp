@@ -70,10 +70,7 @@
  * file or when the destination file is missing [TODO]
  * - @a --verbose: Explain what is being done [IMPLEMENTED]
  * - @a --context: Set SELinux security context of destination file to default
- * type [TODO]
- * - @a --help: Display this help and exit [TODO]
- * - @a --version: Output version information and exit [TODO]
- */
+*/
 
 #include "pch/pch.h"
 #pragma comment(lib, "shlwapi.lib")
@@ -109,9 +106,7 @@ auto constexpr MV_OPTIONS =
                OPTION("--no-target-directory", "", "treat DEST as a normal file"),
                OPTION("--update", "", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
                OPTION("--verbose", "", "explain what is being done"),
-               OPTION("--context", "", "set SELinux security context of destination file to default type"),
-               OPTION("--help", "", "display this help and exit"),
-               OPTION("--version", "", "output version information and exit")};
+               OPTION("--context", "", "set SELinux security context of destination file to default type")};
 // clang-format on
 
 // ======================================================
