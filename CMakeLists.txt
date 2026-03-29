@@ -342,6 +342,7 @@ macro(create_command_executable CMD)
             src/core/opt.cppm
             src/utils/utils.cppm
             src/utils/console.cppm
+            src/utils/text_io.cppm
             src/utils/utf8.cppm
             src/utils/json.cppm
             src/Main/wildcard_handler.cppm
@@ -425,6 +426,7 @@ if(BUILD_STANDALONE)
         src/core/pipeline.cppm
         src/utils/utils.cppm
         src/utils/console.cppm
+        src/utils/text_io.cppm
         src/utils/path.cppm
         src/utils/utf8.cppm
         src/utils/wildcard.cppm

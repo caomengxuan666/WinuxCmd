@@ -62,6 +62,8 @@ Optional:
 ```powershell
 winuxcmd ls -la
 winuxcmd grep -n "TODO" README.md
+winuxcmd help
+winuxcmd help sort
 ```
 
 ### 2) Linked command mode
