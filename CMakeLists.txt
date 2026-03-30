@@ -345,7 +345,6 @@ macro(create_command_executable CMD)
             src/utils/text_io.cppm
             src/utils/utf8.cppm
             src/utils/json.cppm
-            src/Main/wildcard_handler.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
@@ -435,7 +434,6 @@ if(BUILD_STANDALONE)
         src/container/small_vector.cppm
         src/container/constexpr_map.cppm
         src/Main/readline.cppm
-        src/Main/wildcard_handler.cppm
         src/Main/native_completion.cppm
     )
     
@@ -515,7 +513,6 @@ if(BUILD_STANDALONE)
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
             src/Main/readline.cppm
-            src/Main/wildcard_handler.cppm
             src/Main/native_completion.cppm
         )
         
