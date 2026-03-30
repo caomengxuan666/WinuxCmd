@@ -125,7 +125,7 @@ read_version_file()
 project(WinuxCmd
         VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
         DESCRIPTION "Windows Compatible Linux Command Set"
-        LANGUAGES CXX
+        LANGUAGES CXX C
 )
 
 # Generate version header file
