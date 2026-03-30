@@ -39,14 +39,54 @@ export constexpr auto COLOR_MEDIA =
     L"\033[01;35m";  ///< Media: .jpg, .mp4 (bold magenta)
 
 namespace {
+thread_local HANDLE g_cached_stdout = INVALID_HANDLE_VALUE;
+thread_local HANDLE g_cached_stderr = INVALID_HANDLE_VALUE;
+thread_local bool g_handles_valid = false;
+
+// Capture handles (set by daemon when capturing)
+HANDLE g_capture_stdout_write = nullptr;
+HANDLE g_capture_stderr_write = nullptr;
+bool g_capture_active = false;
+
 HANDLE getStdOut() {
-  static HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-  return hOut;
+  if (g_capture_active && g_capture_stdout_write) {
+    return g_capture_stdout_write;
+  }
+
+  if (!g_handles_valid) {
+    g_cached_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    g_cached_stderr = GetStdHandle(STD_ERROR_HANDLE);
+    g_handles_valid = true;
+  }
+  return g_cached_stdout;
 }
 
 HANDLE getStdErr() {
-  static HANDLE hErr = GetStdHandle(STD_ERROR_HANDLE);
-  return hErr;
+  if (g_capture_active && g_capture_stderr_write) {
+    return g_capture_stderr_write;
+  }
+
+  if (!g_handles_valid) {
+    g_cached_stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+    g_cached_stderr = GetStdHandle(STD_ERROR_HANDLE);
+    g_handles_valid = true;
+  }
+  return g_cached_stderr;
+}
+}  // namespace
+
+// Exported function to set output capture handles
+export void set_output_capture_handles(HANDLE stdout_handle, HANDLE stderr_handle, bool active) {
+  g_capture_stdout_write = stdout_handle;
+  g_capture_stderr_write = stderr_handle;
+  g_capture_active = active;
+  // Invalidate cache to force re-evaluation
+  g_handles_valid = false;
+}
+
+// Exported function to invalidate cached handles (call after SetStdHandle)
+export void invalidateCachedHandles() {
+  g_handles_valid = false;
 }
 
 bool isConsoleHandle(HANDLE h) {
@@ -54,7 +94,7 @@ bool isConsoleHandle(HANDLE h) {
   DWORD mode;
   return GetConsoleMode(h, &mode) != 0;
 }
-}  // namespace
+
 
 export bool writeConsole(const std::wstring_view& wstr) {
   HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);

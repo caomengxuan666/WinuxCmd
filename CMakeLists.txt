@@ -46,6 +46,9 @@ set_property(CACHE BUILD_MODE PROPERTY STRINGS "DEV" "RELEASE" "DEBUG_RELEASE")
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
 
+# Option to enable FFI library
+option(BUILD_FFI "Build FFI library for external integration" ON)
+
 # Option to enable UPX compression
 option(ENABLE_UPX "Enable UPX compression for executables" OFF)
 # Generate the map info(For the developers to collect binary information)
@@ -345,6 +348,7 @@ macro(create_command_executable CMD)
             src/utils/text_io.cppm
             src/utils/utf8.cppm
             src/utils/json.cppm
+            src/utils/encoding.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
@@ -430,6 +434,7 @@ if(BUILD_STANDALONE)
         src/utils/utf8.cppm
         src/utils/wildcard.cppm
         src/utils/json.cppm
+        src/utils/encoding.cppm
         src/container/container.cppm
         src/container/small_vector.cppm
         src/container/constexpr_map.cppm
@@ -509,6 +514,7 @@ if(BUILD_STANDALONE)
             src/utils/utf8.cppm
             src/utils/wildcard.cppm
             src/utils/json.cppm
+            src/utils/encoding.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
@@ -613,6 +619,8 @@ target_sources(wpm
         src/utils/path.cppm
         src/utils/wildcard.cppm
         src/utils/text_io.cppm
+        src/utils/file_io.cppm
+        src/utils/encoding.cppm
         src/utils/file_io.cppm
 )
 
@@ -722,6 +730,16 @@ if (WIN32)
     else ()
         set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win-x64")
     endif ()
+    
+    # Configure component-specific package names for FFI
+    if(BUILD_FFI)
+        set(CPACK_COMPONENT_FFI_FILE_NAME "${CPACK_PACKAGE_NAME}-FFI-${CPACK_PACKAGE_VERSION}")
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+            set(CPACK_COMPONENT_FFI_FILE_NAME "${CPACK_COMPONENT_FFI_FILE_NAME}-win-arm64")
+        else ()
+            set(CPACK_COMPONENT_FFI_FILE_NAME "${CPACK_COMPONENT_FFI_FILE_NAME}-win-x64")
+        endif ()
+    endif()
 endif ()
 
 set(CPACK_IGNORE_FILES
@@ -740,10 +758,19 @@ set(CPACK_IGNORE_FILES
         "${CMAKE_SOURCE_DIR}/tests"
 )
 
+# ========== FFI Library for External Integration ==========
+if(BUILD_FFI)
+    message(STATUS "FFI Library: ENABLED (winuxcmd.dll)")
+    add_subdirectory(src/ffi)
+else()
+    message(STATUS "FFI Library: DISABLED")
+endif()
+
 # Print final configuration summary
 message(STATUS "=================== BUILD CONFIGURATION SUMMARY ===================")
 message(STATUS "Build Mode: ${BUILD_MODE}")
 message(STATUS "Tests Enabled: ${ENABLE_TESTS}")
+message(STATUS "FFI Library: ${BUILD_FFI}")
 message(STATUS "Map Info Generation: ${GENERATE_MAP_INFO}")
 message(STATUS "Unity Build: ${ENABLE_UNITY_BUILD}")
 message(STATUS "UPX Compression: ${ENABLE_UPX} (PERMANENTLY DISABLED)")
@@ -757,11 +784,20 @@ statistics_number_of_commands_supported()
 message(STATUS "Final count result: ${COMMANDS_SRC_FILE_COUNT} .cpp files")
 
 # ========== Benchmark (DEV and DEBUG_RELEASE mode only) ==========
+
 if (BUILD_MODE STREQUAL "DEV" OR BUILD_MODE STREQUAL "DEBUG_RELEASE")
     message(STATUS "Benchmarks: ENABLED (${BUILD_MODE} mode)")
     add_subdirectory(benchmark)
 else ()
     message(STATUS "Benchmarks: DISABLED (only available in DEV and DEBUG_RELEASE mode)")
 endif ()
+
+# ========== FFI Component Configuration ==========
+if(BUILD_FFI)
+    # Configure FFI-specific CPack settings
+    # Only enable component-specific packaging when requested via -C FFI
+    # This keeps default packaging behavior unchanged
+    set(CPACK_COMPONENTS_ALL "Runtime;Documentation;FFI")
+endif()
 
 include(CPack)

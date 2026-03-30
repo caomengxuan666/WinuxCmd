@@ -69,9 +69,15 @@ jobs:
         shell: cmd
         working-directory: build-${{ matrix.package_arch }}
         run: |
+          REM Package all components (Runtime + Documentation) - unchanged
           cpack -G 7Z -C Release
           cpack -G ZIP -C Release
           cpack -G TGZ -C Release
+          
+          REM Package FFI component separately - new addition
+          cpack -G 7Z -C Release -C FFI
+          cpack -G ZIP -C Release -C FFI
+          cpack -G TGZ -C Release -C FFI
 
       - name: Rename Packages
         shell: cmd
@@ -80,9 +86,15 @@ jobs:
           set "ARCH=${{ matrix.package_arch }}"
           set "BUILD_DIR=build-%ARCH%"
           
+          REM Rename Runtime packages (unchanged)
           for %%f in ("%BUILD_DIR%\WinuxCmd-*.7z") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.7z"
           for %%f in ("%BUILD_DIR%\WinuxCmd-*.zip") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.zip"
           for %%f in ("%BUILD_DIR%\WinuxCmd-*.tar.gz") do ren "%%f" "WinuxCmd-%VER%-win-%ARCH%.tar.gz"
+          
+          REM Rename FFI packages - new addition
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*-FFI.7z") do ren "%%f" "WinuxCmd-FFI-%VER%-win-%ARCH%.7z"
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*-FFI.zip") do ren "%%f" "WinuxCmd-FFI-%VER%-win-%ARCH%.zip"
+          for %%f in ("%BUILD_DIR%\WinuxCmd-*-FFI.tar.gz") do ren "%%f" "WinuxCmd-FFI-%VER%-win-%ARCH%.tar.gz"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

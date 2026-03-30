@@ -51,107 +51,6 @@ auto constexpr BASE64_OPTIONS = std::array{
 namespace base64_pipeline {
 namespace cp = core::pipeline;
 
-// Base64 encoding table
-constexpr char BASE64_ENCODE_TABLE[64] = {
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'
-};
-
-// Base64 decoding table (init at compile time)
-constexpr int8_t BASE64_DECODE_TABLE[256] = {
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 62, -1, -1, -1, 63,
-    52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -1, -1, -1, -1, -1, -1,
-    -1,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
-    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -1, -1, -1, -1,
-    -1, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
-    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
-};
-
-/**
- * @brief Encode data to base64
- */
-auto encode_base64(std::span<const uint8_t> data) -> std::string {
-  std::string result;
-  result.reserve(((data.size() + 2) / 3) * 4);
-
-  for (size_t i = 0; i < data.size(); i += 3) {
-    uint32_t triple = 0;
-    int padding = 0;
-
-    for (int j = 0; j < 3; ++j) {
-      if (i + j < data.size()) {
-        triple |= static_cast<uint32_t>(data[i + j]) << (16 - 8 * j);
-      } else {
-        padding++;
-      }
-    }
-
-    result += BASE64_ENCODE_TABLE[(triple >> 18) & 0x3F];
-    result += BASE64_ENCODE_TABLE[(triple >> 12) & 0x3F];
-
-    if (padding >= 2) {
-      result += '=';
-      result += '=';
-    } else {
-      result += BASE64_ENCODE_TABLE[(triple >> 6) & 0x3F];
-      if (padding >= 1) {
-        result += '=';
-      } else {
-        result += BASE64_ENCODE_TABLE[triple & 0x3F];
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
- * @brief Decode base64 to data
- */
-auto decode_base64(std::string_view base64, bool ignore_garbage) -> std::vector<uint8_t> {
-  std::vector<uint8_t> result;
-  result.reserve((base64.size() / 4) * 3);
-
-  uint32_t triple = 0;
-  int bits = 0;
-
-  for (char c : base64) {
-    if (c == '=') break;
-    if (c == '\n' || c == '\r') continue;
-
-    int8_t value = BASE64_DECODE_TABLE[static_cast<uint8_t>(c)];
-    if (value < 0) {
-      if (!ignore_garbage) {
-        return {};  // Return empty vector on error
-      }
-      continue;
-    }
-
-    triple = (triple << 6) | static_cast<uint32_t>(value);
-    bits += 6;
-
-    if (bits >= 8) {
-      bits -= 8;
-      result.push_back(static_cast<uint8_t>((triple >> bits) & 0xFF));
-    }
-  }
-
-  return result;
-}
-
 /**
  * @brief Read input from file or stdin
  */
@@ -236,7 +135,7 @@ auto run(const Config& cfg) -> int {
         content = cleaned;
       }
 
-      auto decoded = decode_base64(content, cfg.ignore_garbage);
+      auto decoded = encoding::base64_decode(content, cfg.ignore_garbage);
       if (cfg.ignore_garbage && decoded.empty() && !content.empty()) {
         // Only report error if ignore_garbage is false or input was valid
         cp::report_custom_error(L"base64", L"invalid input");
@@ -247,21 +146,8 @@ auto run(const Config& cfg) -> int {
       auto data = std::span<const uint8_t>(
           reinterpret_cast<const uint8_t*>(content.data()),
           content.size());
-      output = encode_base64(data);
-
-      // Apply line wrapping
-      if (cfg.wrap > 0) {
-        std::string formatted;
-        formatted.reserve(output.size() + output.size() / cfg.wrap);
-        for (size_t i = 0; i < output.size(); i += cfg.wrap) {
-          if (i > 0) formatted += '\n';
-          formatted += output.substr(i, cfg.wrap);
-        }
-        formatted += '\n';
-        output = std::move(formatted);
-      } else {
-        output += '\n';
-      }
+      output = encoding::base64_encode(data, cfg.wrap);
+      output += '\n';
     }
 
     safePrint(output);
