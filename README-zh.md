@@ -105,6 +105,70 @@ opt|git|pull|Fetch from and integrate with another repository
 
 ---
 
+## 🔌 FFI API
+
+WinuxCmd 提供 C 语言 FFI（Foreign Function Interface），支持与其他语言和应用集成。
+
+### 可用函数
+
+- `winux_execute()` - 通过 daemon 执行命令，零启动开销
+- `winux_get_all_commands()` - 获取所有可用命令名称
+- `winux_is_daemon_available()` - 检查 daemon 是否运行
+- `winux_get_version()` - 获取 WinuxCmd 版本字符串
+- `winux_free_buffer()` - 释放分配的内存
+- `winux_free_commands_array()` - 释放 winux_get_all_commands() 分配的命令数组
+
+### 使用示例
+
+```c
+#include "ffi.h"
+
+int main() {
+    // 检查 daemon 可用性
+    if (!winux_is_daemon_available()) {
+        printf("Daemon 不可用\n");
+        return 1;
+    }
+
+    // 获取所有可用命令
+    char** commands = NULL;
+    int count = 0;
+    if (winux_get_all_commands(&commands, &count) == 0) {
+        printf("可用命令：\n");
+        for (int i = 0; i < count; i++) {
+            printf("  %s\n", commands[i]);
+        }
+        winux_free_commands_array(commands, count);
+    }
+
+    // 执行命令
+    char* output = NULL;
+    char* error = NULL;
+    size_t output_size = 0;
+    size_t error_size = 0;
+
+    int exit_code = winux_execute("ls", NULL, 0, NULL,
+                                  &output, &error,
+                                  &output_size, &error_size);
+
+    if (output) {
+        fwrite(output, 1, output_size, stdout);
+        winux_free_buffer(output);
+    }
+    if (error) {
+        winux_free_buffer(error);
+    }
+
+    return 0;
+}
+```
+
+### 构建 FFI
+
+完整示例见 `examples/ffi/ffi_example.c`。设置 `BUILD_FFI=ON` 时会自动构建 FFI 库（`winuxcmd.dll`）。
+
+---
+
 ## 📦 已实现命令（137 个）
 
 > 完整参数列表见 [命令实现文档](DOCS/zh/commands_implementation.md)

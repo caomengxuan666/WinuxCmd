@@ -81,6 +81,68 @@ grep -n "TODO" README.md
 - Entered from `cmd`: unknown commands fallback through cmd
 - PowerShell completion entries (for example `Get-Process`, `Where-Object`) are enabled only in PowerShell sessions
 
+## FFI API
+
+WinuxCmd provides a C Foreign Function Interface (FFI) for integration with other languages and applications.
+
+### Available Functions
+
+- `winux_execute()` - Execute commands via daemon with zero start-up overhead
+- `winux_get_all_commands()` - Retrieve all available command names
+- `winux_is_daemon_available()` - Check if daemon is running
+- `winux_get_version()` - Get WinuxCmd version string
+- `winux_free_buffer()` - Free allocated memory
+- `winux_free_commands_array()` - Free command array allocated by winux_get_all_commands()
+
+### Example Usage
+
+```c
+#include "ffi.h"
+
+int main() {
+    // Check daemon availability
+    if (!winux_is_daemon_available()) {
+        printf("Daemon not available\n");
+        return 1;
+    }
+
+    // Get all available commands
+    char** commands = NULL;
+    int count = 0;
+    if (winux_get_all_commands(&commands, &count) == 0) {
+        printf("Available commands:\n");
+        for (int i = 0; i < count; i++) {
+            printf("  %s\n", commands[i]);
+        }
+        winux_free_commands_array(commands, count);
+    }
+
+    // Execute a command
+    char* output = NULL;
+    char* error = NULL;
+    size_t output_size = 0;
+    size_t error_size = 0;
+
+    int exit_code = winux_execute("ls", NULL, 0, NULL,
+                                  &output, &error,
+                                  &output_size, &error_size);
+
+    if (output) {
+        fwrite(output, 1, output_size, stdout);
+        winux_free_buffer(output);
+    }
+    if (error) {
+        winux_free_buffer(error);
+    }
+
+    return 0;
+}
+```
+
+### Building with FFI
+
+See `examples/ffi/ffi_example.c` for a complete example. The FFI library (`winuxcmd.dll`) is built when `BUILD_FFI=ON` is set.
+
 ## PowerShell Auto-Enter (Interactive)
 
 Add this to your PowerShell profile (`$PROFILE`) to auto-enter WinuxCmd for interactive terminal sessions:
