@@ -50,13 +50,14 @@ typedef struct {
     char* error_message;
 } WinuxCmdRequest;
 
-WINUX_API int winux_init_daemon(void);
 WINUX_API int winux_execute(const char* command, const char** args, int arg_count,
                               const char* cwd, char** output, char** error,
                               size_t* output_size, size_t* error_size);
 WINUX_API void winux_free_buffer(char* buffer);
+WINUX_API void winux_free_commands_array(char** commands, int count);
 WINUX_API int winux_is_daemon_available(void);
 WINUX_API const char* winux_get_version(void);
+WINUX_API int winux_get_all_commands(char*** commands, int* count);
 
 #ifdef __cplusplus
 }
@@ -135,16 +136,33 @@ int main() {
     int daemon_available = winux_is_daemon_available();
     printf("Daemon Available: %s\n\n", daemon_available ? "Yes" : "No");
 
-    // Initialize daemon
-    printf("Initializing daemon...\n");
-    int init_result = winux_init_daemon();
-    if (init_result != 0) {
-        printf("Warning: Daemon initialization returned %d\n", init_result);
-    }
-
     // Check daemon availability again
     daemon_available = winux_is_daemon_available();
     printf("Daemon Available after init: %s\n\n", daemon_available ? "Yes" : "No");
+
+    // Test: Get all available commands
+    printf("Test: Getting all available commands...\n");
+    char** commands = NULL;
+    int command_count = 0;
+    int get_cmds_result = winux_get_all_commands(&commands, &command_count);
+    
+    if (get_cmds_result == 0) {
+        printf("Found %d available commands:\n", command_count);
+        for (int i = 0; i < command_count && i < 10; i++) {  // Show first 10 commands
+            if (commands[i]) {
+                printf("  %s\n", commands[i]);
+            }
+        }
+        if (command_count > 10) {
+            printf("  ... and %d more commands\n", command_count - 10);
+        }
+        
+        // Clean up command list
+        winux_free_commands_array(commands, command_count);
+    } else {
+        printf("Failed to get commands (error code: %d)\n", get_cmds_result);
+    }
+    printf("\n");
 
     if (!daemon_available) {
         printf("Error: Daemon is not available. Cannot proceed with FFI test.\n");

@@ -74,7 +74,7 @@ inline std::string error_code_to_string(ErrorCode code) {
 struct Request {
   int version = PROTOCOL_VERSION;
   std::string id;
-  std::string type;  // "execute" | "stream"
+  std::string type;  // "execute" | "stream" | "list_commands"
   std::string command;
   std::vector<std::string> args;
   std::string cwd;
@@ -96,6 +96,9 @@ struct Response {
   std::string stdout_text;
   std::string stderr_text;
   bool success = true;
+
+  // For list_commands response
+  std::vector<std::string> commands;
 
   struct Error {
     std::string code;
@@ -154,6 +157,11 @@ inline std::string serialize_response(const Response& resp) {
   root["stdout"] = resp.stdout_text;
   root["stderr"] = resp.stderr_text;
   root["success"] = resp.success;
+
+  // Serialize commands if present (for list_commands response)
+  if (!resp.commands.empty()) {
+    root["commands"] = resp.commands;
+  }
 
   if (resp.error) {
     nlohmann::json err;
@@ -225,6 +233,13 @@ inline std::optional<Response> deserialize_response(
     resp.stdout_text = root["stdout"].get<std::string>();
     resp.stderr_text = root["stderr"].get<std::string>();
     resp.success = root["success"].get<bool>();
+
+    // Parse commands if present (for list_commands response)
+    if (root.contains("commands") && root["commands"].is_array()) {
+      for (const auto& cmd : root["commands"]) {
+        resp.commands.push_back(cmd.get<std::string>());
+      }
+    }
 
     if (root["error"].is_object()) {
       Response::Error err;

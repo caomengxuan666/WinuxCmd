@@ -42,16 +42,6 @@ extern "C" {
 #endif
 
 /**
- * @brief Initialize daemon mode (optional, daemon will auto-start on first
- * execution)
- * @return 0 on success, non-zero on error
- *
- * This function is optional. The daemon will be automatically started
- * on the first call to winux_execute() if not already running.
- */
-WINUX_API int winux_init_daemon(void);
-
-/**
  * @brief Execute command via daemon (zero start-up overhead)
  *
  * @param command Command name (e.g., "ls", "echo")
@@ -102,6 +92,7 @@ WINUX_API int winux_execute(const char* command, const char** args,
  * Must be called for all output and error buffers returned by winux_execute().
  */
 WINUX_API void winux_free_buffer(char* buffer);
+WINUX_API void winux_free_commands_array(char** commands, int count);
 
 /**
  * @brief Check if daemon is available
@@ -122,6 +113,30 @@ WINUX_API const char* winux_get_version(void);
  * @return Protocol version number (e.g., 1)
  */
 WINUX_API int winux_get_protocol_version(void);
+
+/**
+ * @brief Get all available command names
+ * @param commands Array of command names (allocated by FFI, must be freed)
+ * @param count Number of commands
+ * @return 0 on success, non-zero on error
+ *
+ * @note The commands array and each string must be freed using winux_free_buffer()
+ *
+ * Example:
+ * @code
+ * char** commands = NULL;
+ * int count = 0;
+ *
+ * if (winux_get_all_commands(&commands, &count) == 0) {
+ *     for (int i = 0; i < count; i++) {
+ *         printf("%s\n", commands[i]);
+ *         winux_free_buffer(commands[i]);
+ *     }
+ *     winux_free_buffer(commands);
+ * }
+ * @endcode
+ */
+WINUX_API int winux_get_all_commands(char*** commands, int* count);
 
 #ifdef __cplusplus
 }

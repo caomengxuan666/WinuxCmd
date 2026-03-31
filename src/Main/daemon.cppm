@@ -39,19 +39,20 @@ export namespace daemon {
 // Compile-time logging configuration
 // Set to 0 to completely remove all logging code from release builds
 #ifndef DAEMON_LOG_LEVEL
-  #ifdef NDEBUG
-    #define DAEMON_LOG_LEVEL 1  // Release: errors only
-  #else
-    #define DAEMON_LOG_LEVEL 4  // Debug: all logs
-  #endif
+#ifdef NDEBUG
+#define DAEMON_LOG_LEVEL 1  // Release: errors only
+#else
+#define DAEMON_LOG_LEVEL 4  // Debug: all logs
+#endif
 #endif
 
 // Logging macros based on compile-time log level
-#define DAEMON_LOG(level, msg) do { \
-  if (DAEMON_LOG_LEVEL >= (level)) { \
-    safePrintLn(msg); \
-  } \
-} while(0)
+#define DAEMON_LOG(level, msg)         \
+  do {                                 \
+    if (DAEMON_LOG_LEVEL >= (level)) { \
+      safePrintLn(msg);                \
+    }                                  \
+  } while (0)
 
 #define DAEMON_LOG_ERROR(msg) DAEMON_LOG(1, msg)
 #define DAEMON_LOG_WARN(msg) DAEMON_LOG(2, msg)
@@ -271,6 +272,39 @@ struct ActiveCommand {
   HANDLE process_handle = nullptr;
 };
 
+// Perform warmup by executing common commands
+inline std::optional<bool> perform_warmup_commands() {
+  DAEMON_LOG_INFO(L"[Daemon Warmup] Executing warmup commands...");
+
+  // Common commands to warm up
+  std::vector<std::string> warmup_commands = {
+      "pwd",       // Current directory
+      "whoami",    // Current user
+      "hostname",  // Host name
+      "date"       // Current date/time
+  };
+
+  // Use CommandRegistry directly for warmup (avoiding IPC loopback)
+  bool all_success = true;
+
+  for (const auto& cmd : warmup_commands) {
+    std::vector<std::string_view> args;
+    try {
+      // Capture output to prevent printing to console
+      OutputCapture capture(65536, 16384);
+      CommandRegistry::dispatch(cmd, args);
+      capture.finish();
+    } catch (const std::exception& e) {
+      all_success = false;
+    } catch (...) {
+      all_success = false;
+    }
+  }
+
+  DAEMON_LOG_INFO(L"[Daemon Warmup] Warmup completed");
+  return all_success;
+}
+
 // Daemon manager
 class DaemonManager {
  public:
@@ -284,6 +318,9 @@ class DaemonManager {
 
     safePrintLn(L"WinuxCmd daemon starting...");
     safePrintLn(L"Pipe name: " + utf8_to_wstring(pipe_name_));
+
+    // Perform warmup to register all commands
+    perform_warmup_commands();
 
     while (running_) {
       // Check idle timeout
@@ -390,13 +427,23 @@ class DaemonManager {
   }
 
   // Execute command
-
   ipc::Response execute_command(const ipc::Request& req) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     ipc::Response resp;
-
     resp.id = req.id;
+    // Handle list_commands request
+    if (req.type == "list_commands") {
+      DAEMON_LOG_DEBUG(L"[Daemon] Listing all commands");
+      auto all_commands = CommandRegistry::getAllCommands();
+      for (const auto& [name, _] : all_commands) {
+        resp.commands.push_back(std::string(name));
+      }
+
+      resp.success = true;
+
+      return resp;
+    }
 
     // Set working directory
 
@@ -538,43 +585,9 @@ inline bool is_daemon_running() {
   return true;
 }
 
-
-// Perform warmup by executing common commands
-inline std::optional<bool> perform_warmup_commands() {
-  DAEMON_LOG_INFO(L"[Daemon Warmup] Executing warmup commands...");
-
-  // Common commands to warm up
-  std::vector<std::string> warmup_commands = {
-    "pwd",    // Current directory
-    "whoami", // Current user
-    "hostname", // Host name
-    "date"    // Current date/time
-  };
-
-  // Use IPC client to execute warmup commands
-  ipc_client::IpcClient client;
-  bool all_success = true;
-
-  for (const auto& cmd : warmup_commands) {
-    auto response = ipc_client::quick_execute(cmd);
-    if (!response) {
-      DAEMON_LOG_WARN(L"[Daemon Warmup] Warmup command '" +
-                     utf8_to_wstring(cmd) + L"' failed (no response)");
-      all_success = false;
-    } else if (!response->success) {
-      DAEMON_LOG_WARN(L"[Daemon Warmup] Warmup command '" +
-                     utf8_to_wstring(cmd) + L"' failed (exit code: " +
-                     std::to_wstring(response->exit_code) + L")");
-      all_success = false;
-    }
-  }
-
-  DAEMON_LOG_INFO(L"[Daemon Warmup] Warmup completed");
-  return all_success;
-}
-
 // Warmup daemon - start daemon and preload common commands
-inline std::optional<bool> warmup_daemon(const DaemonConfig& config = DaemonConfig{}) {
+inline std::optional<bool> warmup_daemon(
+    const DaemonConfig& config = DaemonConfig{}) {
   DAEMON_LOG_INFO(L"[Daemon Warmup] Starting warmup process...");
 
   // Check if daemon is already running
@@ -586,9 +599,7 @@ inline std::optional<bool> warmup_daemon(const DaemonConfig& config = DaemonConf
 
   // Daemon not running, start it
   DAEMON_LOG_INFO(L"[Daemon Warmup] Starting daemon...");
-  std::thread daemon_thread([&config]() {
-    daemon::start_daemon(config);
-  });
+  std::thread daemon_thread([&config]() { daemon::start_daemon(config); });
   daemon_thread.detach();
 
   // Wait for daemon to be ready

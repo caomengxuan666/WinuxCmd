@@ -34,14 +34,9 @@ import utils;
 import core;
 import ipc;
 import ipc_client;
-import daemon;
 import version;
 
 namespace {
-// Global daemon handle (optional, for manual management)
-std::unique_ptr<daemon::DaemonManager> g_daemon;
-bool g_daemon_initialized = false;
-
 // Helper function to copy string to C buffer
 char* copy_string_to_buffer(const std::string& str, size_t* size) {
   if (str.empty()) {
@@ -49,8 +44,10 @@ char* copy_string_to_buffer(const std::string& str, size_t* size) {
     return nullptr;
   }
 
-  char* buffer = new char[str.size()];
+  // Allocate extra byte for null terminator
+  char* buffer = new char[str.size() + 1];
   std::memcpy(buffer, str.data(), str.size());
+  buffer[str.size()] = '\0';  // Null terminate for C string compatibility
 
   if (size) *size = str.size();
   return buffer;
@@ -59,23 +56,6 @@ char* copy_string_to_buffer(const std::string& str, size_t* size) {
 }  // namespace
 
 extern "C" {
-
-int winux_init_daemon(void) {
-  try {
-    if (g_daemon_initialized) {
-      return 0;  // Already initialized
-    }
-
-    g_daemon = std::make_unique<daemon::DaemonManager>();
-    g_daemon_initialized = true;
-
-    return 0;
-  } catch (const std::exception& e) {
-    return -1;
-  } catch (...) {
-    return -1;
-  }
-}
 
 int winux_execute(const char* command, const char** args, int arg_count,
                   const char* cwd, char** output, char** error,
@@ -111,19 +91,6 @@ int winux_execute(const char* command, const char** args, int arg_count,
     // Set working directory
     if (cwd && cwd[0] != '\0') {
       req.cwd = cwd;
-    }
-
-    // Check if daemon is available
-    if (!ipc_client::IpcClient::is_daemon_available()) {
-      // Try to start daemon automatically
-      if (!g_daemon_initialized) {
-        if (winux_init_daemon() != 0) {
-          if (error)
-            *error = copy_string_to_buffer("Failed to initialize daemon",
-                                           error_size);
-          return -1;
-        }
-      }
     }
 
     // Execute via daemon
@@ -165,6 +132,20 @@ void winux_free_buffer(char* buffer) {
   }
 }
 
+void winux_free_commands_array(char** commands, int count) {
+  if (!commands) return;
+
+  // Free each command string
+  for (int i = 0; i < count; ++i) {
+    if (commands[i]) {
+      delete[] commands[i];
+    }
+  }
+
+  // Free the array itself
+  delete[] commands;
+}
+
 int winux_is_daemon_available(void) {
   return ipc_client::IpcClient::is_daemon_available() ? 1 : 0;
 }
@@ -172,5 +153,69 @@ int winux_is_daemon_available(void) {
 const char* winux_get_version(void) { return WinuxCmd::VERSION_STRING; }
 
 int winux_get_protocol_version(void) { return ipc::PROTOCOL_VERSION; }
+
+int winux_get_all_commands(char*** commands, int* count) {
+  // Initialize output parameters
+  if (commands) *commands = nullptr;
+  if (count) *count = 0;
+
+  try {
+    // Build request for list_commands
+    ipc::Request req;
+    req.id = ipc::generate_request_id();
+    req.type = "list_commands";
+
+    // Execute via daemon
+    ipc_client::IpcClient client;
+    auto response = client.execute_via_daemon(req);
+
+    if (!response || !response->success) {
+      return -1;
+    }
+
+    // Extract commands from response
+    const auto& cmd_list = response->commands;
+
+    if (cmd_list.empty()) {
+      return 0;  // No commands available, but not an error
+    }
+
+    // Allocate array for command names
+    char** cmd_array = new char*[cmd_list.size()];
+
+    // Copy each command name
+    for (size_t i = 0; i < cmd_list.size(); ++i) {
+      cmd_array[i] = copy_string_to_buffer(cmd_list[i], nullptr);
+    }
+
+    // Set output
+    if (commands) *commands = cmd_array;
+    if (count) *count = static_cast<int>(cmd_list.size());
+
+    return 0;
+
+  } catch (const std::exception& e) {
+    if (commands && *commands) {
+      // Free allocated memory on error
+      for (int i = 0; i < (count ? *count : 0); ++i) {
+        delete[] (*commands)[i];
+      }
+      delete[] *commands;
+      *commands = nullptr;
+    }
+    if (count) *count = 0;
+    return -1;
+  } catch (...) {
+    if (commands && *commands) {
+      for (int i = 0; i < (count ? *count : 0); ++i) {
+        delete[] (*commands)[i];
+      }
+      delete[] *commands;
+      *commands = nullptr;
+    }
+    if (count) *count = 0;
+    return -1;
+  }
+}
 
 }  // extern "C"

@@ -716,7 +716,7 @@ int main(int argc, char *argv[]) noexcept {
 
     // Check for --version in command arguments
     bool has_version = false;
-    for (const auto& arg : cmd_args) {
+    for (const auto &arg : cmd_args) {
       if (arg == "--version") {
         has_version = true;
         break;
@@ -797,7 +797,6 @@ int main(int argc, char *argv[]) noexcept {
           L"[IPC] Daemon execution failed, falling back to direct execution");
 
       // If daemon execution failed, fall back to direct execution
-
     }
 
     // Direct execution (normal mode)

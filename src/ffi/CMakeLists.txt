@@ -40,7 +40,6 @@ set(FFI_UTILS_MODULES
 
 set(FFI_MAIN_MODULES
     ${PROJECT_MODULE_BASE}/Main/ipc.cppm
-    ${PROJECT_MODULE_BASE}/Main/daemon.cppm
     ${PROJECT_MODULE_BASE}/Main/ipc_client.cppm
 )
 
