@@ -98,20 +98,33 @@
       }
     },
     {
-      "name": "ffi-only",
-      "displayName": "FFI Library Only",
-      "description": "Build only the FFI library (winuxcmd.dll)",
-      "binaryDir": "${sourceDir}/build-ffi",
-      "generator": "Ninja",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "BUILD_MODE": "RELEASE",
-        "USE_STATIC_CRT": "ON",
-        "BUILD_FFI": "ON",
-        "ENABLE_TESTS": "OFF",
-        "ENABLE_UPX": "OFF"
-      }
-    }
+          "name": "ffi-only",
+          "displayName": "FFI Library Only",
+          "description": "Build only the FFI library (winuxcmd.dll)",
+          "binaryDir": "${sourceDir}/build-ffi",
+          "generator": "Ninja",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "BUILD_MODE": "RELEASE",
+            "USE_STATIC_CRT": "ON",
+            "BUILD_FFI": "ON",
+            "ENABLE_TESTS": "OFF",
+            "ENABLE_UPX": "OFF"
+          }
+        },
+        {
+          "name": "release-examples",
+          "displayName": "Release with Examples",
+          "description": "Release build with unity build and examples enabled",
+          "binaryDir": "${sourceDir}/build-release-examples",
+          "generator": "Ninja",
+          "cacheVariables": {
+            "CMAKE_BUILD_TYPE": "Release",
+            "BUILD_MODE": "RELEASE_EXAMPLES",
+            "USE_STATIC_CRT": "ON",
+            "BUILD_FFI": "ON"
+          }
+        }
   ],
   "buildPresets": [
     {
@@ -157,10 +170,16 @@
       "description": "Build individual standalone executables"
     },
     {
-      "name": "ffi-only",
-      "configurePreset": "ffi-only",
-      "displayName": "Build FFI Only",
-      "description": "Build only the FFI library"
-    }
+          "name": "ffi-only",
+          "configurePreset": "ffi-only",
+          "displayName": "Build FFI Only",
+          "description": "Build only the FFI library"
+        },
+        {
+          "name": "release-examples",
+          "configurePreset": "release-examples",
+          "displayName": "Build Release with Examples",
+          "description": "Build release version with examples enabled"
+        }
   ]
 }

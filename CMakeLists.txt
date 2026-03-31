@@ -25,12 +25,13 @@ if(DEFINED BUILD_MODE)
     endif()
     
     # Validate build mode
-    if(NOT BUILD_MODE STREQUAL "DEV" AND 
-       NOT BUILD_MODE STREQUAL "RELEASE" AND 
-       NOT BUILD_MODE STREQUAL "DEBUG_RELEASE")
+    if(NOT BUILD_MODE STREQUAL "DEV" AND
+       NOT BUILD_MODE STREQUAL "RELEASE" AND
+       NOT BUILD_MODE STREQUAL "DEBUG_RELEASE" AND
+       NOT BUILD_MODE STREQUAL "RELEASE_EXAMPLES")
         message(WARNING "Invalid BUILD_MODE '${BUILD_MODE}', resetting to 'DEV'")
         unset(BUILD_MODE CACHE)
-        set(BUILD_MODE "DEV" CACHE STRING "Build mode (DEV or RELEASE)" FORCE)
+        set(BUILD_MODE "DEV" CACHE STRING "Build mode (DEV, RELEASE, DEBUG_RELEASE, or RELEASE_EXAMPLES)" FORCE)
     endif()
 else()
     # Auto-detect build mode based on build type
@@ -41,7 +42,7 @@ else()
         set(BUILD_MODE "DEV" CACHE STRING "Build mode (DEV or RELEASE)" FORCE)
     endif()
 endif()
-set_property(CACHE BUILD_MODE PROPERTY STRINGS "DEV" "RELEASE" "DEBUG_RELEASE")
+set_property(CACHE BUILD_MODE PROPERTY STRINGS "DEV" "RELEASE" "DEBUG_RELEASE" "RELEASE_EXAMPLES")
 
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
@@ -77,6 +78,13 @@ elseif(BUILD_MODE STREQUAL "DEBUG_RELEASE")
     set(ENABLE_TESTS_DEFAULT ON)
     set(GENERATE_MAP_INFO_DEFAULT ON)
     set(ENABLE_UNITY_BUILD_DEFAULT OFF)  # Disable Unity build for better debugging
+    set(ENABLE_UPX_DEFAULT OFF)
+elseif(BUILD_MODE STREQUAL "RELEASE_EXAMPLES")
+    # Release mode with examples: optimize for performance and size, but build examples
+    message(STATUS "Configuring for RELEASE_EXAMPLES mode")
+    set(ENABLE_TESTS_DEFAULT OFF)
+    set(GENERATE_MAP_INFO_DEFAULT OFF)
+    set(ENABLE_UNITY_BUILD_DEFAULT ON)   # Unity build improves performance and reduces size
     set(ENABLE_UPX_DEFAULT OFF)
 else()
     message(WARNING "Unknown BUILD_MODE '${BUILD_MODE}', using DEVELOPMENT settings")

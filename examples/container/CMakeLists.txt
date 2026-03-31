@@ -61,8 +61,8 @@ foreach(EXAMPLE_SOURCE ${EXAMPLE_SOURCES})
         )
     endif()
     
-    # Only build in DEV mode
-    if(BUILD_MODE STREQUAL "DEV")
+    # Only build in DEV mode or RELEASE_EXAMPLES mode
+    if(BUILD_MODE STREQUAL "DEV" OR BUILD_MODE STREQUAL "RELEASE_EXAMPLES")
         message(STATUS "Added example: ${EXAMPLE_NAME}")
     else()
         set_target_properties(${EXAMPLE_NAME} PROPERTIES
