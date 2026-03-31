@@ -26,13 +26,13 @@
  *  - CopyrightYear: 2026
  */
 
-#include "ffi.h"
-#include <cstring>
-#include <string>
-#include <vector>
 #include <windows.h>
-#include "core/dispatcher.h"
-#include "utils/console.h"
+#include "ffi.h"
+
+import std;
+import core;
+import version;
+import utils;
 
 namespace {
 
@@ -210,7 +210,7 @@ void winux_free_commands_array(char** commands, int count) {
 }
 
 const char* winux_get_version() {
-  return WINUXCMD_VERSION;
+  return WinuxCmd::VERSION_STRING;
 }
 
 int winux_get_all_commands(char*** commands, int* count) {

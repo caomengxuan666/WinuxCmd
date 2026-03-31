@@ -115,11 +115,12 @@ endif ()
 # Add include directories
 target_include_directories(winuxcmd_ffi PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
 
-# Link Windows libraries
+# Link Windows libraries and commands static library
 target_link_libraries(winuxcmd_ffi PRIVATE
     kernel32.lib
     user32.lib
     advapi32.lib
+    winuxcmd-commands
 )
 
 # Install FFI library and files to ffi directory

@@ -247,6 +247,69 @@ add_executable(winuxcmd
 # PCH for winuxcmd
 target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
+# ====================================================
+# Commands Static Library (shared by exe and FFI)
+# ====================================================
+message(STATUS "=== Creating Commands Static Library ===")
+
+add_library(winuxcmd-commands STATIC)
+
+# Add PCH to commands library
+target_precompile_headers(winuxcmd-commands PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
+
+# Add all command source files
+file(GLOB COMMAND_SOURCES CONFIGURE_DEPENDS
+        "src/commands/*.cpp"
+)
+
+target_sources(winuxcmd-commands PRIVATE ${COMMAND_SOURCES})
+
+# Set C++ standard
+set_target_properties(winuxcmd-commands PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
+)
+
+# Compile options
+target_compile_options(winuxcmd-commands PRIVATE
+        $<$<CONFIG:Release>:/O2 /Os>
+        /GR-
+)
+
+target_compile_definitions(winuxcmd-commands PRIVATE
+        _UNICODE
+        UNICODE
+        _CRT_DISABLE_PERFCRIT_LOCKS
+        _HAS_RTTI=0
+)
+
+# Link options
+target_link_options(winuxcmd-commands PRIVATE
+        $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+)
+
+if (USE_STATIC_CRT AND MSVC)
+    target_compile_options(winuxcmd-commands PRIVATE /MT /Os /Oy /GS-)
+endif ()
+
+if (MSVC)
+    target_compile_options(winuxcmd-commands PRIVATE
+            /std:c++latest
+    )
+endif ()
+
+# Add include directories
+target_include_directories(winuxcmd-commands PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
+
+message(STATUS "Commands library created with ${COMMAND_SOURCES_COUNT} files")
+
+# Link commands library to main executable
+target_link_libraries(winuxcmd PRIVATE winuxcmd-commands)
+
+# ====================================================
+# Main executable modules and configuration
+# ====================================================
 
 # Add all C++23 module interfaces for main executable
 file(GLOB_RECURSE CXX_MODULE_FILES CONFIGURE_DEPENDS
