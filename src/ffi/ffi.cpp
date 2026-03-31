@@ -30,8 +30,9 @@
 #include <cstring>
 #include <string>
 #include <vector>
-#include "Main/output_capture.h"
+#include <windows.h>
 #include "core/dispatcher.h"
+#include "utils/console.h"
 
 namespace {
 
@@ -49,6 +50,82 @@ char* copy_string_to_buffer(const std::string& str, size_t* size) {
   if (size) *size = str.size();
   return buffer;
 }
+
+// Output capture using Windows pipes
+class OutputCapture {
+ public:
+  OutputCapture() {
+    // Save original handles
+    hStdoutSave = GetStdHandle(STD_OUTPUT_HANDLE);
+    hStderrSave = GetStdHandle(STD_ERROR_HANDLE);
+
+    // Create pipes for stdout and stderr
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = NULL;
+
+    CreatePipe(&hReadStdout, &hWriteStdout, &sa, 0);
+    CreatePipe(&hReadStderr, &hWriteStderr, &sa, 0);
+
+    // Set write ends to non-inheritable
+    SetHandleInformation(hWriteStdout, HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(hWriteStderr, HANDLE_FLAG_INHERIT, 0);
+
+    // Set capture handles in console module
+    set_output_capture_handles(hWriteStdout, hWriteStderr, true);
+  }
+
+  ~OutputCapture() {
+    // Disable capture
+    set_output_capture_handles(NULL, NULL, false);
+
+    // Close handles
+    if (hReadStdout) CloseHandle(hReadStdout);
+    if (hWriteStdout) CloseHandle(hWriteStdout);
+    if (hReadStderr) CloseHandle(hReadStderr);
+    if (hWriteStderr) CloseHandle(hWriteStderr);
+  }
+
+  void finish() {
+    // Close write ends to signal EOF
+    if (hWriteStdout) {
+      CloseHandle(hWriteStdout);
+      hWriteStdout = NULL;
+    }
+    if (hWriteStderr) {
+      CloseHandle(hWriteStderr);
+      hWriteStderr = NULL;
+    }
+
+    // Read all data from pipes
+    readPipe(hReadStdout, stdoutBuffer);
+    readPipe(hReadStderr, stderrBuffer);
+  }
+
+  std::string get_output() const { return stdoutBuffer; }
+  std::string get_error() const { return stderrBuffer; }
+
+ private:
+  void readPipe(HANDLE hPipe, std::string& buffer) {
+    if (!hPipe) return;
+
+    char temp[4096];
+    DWORD bytesRead;
+    while (ReadFile(hPipe, temp, sizeof(temp), &bytesRead, NULL) && bytesRead > 0) {
+      buffer.append(temp, bytesRead);
+    }
+  }
+
+  HANDLE hStdoutSave = NULL;
+  HANDLE hStderrSave = NULL;
+  HANDLE hReadStdout = NULL;
+  HANDLE hWriteStdout = NULL;
+  HANDLE hReadStderr = NULL;
+  HANDLE hWriteStderr = NULL;
+  std::string stdoutBuffer;
+  std::string stderrBuffer;
+};
 
 }  // namespace
 
@@ -71,8 +148,8 @@ int winux_execute(const char* command, const char** args, int arg_count,
   if (error_size) *error_size = 0;
 
   try {
-    // Capture output
-    OutputCapture capture(65536, 16384);
+    // Capture output using pipes
+    OutputCapture capture;
 
     // Build argument list
     std::vector<std::string_view> arg_list;
@@ -85,7 +162,7 @@ int winux_execute(const char* command, const char** args, int arg_count,
     }
 
     // Execute command directly
-    CommandRegistry::dispatch(command, arg_list);
+    int exit_code = CommandRegistry::dispatch(command, arg_list);
 
     // Finish capture
     capture.finish();
@@ -99,7 +176,7 @@ int winux_execute(const char* command, const char** args, int arg_count,
       *error = copy_string_to_buffer(capture.get_error(), error_size);
     }
 
-    return 0;
+    return exit_code;
   } catch (const std::exception& e) {
     if (error) {
       std::string error_msg = std::string("Exception: ") + e.what();
