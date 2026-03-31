@@ -27,3 +27,12 @@ scripts/manager.py
 
 /CMakeSettings.json
 
+# Git protection system (local only, never commit)
+git.bat
+git-safety-alias.ps1
+git-protect.ps1
+powershell-profile.ps1
+.git/git-protect.ps1
+.git/hooks/pre-restore
+README-GIT-PROTECTION.md
+

@@ -33,3 +33,4 @@ export import :path;
 export import :json;
 export import :file_io;
 export import :cppbar;
+export import :encoding;

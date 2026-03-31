@@ -32,6 +32,7 @@
 #ifndef PCH_H
 #pragma warning(disable: 4530)
 #pragma warning(disable: 4541)  // Disable typeid warning with /GR-
+#pragma warning(disable: 4129)
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #define STRICT

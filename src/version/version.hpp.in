@@ -3,20 +3,20 @@
 namespace WinuxCmd {
 
 // Version components
-constexpr int VERSION_MAJOR = @VERSION_MAJOR@;
-constexpr int VERSION_MINOR = @VERSION_MINOR@;
-constexpr int VERSION_PATCH = @VERSION_PATCH@;
+inline constexpr int VERSION_MAJOR = @VERSION_MAJOR@;
+inline constexpr int VERSION_MINOR = @VERSION_MINOR@;
+inline constexpr int VERSION_PATCH = @VERSION_PATCH@;
 
 // Version string
-constexpr const char* VERSION_STRING = "@VERSION_STRING@";
+inline constexpr const char* VERSION_STRING = "@VERSION_STRING@";
 
 // Version as integer (MAJOR * 10000 + MINOR * 100 + PATCH)
-constexpr int VERSION_NUMBER = VERSION_MAJOR * 10000 + VERSION_MINOR * 100 + VERSION_PATCH;
+inline constexpr int VERSION_NUMBER = VERSION_MAJOR * 10000 + VERSION_MINOR * 100 + VERSION_PATCH;
 
 // Build information
-constexpr const char* BUILD_TYPE = "@CMAKE_BUILD_TYPE@";
-constexpr const char* BUILD_TIMESTAMP = "@BUILD_TIMESTAMP@";
-constexpr const char* COMPILER_ID = "@CMAKE_CXX_COMPILER_ID@";
-constexpr const char* COMPILER_VERSION = "@CMAKE_CXX_COMPILER_VERSION@";
+inline constexpr const char* BUILD_TYPE = "@CMAKE_BUILD_TYPE@";
+inline constexpr const char* BUILD_TIMESTAMP = "@BUILD_TIMESTAMP@";
+inline constexpr const char* COMPILER_ID = "@CMAKE_CXX_COMPILER_ID@";
+inline constexpr const char* COMPILER_VERSION = "@CMAKE_CXX_COMPILER_VERSION@";
 
 } // namespace WinuxCmd

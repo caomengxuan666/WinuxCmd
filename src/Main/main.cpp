@@ -28,11 +28,12 @@
 import std;
 import core;
 import utils;
-import wildcard_handler;
 import readline;
 import native_completion;
 import version;
-#include <version.hpp>
+import ipc;
+import daemon;
+import ipc_client;
 
 namespace {
 static std::string g_repl_executable_path;
@@ -58,8 +59,8 @@ static bool startsWithCaseInsensitive(std::string_view text,
   return true;
 }
 
-static std::vector<CompletionItem>
-getCommandCompletions(std::string_view prefix) {
+static std::vector<CompletionItem> getCommandCompletions(
+    std::string_view prefix) {
   std::vector<CompletionItem> items;
   auto all = CommandRegistry::getAllCommands();
   items.reserve(all.size() + 64);
@@ -75,7 +76,8 @@ getCommandCompletions(std::string_view prefix) {
   }
 
   bool includePowerShell = (g_repl_fallback_shell == FallbackShell::PowerShell);
-  auto native = queryNativeCommandCompletionsForShell(prefix, includePowerShell);
+  auto native =
+      queryNativeCommandCompletionsForShell(prefix, includePowerShell);
   for (const auto &item : native) {
     if (seen.insert(toLowerAscii(item.text)).second)
       items.push_back({item.text, item.hint});
@@ -85,12 +87,12 @@ getCommandCompletions(std::string_view prefix) {
   return items;
 }
 
-static std::vector<CompletionItem>
-getWindowsOptionCompletions(std::string_view cmd_name, std::string_view prefix) {
+static std::vector<CompletionItem> getWindowsOptionCompletions(
+    std::string_view cmd_name, std::string_view prefix) {
   std::vector<CompletionItem> items;
   bool includePowerShell = (g_repl_fallback_shell == FallbackShell::PowerShell);
-  auto native = queryNativeOptionCompletionsForShell(cmd_name, prefix,
-                                                      includePowerShell);
+  auto native =
+      queryNativeOptionCompletionsForShell(cmd_name, prefix, includePowerShell);
   items.reserve(native.size());
   for (const auto &item : native) {
     items.push_back({item.text, item.hint});
@@ -98,14 +100,14 @@ getWindowsOptionCompletions(std::string_view cmd_name, std::string_view prefix) 
   return items;
 }
 
-static std::vector<CompletionItem>
-getPathCompletions(std::string_view token_prefix) {
+static std::vector<CompletionItem> getPathCompletions(
+    std::string_view token_prefix) {
   std::vector<CompletionItem> items;
   std::string prefix(token_prefix);
 
   std::filesystem::path base_dir = ".";
-  std::string           name_prefix = prefix;
-  bool                  has_dir_part = false;
+  std::string name_prefix = prefix;
+  bool has_dir_part = false;
 
   // Support both '/' and '\' separators on Windows input.
   size_t slash_pos = prefix.find_last_of("/\\");
@@ -126,8 +128,7 @@ getPathCompletions(std::string_view token_prefix) {
   if (!std::filesystem::exists(base_dir, ec) || ec) return items;
   if (!std::filesystem::is_directory(base_dir, ec) || ec) return items;
 
-  for (const auto& entry :
-       std::filesystem::directory_iterator(
+  for (const auto &entry : std::filesystem::directory_iterator(
            base_dir, std::filesystem::directory_options::skip_permission_denied,
            ec)) {
     if (ec) break;
@@ -187,43 +188,7 @@ static std::wstring buildReplPrompt() noexcept {
   }
 }
 
-static std::string base64Encode(const std::vector<unsigned char>& data) {
-  static constexpr char kTable[] =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  std::string out;
-  out.reserve(((data.size() + 2) / 3) * 4);
-  size_t i = 0;
-  while (i + 3 <= data.size()) {
-    unsigned int n =
-        (static_cast<unsigned int>(data[i]) << 16) |
-        (static_cast<unsigned int>(data[i + 1]) << 8) |
-        static_cast<unsigned int>(data[i + 2]);
-    out.push_back(kTable[(n >> 18) & 0x3F]);
-    out.push_back(kTable[(n >> 12) & 0x3F]);
-    out.push_back(kTable[(n >> 6) & 0x3F]);
-    out.push_back(kTable[n & 0x3F]);
-    i += 3;
-  }
-  size_t rem = data.size() - i;
-  if (rem == 1) {
-    unsigned int n = static_cast<unsigned int>(data[i]) << 16;
-    out.push_back(kTable[(n >> 18) & 0x3F]);
-    out.push_back(kTable[(n >> 12) & 0x3F]);
-    out.push_back('=');
-    out.push_back('=');
-  } else if (rem == 2) {
-    unsigned int n =
-        (static_cast<unsigned int>(data[i]) << 16) |
-        (static_cast<unsigned int>(data[i + 1]) << 8);
-    out.push_back(kTable[(n >> 18) & 0x3F]);
-    out.push_back(kTable[(n >> 12) & 0x3F]);
-    out.push_back(kTable[(n >> 6) & 0x3F]);
-    out.push_back('=');
-  }
-  return out;
-}
-
-static std::string toPowerShellEncodedCommand(const std::wstring& script) {
+static std::string toPowerShellEncodedCommand(const std::wstring &script) {
   // PowerShell -EncodedCommand expects UTF-16LE bytes.
   std::vector<unsigned char> bytes;
   bytes.reserve(script.size() * 2);
@@ -232,7 +197,7 @@ static std::string toPowerShellEncodedCommand(const std::wstring& script) {
     bytes.push_back(static_cast<unsigned char>(u & 0xFF));
     bytes.push_back(static_cast<unsigned char>((u >> 8) & 0xFF));
   }
-  return base64Encode(bytes);
+  return encoding::base64_encode(bytes);
 }
 
 static bool isPowerShellProcessName(std::wstring_view name) {
@@ -311,14 +276,15 @@ static int runNativeFallback(const std::string &line) noexcept {
   if (g_repl_fallback_shell == FallbackShell::PowerShell) {
     std::wstring script = utf8_to_wstring(line);
     std::string encoded = toPowerShellEncodedCommand(script);
-    cmdline = g_repl_powershell_exe +
-              L" -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -EncodedCommand " +
-              utf8_to_wstring(encoded);
+    cmdline =
+        g_repl_powershell_exe +
+        L" -NoLogo -NoProfile -ExecutionPolicy RemoteSigned -EncodedCommand " +
+        utf8_to_wstring(encoded);
   } else {
     cmdline = L"cmd.exe /d /c " + utf8_to_wstring(line);
   }
 
-  STARTUPINFOW        si{};
+  STARTUPINFOW si{};
   PROCESS_INFORMATION pi{};
   si.cb = sizeof(si);
 
@@ -365,7 +331,7 @@ static bool hasShellMeta(std::string_view line) {
 }
 
 static std::optional<std::string> rewriteSudoBuiltinLine(
-    const std::string& line) {
+    const std::string &line) {
   std::istringstream iss(line);
   std::string first;
   std::string second;
@@ -385,7 +351,8 @@ static std::optional<std::string> rewriteSudoBuiltinLine(
   std::string rest = line.substr(rest_start);
 
   auto exe = g_repl_executable_path;
-  if (exe.find(' ') != std::string::npos || exe.find('\t') != std::string::npos) {
+  if (exe.find(' ') != std::string::npos ||
+      exe.find('\t') != std::string::npos) {
     exe = "\"" + exe + "\"";
   }
 
@@ -395,7 +362,7 @@ static std::optional<std::string> rewriteSudoBuiltinLine(
   return rewritten;
 }
 
-static std::string rewritePipeBuiltinsLine(const std::string& line) {
+static std::string rewritePipeBuiltinsLine(const std::string &line) {
   if (line.find('|') == std::string::npos || g_repl_executable_path.empty()) {
     return line;
   }
@@ -412,7 +379,7 @@ static std::string rewritePipeBuiltinsLine(const std::string& line) {
     start = pos + 1;
   }
 
-  for (auto& part : parts) {
+  for (auto &part : parts) {
     auto trimmed = trimAscii(part);
     if (trimmed.empty()) continue;
 
@@ -427,7 +394,8 @@ static std::string rewritePipeBuiltinsLine(const std::string& line) {
     }
 
     auto exe = g_repl_executable_path;
-    if (exe.find(' ') != std::string::npos || exe.find('\t') != std::string::npos) {
+    if (exe.find(' ') != std::string::npos ||
+        exe.find('\t') != std::string::npos) {
       exe = "\"" + exe + "\"";
     }
     part = exe + " " + trimmed;
@@ -451,7 +419,7 @@ static Completer makeCompleter() {
   return [](std::string_view input) -> std::vector<CompletionItem> {
     // Complete only the segment after the last pipe.
     std::string full_input(input);
-    size_t      seg_start = 0;
+    size_t seg_start = 0;
     if (auto pipe_pos = full_input.rfind('|'); pipe_pos != std::string::npos) {
       seg_start = pipe_pos + 1;
       while (seg_start < full_input.size() && full_input[seg_start] == ' ')
@@ -460,7 +428,7 @@ static Completer makeCompleter() {
 
     std::string prefix_before = full_input.substr(0, seg_start);
     std::string segment = full_input.substr(seg_start);
-    auto        space = segment.find(' ');
+    auto space = segment.find(' ');
 
     if (space == std::string::npos) {
       auto items = getCommandCompletions(segment);
@@ -470,8 +438,7 @@ static Completer makeCompleter() {
 
     std::string cmd_name = segment.substr(0, space);
     std::string rest = segment.substr(space + 1);
-    while (!rest.empty() && rest.front() == ' ')
-      rest.erase(rest.begin());
+    while (!rest.empty() && rest.front() == ' ') rest.erase(rest.begin());
 
     size_t token_start_in_rest = 0;
     if (auto pos = rest.find_last_of(" \t"); pos != std::string::npos)
@@ -523,7 +490,9 @@ static void runReplMode() noexcept {
   safePrintLn(
       L"WinuxCmd " + utf8_to_wstring(WinuxCmd::VERSION_STRING) +
       L"  (interactive)  Type 'exit' to quit, '--help' for command list.");
-  safePrintLn(L"Use Tab for completions; \u2191\u2193 for history; \u2190\u2192 to move cursor.\n");
+  safePrintLn(
+      L"Use Tab for completions; \u2191\u2193 for history; \u2190\u2192 to "
+      L"move cursor.\n");
 
   auto completer = makeCompleter();
 
@@ -574,9 +543,8 @@ static void runReplMode() noexcept {
         safePrintLn(std::filesystem::current_path().wstring());
         continue;
       }
-      if (arg.size() >= 2 &&
-          ((arg.front() == '"' && arg.back() == '"') ||
-           (arg.front() == '\'' && arg.back() == '\''))) {
+      if (arg.size() >= 2 && ((arg.front() == '"' && arg.back() == '"') ||
+                              (arg.front() == '\'' && arg.back() == '\''))) {
         arg = arg.substr(1, arg.size() - 2);
       }
       std::wstring warg = utf8_to_wstring(arg);
@@ -600,8 +568,8 @@ static void runReplMode() noexcept {
     args.reserve(tokens.size());
     for (auto &t : tokens) args.emplace_back(t);
 
-    std::string_view             cmd_name = args[0];
-    std::span<std::string_view>  cmd_args(args.data() + 1, args.size() - 1);
+    std::string_view cmd_name = args[0];
+    std::span<std::string_view> cmd_args(args.data() + 1, args.size() - 1);
     if (CommandRegistry::hasCommand(cmd_name)) {
       CommandRegistry::dispatch(cmd_name, cmd_args);
     } else {
@@ -629,18 +597,38 @@ int main(int argc, char *argv[]) noexcept {
   std::string self_name = path::get_executable_name(argv[0]);
 
   // Convert command-line arguments to string_views for efficiency
-  // Note: We don't expand wildcards here anymore. Each command decides whether to expand.
   std::vector<std::string_view> args;
   args.reserve(argc - 1);
   for (int i = 1; i < argc; ++i) {
     args.emplace_back(argv[i]);
   }
+
+  // Check for daemon options (global, before any command processing)
+  bool force_no_daemon = false;
+  bool force_daemon = false;
+  for (size_t i = 0; i < args.size();) {
+    if (args[i] == "--daemon") {
+      force_daemon = true;
+      args.erase(args.begin() + i);
+    } else if (args[i] == "--no-daemon") {
+      force_no_daemon = true;
+      args.erase(args.begin() + i);
+    } else {
+      i++;
+    }
+  }
+
+  // Start daemon mode if requested
+  if (force_daemon) {
+    return daemon::start_daemon();
+  }
+
   if (self_name == "winuxcmd") {
     // Mode 1: winuxcmd <command> [args...] (e.g., winuxcmd ls -la)
     if (args.empty()) {
       // Enter interactive REPL when running on a real console, otherwise help.
       HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-      DWORD  mode = 0;
+      DWORD mode = 0;
       if (isOutputConsole() && GetConsoleMode(hIn, &mode)) {
         g_repl_executable_path = path::get_executable_path(argv[0]);
         runReplMode();
@@ -663,7 +651,7 @@ int main(int argc, char *argv[]) noexcept {
 
     // Machine-readable option query: winuxcmd --complete-opt <cmd> [prefix]
     if (args[0] == "--complete-opt" && args.size() >= 2) {
-      std::string_view cmd    = args[1];
+      std::string_view cmd = args[1];
       std::string_view prefix = args.size() >= 3 ? args[2] : "";
       auto opts = CommandRegistry::getCommandOptions(cmd);
       for (auto &opt : opts) {
@@ -678,7 +666,7 @@ int main(int argc, char *argv[]) noexcept {
       }
       if (opts.empty()) {
         auto items = getWindowsOptionCompletions(cmd, prefix);
-        for (const auto& item : items) {
+        for (const auto &item : items) {
           safePrint(item.text);
           safePrint("\t");
           safePrintLn(item.hint);
@@ -691,6 +679,13 @@ int main(int argc, char *argv[]) noexcept {
     if (args.size() == 1 && (args[0] == "--help" || args[0] == "-h")) {
       return printHelp();
     }
+
+    // Check for version flags
+    if (args.size() == 1 && (args[0] == "--version" || args[0] == "-v")) {
+      safePrintLn(L"WinuxCmd " + utf8_to_wstring(WinuxCmd::VERSION_STRING));
+      return 0;
+    }
+
     if (!args.empty() && args[0] == "help") {
       if (args.size() == 1) return printHelp();
       if (args.size() == 2) {
@@ -712,18 +707,101 @@ int main(int argc, char *argv[]) noexcept {
     }
 
     // Extract command name and remaining arguments
+
     const std::string_view cmd_name = args[0];
+
     const std::span<std::string_view> cmd_args(args.data() + 1,
+
                                                args.size() - 1);
+
+    // Check for --version in command arguments
+    bool has_version = false;
+    for (const auto &arg : cmd_args) {
+      if (arg == "--version") {
+        has_version = true;
+        break;
+      }
+    }
+
+    if (has_version && CommandRegistry::hasCommand(cmd_name)) {
+      safePrintLn(L"WinuxCmd " + utf8_to_wstring(WinuxCmd::VERSION_STRING));
+      return 0;
+    }
 
     if (!CommandRegistry::hasCommand(cmd_name)) {
       std::string raw_line;
+
       raw_line.reserve(64);
+
       for (size_t i = 0; i < args.size(); ++i) {
         if (i > 0) raw_line.push_back(' ');
+
         raw_line.append(args[i]);
       }
+
       return runNativeFallback(raw_line);
+    }
+
+    // Try to execute via daemon (only if explicitly forced)
+
+    if (force_daemon && ipc_client::IpcClient::is_daemon_available()) {
+      // Log: Daemon available, attempting execution
+
+      safePrintLn(L"[IPC] Daemon available, attempting execution via daemon");
+
+      ipc::Request req;
+
+      req.id = ipc::generate_request_id();
+
+      req.type = "execute";
+
+      req.command = std::string(cmd_name);
+
+      req.args.assign(cmd_args.begin(), cmd_args.end());
+
+      // Get current working directory
+
+      std::error_code ec;
+
+      auto cwd = std::filesystem::current_path(ec);
+
+      if (!ec) {
+        req.cwd = cwd.string();
+      }
+
+      ipc_client::IpcClient client;
+
+      auto response = client.execute_via_daemon(req);
+
+      if (response) {
+        // Log: Daemon execution successful
+
+        safePrintLn(L"[IPC] Daemon execution successful");
+
+        // Print output
+
+        if (!response->stdout_text.empty()) {
+          safePrint(response->stdout_text);
+        }
+
+        if (!response->stderr_text.empty()) {
+          safeErrorPrint(response->stderr_text);
+        }
+
+        return response->exit_code;
+      }
+
+      // Log: Daemon execution failed, falling back to direct execution
+
+      safePrintLn(
+          L"[IPC] Daemon execution failed, falling back to direct execution");
+
+      // If daemon execution failed, fall back to direct execution
+    }
+
+    // Direct execution (normal mode)
+    if (force_daemon) {
+      safePrintLn(L"[IPC] Daemon not available, using direct execution");
     }
 
     // Dispatch the command to corresponding implementation

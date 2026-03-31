@@ -10,7 +10,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_MODE": "DEV",
-        "USE_STATIC_CRT": "ON"
+        "USE_STATIC_CRT": "ON",
+        "BUILD_FFI": "ON"
       }
     },
     {
@@ -22,7 +23,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_MODE": "RELEASE",
-        "USE_STATIC_CRT": "ON"
+        "USE_STATIC_CRT": "ON",
+        "BUILD_FFI": "ON"
       }
     },
     {
@@ -34,7 +36,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_MODE": "DEBUG_RELEASE",
-        "USE_STATIC_CRT": "ON"
+        "USE_STATIC_CRT": "ON",
+        "BUILD_FFI": "ON"
       }
     },
     {
@@ -46,7 +49,8 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "BUILD_MODE": "DEV",
-        "USE_STATIC_CRT": "ON"
+        "USE_STATIC_CRT": "ON",
+        "BUILD_FFI": "ON"
       }
     },
     {
@@ -60,7 +64,8 @@
         "BUILD_MODE": "DEBUG_RELEASE",
         "USE_STATIC_CRT": "ON",
         "ENABLE_TESTS": "ON",
-        "GENERATE_MAP_INFO": "ON"
+        "GENERATE_MAP_INFO": "ON",
+        "BUILD_FFI": "ON"
       }
     },
     {
@@ -74,7 +79,8 @@
         "BUILD_MODE": "DEV",
         "USE_STATIC_CRT": "ON",
         "ENABLE_TESTS": "ON",
-        "GENERATE_MAP_INFO": "ON"
+        "GENERATE_MAP_INFO": "ON",
+        "BUILD_FFI": "ON"
       }
     },
     {
@@ -87,7 +93,36 @@
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_MODE": "RELEASE",
         "USE_STATIC_CRT": "ON",
-        "BUILD_STANDALONE": "ON"
+        "BUILD_STANDALONE": "ON",
+        "BUILD_FFI": "ON"
+      }
+    },
+    {
+      "name": "ffi-only",
+      "displayName": "FFI Library Only",
+      "description": "Build only the FFI library (winuxcmd.dll)",
+      "binaryDir": "${sourceDir}/build-ffi",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_MODE": "RELEASE",
+        "USE_STATIC_CRT": "ON",
+        "BUILD_FFI": "ON",
+        "ENABLE_TESTS": "OFF",
+        "ENABLE_UPX": "OFF"
+      }
+    },
+    {
+      "name": "release-examples",
+      "displayName": "Release with Examples",
+      "description": "Release build with unity build and examples enabled",
+      "binaryDir": "${sourceDir}/build-release-examples",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_MODE": "RELEASE_EXAMPLES",
+        "USE_STATIC_CRT": "ON",
+        "BUILD_FFI": "ON"
       }
     }
   ],
@@ -133,6 +168,18 @@
       "configurePreset": "standalone-release",
       "displayName": "Build Standalone Release",
       "description": "Build individual standalone executables"
+    },
+    {
+      "name": "ffi-only",
+      "configurePreset": "ffi-only",
+      "displayName": "Build FFI Only",
+      "description": "Build only the FFI library"
+    },
+    {
+      "name": "release-examples",
+      "configurePreset": "release-examples",
+      "displayName": "Build Release with Examples",
+      "description": "Build release version with examples enabled"
     }
   ]
 }

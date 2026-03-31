@@ -249,12 +249,14 @@ REGISTER_COMMAND(base32, "base32",
 
   // Process
   if (decode) {
-    std::vector<unsigned char> decoded = base32_decode(input);
+    auto decoded = encoding::base32_decode(input);
     std::string output(decoded.begin(), decoded.end());
     safePrint(output);
   } else {
-    std::vector<unsigned char> data(input.begin(), input.end());
-    std::string encoded = base32_encode(data, wrap);
+    auto data = std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(input.data()),
+        input.size());
+    std::string encoded = encoding::base32_encode(data, wrap);
     safePrintLn(encoded);
   }
 
