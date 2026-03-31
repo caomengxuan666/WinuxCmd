@@ -165,7 +165,7 @@ int main() {
 
 ### 构建 FFI
 
-完整示例见 `examples/ffi/ffi_example.c`。设置 `BUILD_FFI=ON` 时会自动构建 FFI 库（`winuxcmd.dll`）。
+完整示例见 `examples/ffi/ffi_example.c`。设置 `BUILD_FFI=ON` 时会自动构建 FFI 库（`winuxcore.dll`）。
 
 ---
 

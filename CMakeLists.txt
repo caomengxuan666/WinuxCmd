@@ -758,7 +758,7 @@ set(CPACK_IGNORE_FILES
 
 # ========== FFI Library for External Integration ==========
 if(BUILD_FFI)
-    message(STATUS "FFI Library: ENABLED (winuxcmd.dll)")
+    message(STATUS "FFI Library: ENABLED (winuxcore.dll)")
     add_subdirectory(src/ffi)
 else()
     message(STATUS "FFI Library: DISABLED")

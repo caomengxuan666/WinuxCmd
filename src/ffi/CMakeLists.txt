@@ -38,11 +38,6 @@ set(FFI_UTILS_MODULES
     ${PROJECT_MODULE_BASE}/utils/cppbar.cppm
 )
 
-set(FFI_MAIN_MODULES
-    ${PROJECT_MODULE_BASE}/Main/ipc.cppm
-    ${PROJECT_MODULE_BASE}/Main/ipc_client.cppm
-)
-
 set(FFI_VERSION_MODULES
     ${PROJECT_MODULE_BASE}/version/version.cppm
 )
@@ -52,7 +47,6 @@ set(FFI_ALL_MODULES
     ${FFI_CORE_MODULES}
     ${FFI_CONTAINER_MODULES}
     ${FFI_UTILS_MODULES}
-    ${FFI_MAIN_MODULES}
     ${FFI_VERSION_MODULES}
 )
 
@@ -65,9 +59,9 @@ target_sources(winuxcmd_ffi
     FILES ${FFI_ALL_MODULES}
 )
 
-# Set output name to winuxcmd.dll
+# Set output name to winuxcore.dll
 set_target_properties(winuxcmd_ffi PROPERTIES
-    OUTPUT_NAME "winuxcmd"
+    OUTPUT_NAME "winuxcore"
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
