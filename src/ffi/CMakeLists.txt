@@ -128,17 +128,15 @@ target_link_libraries(winuxcmd_ffi PRIVATE
     advapi32.lib
 )
 
-# Install FFI library
+# Install FFI library and files to ffi directory
 install(TARGETS winuxcmd_ffi
-    LIBRARY DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    COMPONENT FFI
+    LIBRARY DESTINATION "${CMAKE_INSTALL_BINDIR}/ffi"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}/ffi"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_BINDIR}/ffi"
 )
 
 # Install header file
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/ffi.h"
-    DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    COMPONENT FFI
+    DESTINATION "${CMAKE_INSTALL_BINDIR}/ffi"
 )

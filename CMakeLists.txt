@@ -738,16 +738,6 @@ if (WIN32)
     else ()
         set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win-x64")
     endif ()
-    
-    # Configure component-specific package names for FFI
-    if(BUILD_FFI)
-        set(CPACK_COMPONENT_FFI_FILE_NAME "${CPACK_PACKAGE_NAME}-FFI-${CPACK_PACKAGE_VERSION}")
-        if (CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-            set(CPACK_COMPONENT_FFI_FILE_NAME "${CPACK_COMPONENT_FFI_FILE_NAME}-win-arm64")
-        else ()
-            set(CPACK_COMPONENT_FFI_FILE_NAME "${CPACK_COMPONENT_FFI_FILE_NAME}-win-x64")
-        endif ()
-    endif()
 endif ()
 
 set(CPACK_IGNORE_FILES
@@ -801,11 +791,6 @@ else ()
 endif ()
 
 # ========== FFI Component Configuration ==========
-if(BUILD_FFI)
-    # Configure FFI-specific CPack settings
-    # Only enable component-specific packaging when requested via -C FFI
-    # This keeps default packaging behavior unchanged
-    set(CPACK_COMPONENTS_ALL "Runtime;Documentation;FFI")
-endif()
+# FFI files are now included in the main package in the ffi directory
 
 include(CPack)
