@@ -29,16 +29,16 @@ if(BUILD_FFI)
         if(CMAKE_GENERATOR MATCHES "Ninja")
             add_custom_command(TARGET ffi_example POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy
-                    "${CMAKE_BINARY_DIR}/src/ffi/winuxcmd.dll"
+                    "${CMAKE_BINARY_DIR}/src/ffi/winuxcore.dll"
                     $<TARGET_FILE_DIR:ffi_example>
-                COMMENT "Copying winuxcmd.dll to ffi_example directory"
+                COMMENT "Copying winuxcore.dll to ffi_example directory"
             )
         else()
             add_custom_command(TARGET ffi_example POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy
-                    "${CMAKE_BINARY_DIR}/src/ffi/$<CONFIG>/winuxcmd.dll"
+                    "${CMAKE_BINARY_DIR}/src/ffi/$<CONFIG>/winuxcore.dll"
                     $<TARGET_FILE_DIR:ffi_example>
-                COMMENT "Copying winuxcmd.dll to ffi_example directory"
+                COMMENT "Copying winuxcore.dll to ffi_example directory"
                 )
         endif()
     endif()

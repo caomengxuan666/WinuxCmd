@@ -31,9 +31,6 @@ import utils;
 import readline;
 import native_completion;
 import version;
-import ipc;
-import daemon;
-import ipc_client;
 
 namespace {
 static std::string g_repl_executable_path;
@@ -603,26 +600,6 @@ int main(int argc, char *argv[]) noexcept {
     args.emplace_back(argv[i]);
   }
 
-  // Check for daemon options (global, before any command processing)
-  bool force_no_daemon = false;
-  bool force_daemon = false;
-  for (size_t i = 0; i < args.size();) {
-    if (args[i] == "--daemon") {
-      force_daemon = true;
-      args.erase(args.begin() + i);
-    } else if (args[i] == "--no-daemon") {
-      force_no_daemon = true;
-      args.erase(args.begin() + i);
-    } else {
-      i++;
-    }
-  }
-
-  // Start daemon mode if requested
-  if (force_daemon) {
-    return daemon::start_daemon();
-  }
-
   if (self_name == "winuxcmd") {
     // Mode 1: winuxcmd <command> [args...] (e.g., winuxcmd ls -la)
     if (args.empty()) {
@@ -742,68 +719,7 @@ int main(int argc, char *argv[]) noexcept {
       return runNativeFallback(raw_line);
     }
 
-    // Try to execute via daemon (only if explicitly forced)
-
-    if (force_daemon && ipc_client::IpcClient::is_daemon_available()) {
-      // Log: Daemon available, attempting execution
-
-      safePrintLn(L"[IPC] Daemon available, attempting execution via daemon");
-
-      ipc::Request req;
-
-      req.id = ipc::generate_request_id();
-
-      req.type = "execute";
-
-      req.command = std::string(cmd_name);
-
-      req.args.assign(cmd_args.begin(), cmd_args.end());
-
-      // Get current working directory
-
-      std::error_code ec;
-
-      auto cwd = std::filesystem::current_path(ec);
-
-      if (!ec) {
-        req.cwd = cwd.string();
-      }
-
-      ipc_client::IpcClient client;
-
-      auto response = client.execute_via_daemon(req);
-
-      if (response) {
-        // Log: Daemon execution successful
-
-        safePrintLn(L"[IPC] Daemon execution successful");
-
-        // Print output
-
-        if (!response->stdout_text.empty()) {
-          safePrint(response->stdout_text);
-        }
-
-        if (!response->stderr_text.empty()) {
-          safeErrorPrint(response->stderr_text);
-        }
-
-        return response->exit_code;
-      }
-
-      // Log: Daemon execution failed, falling back to direct execution
-
-      safePrintLn(
-          L"[IPC] Daemon execution failed, falling back to direct execution");
-
-      // If daemon execution failed, fall back to direct execution
-    }
-
-    // Direct execution (normal mode)
-    if (force_daemon) {
-      safePrintLn(L"[IPC] Daemon not available, using direct execution");
-    }
-
+    // Direct execution
     // Dispatch the command to corresponding implementation
     return CommandRegistry::dispatch(cmd_name, cmd_args);
   } else {

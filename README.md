@@ -141,7 +141,7 @@ int main() {
 
 ### Building with FFI
 
-See `examples/ffi/ffi_example.c` for a complete example. The FFI library (`winuxcmd.dll`) is built when `BUILD_FFI=ON` is set.
+See `examples/ffi/ffi_example.c` for a complete example. The FFI library (`winuxcore.dll`) is built when `BUILD_FFI=ON` is set.
 
 ## PowerShell Auto-Enter (Interactive)
 

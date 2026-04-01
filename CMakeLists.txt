@@ -247,13 +247,47 @@ add_executable(winuxcmd
 # PCH for winuxcmd
 target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
+# ====================================================
+# Module Interface Library (shared by all targets)
+# ====================================================
+add_library(winuxcmd-modules INTERFACE)
 
-# Add all C++23 module interfaces for main executable
+# Configure common module compilation settings
+if (MSVC)
+    target_compile_options(winuxcmd-modules INTERFACE
+            /std:c++latest
+            /experimental:module
+            /interface
+    )
+    target_include_directories(winuxcmd-modules INTERFACE "${MODULES_DIR}")
+endif()
+
+# ====================================================
+# Commands Static Library (shared by exe and FFI)
+# ====================================================
+message(STATUS "=== Creating Commands Static Library ===")
+
+add_library(winuxcmd-commands STATIC)
+
+# Add PCH to commands library
+target_precompile_headers(winuxcmd-commands PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
+
+# Add all command source files
+file(GLOB COMMAND_SOURCES CONFIGURE_DEPENDS
+        "src/commands/*.cpp"
+)
+
+target_sources(winuxcmd-commands PRIVATE ${COMMAND_SOURCES})
+
+# Link module interface library (for settings only)
+target_link_libraries(winuxcmd-commands PRIVATE winuxcmd-modules)
+
+# Add modules directly (required for static library)
 file(GLOB_RECURSE CXX_MODULE_FILES CONFIGURE_DEPENDS
         "src/**/*.cppm"
 )
 
-target_sources(winuxcmd
+target_sources(winuxcmd-commands
         PUBLIC
         FILE_SET CXX_MODULES
         TYPE CXX_MODULES
@@ -262,11 +296,57 @@ target_sources(winuxcmd
         ${CXX_MODULE_FILES}
 )
 
-file(GLOB COMMAND_SOURCES CONFIGURE_DEPENDS
-        "src/commands/*.cpp"
+enable_unity_build(winuxcmd-commands)
+
+# Set C++ standard
+set_target_properties(winuxcmd-commands PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF
 )
 
-target_sources(winuxcmd PRIVATE ${COMMAND_SOURCES})
+# Compile options
+target_compile_options(winuxcmd-commands PRIVATE
+        $<$<CONFIG:Release>:/O2 /Os>
+        /GR-
+)
+
+target_compile_definitions(winuxcmd-commands PRIVATE
+        _UNICODE
+        UNICODE
+        _CRT_DISABLE_PERFCRIT_LOCKS
+        _HAS_RTTI=0
+)
+
+# Link options
+target_link_options(winuxcmd-commands PRIVATE
+        $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+)
+
+if (USE_STATIC_CRT AND MSVC)
+    target_compile_options(winuxcmd-commands PRIVATE /MT /Os /Oy /GS-)
+endif ()
+
+if (MSVC)
+    target_compile_options(winuxcmd-commands PRIVATE
+            /std:c++latest
+    )
+endif ()
+
+# Add include directories
+target_include_directories(winuxcmd-commands PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
+
+message(STATUS "Commands library created with ${COMMAND_SOURCES_COUNT} files")
+
+# Link commands library to main executable
+target_link_libraries(winuxcmd PRIVATE winuxcmd-commands winuxcmd-modules)
+
+# ====================================================
+# Main executable modules and configuration
+# ====================================================
+
+# Link commands library which contains all modules and commands
+target_link_libraries(winuxcmd PRIVATE winuxcmd-commands)
 
 # Default optimization flags
 target_compile_options(winuxcmd PRIVATE
@@ -758,7 +838,7 @@ set(CPACK_IGNORE_FILES
 
 # ========== FFI Library for External Integration ==========
 if(BUILD_FFI)
-    message(STATUS "FFI Library: ENABLED (winuxcmd.dll)")
+    message(STATUS "FFI Library: ENABLED (winuxcore.dll)")
     add_subdirectory(src/ffi)
 else()
     message(STATUS "FFI Library: DISABLED")

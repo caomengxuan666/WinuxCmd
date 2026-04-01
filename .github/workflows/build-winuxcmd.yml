@@ -163,8 +163,8 @@ jobs:
             - `winuxcmd.exe` - Main executable
             - `ffi/` directory:
               - `ffi.h` - FFI header file
-              - `winuxcmd.dll` - FFI library
-              - `winuxcmd.lib` - Import library
+              - `winuxcore.dll` - FFI library (direct function call API)
+              - `winuxcore.lib` - Import library
             - Scripts for installation and setup
             
             ### Package Formats:

@@ -1,13 +1,12 @@
 /*
  * FFI Example - WinuxCmd C API Demo
- * Demonstrates how to use WinuxCmd FFI library for high-performance command execution
+ * Demonstrates how to use WinuxCmd FFI library for direct command execution
  *
  * This example:
- * 1. Starts the daemon once
- * 2. Executes multiple commands via JSON-RPC style requests
- * 3. Measures and reports performance metrics
+ * 1. Executes multiple commands directly via FFI
+ * 2. Measures and reports performance metrics
  *
- * Compile: gcc -o ffi_example ffi_example.c -I../../src/ffi -L../../build-release -lwinuxcmd
+ * Compile: gcc -o ffi_example ffi_example.c -I../../src/ffi -L../../build-release -lwinuxcore
  * Run: ./ffi_example
  */
 
@@ -55,7 +54,6 @@ WINUX_API int winux_execute(const char* command, const char** args, int arg_coun
                               size_t* output_size, size_t* error_size);
 WINUX_API void winux_free_buffer(char* buffer);
 WINUX_API void winux_free_commands_array(char** commands, int count);
-WINUX_API int winux_is_daemon_available(void);
 WINUX_API const char* winux_get_version(void);
 WINUX_API int winux_get_all_commands(char*** commands, int* count);
 
@@ -132,20 +130,12 @@ int main() {
     const char* version = winux_get_version();
     printf("WinuxCmd Version: %s\n\n", version ? version : "unknown");
 
-    // Check if daemon is available
-    int daemon_available = winux_is_daemon_available();
-    printf("Daemon Available: %s\n\n", daemon_available ? "Yes" : "No");
-
-    // Check daemon availability again
-    daemon_available = winux_is_daemon_available();
-    printf("Daemon Available after init: %s\n\n", daemon_available ? "Yes" : "No");
-
     // Test: Get all available commands
     printf("Test: Getting all available commands...\n");
     char** commands = NULL;
     int command_count = 0;
     int get_cmds_result = winux_get_all_commands(&commands, &command_count);
-    
+
     if (get_cmds_result == 0) {
         printf("Found %d available commands:\n", command_count);
         for (int i = 0; i < command_count && i < 10; i++) {  // Show first 10 commands
@@ -156,18 +146,13 @@ int main() {
         if (command_count > 10) {
             printf("  ... and %d more commands\n", command_count - 10);
         }
-        
+
         // Clean up command list
         winux_free_commands_array(commands, command_count);
     } else {
         printf("Failed to get commands (error code: %d)\n", get_cmds_result);
     }
     printf("\n");
-
-    if (!daemon_available) {
-        printf("Error: Daemon is not available. Cannot proceed with FFI test.\n");
-        return 1;
-    }
 
     // Test commands - sample of implemented commands
     const char* test_commands[] = {
@@ -266,7 +251,7 @@ int main() {
 
     printf("Test completed successfully!\n");
     printf("Note: This demonstrates the FFI API's ability to execute commands\n");
-    printf("      with minimal overhead by reusing a persistent daemon process.\n");
+    printf("      directly without any IPC or daemon overhead.\n");
 
     return 0;
 }

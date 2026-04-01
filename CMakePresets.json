@@ -100,7 +100,7 @@
     {
       "name": "ffi-only",
       "displayName": "FFI Library Only",
-      "description": "Build only the FFI library (winuxcmd.dll)",
+      "description": "Build only the FFI library (winuxcore.dll)",
       "binaryDir": "${sourceDir}/build-ffi",
       "generator": "Ninja",
       "cacheVariables": {

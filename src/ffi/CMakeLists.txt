@@ -6,68 +6,9 @@ add_library(winuxcmd_ffi SHARED
 # Add PCH for FFI library
 target_precompile_headers(winuxcmd_ffi PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
-# Define module paths relative to project root
-set(PROJECT_MODULE_BASE "${CMAKE_CURRENT_SOURCE_DIR}/..")
-
-# Define all required modules and partitions
-set(FFI_CORE_MODULES
-    ${PROJECT_MODULE_BASE}/core/core.cppm
-    ${PROJECT_MODULE_BASE}/core/cmd_meta.cppm
-    ${PROJECT_MODULE_BASE}/core/command_context.cppm
-    ${PROJECT_MODULE_BASE}/core/dispatcher.cppm
-    ${PROJECT_MODULE_BASE}/core/opt.cppm
-    ${PROJECT_MODULE_BASE}/core/pipeline.cppm
-)
-
-set(FFI_CONTAINER_MODULES
-    ${PROJECT_MODULE_BASE}/container/container.cppm
-    ${PROJECT_MODULE_BASE}/container/small_vector.cppm
-    ${PROJECT_MODULE_BASE}/container/constexpr_map.cppm
-)
-
-set(FFI_UTILS_MODULES
-    ${PROJECT_MODULE_BASE}/utils/utils.cppm
-    ${PROJECT_MODULE_BASE}/utils/utf8.cppm
-    ${PROJECT_MODULE_BASE}/utils/console.cppm
-    ${PROJECT_MODULE_BASE}/utils/text_io.cppm
-    ${PROJECT_MODULE_BASE}/utils/path.cppm
-    ${PROJECT_MODULE_BASE}/utils/wildcard.cppm
-    ${PROJECT_MODULE_BASE}/utils/json.cppm
-    ${PROJECT_MODULE_BASE}/utils/encoding.cppm
-    ${PROJECT_MODULE_BASE}/utils/file_io.cppm
-    ${PROJECT_MODULE_BASE}/utils/cppbar.cppm
-)
-
-set(FFI_MAIN_MODULES
-    ${PROJECT_MODULE_BASE}/Main/ipc.cppm
-    ${PROJECT_MODULE_BASE}/Main/ipc_client.cppm
-)
-
-set(FFI_VERSION_MODULES
-    ${PROJECT_MODULE_BASE}/version/version.cppm
-)
-
-# Combine all modules
-set(FFI_ALL_MODULES
-    ${FFI_CORE_MODULES}
-    ${FFI_CONTAINER_MODULES}
-    ${FFI_UTILS_MODULES}
-    ${FFI_MAIN_MODULES}
-    ${FFI_VERSION_MODULES}
-)
-
-# Add all necessary modules for FFI library
-target_sources(winuxcmd_ffi
-    PUBLIC
-    FILE_SET CXX_MODULES
-    TYPE CXX_MODULES
-    BASE_DIRS "${PROJECT_MODULE_BASE}"
-    FILES ${FFI_ALL_MODULES}
-)
-
-# Set output name to winuxcmd.dll
+# Set output name to winuxcore.dll
 set_target_properties(winuxcmd_ffi PROPERTIES
-    OUTPUT_NAME "winuxcmd"
+    OUTPUT_NAME "winuxcore"
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
 )
@@ -99,9 +40,9 @@ target_compile_definitions(winuxcmd_ffi PRIVATE
 
 # Link options
 target_link_options(winuxcmd_ffi PRIVATE
-    $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+        $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+        /WHOLEARCHIVE:winuxcmd-commands  # Force include all command objects
 )
-
 if (USE_STATIC_CRT AND MSVC)
     target_compile_options(winuxcmd_ffi PRIVATE /MT /Os /Oy /GS-)
 endif ()
@@ -121,11 +62,12 @@ endif ()
 # Add include directories
 target_include_directories(winuxcmd_ffi PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
 
-# Link Windows libraries
+# Link Windows libraries and commands static library
 target_link_libraries(winuxcmd_ffi PRIVATE
     kernel32.lib
     user32.lib
     advapi32.lib
+    winuxcmd-commands
 )
 
 # Install FFI library and files to ffi directory
