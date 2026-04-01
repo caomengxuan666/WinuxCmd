@@ -6,9 +6,6 @@ add_library(winuxcmd_ffi SHARED
 # Add PCH for FFI library
 target_precompile_headers(winuxcmd_ffi PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
-# Link commands library which contains all modules and commands
-target_link_libraries(winuxcmd_ffi PRIVATE winuxcmd-commands)
-
 # Set output name to winuxcore.dll
 set_target_properties(winuxcmd_ffi PROPERTIES
     OUTPUT_NAME "winuxcore"
@@ -43,9 +40,9 @@ target_compile_definitions(winuxcmd_ffi PRIVATE
 
 # Link options
 target_link_options(winuxcmd_ffi PRIVATE
-    $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+        $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
+        /WHOLEARCHIVE:winuxcmd-commands  # Force include all command objects
 )
-
 if (USE_STATIC_CRT AND MSVC)
     target_compile_options(winuxcmd_ffi PRIVATE /MT /Os /Oy /GS-)
 endif ()

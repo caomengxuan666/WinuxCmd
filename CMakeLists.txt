@@ -296,6 +296,8 @@ target_sources(winuxcmd-commands
         ${CXX_MODULE_FILES}
 )
 
+enable_unity_build(winuxcmd-commands)
+
 # Set C++ standard
 set_target_properties(winuxcmd-commands PROPERTIES
         CXX_STANDARD 23
