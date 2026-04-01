@@ -37,6 +37,7 @@
 #define NOMINMAX
 #define STRICT
 #define _CRT_SECURE_NO_WARNINGS
+#include <winsock2.h>  // Must be before windows.h to avoid conflicts
 #include <windows.h>  // For basic windows functions
 // Include these headers after windows.h
 // Fuck clang-format.

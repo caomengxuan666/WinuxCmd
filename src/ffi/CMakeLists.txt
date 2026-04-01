@@ -6,58 +6,8 @@ add_library(winuxcmd_ffi SHARED
 # Add PCH for FFI library
 target_precompile_headers(winuxcmd_ffi PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 
-# Define module paths relative to project root
-set(PROJECT_MODULE_BASE "${CMAKE_CURRENT_SOURCE_DIR}/..")
-
-# Define all required modules and partitions
-set(FFI_CORE_MODULES
-    ${PROJECT_MODULE_BASE}/core/core.cppm
-    ${PROJECT_MODULE_BASE}/core/cmd_meta.cppm
-    ${PROJECT_MODULE_BASE}/core/command_context.cppm
-    ${PROJECT_MODULE_BASE}/core/dispatcher.cppm
-    ${PROJECT_MODULE_BASE}/core/opt.cppm
-    ${PROJECT_MODULE_BASE}/core/pipeline.cppm
-)
-
-set(FFI_CONTAINER_MODULES
-    ${PROJECT_MODULE_BASE}/container/container.cppm
-    ${PROJECT_MODULE_BASE}/container/small_vector.cppm
-    ${PROJECT_MODULE_BASE}/container/constexpr_map.cppm
-)
-
-set(FFI_UTILS_MODULES
-    ${PROJECT_MODULE_BASE}/utils/utils.cppm
-    ${PROJECT_MODULE_BASE}/utils/utf8.cppm
-    ${PROJECT_MODULE_BASE}/utils/console.cppm
-    ${PROJECT_MODULE_BASE}/utils/text_io.cppm
-    ${PROJECT_MODULE_BASE}/utils/path.cppm
-    ${PROJECT_MODULE_BASE}/utils/wildcard.cppm
-    ${PROJECT_MODULE_BASE}/utils/json.cppm
-    ${PROJECT_MODULE_BASE}/utils/encoding.cppm
-    ${PROJECT_MODULE_BASE}/utils/file_io.cppm
-    ${PROJECT_MODULE_BASE}/utils/cppbar.cppm
-)
-
-set(FFI_VERSION_MODULES
-    ${PROJECT_MODULE_BASE}/version/version.cppm
-)
-
-# Combine all modules
-set(FFI_ALL_MODULES
-    ${FFI_CORE_MODULES}
-    ${FFI_CONTAINER_MODULES}
-    ${FFI_UTILS_MODULES}
-    ${FFI_VERSION_MODULES}
-)
-
-# Add all necessary modules for FFI library
-target_sources(winuxcmd_ffi
-    PUBLIC
-    FILE_SET CXX_MODULES
-    TYPE CXX_MODULES
-    BASE_DIRS "${PROJECT_MODULE_BASE}"
-    FILES ${FFI_ALL_MODULES}
-)
+# Link commands library which contains all modules and commands
+target_link_libraries(winuxcmd_ffi PRIVATE winuxcmd-commands)
 
 # Set output name to winuxcore.dll
 set_target_properties(winuxcmd_ffi PROPERTIES
