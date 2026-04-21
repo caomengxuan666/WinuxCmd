@@ -42,6 +42,8 @@ namespace {
 thread_local HANDLE g_cached_stdout = INVALID_HANDLE_VALUE;
 thread_local HANDLE g_cached_stderr = INVALID_HANDLE_VALUE;
 thread_local bool g_handles_valid = false;
+thread_local bool g_stdout_pipe_closed = false;
+thread_local bool g_stderr_pipe_closed = false;
 
 // Capture handles (set by daemon when capturing)
 HANDLE g_capture_stdout_write = nullptr;
@@ -73,6 +75,10 @@ HANDLE getStdErr() {
   }
   return g_cached_stderr;
 }
+
+bool isBrokenPipeError(DWORD err) {
+  return err == ERROR_BROKEN_PIPE || err == ERROR_NO_DATA;
+}
 }  // namespace
 
 // Exported function to set output capture handles
@@ -87,6 +93,15 @@ export void set_output_capture_handles(HANDLE stdout_handle, HANDLE stderr_handl
 // Exported function to invalidate cached handles (call after SetStdHandle)
 export void invalidateCachedHandles() {
   g_handles_valid = false;
+}
+
+export bool is_stdout_pipe_closed() { return g_stdout_pipe_closed; }
+
+export bool is_stderr_pipe_closed() { return g_stderr_pipe_closed; }
+
+export void clear_pipe_closed_flags() {
+  g_stdout_pipe_closed = false;
+  g_stderr_pipe_closed = false;
 }
 
 bool isConsoleHandle(HANDLE h) {
@@ -273,20 +288,32 @@ class wchar_buffer {
 export void safePrint(std::wstring_view wsv) {
   HANDLE h = getStdOut();
   if (isConsoleHandle(h)) {
-    detail::writeConsoleW(h, wsv.data(), wsv.size());
+    if (!detail::writeConsoleW(h, wsv.data(), wsv.size()) &&
+        isBrokenPipeError(GetLastError())) {
+      g_stdout_pipe_closed = true;
+    }
   } else {
     std::string utf8 = wstring_to_utf8(wsv);
-    detail::writeFile(h, utf8.data(), utf8.size());
+    if (!detail::writeFile(h, utf8.data(), utf8.size()) &&
+        isBrokenPipeError(GetLastError())) {
+      g_stdout_pipe_closed = true;
+    }
   }
 }
 
 export void safeErrorPrint(std::wstring_view wsv) {
   HANDLE h = getStdErr();
   if (isConsoleHandle(h)) {
-    detail::writeConsoleW(h, wsv.data(), wsv.size());
+    if (!detail::writeConsoleW(h, wsv.data(), wsv.size()) &&
+        isBrokenPipeError(GetLastError())) {
+      g_stderr_pipe_closed = true;
+    }
   } else {
     std::string utf8 = wstring_to_utf8(wsv);
-    detail::writeFile(h, utf8.data(), utf8.size());
+    if (!detail::writeFile(h, utf8.data(), utf8.size()) &&
+        isBrokenPipeError(GetLastError())) {
+      g_stderr_pipe_closed = true;
+    }
   }
 }
 
@@ -308,10 +335,16 @@ export void safePrint(std::string_view sv) {
   if (isConsoleHandle(h)) {
     detail::wchar_buffer buf(sv);
     if (buf.valid()) {
-      detail::writeConsoleW(h, buf.data(), buf.size());
+      if (!detail::writeConsoleW(h, buf.data(), buf.size()) &&
+          isBrokenPipeError(GetLastError())) {
+        g_stdout_pipe_closed = true;
+      }
     }
   } else {
-    detail::writeFile(h, sv.data(), sv.size());
+    if (!detail::writeFile(h, sv.data(), sv.size()) &&
+        isBrokenPipeError(GetLastError())) {
+      g_stdout_pipe_closed = true;
+    }
   }
 }
 
@@ -320,10 +353,16 @@ export void safeErrorPrint(std::string_view sv) {
   if (isConsoleHandle(h)) {
     detail::wchar_buffer buf(sv);
     if (buf.valid()) {
-      detail::writeConsoleW(h, buf.data(), buf.size());
+      if (!detail::writeConsoleW(h, buf.data(), buf.size()) &&
+          isBrokenPipeError(GetLastError())) {
+        g_stderr_pipe_closed = true;
+      }
     }
   } else {
-    detail::writeFile(h, sv.data(), sv.size());
+    if (!detail::writeFile(h, sv.data(), sv.size()) &&
+        isBrokenPipeError(GetLastError())) {
+      g_stderr_pipe_closed = true;
+    }
   }
 }
 

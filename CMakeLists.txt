@@ -341,6 +341,13 @@ message(STATUS "Commands library created with ${COMMAND_SOURCES_COUNT} files")
 # Link commands library to main executable
 target_link_libraries(winuxcmd PRIVATE winuxcmd-commands winuxcmd-modules)
 
+# Keep all command registration translation units from static library.
+# Without WHOLEARCHIVE, MSVC may discard unreferenced objects and leave
+# the command registry empty at runtime.
+if(MSVC)
+    target_link_options(winuxcmd PRIVATE "/WHOLEARCHIVE:winuxcmd-commands.lib")
+endif()
+
 # ====================================================
 # Main executable modules and configuration
 # ====================================================
