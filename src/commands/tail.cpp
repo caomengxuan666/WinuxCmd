@@ -116,19 +116,14 @@ struct TailConfig {
   char delimiter = '\n';
 };
 
-auto read_all(std::istream& in) -> std::string {
-  return std::string(std::istreambuf_iterator<char>(in),
-                     std::istreambuf_iterator<char>());
-}
-
-auto read_input(std::string_view path) -> cp::Result<std::string> {
-  if (path == "-") return read_all(std::cin);
-
-  std::ifstream file(std::string(path), std::ios::binary);
-  if (!file.is_open()) {
-    return std::unexpected("cannot open '" + std::string(path) + "'");
+auto stream_all(std::istream& in) -> void {
+  std::array<char, 8192> buffer{};
+  while (in.good()) {
+    in.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    auto got = in.gcount();
+    if (got <= 0) break;
+    safePrint(std::string_view(buffer.data(), static_cast<size_t>(got)));
   }
-  return read_all(file);
 }
 
 auto suffix_multiplier(std::string_view suffix)
@@ -223,74 +218,86 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
   return spec;
 }
 
-auto split_records(const std::string& data, char delimiter)
-    -> std::vector<std::pair<size_t, size_t>> {
-  std::vector<std::pair<size_t, size_t>> records;
-  records.reserve(data.size() / 10);  // Estimate: assume ~10 chars per record
-  size_t start = 0;
-  for (size_t i = 0; i < data.size(); ++i) {
-    if (data[i] == delimiter) {
-      records.emplace_back(start, i + 1);
-      start = i + 1;
-    }
-  }
-  if (start < data.size()) {
-    records.emplace_back(start, data.size());
-  }
-  return records;
-}
-
-auto print_ranges(const std::string& data,
-                  const std::vector<std::pair<size_t, size_t>>& ranges,
-                  size_t first, size_t last) -> void {
-  // Reserve buffer for output to avoid multiple small allocations
-  std::string out;
-  out.reserve((last - first) * 80);  // Assume ~80 chars per record
-  for (size_t i = first; i < last; ++i) {
-    const auto [begin, end] = ranges[i];
-    out.append(data.data() + begin, end - begin);
-  }
-  safePrint(out);
-}
-
-auto output_tail(const std::string& data, const TailConfig& config) -> void {
+auto output_tail(std::istream& in, const TailConfig& config) -> void {
   if (config.by_bytes) {
     size_t n = static_cast<size_t>(config.spec.value);
     if (config.spec.from_start) {
-      size_t offset = n > 0 ? n - 1 : 0;
-      if (offset >= data.size()) return;
-      safePrint(std::string_view(data.data() + offset, data.size() - offset));
+      size_t skip = n > 0 ? n - 1 : 0;
+      std::array<char, 8192> discard{};
+      while (skip > 0 && in.good()) {
+        size_t chunk = std::min(skip, discard.size());
+        in.read(discard.data(), static_cast<std::streamsize>(chunk));
+        auto got = in.gcount();
+        if (got <= 0) return;
+        skip -= static_cast<size_t>(got);
+      }
+      stream_all(in);
       return;
     }
 
-    if (n >= data.size()) {
-      if (!data.empty()) safePrint(std::string_view(data.data(), data.size()));
-      return;
+    if (n == 0) return;
+    std::deque<char> trailing;
+    std::array<char, 8192> buffer{};
+    while (in.good()) {
+      in.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+      auto got = in.gcount();
+      if (got <= 0) break;
+      for (std::streamsize i = 0; i < got; ++i) {
+        trailing.push_back(buffer[static_cast<size_t>(i)]);
+        if (trailing.size() > n) trailing.pop_front();
+      }
     }
-
-    safePrint(std::string_view(data.data() + (data.size() - n), n));
+    if (!trailing.empty()) {
+      std::string out;
+      out.reserve(trailing.size());
+      for (char ch : trailing) out.push_back(ch);
+      safePrint(out);
+    }
     return;
   }
 
-  auto ranges = split_records(data, config.delimiter);
-  if (ranges.empty()) return;
-
-  size_t total = ranges.size();
   size_t n = static_cast<size_t>(config.spec.value);
-
   if (config.spec.from_start) {
     size_t start = n > 0 ? n - 1 : 0;
-    if (start >= total) return;
-    print_ranges(data, ranges, start, total);
+    if (start == 0) {
+      stream_all(in);
+      return;
+    }
+
+    size_t record_index = 0;
+    std::string current;
+    char ch = '\0';
+    while (in.get(ch)) {
+      current.push_back(ch);
+      if (ch == config.delimiter) {
+        if (record_index >= start) safePrint(current);
+        current.clear();
+        ++record_index;
+      }
+    }
+    if (!current.empty() && record_index >= start) {
+      safePrint(current);
+    }
     return;
   }
 
-  if (n >= total) {
-    print_ranges(data, ranges, 0, total);
-    return;
+  if (n == 0) return;
+  std::deque<std::string> trailing_records;
+  std::string current;
+  char ch = '\0';
+  while (in.get(ch)) {
+    current.push_back(ch);
+    if (ch == config.delimiter) {
+      trailing_records.push_back(std::move(current));
+      current.clear();
+      if (trailing_records.size() > n) trailing_records.pop_front();
+    }
   }
-
-  print_ranges(data, ranges, total - n, total);
+  if (!current.empty()) {
+    trailing_records.push_back(std::move(current));
+    if (trailing_records.size() > n) trailing_records.pop_front();
+  }
+  for (const auto& rec : trailing_records) safePrint(rec);
 }
 
 template <size_t N>
@@ -388,14 +395,6 @@ auto config = *config_result;
 
   for (size_t i = 0; i < files.size(); ++i) {
     const auto& file = files[i];
-    auto data_result = read_input(file);
-    if (!data_result) {
-      safeErrorPrint("tail: ");
-      safeErrorPrint(data_result.error());
-      safeErrorPrint("\n");
-      any_error = true;
-      continue;
-    }
 
     bool show_header =
         (config.verbose || (multi && !config.quiet)) && file != "-";
@@ -406,7 +405,31 @@ auto config = *config_result;
       safePrint(" <==\n");
     }
 
-    output_tail(*data_result, config);
+    if (file == "-") {
+      output_tail(std::cin, config);
+      if (std::cin.bad()) {
+        safeErrorPrint("tail: error reading '-'\n");
+        any_error = true;
+      }
+    } else {
+      std::ifstream input(file, std::ios::binary);
+      if (!input.is_open()) {
+        safeErrorPrint("tail: cannot open '");
+        safeErrorPrint(file);
+        safeErrorPrint("'\n");
+        any_error = true;
+        continue;
+      }
+
+      output_tail(input, config);
+      if (input.bad()) {
+        safeErrorPrint("tail: error reading '");
+        safeErrorPrint(file);
+        safeErrorPrint("'\n");
+        any_error = true;
+      }
+    }
+
     first_print = false;
   }
 

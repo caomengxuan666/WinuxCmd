@@ -127,6 +127,23 @@ REGISTER_COMMAND(cat, "cat",
   using namespace cat_pipeline;
   using namespace core::pipeline;
 
+  const bool fast_passthrough =
+      !ctx.get<bool>("--show-all", false) &&
+      !ctx.get<bool>("--number-nonblank", false) &&
+      !ctx.get<bool>("-b", false) &&
+      !ctx.get<bool>("--show-ends", false) &&
+      !ctx.get<bool>("-E", false) &&
+      !ctx.get<bool>("--number", false) &&
+      !ctx.get<bool>("-n", false) &&
+      !ctx.get<bool>("--squeeze-blank", false) &&
+      !ctx.get<bool>("-s", false) &&
+      !ctx.get<bool>("--show-tabs", false) &&
+      !ctx.get<bool>("-T", false) &&
+      !ctx.get<bool>("--show-nonprinting", false) &&
+      !ctx.get<bool>("-v", false) &&
+      !ctx.get<bool>("-e", false) &&
+      !ctx.get<bool>("-t", false);
+
   // ----------------------------------------------
   // Empty line check (unchanged)
   // ----------------------------------------------
@@ -233,6 +250,18 @@ REGISTER_COMMAND(cat, "cat",
   auto process_stream = [&](std::istream &stream,
                             const CommandContext<CAT_OPTIONS.size()> &ctx,
                             size_t &line_num) {
+    if (fast_passthrough) {
+      std::array<char, 8192> buffer{};
+      while (stream.good()) {
+        stream.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        auto got = stream.gcount();
+        if (got <= 0) break;
+        safePrint(std::string_view(buffer.data(), static_cast<size_t>(got)));
+        if (is_stdout_pipe_closed()) break;
+      }
+      return;
+    }
+
     std::string line;
     bool last_line_empty = false;
     bool squeeze_blank = ctx.get<bool>("--squeeze-blank", false);
@@ -246,6 +275,12 @@ REGISTER_COMMAND(cat, "cat",
 
       last_line_empty = empty;
       process_line(line, ctx, line_num);
+
+      // Downstream (for example `head`) may close the pipe early.
+      // Stop reading immediately instead of scanning the rest of huge inputs.
+      if (is_stdout_pipe_closed()) {
+        break;
+      }
     }
   };
 
@@ -293,8 +328,12 @@ REGISTER_COMMAND(cat, "cat",
 
   int exit_code = 0;
   size_t line_num = 1;
+  clear_pipe_closed_flags();
 
   for (const auto &file : files) {
+    if (is_stdout_pipe_closed()) {
+      break;
+    }
     if (!process_file(file, ctx, line_num)) {
       exit_code = 1;
     }
