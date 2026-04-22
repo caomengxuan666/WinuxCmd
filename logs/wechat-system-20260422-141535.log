@@ -1,0 +1,23 @@
+[2026-04-22 14:15:35] 测试微信连接...
+[2026-04-22 14:15:35] 检查微信插件...
+[2026-04-22 14:15:59] ✅ 微信插件已安装
+[2026-04-22 14:15:59] 加载现有配置: /home/cmx/.openclaw/workspace/config/wechat-settings.json
+[2026-04-22 14:15:59] ✅ 配置检查通过
+[2026-04-22 14:15:59] 目标: o9cq806z-LigbuXwKQuzkIcbNv-U@im.wechat
+[2026-04-22 14:15:59] 通道: openclaw-weixin
+[2026-04-22 14:15:59] 发送测试消息...
+[2026-04-22 14:15:59] ✅ 配置检查通过
+[2026-04-22 14:15:59] 目标: o9cq806z-LigbuXwKQuzkIcbNv-U@im.wechat
+[2026-04-22 14:15:59] 通道: openclaw-weixin
+[2026-04-22 14:15:59] 发送微信消息到: o9cq806z-LigbuXwKQuzkIcbNv-U@im.wechat
+[2026-04-22 14:15:59] 消息长度: 110 字符
+[2026-04-22 14:15:59] 消息预览: 微信连接测试 - 2026-04-22 14:15:59
+    
+这是一条测试消息，用于验证微信插件连接。
+如果你收到此消息，说明配置成功！...
+[2026-04-22 14:16:22] ✅ 微信消息发送成功
+[35m[plugins][39m [33mplugins.allow is empty; discovered non-bundled plugins may auto-load: openclaw-weixin (/home/cmx/.openclaw/extensions/openclaw-weixin/index.ts). Set plugins.allow to explicit trusted ids.[39m
+✅ Sent via openclaw-weixin. Message ID: openclaw-weixin:1776838581430-bc73c2c2
+[2026-04-22 14:16:22] ✅ 微信连接测试成功
+[2026-04-22 14:16:22] 请检查微信是否收到测试消息
+[2026-04-22 14:16:22] 操作完成: test

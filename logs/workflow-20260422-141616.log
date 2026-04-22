@@ -1,0 +1,157 @@
+[2026-04-22 14:16:16] 🚀 开始每日代码优化工作流
+[2026-04-22 14:16:16] 工作流ID: 20260422-141616
+[2026-04-22 14:16:16] 工作目录: /home/cmx/.openclaw/workspace
+[2026-04-22 14:16:16] 步骤1: 执行代码优化
+[2026-04-22 14:16:16] 工作流状态更新: optimizing
+[2026-04-22 14:16:16] === 开始今日代码优化任务 ===
+[2026-04-22 14:16:16] 检查Git状态...
+[2026-04-22 14:16:16] 发现未提交的更改，先提交...
+[develop 9b765c0] chore: 自动提交工作区更改 20260422-141616
+ 26 files changed, 3035 insertions(+), 25 deletions(-)
+ create mode 100644 .notification-server.pid
+ create mode 100644 .service-monitor.pid
+ create mode 100644 WECHAT_SETUP_GUIDE.md
+ create mode 100755 config/wechat-config.sh
+ create mode 100644 config/wechat-settings.json
+ create mode 100644 notifications/wechat-message-20260422-140328.txt
+ create mode 100644 public-notifications/index.html
+ create mode 100644 public-notifications/last-updated.txt
+ create mode 100644 public-notifications/latest-optimization-notification.txt
+ create mode 100644 public-notifications/latest-wechat-message.txt
+ create mode 100644 public-notifications/notifications-list.json
+ create mode 100644 public-notifications/status-report.json
+ create mode 100644 public-notifications/today-stats.json
+ create mode 100644 reports/workflow-20260422-134710.md
+ create mode 100755 scripts/notification-server.py
+ create mode 100755 scripts/send-wechat-notification.sh
+ create mode 100755 scripts/service-monitor.sh
+ create mode 100644 scripts/setup-notification-monitor.sh
+ create mode 100755 scripts/start-all-services.sh
+ create mode 100644 scripts/start-notification-server.sh
+ create mode 100755 scripts/test-wechat-simple.sh
+ create mode 100755 scripts/update-notification-monitor.sh
+ create mode 100755 scripts/wechat-notification-system.sh
+Already on 'develop'
+[2026-04-22 14:16:16] 当前分支: develop
+[2026-04-22 14:16:16] 运行Python代码分析...
+[2026-04-22 14:16:16] 开始Python代码分析
+[2026-04-22 14:16:16] 找到 7 个Python文件
+[2026-04-22 14:16:16] 分析完成: 7 个文件, 2440 行代码, 171 个问题
+[2026-04-22 14:16:16] 分析结果保存到: /home/cmx/.openclaw/workspace/tmp/python-analysis-20260422-141616.json
+[2026-04-22 14:16:16] 
+优化建议:
+[2026-04-22 14:16:16] 1. [code_quality] 修复 171 个代码质量问题 (优先级: medium)
+[2026-04-22 14:16:16] 2. [documentation] 添加缺失的文档字符串 (优先级: low)
+[2026-04-22 14:16:16] 分析结果: /home/cmx/.openclaw/workspace/tmp/python-analysis-20260422-141616.json
+[2026-04-22 14:16:16] 分析完成: 7 个文件, 2440 行代码, 171 个问题
+[2026-04-22 14:16:16] 分支已存在: feature/optimize-20260422-python，删除后重新创建
+Already on 'develop'
+Deleted branch feature/optimize-20260422-python (was 367a2bb).
+[2026-04-22 14:16:16] 创建feature分支: feature/optimize-20260422-python
+Switched to a new branch 'feature/optimize-20260422-python'
+[2026-04-22 14:16:16] 实施代码优化...
+[2026-04-22 14:16:16] 发现TODO注释，进行修复...
+[2026-04-22 14:16:16] 修复文件: ./scripts/python-optimizer.py
+[2026-04-22 14:16:16] 没有需要提交的更改
+Switched to branch 'develop'
+[2026-04-22 14:16:16] 已切换回develop分支
+[2026-04-22 14:16:17] 报告已生成: /home/cmx/.openclaw/workspace/reports/daily-optimization-20260422.md
+[2026-04-22 14:16:17] === 今日代码优化任务完成 ===
+[2026-04-22 14:16:17] 详细日志: /home/cmx/.openclaw/workspace/logs/optimization-20260422-141616.log
+
+🎯 今日优化完成!
+📊 分析结果: 7文件, 2440行代码, 171个问题
+🌿 优化分支: feature/optimize-20260422-python
+📝 报告文件: /home/cmx/.openclaw/workspace/reports/daily-optimization-20260422.md
+📋 PR信息: 未生成
+
+[2026-04-22 14:16:17] ✅ 代码优化完成
+[2026-04-22 14:16:17] 步骤2: 发送优化通知
+[2026-04-22 14:16:17] 工作流状态更新: notifying
+[2026-04-22 14:16:17] 开始发送优化通知...
+[2026-04-22 14:16:17] 发送控制台通知...
+
+=*60
+📢 代码优化通知
+=*60
+
+🔄 代码优化日报 📊
+
+📅 日期: 2026-04-22
+⏰ 时间: 14:16:17
+
+📈 分析结果:
+   📁 文件: 7 个
+   📝 代码: 2440 行  
+   ⚠️ 问题: 171 个
+
+🌿 优化分支: feature/optimize-20260422-python
+
+📋 详细报告: /home/cmx/.openclaw/workspace/reports/daily-optimization-20260422.md
+
+🚀 状态: 优化完成 ✅
+
+---
+🤖 由 DeepSeek 代码优化助手生成
+
+=*60
+
+[2026-04-22 14:16:17] 通知已保存: /home/cmx/.openclaw/workspace/notifications/latest-optimization-notification.txt
+[2026-04-22 14:16:17] 通知发送完成
+📨 通知文件: /home/cmx/.openclaw/workspace/notifications/latest-optimization-notification.txt
+📊 报告文件: /home/cmx/.openclaw/workspace/reports/daily-optimization-20260422.md
+📈 分析文件: /home/cmx/.openclaw/workspace/tmp/python-analysis-20260422-141616.json
+[2026-04-22 14:16:17] ✅ 通知发送完成
+[2026-04-22 14:16:17] 步骤3: 生成工作流报告
+[2026-04-22 14:16:17] 工作流状态更新: reporting
+[2026-04-22 14:16:17] ✅ 工作流报告已生成: /home/cmx/.openclaw/workspace/reports/workflow-20260422-141616.md
+[2026-04-22 14:16:17] 步骤4: 更新通知监控
+[2026-04-22 14:16:17] 工作流状态更新: updating-monitor
+[2026-04-22 14:16:17] 开始更新通知监控系统
+[2026-04-22 14:16:17] 更新公开通知文件...
+[2026-04-22 14:16:17] 更新最新通知
+[2026-04-22 14:16:17] 更新今日统计
+[2026-04-22 14:16:17] 更新通知列表
+[2026-04-22 14:16:17] 更新最后更新时间: 2026-04-22 14:16:17
+[2026-04-22 14:16:17] 通知监控系统更新完成
+
+📡 通知监控系统已更新
+📁 公开通知目录: /home/cmx/.openclaw/workspace/public-notifications
+📊 最新统计: /home/cmx/.openclaw/workspace/public-notifications/today-stats.json
+📋 通知列表: /home/cmx/.openclaw/workspace/public-notifications/notifications-list.json
+⏰ 最后更新: 最后更新: 2026-04-22 14:16:17
+
+[2026-04-22 14:16:17] ✅ 通知监控更新完成
+[2026-04-22 14:16:17] 步骤5: 发送微信通知
+[2026-04-22 14:16:17] 工作流状态更新: sending-wechat
+[2026-04-22 14:16:17] 尝试发送微信通知...
+[2026-04-22 14:16:17] 微信通知已启用，目标: o9cq806z-LigbuXwKQuzkIcbNv-U@im.wechat
+[2026-04-22 14:16:17] 检查微信插件...
+[2026-04-22 14:16:42] ✅ 微信插件已安装
+[2026-04-22 14:16:42] 加载现有配置: /home/cmx/.openclaw/workspace/config/wechat-settings.json
+[2026-04-22 14:16:42] 准备发送代码优化通知...
+[2026-04-22 14:16:42] ✅ 配置检查通过
+[2026-04-22 14:16:42] 目标: o9cq806z-LigbuXwKQuzkIcbNv-U@im.wechat
+[2026-04-22 14:16:42] 通道: openclaw-weixin
+[2026-04-22 14:16:42] 发送微信消息到: o9cq806z-LigbuXwKQuzkIcbNv-U@im.wechat
+[2026-04-22 14:16:42] 消息长度: 193 字符
+[2026-04-22 14:16:42] 消息预览: 🤖 代码优化日报 📊
+
+📅 日期: 2026-04-22
+⏰ 时间: 14:16:42...
+[2026-04-22 14:17:06] ✅ 微信消息发送成功
+[35m[plugins][39m [33mplugins.allow is empty; discovered non-bundled plugins may auto-load: openclaw-weixin (/home/cmx/.openclaw/extensions/openclaw-weixin/index.ts). Set plugins.allow to explicit trusted ids.[39m
+✅ Sent via openclaw-weixin. Message ID: openclaw-weixin:1776838625929-9791b3cb
+[2026-04-22 14:17:06] ✅ 代码优化通知发送成功
+[2026-04-22 14:17:06] 消息副本已保存: /home/cmx/.openclaw/workspace/notifications/wechat-sent-20260422-141706.txt
+[2026-04-22 14:17:06] 操作完成: notify
+
+📝 日志文件: /home/cmx/.openclaw/workspace/logs/wechat-system-20260422-141617.log
+📁 配置目录: /home/cmx/.openclaw/workspace/config
+🤖 代码优化系统: http://localhost:8080
+[2026-04-22 14:17:06] ✅ 微信通知发送成功
+[2026-04-22 14:17:06] 步骤5: 清理临时文件
+[2026-04-22 14:17:06] 工作流状态更新: cleaning
+[2026-04-22 14:17:06] ✅ 临时文件清理完成
+[2026-04-22 14:17:06] 工作流状态更新: completed
+[2026-04-22 14:17:06] ✅ 工作流完成，总耗时: 50 秒
