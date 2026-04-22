@@ -1,50 +1,39 @@
-# 临时文件和目录
+# 代码优化自动化系统临时文件
+
+# 运行时目录
+logs/
 tmp/
+notifications/
+reports/
+public-notifications/
+
+# 配置文件（运行时生成）
+config/
+
+# 日志文件
+*.log
+
+# 临时文件
 *.tmp
 *.temp
-*.log
 *.bak
 *.backup
 
-# 日志目录
-logs/
-*.log
-log/
-
-# 开发环境文件
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# 运行时数据
-*.pid
-*.seed
-*.pid.lock
-
-# 依赖目录
-node_modules/
+# Python缓存
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+
+# 开发环境
+.env
+.env.*
+
+# 运行时数据
+*.pid
+*.seed
+*.pid.lock
 
 # IDE文件
 .vscode/
@@ -57,31 +46,13 @@ wheels/
 .DS_Store
 Thumbs.db
 
-# 测试文件
-coverage/
-.nyc_output
-
-# 配置文件（可能包含敏感信息）
-config/*.json
-!config/example-*.json
-
-# 通知文件（自动生成）
-notifications/*.txt
-!notifications/README.md
-
-# 报告文件（自动生成）
-reports/*.md
-!reports/template.md
-
-# 公开通知（自动生成）
-public-notifications/*.json
-public-notifications/*.txt
-!public-notifications/index.html
-!public-notifications/README.md
-
 # 工作区文件
 .workspace/
 .openclaw/
+
+# 测试文件
+coverage/
+.nyc_output
 
 # 编译输出
 *.exe
@@ -92,3 +63,19 @@ public-notifications/*.txt
 *.db
 *.sqlite
 *.sqlite3
+
+# 依赖目录
+node_modules/
+build/
+dist/
+
+# 确保OpenClaw工作区文件不被提交
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+
+# 自动生成的脚本
+scripts/send-*.sh
