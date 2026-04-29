@@ -89,16 +89,16 @@ using cmd::meta::OptionType;
  * - @a -L, @a --files-without-match: Print only names of FILEs with no selected lines [IMPLEMENTED]
  * - @a -l, @a --files-with-matches: Print only names of FILEs with selected lines [IMPLEMENTED]
  * - @a -c, @a --count: Print only a count of selected lines per FILE [IMPLEMENTED]
- * - @a -T, @a --initial-tab: Make tabs line up (if needed) [NOT SUPPORT]
+ * - @a -T, @a --initial-tab: Make tabs line up (if needed) [IMPLEMENTED]
  * - @a -Z, @a --null: Print 0 byte after FILE name [IMPLEMENTED]
  * - @a -B, @a --before-context: Print NUM lines of leading context [IMPLEMENTED]
  * - @a -A, @a --after-context: Print NUM lines of trailing context [IMPLEMENTED]
  * - @a -C, @a --context: Print NUM lines of output context [IMPLEMENTED]
- * - @a --group-separator: Print separator between groups [NOT SUPPORT]
- * - @a --no-group-separator: Do not print group separator [NOT SUPPORT]
+ * - @a --group-separator: Print separator between groups [IMPLEMENTED]
+ * - @a --no-group-separator: Do not print group separator [IMPLEMENTED]
  * - @a --color: Highlight matching strings [IMPLEMENTED]
  * - @a --colour: Highlight matching strings [IMPLEMENTED]
- * - @a -U, @a --binary: Do not strip CR at EOL [NOT SUPPORT]
+ * - @a -U, @a --binary: Do not strip CR at EOL [IMPLEMENTED]
  */
 auto constexpr GREP_OPTIONS = std::array{
     OPTION("-E", "--extended-regexp",
@@ -153,7 +153,7 @@ auto constexpr GREP_OPTIONS = std::array{
            "print only names of FILEs with selected lines"),
     OPTION("-c", "--count", "print only a count of selected lines per FILE"),
     OPTION("-T", "--initial-tab",
-           "make tabs line up (if needed) [NOT SUPPORT]"),
+           "make tabs line up (if needed)"),
     OPTION("-Z", "--null", "print 0 byte after FILE name"),
     OPTION("-B", "--before-context",
            "print NUM lines of leading context", INT_TYPE),
@@ -161,16 +161,16 @@ auto constexpr GREP_OPTIONS = std::array{
            "print NUM lines of trailing context", INT_TYPE),
     OPTION("-C", "--context", "print NUM lines of output context", INT_TYPE),
     OPTION("", "--group-separator",
-           "print separator between groups [NOT SUPPORT]", STRING_TYPE),
+           "print separator between groups", STRING_TYPE),
     OPTION("", "--no-group-separator",
-           "do not print group separator [NOT SUPPORT]"),
+           "do not print group separator"),
     OPTION("", "--color",
            "highlight matching strings; WHEN can be 'always', 'never', or 'auto'",
            STRING_TYPE),
     OPTION("", "--colour",
            "highlight matching strings; WHEN can be 'always', 'never', or 'auto'",
            STRING_TYPE),
-    OPTION("-U", "--binary", "do not strip CR at EOL [NOT SUPPORT]")};
+    OPTION("-U", "--binary", "do not strip CR at EOL")};
 
 namespace grep_pipeline {
 namespace cp = core::pipeline;
@@ -218,6 +218,9 @@ struct Config {
   bool color = false;
   std::string include;
   std::string exclude;
+  std::string group_separator = "--";
+  bool no_group_separator = false;
+  bool initial_tab = false;
 };
 
 auto to_lower_ascii(std::string_view s) -> std::string {
@@ -322,14 +325,6 @@ auto is_unsupported_used(const CommandContext<GREP_OPTIONS.size()>& ctx)
   if (!ctx.get<std::string>("--exclude-from", "").empty() ||
       !ctx.get<std::string>("--exclude-dir", "").empty())
     return "exclude-from/exclude-dir options are [NOT SUPPORT]";
-  if (ctx.get<bool>("--initial-tab", false) || ctx.get<bool>("-T", false))
-    return "--initial-tab is [NOT SUPPORT]";
-
-  if (!ctx.get<std::string>("--group-separator", "").empty() ||
-      ctx.get<bool>("--no-group-separator", false))
-    return "group separator options are [NOT SUPPORT]";
-  if (ctx.get<bool>("--binary", false) || ctx.get<bool>("-U", false))
-    return "--binary is [NOT SUPPORT]";
   return std::nullopt;
 }
 
@@ -408,6 +403,11 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
 
   cfg.include = ctx.get<std::string>("--include", "");
   cfg.exclude = ctx.get<std::string>("--exclude", "");
+
+  cfg.group_separator = ctx.get<std::string>("--group-separator", "--");
+  cfg.no_group_separator = ctx.get<bool>("--no-group-separator", false);
+  cfg.initial_tab =
+      ctx.get<bool>("--initial-tab", false) || ctx.get<bool>("-T", false);
 
   SmallVector<std::string, 32> raw_patterns;
   std::string p_e = ctx.get<std::string>("--regexp", "");
@@ -613,6 +613,7 @@ auto process_selected_record(std::string_view line, bool had_delim,
     for (const auto& m : matches) {
       if (m.end <= m.begin) continue;
       print_prefix(cfg, show_filename, display_name, line_no, offset + m.begin);
+      if (cfg.initial_tab) safePrint("\t");
       if (cfg.color) {
         safePrint("\033[1;31m");
         safePrint(line.substr(m.begin, m.end - m.begin));
@@ -624,6 +625,7 @@ auto process_selected_record(std::string_view line, bool had_delim,
     }
   } else {
     print_prefix(cfg, show_filename, display_name, line_no, offset);
+    if (cfg.initial_tab) safePrint("\t");
     print_line_with_color(line, matches, cfg.color);
     if (had_delim) {
       safePrint(std::string_view(&delim, 1));
@@ -707,7 +709,10 @@ auto scan_text(const std::string& text, std::string_view display_name,
     if (end >= records.size()) end = records.size() - 1;
 
     if (!first_group) {
-      safePrint("--\n");
+      if (!cfg.no_group_separator) {
+        safePrint(cfg.group_separator);
+        safePrint("\n");
+      }
     }
     first_group = false;
 
@@ -724,6 +729,7 @@ auto scan_text(const std::string& text, std::string_view display_name,
         bool selected = cfg.invert_match ? !is_match : is_match;
         if (selected) {
           print_prefix(cfg, show_filename, display_name, i + 1, b);
+          if (cfg.initial_tab) safePrint("\t");
           print_line_with_color(line, matches, cfg.color);
           if (had_delim) {
             safePrint(std::string_view(&delim, 1));
@@ -733,6 +739,7 @@ auto scan_text(const std::string& text, std::string_view display_name,
         }
       } else {
         print_prefix(cfg, show_filename, display_name, i + 1, b);
+        if (cfg.initial_tab) safePrint("\t");
         safePrint(line);
         if (had_delim) {
           safePrint(std::string_view(&delim, 1));
