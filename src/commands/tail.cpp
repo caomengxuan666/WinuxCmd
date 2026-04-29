@@ -386,7 +386,19 @@ auto config = *config_result;
 
   // Use SmallVector for files (max 64 files) - all stack-allocated
   SmallVector<std::string, 64> files{};
-  for (auto p : ctx.positionals) files.push_back(std::string(p));
+  for (auto p : ctx.positionals) {
+    std::string file_arg(p);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          files.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    files.push_back(file_arg);
+  }
   if (files.empty()) files.push_back("-");
 
   bool any_error = false;

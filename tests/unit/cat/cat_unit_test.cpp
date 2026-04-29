@@ -84,3 +84,53 @@ TEST(cat, cat_pipe_wc) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "2\n");
 }
+
+TEST(cat, cat_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "content1\n");
+  tmp.write("file2.txt", "content2\n");
+  tmp.write("other.log", "log content\n");
+
+  TEST_LOG_FILE_CONTENT("file1.txt", "content1\n");
+  TEST_LOG_FILE_CONTENT("file2.txt", "content2\n");
+  TEST_LOG_FILE_CONTENT("other.log", "log content\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"*.txt"});
+
+  TEST_LOG_CMD_LIST("cat.exe", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("cat.exe *.txt output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("content1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("content2") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("log content") == std::string::npos);
+}
+
+TEST(cat, cat_wildcard_question_mark) {
+  TempDir tmp;
+  tmp.write("file1.txt", "content1\n");
+  tmp.write("file2.txt", "content2\n");
+  tmp.write("file10.txt", "content10\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"file?.txt"});
+
+  TEST_LOG_CMD_LIST("cat.exe", L"file?.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("cat.exe file?.txt output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("content1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("content2") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("content10") == std::string::npos);
+}

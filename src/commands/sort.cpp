@@ -322,7 +322,19 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
   if (!key) return std::unexpected(key.error());
   cfg.key = *key;
 
-for (auto p : ctx.positionals) cfg.files.push_back(std::string(p));
+for (auto p : ctx.positionals) {
+    std::string file_arg(p);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          cfg.files.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    cfg.files.push_back(file_arg);
+  }
   if (cfg.files.empty()) cfg.files.push_back("-");
 
   return cfg;

@@ -134,8 +134,24 @@ DOS2UNIX_OPTIONS) {
     // Process each file in place
     bool all_ok = true;
     for (auto file : ctx.positionals) {
-      if (!process_file(std::string(file), true)) {
-        all_ok = false;
+      std::string file_arg(file);
+      std::vector<std::string> expanded;
+      if (contains_wildcard(file_arg)) {
+        auto glob_result = glob_expand(file_arg);
+        if (glob_result.expanded) {
+          for (const auto& f : glob_result.files) {
+            expanded.push_back(wstring_to_utf8(f));
+          }
+        } else {
+          expanded.push_back(file_arg);
+        }
+      } else {
+        expanded.push_back(file_arg);
+      }
+      for (const auto& exp : expanded) {
+        if (!process_file(exp, true)) {
+          all_ok = false;
+        }
       }
     }
     return all_ok ? 0 : 1;

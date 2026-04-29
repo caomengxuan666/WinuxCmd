@@ -99,48 +99,7 @@ struct FileInfo {
   bool is_hidden;
 };
 
-/**
- * @brief Check if a character matches a character class (e.g., [0-9], [a-z], [abc])
- */
-bool match_char_class(std::wstring_view char_class, wchar_t c) {
-  if (char_class.size() < 2 || char_class.front() != L'[' || char_class.back() != L']') {
-    return false;
-  }
-  
-  std::wstring_view content = char_class.substr(1, char_class.size() - 2);
-  
-  // Handle negation: [^...]
-  bool negated = false;
-  if (!content.empty() && content.front() == L'^') {
-    negated = true;
-    content = content.substr(1);
-  }
-  
-  bool matched = false;
-  size_t i = 0;
-  
-  while (i < content.size()) {
-    if (i + 2 < content.size() && content[i + 1] == L'-') {
-      // Range: [a-z]
-      wchar_t start = content[i];
-      wchar_t end = content[i + 2];
-      if (c >= start && c <= end) {
-        matched = true;
-        break;
-      }
-      i += 3;
-    } else {
-      // Single character: [abc]
-      if (content[i] == c) {
-        matched = true;
-        break;
-      }
-      i++;
-    }
-  }
-  
-  return negated ? !matched : matched;
-}
+// Character class matching is now provided by utils:wildcard module
 
 // File extension constants
 namespace tree_constants {
@@ -198,77 +157,7 @@ auto get_file_color(const std::wstring &filename) -> std::wstring_view {
   return COLOR_FILE;
 }
 
-/**
- * @brief Check if a file/directory matches a wildcard pattern (helper for already lowercased strings)
- */
-bool wildcard_match_impl(std::wstring_view pattern, std::wstring_view text) {
-  size_t pi = 0, ti = 0;
-  while (pi < pattern.size()) {
-    if (pattern[pi] == L'*') {
-      while (pi < pattern.size() && pattern[pi] == L'*') ++pi;
-      if (pi == pattern.size()) return true;
-      while (ti <= text.size()) {
-        if (wildcard_match_impl(pattern.substr(pi), text.substr(ti))) return true;
-        if (ti == text.size()) break;
-        ++ti;
-      }
-      return false;
-    }
-
-    if (ti >= text.size()) return false;
-
-    if (pattern[pi] == L'?') {
-      ++pi;
-      ++ti;
-    } else if (pattern[pi] == L'[') {
-      // Find matching ']'
-      size_t bracket_end = pi + 1;
-      while (bracket_end < pattern.size() && pattern[bracket_end] != L']') {
-        bracket_end++;
-      }
-      
-      if (bracket_end >= pattern.size()) {
-        // No closing bracket, treat '[' as literal
-        if (pattern[pi] != text[ti]) return false;
-        ++pi;
-        ++ti;
-      } else {
-        // Extract character class: [abc] or [a-z] or [^0-9]
-        std::wstring_view char_class = pattern.substr(pi, bracket_end - pi + 1);
-        if (!match_char_class(char_class, text[ti])) {
-          return false;
-        }
-        pi = bracket_end + 1;
-        ++ti;
-      }
-    } else if (pattern[pi] == text[ti]) {
-      ++pi;
-      ++ti;
-    } else {
-      return false;
-    }
-  }
-
-  return ti == text.size();
-}
-
-/**
- * @brief Check if a file/directory matches a wildcard pattern
- */
-bool wildcard_match(std::wstring_view pattern, std::wstring_view text) {
-  auto to_lower = [](std::wstring_view s) {
-    std::wstring result;
-    result.reserve(s.size());
-    for (wchar_t c : s) {
-      result.push_back(std::towlower(c));
-    }
-    return result;
-  };
-
-  auto p = to_lower(pattern);
-  auto t = to_lower(text);
-  return wildcard_match_impl(p, t);
-}
+// Wildcard matching is now provided by utils:wildcard module
 
 /**
  * @brief Build configuration from command context

@@ -303,23 +303,39 @@ REGISTER_COMMAND(
     data.assign(std::istreambuf_iterator<char>(std::cin), std::istreambuf_iterator<char>());
   } else {
     for (const auto& filename : ctx.positionals) {
-      std::wstring wfile = utf8_to_wstring(std::string(filename));
-      HANDLE hFile = CreateFileW(wfile.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-      if (hFile == INVALID_HANDLE_VALUE) {
-        safeErrorPrintLn("od: cannot open '" + std::string(filename) + "'");
-        continue;
+      std::string file_arg(filename);
+      std::vector<std::string> expanded;
+      if (contains_wildcard(file_arg)) {
+        auto glob_result = glob_expand(file_arg);
+        if (glob_result.expanded) {
+          for (const auto& f : glob_result.files) {
+            expanded.push_back(wstring_to_utf8(f));
+          }
+        } else {
+          expanded.push_back(file_arg);
+        }
+      } else {
+        expanded.push_back(file_arg);
       }
+      for (const auto& exp : expanded) {
+        std::wstring wfile = utf8_to_wstring(exp);
+        HANDLE hFile = CreateFileW(wfile.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 
-      LARGE_INTEGER fileSize;
-      GetFileSizeEx(hFile, &fileSize);
+        if (hFile == INVALID_HANDLE_VALUE) {
+          safeErrorPrintLn("od: cannot open '" + exp + "'");
+          continue;
+        }
 
-      size_t old_size = data.size();
-      data.resize(old_size + fileSize.QuadPart);
-      DWORD bytesRead;
-      ReadFile(hFile, data.data() + old_size, static_cast<DWORD>(fileSize.QuadPart), &bytesRead, nullptr);
-      data.resize(old_size + bytesRead);
-      CloseHandle(hFile);
+        LARGE_INTEGER fileSize;
+        GetFileSizeEx(hFile, &fileSize);
+
+        size_t old_size = data.size();
+        data.resize(old_size + fileSize.QuadPart);
+        DWORD bytesRead;
+        ReadFile(hFile, data.data() + old_size, static_cast<DWORD>(fileSize.QuadPart), &bytesRead, nullptr);
+        data.resize(old_size + bytesRead);
+        CloseHandle(hFile);
+      }
     }
   }
 

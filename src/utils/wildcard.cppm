@@ -157,3 +157,123 @@ export bool wildcard_match(const std::wstring &pattern, const std::wstring &text
   auto t = to_lower(text);
   return wildcard_impl::wildcard_match_impl(p, t);
 }
+
+/**
+ * @brief Check if a string contains wildcard characters (*, ?, [)
+ * @param str The string to check
+ * @return true if the string contains wildcard characters, false otherwise
+ */
+export bool contains_wildcard(std::wstring_view str) {
+  return str.find(L'*') != std::wstring_view::npos ||
+         str.find(L'?') != std::wstring_view::npos ||
+         str.find(L'[') != std::wstring_view::npos;
+}
+
+/**
+ * @brief Result of glob expansion
+ */
+export struct GlobResult {
+  std::vector<std::wstring> files;  // Matched file list
+  bool expanded;                     // Whether expansion was performed
+};
+
+/**
+ * @brief Smart glob expansion that handles all environments
+ * @param pattern The wildcard pattern or literal file path
+ * @return GlobResult containing matched files and expansion status
+ *
+ * This function implements smart wildcard expansion:
+ * 1. First tries the pattern as a literal file path
+ * 2. If that fails, tries wildcard expansion using FindFirstFileW
+ * 3. If expansion fails, returns the original pattern as a literal value
+ *
+ * This approach works correctly in all environments:
+ * - PowerShell: expanded parameters don't contain wildcards, used as literal paths
+ * - cmd.exe/REPL: parameters with wildcards are expanded
+ * - Supports literal filenames like "*.txt" (a file actually named "*.txt")
+ */
+export GlobResult glob_expand(std::wstring_view pattern) {
+  GlobResult result;
+  
+  // 1. First try as literal file path
+  std::error_code ec;
+  if (std::filesystem::exists(pattern, ec)) {
+    result.files.push_back(std::wstring(pattern));
+    result.expanded = false;  // Not expanded, literal path
+    return result;
+  }
+  
+  // 2. Try wildcard expansion
+  WIN32_FIND_DATAW find_data;
+  HANDLE hFind = FindFirstFileW(pattern.data(), &find_data);
+  
+  if (hFind != INVALID_HANDLE_VALUE) {
+    // Extract directory part from pattern
+    std::wstring pattern_str(pattern);
+    size_t last_sep = pattern_str.find_last_of(L"\\/");
+    std::wstring dir;
+    if (last_sep != std::wstring::npos) {
+      dir = pattern_str.substr(0, last_sep + 1);
+    }
+    
+    do {
+      std::wstring filename = find_data.cFileName;
+      // Skip . and .. entries
+      if (filename != L"." && filename != L"..") {
+        if (!dir.empty()) {
+          result.files.push_back(dir + filename);
+        } else {
+          result.files.push_back(filename);
+        }
+      }
+    } while (FindNextFileW(hFind, &find_data) != 0);
+    FindClose(hFind);
+    result.expanded = true;
+    
+    // If no files matched, return original pattern as literal
+    if (result.files.empty()) {
+      result.files.push_back(std::wstring(pattern));
+      result.expanded = false;
+    }
+  } else {
+    // 3. Expansion failed, return original literal value
+    result.files.push_back(std::wstring(pattern));
+    result.expanded = false;
+  }
+  
+  return result;
+}
+
+/**
+ * @brief Smart glob expansion for narrow strings (UTF-8)
+ * @param pattern The wildcard pattern or literal file path (UTF-8)
+ * @return GlobResult containing matched files and expansion status
+ */
+export GlobResult glob_expand(std::string_view pattern) {
+  std::wstring wpattern = utf8_to_wstring(pattern);
+  return glob_expand(wpattern);
+}
+
+/**
+ * @brief Enhanced wildcard matching for narrow strings (UTF-8)
+ * @param pattern The wildcard pattern
+ * @param text The text to match against
+ * @param case_sensitive Whether to perform case-sensitive matching (default: false)
+ * @return true if text matches pattern, false otherwise
+ */
+export bool wildcard_match(const std::string &pattern, const std::string &text, bool case_sensitive = false) {
+  std::wstring wpattern = utf8_to_wstring(pattern);
+  std::wstring wtext = utf8_to_wstring(text);
+  return wildcard_match(wpattern, wtext, case_sensitive);
+}
+
+/**
+ * @brief Check if a narrow string contains wildcard characters (*, ?, [)
+ * @param str The string to check
+ * @return true if the string contains wildcard characters, false otherwise
+ */
+export bool contains_wildcard(std::string_view str) {
+  return str.find('*') != std::string_view::npos ||
+         str.find('?') != std::string_view::npos ||
+         str.find('[') != std::string_view::npos;
+}

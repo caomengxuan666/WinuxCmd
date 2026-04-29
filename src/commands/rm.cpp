@@ -365,7 +365,17 @@ auto process_command(const CommandContext<RM_OPTIONS.size()>& ctx)
     -> cp::Result<bool> {
   std::vector<std::string> paths;
   for (auto arg : ctx.positionals) {
-    paths.push_back(std::string(arg));
+    std::string file_arg(arg);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          paths.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    paths.push_back(file_arg);
   }
 
   return check_paths(paths).and_then(

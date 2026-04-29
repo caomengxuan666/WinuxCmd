@@ -32,43 +32,59 @@ REGISTER_COMMAND(
   bool remove = ctx.get<bool>("-u", false);
 
   for (const auto& filename : ctx.positionals) {
-    std::wstring wfilename = utf8_to_wstring(std::string(filename));
-    HANDLE hFile = CreateFileW(wfilename.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-    if (hFile == INVALID_HANDLE_VALUE) {
-      safeErrorPrintLn("shred: cannot open '" + std::string(filename) + "'");
-      continue;
+    std::string file_arg(filename);
+    std::vector<std::string> expanded;
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& f : glob_result.files) {
+          expanded.push_back(wstring_to_utf8(f));
+        }
+      } else {
+        expanded.push_back(file_arg);
+      }
+    } else {
+      expanded.push_back(file_arg);
     }
+    for (const auto& exp : expanded) {
+      std::wstring wfilename = utf8_to_wstring(exp);
+      HANDLE hFile = CreateFileW(wfilename.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 
-    LARGE_INTEGER fileSize;
-    GetFileSizeEx(hFile, &fileSize);
-
-    // Overwrite file multiple times
-    for (int i = 0; i < passes; ++i) {
-      std::vector<char> buffer(fileSize.QuadPart);
-
-      // Fill with random data (simplified - using pattern)
-      for (LONGLONG j = 0; j < fileSize.QuadPart; ++j) {
-        buffer[j] = static_cast<char>((i + j) % 256);
+      if (hFile == INVALID_HANDLE_VALUE) {
+        safeErrorPrintLn("shred: cannot open '" + exp + "'");
+        continue;
       }
 
-      LARGE_INTEGER li = {0};
-      SetFilePointerEx(hFile, li, nullptr, FILE_BEGIN);
+      LARGE_INTEGER fileSize;
+      GetFileSizeEx(hFile, &fileSize);
 
-      DWORD bytesWritten;
-      WriteFile(hFile, buffer.data(), static_cast<DWORD>(fileSize.QuadPart), &bytesWritten, nullptr);
-      FlushFileBuffers(hFile);
+      // Overwrite file multiple times
+      for (int i = 0; i < passes; ++i) {
+        std::vector<char> buffer(fileSize.QuadPart);
+
+        // Fill with random data (simplified - using pattern)
+        for (LONGLONG j = 0; j < fileSize.QuadPart; ++j) {
+          buffer[j] = static_cast<char>((i + j) % 256);
+        }
+
+        LARGE_INTEGER li = {0};
+        SetFilePointerEx(hFile, li, nullptr, FILE_BEGIN);
+
+        DWORD bytesWritten;
+        WriteFile(hFile, buffer.data(), static_cast<DWORD>(fileSize.QuadPart), &bytesWritten, nullptr);
+        FlushFileBuffers(hFile);
+      }
+
+      CloseHandle(hFile);
+
+      // Remove file if requested
+      if (remove) {
+        std::wstring wremove = utf8_to_wstring(exp);
+        DeleteFileW(wremove.c_str());
+      }
+
+      safePrintLn("shred: '" + exp + "' removed");
     }
-
-    CloseHandle(hFile);
-
-    // Remove file if requested
-    if (remove) {
-      std::wstring wremove = utf8_to_wstring(std::string(filename));
-      DeleteFileW(wremove.c_str());
-    }
-
-    safePrintLn("shred: '" + std::string(filename) + "' removed");
   }
 
   return 0;

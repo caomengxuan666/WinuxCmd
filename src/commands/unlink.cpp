@@ -81,17 +81,32 @@ UNLINK_OPTIONS) {
   bool success = true;
   for (auto file : ctx.positionals) {
     std::string filename = std::string(file);
-    std::wstring wfilename = utf8_to_wstring(filename);
-
-    if (verbose) {
-      safePrint("unlink: removing '" + filename + "'\n");
+    std::vector<std::string> expanded;
+    if (contains_wildcard(filename)) {
+      auto glob_result = glob_expand(filename);
+      if (glob_result.expanded) {
+        for (const auto& f : glob_result.files) {
+          expanded.push_back(wstring_to_utf8(f));
+        }
+      } else {
+        expanded.push_back(filename);
+      }
+    } else {
+      expanded.push_back(filename);
     }
+    for (const auto& exp : expanded) {
+      std::wstring wfilename = utf8_to_wstring(exp);
 
-    BOOL result = DeleteFileW(wfilename.c_str());
-    if (!result) {
-      DWORD error = GetLastError();
-      safeErrorPrintLn("unlink: cannot remove '" + filename + "': " + std::to_string(error));
-      success = false;
+      if (verbose) {
+        safePrint("unlink: removing '" + exp + "'\n");
+      }
+
+      BOOL result = DeleteFileW(wfilename.c_str());
+      if (!result) {
+        DWORD error = GetLastError();
+        safeErrorPrintLn("unlink: cannot remove '" + exp + "': " + std::to_string(error));
+        success = false;
+      }
     }
   }
 

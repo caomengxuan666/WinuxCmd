@@ -105,7 +105,17 @@ auto build_config(const CommandContext<CSPLIT_OPTIONS.size()>& ctx)
 
   // Get input file and patterns from positionals
   if (!ctx.positionals.empty()) {
-    cfg.input_file = std::string(ctx.positionals[0]);
+    std::string file_arg(ctx.positionals[0]);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded && !glob_result.files.empty()) {
+        cfg.input_file = wstring_to_utf8(glob_result.files[0]);
+      } else {
+        cfg.input_file = file_arg;
+      }
+    } else {
+      cfg.input_file = file_arg;
+    }
     
     for (size_t i = 1; i < ctx.positionals.size(); ++i) {
       cfg.patterns.push_back(std::string(ctx.positionals[i]));

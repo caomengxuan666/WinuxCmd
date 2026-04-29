@@ -684,6 +684,19 @@ auto gather_files_for_input(const Config& cfg, std::vector<std::string>& out)
       continue;
     }
 
+    // Smart glob expansion for wildcard patterns
+    if (contains_wildcard(f)) {
+      auto glob_result = glob_expand(f);
+      if (glob_result.expanded) {
+        // Pattern was expanded, add all matched files
+        for (const auto& file : glob_result.files) {
+          out.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+      // If expansion failed, fall through to normal processing
+    }
+
     std::error_code ec;
     bool is_dir = std::filesystem::is_directory(f, ec);
     if (ec) {

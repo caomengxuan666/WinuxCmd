@@ -103,51 +103,7 @@ struct Config {
   bool had_error = false;
 };
 
-auto to_lower_ascii(std::string_view s) -> std::string {
-  std::string out;
-  out.reserve(s.size());
-  for (unsigned char c : s) out.push_back(static_cast<char>(std::tolower(c)));
-  return out;
-}
-
-auto wildcard_match_impl(std::string_view p, size_t pi, std::string_view s,
-                         size_t si) -> bool {
-  while (pi < p.size()) {
-    char pc = p[pi];
-    if (pc == '*') {
-      while (pi < p.size() && p[pi] == '*') ++pi;
-      if (pi == p.size()) return true;
-      while (si <= s.size()) {
-        if (wildcard_match_impl(p, pi, s, si)) return true;
-        if (si == s.size()) break;
-        ++si;
-      }
-      return false;
-    }
-
-    if (si >= s.size()) return false;
-
-    if (pc == '?') {
-      ++pi;
-      ++si;
-      continue;
-    }
-
-    if (pc != s[si]) return false;
-    ++pi;
-    ++si;
-  }
-
-  return si == s.size();
-}
-
-auto wildcard_match(std::string_view pattern, std::string_view text,
-                    bool ignore_case) -> bool {
-  if (!ignore_case) return wildcard_match_impl(pattern, 0, text, 0);
-  auto p = to_lower_ascii(pattern);
-  auto t = to_lower_ascii(text);
-  return wildcard_match_impl(p, 0, t, 0);
-}
+// Wildcard matching is now provided by utils:wildcard module
 
 auto type_matches(const std::filesystem::directory_entry& e,
                   std::string_view type) -> bool {
@@ -251,12 +207,12 @@ auto entry_matches(const Config& cfg, const std::filesystem::path& p,
   if (filename.empty()) filename = p.generic_string();
 
   if (!cfg.name_pattern.empty() &&
-      !wildcard_match(cfg.name_pattern, filename, false)) {
+      !wildcard_match(cfg.name_pattern, filename, true)) {
     return false;
   }
 
   if (!cfg.iname_pattern.empty() &&
-      !wildcard_match(cfg.iname_pattern, filename, true)) {
+      !wildcard_match(cfg.iname_pattern, filename, false)) {
     return false;
   }
 

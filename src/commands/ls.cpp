@@ -1333,102 +1333,75 @@ auto process_paths(const std::vector<std::string> &paths,
 
     // If path doesn't exist, try to treat it as a pattern
     if (attr == INVALID_FILE_ATTRIBUTES) {
-      // Could be a wildcard pattern, try to expand it
-      std::wstring search_pattern = wpath;
-      // Check if pattern contains wildcards
-      if (search_pattern.find(L'*') != std::wstring::npos ||
-          search_pattern.find(L'?') != std::wstring::npos) {
-        WIN32_FIND_DATAW find_data;
-        HANDLE hFind = FindFirstFileW(search_pattern.c_str(), &find_data);
+      // Use smart glob expansion from utils:wildcard module
+      auto glob_result = glob_expand(wpath);
+      
+      if (glob_result.expanded && !glob_result.files.empty()) {
+        // Pattern matched, process each match
+        std::vector<std::string> matched_files;
+        for (const auto &file : glob_result.files) {
+          matched_files.push_back(wstring_to_utf8(file));
+        }
 
-        if (hFind == INVALID_HANDLE_VALUE) {
-          // Pattern didn't match anything
-          safePrintLn(std::wstring(L"ls: cannot access '") +
-                      std::wstring(path.begin(), path.end()) +
-                      L"': No such file or directory");
-          success = false;
-        } else {
-          // Pattern matched, process each match
-          bool first_match = true;
-          std::vector<std::string> matched_files;
-          do {
-            std::wstring filename = find_data.cFileName;
-            // Skip . and .. for patterns
-            if (filename != L"." && filename != L"..") {
-              // Get full path
-              std::wstring full_path = search_pattern;
-              size_t last_sep = full_path.find_last_of(L"\\/");
-              if (last_sep != std::wstring::npos) {
-                full_path = full_path.substr(0, last_sep + 1) + filename;
-              } else {
-                full_path = filename;
-              }
-              matched_files.push_back(wstring_to_utf8(full_path));
+        // Process matched files
+        if (!matched_files.empty()) {
+          if (matched_files.size() == 1) {
+            // Single file, display it directly
+            auto result = list_file(matched_files[0], ctx);
+            if (!result) {
+              safePrintLn(std::wstring(L"ls: ") +
+                          std::wstring(result.error().begin(),
+                                       result.error().end()));
+              success = false;
             }
-          } while (FindNextFileW(hFind, &find_data) != 0);
-          FindClose(hFind);
+          } else {
+            // Multiple files, determine if they're all in same directory
+            bool all_same_dir = true;
+            std::wstring first_dir;
+            for (const auto &f : matched_files) {
+              std::wstring fw = utf8_to_wstring(f);
+              size_t last_sep = fw.find_last_of(L"\\/");
+              std::wstring dir;
+              if (last_sep != std::wstring::npos) {
+                dir = fw.substr(0, last_sep);
+              } else {
+                dir = L".";
+              }
+              if (first_dir.empty()) {
+                first_dir = dir;
+              } else if (dir != first_dir) {
+                all_same_dir = false;
+                break;
+              }
+            }
 
-          // Process matched files
-          if (!matched_files.empty()) {
-            if (matched_files.size() == 1) {
-              // Single file, display it directly
-              auto result = list_file(matched_files[0], ctx);
-              if (!result) {
-                safePrintLn(std::wstring(L"ls: ") +
-                            std::wstring(result.error().begin(),
-                                         result.error().end()));
-                success = false;
+            if (all_same_dir && !first_dir.empty()) {
+              // All files in same directory, list each file individually
+              for (const auto &f : matched_files) {
+                auto result = list_file(f, ctx);
+                if (!result) {
+                  safePrintLn(std::wstring(L"ls: ") +
+                              std::wstring(result.error().begin(),
+                                           result.error().end()));
+                  success = false;
+                }
               }
             } else {
-              // Multiple files, determine if they're all in same directory
-              bool all_same_dir = true;
-              std::wstring first_dir;
+              // Files in different directories, list each one
               for (const auto &f : matched_files) {
-                std::wstring fw = utf8_to_wstring(f);
-                size_t last_sep = fw.find_last_of(L"\\/");
-                std::wstring dir;
-                if (last_sep != std::wstring::npos) {
-                  dir = fw.substr(0, last_sep);
-                } else {
-                  dir = L".";
-                }
-                if (first_dir.empty()) {
-                  first_dir = dir;
-                } else if (dir != first_dir) {
-                  all_same_dir = false;
-                  break;
-                }
-              }
-
-              if (all_same_dir && !first_dir.empty()) {
-                // All files in same directory, list each file individually
-                // (Don't use list_directory as it would show all files, not just the matched ones)
-                for (const auto &f : matched_files) {
-                  auto result = list_file(f, ctx);
-                  if (!result) {
-                    safePrintLn(std::wstring(L"ls: ") +
-                                std::wstring(result.error().begin(),
-                                             result.error().end()));
-                    success = false;
-                  }
-                }
-              } else {
-                // Files in different directories, list each one
-                for (const auto &f : matched_files) {
-                  auto result = list_file(f, ctx);
-                  if (!result) {
-                    safePrintLn(std::wstring(L"ls: ") +
-                                std::wstring(result.error().begin(),
-                                             result.error().end()));
-                    success = false;
-                  }
+                auto result = list_file(f, ctx);
+                if (!result) {
+                  safePrintLn(std::wstring(L"ls: ") +
+                              std::wstring(result.error().begin(),
+                                           result.error().end()));
+                  success = false;
                 }
               }
             }
           }
         }
       } else {
-        // Not a pattern and doesn't exist
+        // Not a pattern and doesn't exist, or pattern didn't match
         safePrintLn(std::wstring(L"ls: cannot access '") +
                     std::wstring(path.begin(), path.end()) +
                     L"': No such file or directory");

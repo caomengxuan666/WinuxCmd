@@ -65,7 +65,17 @@ REGISTER_COMMAND(
 REV_OPTIONS) {
   std::vector<std::string> files;
   for (const auto& arg : ctx.positionals) {
-    files.push_back(std::string(arg));
+    std::string file_arg(arg);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          files.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    files.push_back(file_arg);
   }
 
   std::function<void(std::istream&)> process_stream = [](std::istream& is) {

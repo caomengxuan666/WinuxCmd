@@ -96,6 +96,15 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
         return std::unexpected("invalid page number");
       }
     } else {
+      if (contains_wildcard(arg_str)) {
+        auto glob_result = glob_expand(arg_str);
+        if (glob_result.expanded) {
+          for (const auto& file : glob_result.files) {
+            cfg.files.push_back(wstring_to_utf8(file));
+          }
+          continue;
+        }
+      }
       cfg.files.push_back(arg_str);
     }
   }

@@ -180,8 +180,17 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
 
   // Get input file and prefix from positionals
   if (!ctx.positionals.empty()) {
-    // First positional is input file, second is prefix (optional)
-    cfg.input_file = std::string(ctx.positionals[0]);
+    std::string file_arg(ctx.positionals[0]);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded && !glob_result.files.empty()) {
+        cfg.input_file = wstring_to_utf8(glob_result.files[0]);
+      } else {
+        cfg.input_file = file_arg;
+      }
+    } else {
+      cfg.input_file = file_arg;
+    }
     
     if (ctx.positionals.size() > 1) {
       cfg.prefix = std::string(ctx.positionals[1]);
