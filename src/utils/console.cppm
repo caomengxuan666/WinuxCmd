@@ -44,6 +44,9 @@ thread_local HANDLE g_cached_stderr = INVALID_HANDLE_VALUE;
 thread_local bool g_handles_valid = false;
 thread_local bool g_stdout_pipe_closed = false;
 thread_local bool g_stderr_pipe_closed = false;
+thread_local bool g_stdout_is_console = false;
+thread_local bool g_stderr_is_console = false;
+thread_local bool g_console_checked = false;
 
 // Capture handles (set by daemon when capturing)
 HANDLE g_capture_stdout_write = nullptr;
@@ -93,6 +96,7 @@ export void set_output_capture_handles(HANDLE stdout_handle, HANDLE stderr_handl
 // Exported function to invalidate cached handles (call after SetStdHandle)
 export void invalidateCachedHandles() {
   g_handles_valid = false;
+  g_console_checked = false;
 }
 
 export bool is_stdout_pipe_closed() { return g_stdout_pipe_closed; }
@@ -108,6 +112,25 @@ bool isConsoleHandle(HANDLE h) {
   if (h == INVALID_HANDLE_VALUE) return false;
   DWORD mode;
   return GetConsoleMode(h, &mode) != 0;
+}
+
+// Cached console check - only calls GetConsoleMode once per thread
+bool isStdoutConsole() {
+  if (!g_console_checked) {
+    g_stdout_is_console = isConsoleHandle(getStdOut());
+    g_stderr_is_console = isConsoleHandle(getStdErr());
+    g_console_checked = true;
+  }
+  return g_stdout_is_console;
+}
+
+bool isStderrConsole() {
+  if (!g_console_checked) {
+    g_stdout_is_console = isConsoleHandle(getStdOut());
+    g_stderr_is_console = isConsoleHandle(getStdErr());
+    g_console_checked = true;
+  }
+  return g_stderr_is_console;
 }
 
 
@@ -287,7 +310,7 @@ class wchar_buffer {
 // ----------------------------------------------------------------------------
 export void safePrint(std::wstring_view wsv) {
   HANDLE h = getStdOut();
-  if (isConsoleHandle(h)) {
+  if (isStdoutConsole()) {
     if (!detail::writeConsoleW(h, wsv.data(), wsv.size()) &&
         isBrokenPipeError(GetLastError())) {
       g_stdout_pipe_closed = true;
@@ -303,7 +326,7 @@ export void safePrint(std::wstring_view wsv) {
 
 export void safeErrorPrint(std::wstring_view wsv) {
   HANDLE h = getStdErr();
-  if (isConsoleHandle(h)) {
+  if (isStderrConsole()) {
     if (!detail::writeConsoleW(h, wsv.data(), wsv.size()) &&
         isBrokenPipeError(GetLastError())) {
       g_stderr_pipe_closed = true;
@@ -332,7 +355,7 @@ export void safeErrorPrintLn(std::wstring_view wsv) {
 // ----------------------------------------------------------------------------
 export void safePrint(std::string_view sv) {
   HANDLE h = getStdOut();
-  if (isConsoleHandle(h)) {
+  if (isStdoutConsole()) {
     detail::wchar_buffer buf(sv);
     if (buf.valid()) {
       if (!detail::writeConsoleW(h, buf.data(), buf.size()) &&
@@ -350,7 +373,7 @@ export void safePrint(std::string_view sv) {
 
 export void safeErrorPrint(std::string_view sv) {
   HANDLE h = getStdErr();
-  if (isConsoleHandle(h)) {
+  if (isStderrConsole()) {
     detail::wchar_buffer buf(sv);
     if (buf.valid()) {
       if (!detail::writeConsoleW(h, buf.data(), buf.size()) &&
@@ -427,7 +450,7 @@ export void safeErrorPrintLn(const wchar_t* wstr) {
 // ----------------------------------------------------------------------------
 export void safePrint(char c) {
   HANDLE h = getStdOut();
-  if (isConsoleHandle(h)) {
+  if (isStdoutConsole()) {
     wchar_t wc = static_cast<wchar_t>(c);
     detail::writeConsoleW(h, &wc, 1);
   } else {
@@ -437,7 +460,7 @@ export void safePrint(char c) {
 
 export void safeErrorPrint(char c) {
   HANDLE h = getStdErr();
-  if (isConsoleHandle(h)) {
+  if (isStderrConsole()) {
     wchar_t wc = static_cast<wchar_t>(c);
     detail::writeConsoleW(h, &wc, 1);
   } else {
