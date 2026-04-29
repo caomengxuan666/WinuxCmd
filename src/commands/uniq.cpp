@@ -53,7 +53,7 @@ using cmd::meta::OptionType;
  *
  * - @a -c, @a --count: Prefix lines by the number of occurrences [IMPLEMENTED]
  * - @a -d, @a --repeated: Only print duplicate lines [IMPLEMENTED]
- * - @a -D, @a --all-repeated: Print all duplicate lines [NOT SUPPORT]
+ * - @a -D, @a --all-repeated: Print all duplicate lines [IMPLEMENTED]
  * - @a -f, @a --skip-fields: Avoid comparing the first N fields [IMPLEMENTED]
  * - @a -i, @a --ignore-case: Ignore differences in case [IMPLEMENTED]
  * - @a -s, @a --skip-chars: Avoid comparing the first N characters [IMPLEMENTED]
@@ -65,7 +65,7 @@ using cmd::meta::OptionType;
 auto constexpr UNIQ_OPTIONS = std::array{
     OPTION("-c", "--count", "prefix lines by the number of occurrences"),
     OPTION("-d", "--repeated", "only print duplicate lines"),
-    OPTION("-D", "--all-repeated", "print all duplicate lines [NOT SUPPORT]"),
+    OPTION("-D", "--all-repeated", "print all duplicate lines"),
     OPTION("-f", "--skip-fields", "avoid comparing the first N fields", INT_TYPE),
     OPTION("-i", "--ignore-case", "ignore differences in case"),
     OPTION("-s", "--skip-chars", "avoid comparing the first N characters",
@@ -82,6 +82,7 @@ namespace cp = core::pipeline;
 struct Config {
   bool show_count = false;
   bool repeated_only = false;
+  bool all_repeated = false;
   bool unique_only = false;
   bool ignore_case = false;
   int skip_fields = 0;
@@ -164,8 +165,6 @@ auto comparison_key(std::string_view line, const Config& cfg) -> std::string {
 
 auto is_unsupported_used(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
     -> std::optional<std::string_view> {
-  if (ctx.get<bool>("--all-repeated", false) || ctx.get<bool>("-D", false))
-    return "--all-repeated is [NOT SUPPORT]";
   if (ctx.get<bool>("--group", false))
     return "--group is [NOT SUPPORT]";
   return std::nullopt;
@@ -178,6 +177,8 @@ auto build_config(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
   cfg.show_count = ctx.get<bool>("--count", false) || ctx.get<bool>("-c", false);
   cfg.repeated_only =
       ctx.get<bool>("--repeated", false) || ctx.get<bool>("-d", false);
+  cfg.all_repeated =
+      ctx.get<bool>("--all-repeated", false) || ctx.get<bool>("-D", false);
   cfg.unique_only = ctx.get<bool>("--unique", false) || ctx.get<bool>("-u", false);
   cfg.ignore_case =
       ctx.get<bool>("--ignore-case", false) || ctx.get<bool>("-i", false);
@@ -211,15 +212,16 @@ auto build_config(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
 }
 
 auto should_emit(size_t count, const Config& cfg) -> bool {
-  if (!cfg.repeated_only && !cfg.unique_only) return true;
+  if (!cfg.repeated_only && !cfg.unique_only && !cfg.all_repeated) return true;
   if (cfg.repeated_only && count > 1) return true;
+  if (cfg.all_repeated && count > 1) return true;
   if (cfg.unique_only && count == 1) return true;
   return false;
 }
 
 auto emit_one(std::ostream& out, std::string_view line, size_t count,
-              const Config& cfg) -> void {
-  if (cfg.show_count) {
+              const Config& cfg, bool show_count_override = false) -> void {
+  if (cfg.show_count && !show_count_override) {
     out << std::setw(7) << count << " ";
   }
   out << line;
@@ -257,7 +259,13 @@ auto run(const Config& cfg) -> int {
 
     const size_t count = j - i;
     if (should_emit(count, cfg)) {
-      emit_one(*out, records[i], count, cfg);
+      if (cfg.all_repeated && count > 1) {
+        for (size_t k = i; k < j; ++k) {
+          emit_one(*out, records[k], count, cfg, true);
+        }
+      } else {
+        emit_one(*out, records[i], count, cfg);
+      }
     }
     i = j;
   }
