@@ -74,3 +74,26 @@ TEST(md5sum, md5sum_binary) {
 
   EXPECT_EQ(r.exit_code, 0);
 }
+
+TEST(md5sum, md5sum_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "hello");
+  tmp.write("file2.txt", "world");
+  tmp.write("other.log", "log");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"md5sum.exe", {L"*.txt"});
+
+  TEST_LOG_CMD_LIST("md5sum.exe", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("md5sum wildcard output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("file1.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("file2.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("other.log") == std::string::npos);
+}

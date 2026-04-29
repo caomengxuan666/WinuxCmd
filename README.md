@@ -215,7 +215,13 @@ ps -ef | grep winuxcmd
 
 ## Implemented Commands
 
-137 commands are currently implemented. See full compatibility and option details:
+139 commands are currently implemented, including wildcard (glob) support for 48 commands:
+
+- `ls`, `cat`, `grep`, `sed`, `head`, `tail`, `sort`, `wc`, `cut`, `rm`, `stat`, `md5sum`, `find`, `tree`, and more
+- Wildcard patterns: `*`, `?`, `[abc]`, `[a-z]` character classes
+- Cross-shell pipelines: `netstat -ano | grep 8080` works out of the box
+
+See full compatibility and option details:
 
 - [Command Compatibility Matrix (EN)](DOCS/en/commands_implementation_en.md)
 - [命令兼容性矩阵 (ZH)](DOCS/zh/commands_implementation.md)

@@ -47,12 +47,12 @@ function Escape-WildcardChars {
 # Available commands list (auto-generated from src/commands/*.cpp)
 $Script:Commands = @(
     "arch", "b2sum", "base32", "base64", "basename", "basenc", "cal", "cat",
-    "chmod", "cksum", "clear", "cmp", "column", "comm", "cp", "cpio", "csplit",
+    "chmod", "chown", "cksum", "clear", "cmp", "column", "comm", "cp", "cpio", "csplit",
     "cut", "cygpath", "d2u", "date", "dd", "df", "diff", "diff3", "dirname",
     "dos2unix", "du", "echo", "env", "expand", "expr", "factor", "false", "file",
     "find", "fmt", "fold", "free", "getconf", "grep", "groups", "head",
     "hmac256", "hostid", "hostname", "id", "infocmp", "install", "join", "jq",
-    "kill", "less", "link", "ln", "locale", "logname", "ls", "lsof", "md5sum",
+    "kill", "less", "link", "ln", "locale", "logname", "ls", "lsof", "man", "md5sum",
     "mkdir", "mktemp", "mpicalc", "mv", "nice", "nl", "nohup",
     "nproc", "numfmt", "od", "paste", "patch", "pathchk", "pinky", "pr",
     "printenv", "printf", "ps", "ptx", "pwd", "readlink", "realpath", "reset",

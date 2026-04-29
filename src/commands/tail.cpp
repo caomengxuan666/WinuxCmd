@@ -75,7 +75,7 @@ auto constexpr TAIL_OPTIONS = std::array{
            "starting with byte NUM of each file",
            STRING_TYPE),
     OPTION("-f", "--follow",
-           "output appended data as the file grows [NOT SUPPORT]"),
+           "output appended data as the file grows"),
     OPTION("-F", "", "same as --follow=name --retry [NOT SUPPORT]"),
     OPTION("-n", "--lines",
            "output the last NUM lines, instead of the last 10; or\n"
@@ -113,6 +113,8 @@ struct TailConfig {
   CountSpec spec;
   bool quiet = false;
   bool verbose = false;
+  bool follow = false;
+  bool stdin_mode = false;
   char delimiter = '\n';
 };
 
@@ -302,9 +304,6 @@ auto output_tail(std::istream& in, const TailConfig& config) -> void {
 
 template <size_t N>
 auto check_unsupported(const CommandContext<N>& ctx) -> cp::Result<void> {
-  if (ctx.get<bool>("--follow", false) || ctx.get<bool>("-f", false)) {
-    return std::unexpected("--follow is [NOT SUPPORT] on this platform");
-  }
   if (ctx.get<bool>("-F", false)) {
     return std::unexpected("-F is [NOT SUPPORT] on this platform");
   }
@@ -331,6 +330,7 @@ auto build_config(const CommandContext<N>& ctx) -> cp::Result<TailConfig> {
       ctx.get<bool>("--quiet", false) || ctx.get<bool>("--silent", false);
   config.verbose = ctx.get<bool>("--verbose", false);
   config.delimiter = ctx.get<bool>("--zero-terminated", false) ? '\0' : '\n';
+  config.follow = ctx.get<bool>("-f", false) || ctx.get<bool>("--follow", false);
 
   auto unsupported = check_unsupported(ctx);
   if (!unsupported) return std::unexpected(unsupported.error());
@@ -386,7 +386,19 @@ auto config = *config_result;
 
   // Use SmallVector for files (max 64 files) - all stack-allocated
   SmallVector<std::string, 64> files{};
-  for (auto p : ctx.positionals) files.push_back(std::string(p));
+  for (auto p : ctx.positionals) {
+    std::string file_arg(p);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          files.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    files.push_back(file_arg);
+  }
   if (files.empty()) files.push_back("-");
 
   bool any_error = false;
@@ -406,6 +418,7 @@ auto config = *config_result;
     }
 
     if (file == "-") {
+      config.stdin_mode = true;
       output_tail(std::cin, config);
       if (std::cin.bad()) {
         safeErrorPrint("tail: error reading '-'\n");
@@ -427,6 +440,39 @@ auto config = *config_result;
         safeErrorPrint(file);
         safeErrorPrint("'\n");
         any_error = true;
+      }
+      input.close();
+
+      if (config.follow && !config.stdin_mode) {
+        std::ifstream monitor_file(file, std::ios::binary);
+        if (!monitor_file.is_open()) {
+          safeErrorPrint("tail: cannot open '");
+          safeErrorPrint(file);
+          safeErrorPrint("' for following\n");
+          any_error = true;
+        } else {
+          monitor_file.seekg(0, std::ios::end);
+          while (true) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            auto current_pos = monitor_file.tellg();
+            monitor_file.seekg(0, std::ios::end);
+            auto end_pos = monitor_file.tellg();
+            if (end_pos > current_pos) {
+              monitor_file.seekg(current_pos);
+              std::string line;
+              while (std::getline(monitor_file, line)) {
+                safePrint(line);
+                safePrint("\n");
+              }
+            }
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
+              if (GetAsyncKeyState('C') & 0x8000) {
+                break;
+              }
+            }
+          }
+          monitor_file.close();
+        }
       }
     }
 

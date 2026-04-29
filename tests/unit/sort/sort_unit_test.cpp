@@ -110,3 +110,30 @@ TEST(sort, sort_uniq_pipeline_accepts_utf16le_stdin_with_bom) {
   EXPECT_TRUE(r.stdout_text.find("1 cat") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("2 dog") != std::string::npos);
 }
+
+TEST(sort, sort_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "cherry\napple\n");
+  tmp.write("file2.txt", "banana\ndate\n");
+  tmp.write("other.log", "zzz\naaa\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"*.txt"});
+
+  TEST_LOG_CMD_LIST("sort.exe", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("sort output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  // Should contain content from .txt files but not .log
+  EXPECT_TRUE(r.stdout_text.find("apple") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("banana") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("cherry") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("date") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("aaa") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("zzz") == std::string::npos);
+}

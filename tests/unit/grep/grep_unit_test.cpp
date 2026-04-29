@@ -115,3 +115,49 @@ TEST(grep, grep_unsupported_perl_regexp) {
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 2);
 }
+
+TEST(grep, grep_wildcard_files) {
+  TempDir tmp;
+  tmp.write("file1.txt", "hello world\n");
+  tmp.write("file2.txt", "hello again\n");
+  tmp.write("other.log", "no match here\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"hello", L"*.txt"});
+
+  TEST_LOG_CMD_LIST("grep.exe", L"hello", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("grep.exe hello *.txt output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("file1.txt:hello world") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("file2.txt:hello again") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("other.log") == std::string::npos);
+}
+
+TEST(grep, grep_wildcard_pattern) {
+  TempDir tmp;
+  tmp.write("test.cpp", "#include <iostream>\n");
+  tmp.write("test.h", "#pragma once\n");
+  tmp.write("test.txt", "just text\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"#include", L"*.cpp"});
+
+  TEST_LOG_CMD_LIST("grep.exe", L"#include", L"*.cpp");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("grep output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("#include <iostream>") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("#pragma once") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("just text") == std::string::npos);
+}

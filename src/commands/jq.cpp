@@ -79,7 +79,17 @@ auto build_config(const CommandContext<JQ_OPTIONS.size()>& ctx)
   cfg.null_input = ctx.get<bool>("--null-input", false) || ctx.get<bool>("-n", false);
 
   for (auto arg : ctx.positionals) {
-    cfg.files.push_back(std::string(arg));
+    std::string file_arg(arg);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          cfg.files.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    cfg.files.push_back(file_arg);
   }
 
   // Check if first positional is a file (if no explicit filter provided)

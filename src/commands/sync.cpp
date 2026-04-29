@@ -80,31 +80,47 @@ SYNC_OPTIONS) {
 
   // Sync specified files
   for (auto file : ctx.positionals) {
-    std::wstring wpath = utf8_to_wstring(std::string(file));
-    HANDLE hFile = CreateFileW(wpath.c_str(),
-                               GENERIC_WRITE,
-                               FILE_SHARE_READ | FILE_SHARE_WRITE,
-                               nullptr,
-                               OPEN_EXISTING,
-                               FILE_ATTRIBUTE_NORMAL,
-                               nullptr);
-
-    if (hFile == INVALID_HANDLE_VALUE) {
-      auto err = std::string("sync: failed to open '") + std::string(file) + "'";
-      cp::Result<int> result = std::unexpected(std::string_view(err));
-      cp::report_error(result, L"sync");
-      return 1;
+    std::string file_arg(file);
+    std::vector<std::string> expanded;
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& f : glob_result.files) {
+          expanded.push_back(wstring_to_utf8(f));
+        }
+      } else {
+        expanded.push_back(file_arg);
+      }
+    } else {
+      expanded.push_back(file_arg);
     }
+    for (const auto& exp : expanded) {
+      std::wstring wpath = utf8_to_wstring(exp);
+      HANDLE hFile = CreateFileW(wpath.c_str(),
+                                 GENERIC_WRITE,
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                 nullptr,
+                                 OPEN_EXISTING,
+                                 FILE_ATTRIBUTE_NORMAL,
+                                 nullptr);
 
-    if (!FlushFileBuffers(hFile)) {
+      if (hFile == INVALID_HANDLE_VALUE) {
+        auto err = std::string("sync: failed to open '") + exp + "'";
+        cp::Result<int> result = std::unexpected(std::string_view(err));
+        cp::report_error(result, L"sync");
+        return 1;
+      }
+
+      if (!FlushFileBuffers(hFile)) {
+        CloseHandle(hFile);
+        auto err = std::string("sync: failed to flush '") + exp + "'";
+        cp::Result<int> result = std::unexpected(std::string_view(err));
+        cp::report_error(result, L"sync");
+        return 1;
+      }
+
       CloseHandle(hFile);
-      auto err = std::string("sync: failed to flush '") + std::string(file) + "'";
-      cp::Result<int> result = std::unexpected(std::string_view(err));
-      cp::report_error(result, L"sync");
-      return 1;
     }
-
-    CloseHandle(hFile);
   }
 
   return 0;

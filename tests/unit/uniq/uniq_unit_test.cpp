@@ -84,14 +84,15 @@ TEST(uniq, uniq_ignore_case_skip_fields_chars) {
   EXPECT_EQ_TEXT(r.stdout_text, "id1 Same\nid3 diff\n");
 }
 
-TEST(uniq, uniq_unsupported_all_repeated) {
+TEST(uniq, uniq_all_repeated) {
   TempDir tmp;
-  tmp.write("a.txt", "x\n");
+  tmp.write("a.txt", "a\na\nb\nc\nc\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"uniq.exe", {L"-D", L"a.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a\na\nc\nc\n");
 }

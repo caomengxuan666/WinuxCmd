@@ -50,11 +50,11 @@ auto constexpr SORT_OPTIONS = std::array{
            "consider only blanks and alphanumeric characters [NOT SUPPORT]"),
     OPTION("-f", "--ignore-case", "fold lower case to upper case"),
     OPTION("-g", "--general-numeric-sort",
-           "compare according to general numerical value [NOT SUPPORT]"),
+           "compare according to string numerical value"),
     OPTION("-i", "--ignore-nonprinting",
            "consider only printable characters [NOT SUPPORT]"),
     OPTION("-h", "--human-numeric-sort",
-           "compare human readable numbers [NOT SUPPORT]"),
+           "compare human readable numbers (e.g., 1K, 2M)"),
     OPTION("-M", "--month-sort",
            "compare as month names [NOT SUPPORT]"),
     OPTION("-m", "--merge", "merge already sorted files [NOT SUPPORT]"),
@@ -84,6 +84,8 @@ struct Config {
   bool ignore_leading_blanks = false;
   bool ignore_case = false;
   bool numeric_sort = false;
+  bool human_numeric = false;
+  bool general_numeric = false;
   bool reverse = false;
   bool unique = false;
   char delimiter = '\n';
@@ -236,6 +238,36 @@ auto parse_double_strict(std::string_view s) -> std::optional<double> {
   return value;
 }
 
+auto parse_human_readable(std::string_view s) -> double {
+  std::string num_str;
+  double multiplier = 1.0;
+
+  for (char c : s) {
+    if (std::isdigit(static_cast<unsigned char>(c)) || c == '.' || c == '-' ||
+        c == '+') {
+      num_str += c;
+    } else {
+      switch (std::tolower(static_cast<unsigned char>(c))) {
+        case 'k': multiplier = 1024.0; break;
+        case 'm': multiplier = 1024.0 * 1024.0; break;
+        case 'g': multiplier = 1024.0 * 1024.0 * 1024.0; break;
+        case 't': multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0; break;
+        case 'p': multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0; break;
+        case 'e': multiplier = 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0; break;
+        default: break;
+      }
+      break;
+    }
+  }
+
+  if (num_str.empty()) return 0.0;
+  try {
+    return std::stod(num_str) * multiplier;
+  } catch (...) {
+    return 0.0;
+  }
+}
+
 auto compare_records(std::string_view a, std::string_view b, const Config& cfg)
     -> int {
   auto key_a = extract_key(a, cfg);
@@ -248,6 +280,17 @@ auto compare_records(std::string_view a, std::string_view b, const Config& cfg)
       if (*n_a < *n_b) return -1;
       if (*n_a > *n_b) return 1;
     }
+  } else if (cfg.human_numeric) {
+    double a_val = parse_human_readable(key_a);
+    double b_val = parse_human_readable(key_b);
+    if (a_val < b_val) return -1;
+    if (a_val > b_val) return 1;
+  } else if (cfg.general_numeric) {
+    double a_val = 0.0, b_val = 0.0;
+    try { a_val = std::stod(std::string(key_a)); } catch (...) {}
+    try { b_val = std::stod(std::string(key_b)); } catch (...) {}
+    if (a_val < b_val) return -1;
+    if (a_val > b_val) return 1;
   }
 
   std::string left = std::string(key_a);
@@ -269,13 +312,8 @@ auto is_unsupported_used(const CommandContext<SORT_OPTIONS.size()>& ctx)
     -> std::optional<std::string_view> {
   if (ctx.get<bool>("--dictionary-order", false) || ctx.get<bool>("-d", false))
     return "--dictionary-order is [NOT SUPPORT]";
-  if (ctx.get<bool>("--general-numeric-sort", false) ||
-      ctx.get<bool>("-g", false))
-    return "--general-numeric-sort is [NOT SUPPORT]";
   if (ctx.get<bool>("--ignore-nonprinting", false) || ctx.get<bool>("-i", false))
     return "--ignore-nonprinting is [NOT SUPPORT]";
-  if (ctx.get<bool>("--human-numeric-sort", false) || ctx.get<bool>("-h", false))
-    return "--human-numeric-sort is [NOT SUPPORT]";
   if (ctx.get<bool>("--month-sort", false) || ctx.get<bool>("-M", false))
     return "--month-sort is [NOT SUPPORT]";
   if (ctx.get<bool>("--merge", false) || ctx.get<bool>("-m", false))
@@ -297,6 +335,10 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
       ctx.get<bool>("--ignore-case", false) || ctx.get<bool>("-f", false);
   cfg.numeric_sort =
       ctx.get<bool>("--numeric-sort", false) || ctx.get<bool>("-n", false);
+  cfg.human_numeric =
+      ctx.get<bool>("--human-numeric-sort", false) || ctx.get<bool>("-h", false);
+  cfg.general_numeric =
+      ctx.get<bool>("--general-numeric-sort", false) || ctx.get<bool>("-g", false);
   cfg.reverse = ctx.get<bool>("--reverse", false) || ctx.get<bool>("-r", false);
   cfg.unique = ctx.get<bool>("--unique", false) || ctx.get<bool>("-u", false);
   cfg.delimiter =
@@ -322,7 +364,19 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
   if (!key) return std::unexpected(key.error());
   cfg.key = *key;
 
-for (auto p : ctx.positionals) cfg.files.push_back(std::string(p));
+for (auto p : ctx.positionals) {
+    std::string file_arg(p);
+    if (contains_wildcard(file_arg)) {
+      auto glob_result = glob_expand(file_arg);
+      if (glob_result.expanded) {
+        for (const auto& file : glob_result.files) {
+          cfg.files.push_back(wstring_to_utf8(file));
+        }
+        continue;
+      }
+    }
+    cfg.files.push_back(file_arg);
+  }
   if (cfg.files.empty()) cfg.files.push_back("-");
 
   return cfg;

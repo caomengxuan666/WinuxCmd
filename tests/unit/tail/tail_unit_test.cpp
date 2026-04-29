@@ -59,14 +59,40 @@ TEST(tail, tail_plus_lines_and_bytes) {
   EXPECT_EQ_TEXT(r2.stdout_text, "pha\nbeta\ngamma\n");
 }
 
-TEST(tail, tail_not_supported_follow) {
+TEST(tail, tail_follow_option_recognized) {
+  // Verify that -f flag is recognized and doesn't error out
+  // (actual follow mode is a long-running operation tested manually)
   TempDir tmp;
-  tmp.write("a.txt", "abc\n");
+  tmp.write("a.txt", "line1\nline2\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"tail.exe", {L"-f", L"a.txt"});
+  p.add(L"tail.exe", {L"--help"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("--follow") != std::string::npos);
+}
+
+TEST(tail, tail_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "line1\nline2\nline3\n");
+  tmp.write("file2.txt", "line4\nline5\nline6\n");
+  tmp.write("other.log", "log1\nlog2\nlog3\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"tail.exe", {L"-n", L"1", L"*.txt"});
+
+  TEST_LOG_CMD_LIST("tail.exe", L"-n", L"1", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("tail output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("line3") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line6") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("log3") == std::string::npos);
 }

@@ -599,7 +599,31 @@ namespace sed_pipeline {
   auto process_files(const Config& cfg) -> int {
     const char delim = '\n';
 
+    // Expand wildcards in file arguments
+    std::vector<std::string> expanded_files;
     for (const auto& f : cfg.files) {
+      if (f == "-") {
+        expanded_files.push_back(f);
+        continue;
+      }
+      
+      // Smart glob expansion for wildcard patterns
+      if (contains_wildcard(f)) {
+        auto glob_result = glob_expand(f);
+        if (glob_result.expanded) {
+          // Pattern was expanded, add all matched files
+          for (const auto& file : glob_result.files) {
+            expanded_files.push_back(wstring_to_utf8(file));
+          }
+          continue;
+        }
+      }
+      
+      // Not a wildcard or expansion failed, use as-is
+      expanded_files.push_back(f);
+    }
+
+    for (const auto& f : expanded_files) {
       std::ifstream file;
       std::istream* in = nullptr;
       if (f == "-") {

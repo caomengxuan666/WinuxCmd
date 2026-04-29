@@ -178,6 +178,9 @@ $CommandMap = @{
     "link" = "link.exe"
     "unlink" = "unlink.exe"
     "factor" = "factor.exe"
+    # New commands added in v0.9.0 - Coreutils
+    "man" = "man.exe"
+    "chown" = "chown.exe"
 }
 
 # ========== Functions ==========
