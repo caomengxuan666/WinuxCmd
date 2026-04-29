@@ -82,8 +82,8 @@ using cmd::meta::OptionType;
  * - @a -D, @a --devices: How to handle devices/FIFOs/sockets [NOT SUPPORT]
  * - @a -r, @a --recursive: Like --directories=recurse [IMPLEMENTED]
  * - @a -R, @a --dereference-recursive: Like -r but follow symlinks [NOT SUPPORT]
- * - @a --include: Search only files that match GLOB [NOT SUPPORT]
- * - @a --exclude: Skip files that match GLOB [NOT SUPPORT]
+ * - @a --include: Search only files that match GLOB [IMPLEMENTED]
+ * - @a --exclude: Skip files that match GLOB [IMPLEMENTED]
  * - @a --exclude-from: Skip files from patterns in FILE [NOT SUPPORT]
  * - @a --exclude-dir: Skip directories that match GLOB [NOT SUPPORT]
  * - @a -L, @a --files-without-match: Print only names of FILEs with no selected lines [IMPLEMENTED]
@@ -91,13 +91,13 @@ using cmd::meta::OptionType;
  * - @a -c, @a --count: Print only a count of selected lines per FILE [IMPLEMENTED]
  * - @a -T, @a --initial-tab: Make tabs line up (if needed) [NOT SUPPORT]
  * - @a -Z, @a --null: Print 0 byte after FILE name [IMPLEMENTED]
- * - @a -B, @a --before-context: Print NUM lines of leading context [NOT SUPPORT]
- * - @a -A, @a --after-context: Print NUM lines of trailing context [NOT SUPPORT]
- * - @a -C, @a --context: Print NUM lines of output context [NOT SUPPORT]
+ * - @a -B, @a --before-context: Print NUM lines of leading context [IMPLEMENTED]
+ * - @a -A, @a --after-context: Print NUM lines of trailing context [IMPLEMENTED]
+ * - @a -C, @a --context: Print NUM lines of output context [IMPLEMENTED]
  * - @a --group-separator: Print separator between groups [NOT SUPPORT]
  * - @a --no-group-separator: Do not print group separator [NOT SUPPORT]
- * - @a --color: Highlight matching strings [NOT SUPPORT]
- * - @a --colour: Highlight matching strings [NOT SUPPORT]
+ * - @a --color: Highlight matching strings [IMPLEMENTED]
+ * - @a --colour: Highlight matching strings [IMPLEMENTED]
  * - @a -U, @a --binary: Do not strip CR at EOL [NOT SUPPORT]
  */
 auto constexpr GREP_OPTIONS = std::array{
@@ -141,10 +141,8 @@ auto constexpr GREP_OPTIONS = std::array{
     OPTION("-r", "--recursive", "like --directories=recurse"),
     OPTION("-R", "--dereference-recursive",
            "like -r but follow symlinks [NOT SUPPORT]"),
-    OPTION("", "--include", "search only files that match GLOB [NOT SUPPORT]",
-           STRING_TYPE),
-    OPTION("", "--exclude", "skip files that match GLOB [NOT SUPPORT]",
-           STRING_TYPE),
+    OPTION("", "--include", "search only files that match GLOB", STRING_TYPE),
+    OPTION("", "--exclude", "skip files that match GLOB", STRING_TYPE),
     OPTION("", "--exclude-from",
            "skip files from patterns in FILE [NOT SUPPORT]", STRING_TYPE),
     OPTION("", "--exclude-dir",
@@ -158,18 +156,19 @@ auto constexpr GREP_OPTIONS = std::array{
            "make tabs line up (if needed) [NOT SUPPORT]"),
     OPTION("-Z", "--null", "print 0 byte after FILE name"),
     OPTION("-B", "--before-context",
-           "print NUM lines of leading context [NOT SUPPORT]", INT_TYPE),
+           "print NUM lines of leading context", INT_TYPE),
     OPTION("-A", "--after-context",
-           "print NUM lines of trailing context [NOT SUPPORT]", INT_TYPE),
-    OPTION("-C", "--context", "print NUM lines of output context [NOT SUPPORT]",
-           INT_TYPE),
+           "print NUM lines of trailing context", INT_TYPE),
+    OPTION("-C", "--context", "print NUM lines of output context", INT_TYPE),
     OPTION("", "--group-separator",
            "print separator between groups [NOT SUPPORT]", STRING_TYPE),
     OPTION("", "--no-group-separator",
            "do not print group separator [NOT SUPPORT]"),
-    OPTION("", "--color", "highlight matching strings [NOT SUPPORT]",
+    OPTION("", "--color",
+           "highlight matching strings; WHEN can be 'always', 'never', or 'auto'",
            STRING_TYPE),
-    OPTION("", "--colour", "highlight matching strings [NOT SUPPORT]",
+    OPTION("", "--colour",
+           "highlight matching strings; WHEN can be 'always', 'never', or 'auto'",
            STRING_TYPE),
     OPTION("-U", "--binary", "do not strip CR at EOL [NOT SUPPORT]")};
 
@@ -214,6 +213,11 @@ struct Config {
   SmallVector<Pattern, 32> patterns;
   SmallVector<std::string, 64> files;
   bool has_error = false;
+  int before_context = 0;
+  int after_context = 0;
+  bool color = false;
+  std::string include;
+  std::string exclude;
 };
 
 auto to_lower_ascii(std::string_view s) -> std::string {
@@ -315,24 +319,15 @@ auto is_unsupported_used(const CommandContext<GREP_OPTIONS.size()>& ctx)
   if (ctx.get<bool>("--dereference-recursive", false) ||
       ctx.get<bool>("-R", false))
     return "--dereference-recursive is [NOT SUPPORT]";
-  if (!ctx.get<std::string>("--include", "").empty() ||
-      !ctx.get<std::string>("--exclude", "").empty() ||
-      !ctx.get<std::string>("--exclude-from", "").empty() ||
+  if (!ctx.get<std::string>("--exclude-from", "").empty() ||
       !ctx.get<std::string>("--exclude-dir", "").empty())
-    return "include/exclude options are [NOT SUPPORT]";
+    return "exclude-from/exclude-dir options are [NOT SUPPORT]";
   if (ctx.get<bool>("--initial-tab", false) || ctx.get<bool>("-T", false))
     return "--initial-tab is [NOT SUPPORT]";
-  if (ctx.get<int>("--before-context", -1) >= 0 ||
-      ctx.get<int>("-B", -1) >= 0 || ctx.get<int>("--after-context", -1) >= 0 ||
-      ctx.get<int>("-A", -1) >= 0 || ctx.get<int>("--context", -1) >= 0 ||
-      ctx.get<int>("-C", -1) >= 0)
-    return "context options are [NOT SUPPORT]";
+
   if (!ctx.get<std::string>("--group-separator", "").empty() ||
       ctx.get<bool>("--no-group-separator", false))
     return "group separator options are [NOT SUPPORT]";
-  if (!ctx.get<std::string>("--color", "").empty() ||
-      !ctx.get<std::string>("--colour", "").empty())
-    return "--color is [NOT SUPPORT]";
   if (ctx.get<bool>("--binary", false) || ctx.get<bool>("-U", false))
     return "--binary is [NOT SUPPORT]";
   return std::nullopt;
@@ -398,6 +393,21 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
   if (cfg.directories.empty()) cfg.directories = ctx.get<std::string>("-d", "");
   if (cfg.directories.empty())
     cfg.directories = cfg.recursive ? "recurse" : "read";
+
+  cfg.before_context = ctx.get<int>("-B", 0);
+  cfg.after_context = ctx.get<int>("-A", 0);
+  int context = ctx.get<int>("-C", 0);
+  if (context > 0) {
+    cfg.before_context = context;
+    cfg.after_context = context;
+  }
+
+  std::string color_opt = ctx.get<std::string>("--color", "");
+  if (color_opt.empty()) color_opt = ctx.get<std::string>("--colour", "");
+  cfg.color = (color_opt == "always" || color_opt == "auto");
+
+  cfg.include = ctx.get<std::string>("--include", "");
+  cfg.exclude = ctx.get<std::string>("--exclude", "");
 
   SmallVector<std::string, 32> raw_patterns;
   std::string p_e = ctx.get<std::string>("--regexp", "");
@@ -537,16 +547,49 @@ auto print_prefix(const Config& cfg, bool show_filename,
                   std::string_view display_name, size_t line_no, size_t offset)
     -> void {
   if (show_filename) {
-    safePrint(display_name);
+    if (cfg.color) {
+      safePrint("\033[1;35m");
+      safePrint(display_name);
+      safePrint("\033[0m");
+    } else {
+      safePrint(display_name);
+    }
     safePrint(":");
   }
   if (cfg.line_number) {
-    safePrint(std::to_string(line_no));
+    if (cfg.color) {
+      safePrint("\033[1;32m");
+      safePrint(std::to_string(line_no));
+      safePrint("\033[0m");
+    } else {
+      safePrint(std::to_string(line_no));
+    }
     safePrint(":");
   }
   if (cfg.byte_offset) {
     safePrint(std::to_string(offset));
     safePrint(":");
+  }
+}
+
+auto print_line_with_color(std::string_view line, const std::vector<MatchPiece>& matches, bool color)
+    -> void {
+  if (!color || matches.empty()) {
+    safePrint(line);
+    return;
+  }
+  size_t pos = 0;
+  for (const auto& m : matches) {
+    if (m.begin > pos) {
+      safePrint(line.substr(pos, m.begin - pos));
+    }
+    safePrint("\033[1;31m");
+    safePrint(line.substr(m.begin, m.end - m.begin));
+    safePrint("\033[0m");
+    pos = m.end;
+  }
+  if (pos < line.size()) {
+    safePrint(line.substr(pos));
   }
 }
 
@@ -570,12 +613,18 @@ auto process_selected_record(std::string_view line, bool had_delim,
     for (const auto& m : matches) {
       if (m.end <= m.begin) continue;
       print_prefix(cfg, show_filename, display_name, line_no, offset + m.begin);
-      safePrint(line.substr(m.begin, m.end - m.begin));
+      if (cfg.color) {
+        safePrint("\033[1;31m");
+        safePrint(line.substr(m.begin, m.end - m.begin));
+        safePrint("\033[0m");
+      } else {
+        safePrint(line.substr(m.begin, m.end - m.begin));
+      }
       safePrint(cfg.null_data ? "\0" : "\n");
     }
   } else {
     print_prefix(cfg, show_filename, display_name, line_no, offset);
-    safePrint(line);
+    print_line_with_color(line, matches, cfg.color);
     if (had_delim) {
       safePrint(std::string_view(&delim, 1));
     } else {
@@ -592,23 +641,109 @@ auto scan_text(const std::string& text, std::string_view display_name,
 
   bool any_selected = false;
   size_t selected_count = 0;
+  bool use_context = (cfg.before_context > 0 || cfg.after_context > 0) &&
+                     !cfg.count_only && !cfg.files_with_matches && !cfg.files_without_match;
 
+  if (!use_context) {
+    for (size_t i = 0; i < records.size(); ++i) {
+      const auto [b, e] = records[i];
+      std::string_view whole(text.data() + b, e - b);
+      bool had_delim = !whole.empty() && whole.back() == delim;
+      std::string_view line = had_delim ? whole.substr(0, whole.size() - 1) : whole;
+      if (!process_selected_record(line, had_delim, display_name, show_filename,
+                                   i + 1, b, cfg, selected_count))
+        continue;
+      any_selected = true;
+
+      if (cfg.quiet) return {true, selected_count};
+
+      if (cfg.max_count >= 0 && static_cast<int>(selected_count) >= cfg.max_count)
+        break;
+    }
+    return {any_selected, selected_count};
+  }
+
+  std::vector<std::pair<size_t, size_t>> match_indices;
   for (size_t i = 0; i < records.size(); ++i) {
     const auto [b, e] = records[i];
     std::string_view whole(text.data() + b, e - b);
     bool had_delim = !whole.empty() && whole.back() == delim;
     std::string_view line = had_delim ? whole.substr(0, whole.size() - 1) : whole;
-    if (!process_selected_record(line, had_delim, display_name, show_filename,
-                                 i + 1, b, cfg, selected_count))
-      continue;
-    any_selected = true;
-
-    if (cfg.quiet) return {true, selected_count};
-
-    if (cfg.max_count >= 0 && static_cast<int>(selected_count) >= cfg.max_count)
-      break;
+    auto matches = collect_matches_in_line(line, cfg);
+    bool is_match = !matches.empty();
+    bool selected = cfg.invert_match ? !is_match : is_match;
+    if (selected) {
+      match_indices.push_back({i, i});
+      ++selected_count;
+      if (cfg.quiet) return {true, selected_count};
+      if (cfg.max_count >= 0 && static_cast<int>(selected_count) >= cfg.max_count)
+        break;
+    }
   }
 
+  if (match_indices.empty()) {
+    return {false, 0};
+  }
+
+  std::vector<std::pair<size_t, size_t>> groups;
+  size_t group_start = match_indices[0].first;
+  size_t group_end = match_indices[0].first;
+  for (size_t i = 1; i < match_indices.size(); ++i) {
+    size_t idx = match_indices[i].first;
+    if (idx <= group_end + 1) {
+      group_end = idx;
+    } else {
+      groups.push_back({group_start, group_end});
+      group_start = idx;
+      group_end = idx;
+    }
+  }
+  groups.push_back({group_start, group_end});
+
+  bool first_group = true;
+  for (const auto& [gs, ge] : groups) {
+    size_t start = (gs >= static_cast<size_t>(cfg.before_context)) ? gs - cfg.before_context : 0;
+    size_t end = ge + cfg.after_context;
+    if (end >= records.size()) end = records.size() - 1;
+
+    if (!first_group) {
+      safePrint("--\n");
+    }
+    first_group = false;
+
+    for (size_t i = start; i <= end; ++i) {
+      const auto [b, e] = records[i];
+      std::string_view whole(text.data() + b, e - b);
+      bool had_delim = !whole.empty() && whole.back() == delim;
+      std::string_view line = had_delim ? whole.substr(0, whole.size() - 1) : whole;
+
+      bool is_in_match_group = (i >= gs && i <= ge);
+      if (is_in_match_group) {
+        auto matches = collect_matches_in_line(line, cfg);
+        bool is_match = !matches.empty();
+        bool selected = cfg.invert_match ? !is_match : is_match;
+        if (selected) {
+          print_prefix(cfg, show_filename, display_name, i + 1, b);
+          print_line_with_color(line, matches, cfg.color);
+          if (had_delim) {
+            safePrint(std::string_view(&delim, 1));
+          } else {
+            safePrint(cfg.null_data ? "\0" : "\n");
+          }
+        }
+      } else {
+        print_prefix(cfg, show_filename, display_name, i + 1, b);
+        safePrint(line);
+        if (had_delim) {
+          safePrint(std::string_view(&delim, 1));
+        } else {
+          safePrint(cfg.null_data ? "\0" : "\n");
+        }
+      }
+    }
+  }
+
+  any_selected = !match_indices.empty();
   return {any_selected, selected_count};
 }
 
@@ -705,6 +840,18 @@ auto gather_files_for_input(const Config& cfg, std::vector<std::string>& out)
     }
 
     if (!is_dir) {
+      if (!cfg.include.empty()) {
+        std::string filename = std::filesystem::path(f).filename().string();
+        if (!wildcard_match(cfg.include, filename)) {
+          continue;
+        }
+      }
+      if (!cfg.exclude.empty()) {
+        std::string filename = std::filesystem::path(f).filename().string();
+        if (wildcard_match(cfg.exclude, filename)) {
+          continue;
+        }
+      }
       out.push_back(f);
       continue;
     }
@@ -714,7 +861,15 @@ auto gather_files_for_input(const Config& cfg, std::vector<std::string>& out)
     if (cfg.directories == "recurse") {
       for (const auto& e : std::filesystem::recursive_directory_iterator(f)) {
         if (e.is_regular_file()) {
-          out.push_back(e.path().string());
+          std::string filepath = e.path().string();
+          std::string filename = e.path().filename().string();
+          if (!cfg.include.empty() && !wildcard_match(cfg.include, filename)) {
+            continue;
+          }
+          if (!cfg.exclude.empty() && wildcard_match(cfg.exclude, filename)) {
+            continue;
+          }
+          out.push_back(filepath);
         }
       }
       continue;
@@ -750,8 +905,24 @@ auto process(Config& cfg) -> int {
     std::pair<bool, size_t> scan_result{false, 0};
     auto display_name = record_name_for_output(input, cfg);
 
+    bool use_context = (cfg.before_context > 0 || cfg.after_context > 0) &&
+                       !cfg.count_only && !cfg.files_with_matches && !cfg.files_without_match;
+
     if (input == "-") {
       scan_result = scan_stream(std::cin, display_name, show_filename, cfg);
+    } else if (use_context) {
+      // Read entire file for context support
+      auto content = read_file_binary(input);
+      if (!content) {
+        cfg.has_error = true;
+        if (!cfg.no_messages && !cfg.quiet) {
+          safeErrorPrint("grep: ");
+          safeErrorPrint(content.error());
+          safeErrorPrint("\n");
+        }
+        continue;
+      }
+      scan_result = scan_text(*content, display_name, show_filename, cfg);
     } else {
       std::ifstream in(input, std::ios::binary);
       if (!in.is_open()) {
