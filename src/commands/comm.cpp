@@ -47,8 +47,8 @@ auto constexpr COMM_OPTIONS = std::array{
     OPTION("-2", "", "suppress column 2 (lines unique to FILE2)", BOOL_TYPE),
     OPTION("-3", "", "suppress column 3 (lines that appear in both files)", BOOL_TYPE),
     OPTION("--check-order", "", "check that the input is correctly sorted", STRING_TYPE),
-    OPTION("--nocheck-order", "", "do not check that the input is correctly sorted", STRING_TYPE)
-    // --output-delimiter (not implemented)
+    OPTION("--nocheck-order", "", "do not check that the input is correctly sorted", STRING_TYPE),
+    OPTION("--output-delimiter", "", "separate columns with STR", STRING_TYPE)
 };
 
 namespace comm_pipeline {
@@ -59,6 +59,7 @@ struct Config {
   bool suppress_col2 = false;
   bool suppress_col3 = false;
   bool check_order = false;
+  std::string output_delimiter = "\t";
   SmallVector<std::string, 64> files;
 };
 
@@ -69,6 +70,7 @@ auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
   cfg.suppress_col2 = ctx.get<bool>("-2", false);
   cfg.suppress_col3 = ctx.get<bool>("-3", false);
   cfg.check_order = ctx.get<bool>("--check-order", false);
+  cfg.output_delimiter = ctx.get<std::string>("--output-delimiter", "\t");
 
   for (auto arg : ctx.positionals) {
     std::string file_arg(arg);
@@ -173,7 +175,7 @@ auto run(const Config& cfg) -> int {
       // Line only in file2
       if (!cfg.suppress_col2) {
         if (!cfg.suppress_col1) {
-          safePrint("\t");
+          safePrint(cfg.output_delimiter);
         }
         safePrintLn(lines2[j]);
       }
@@ -182,10 +184,10 @@ auto run(const Config& cfg) -> int {
       // Line in both files
       if (!cfg.suppress_col3) {
         if (!cfg.suppress_col1) {
-          safePrint("\t");
+          safePrint(cfg.output_delimiter);
         }
         if (!cfg.suppress_col2) {
-          safePrint("\t");
+          safePrint(cfg.output_delimiter);
         }
         safePrintLn(lines1[i]);
       }
