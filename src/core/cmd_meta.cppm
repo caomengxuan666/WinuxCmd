@@ -482,6 +482,15 @@ export class Registry {
     return false;
   }
 
+  static std::string get_man(std::string_view cmd_name) {
+    auto &storage = get_storage();
+    auto it = storage.find(cmd_name);
+    if (it != storage.end()) {
+      return it->second.get_man();
+    }
+    return "";
+  }
+
  private:
   static std::unordered_map<std::string_view, CommandMetaHandle> &
   get_storage() {

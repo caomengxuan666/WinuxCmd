@@ -143,6 +143,11 @@ class RegistryImpl {
     cmd::meta::Registry::print_help(cmdName);
   }
 
+  // Get man page for a command
+  std::string man(std::string_view cmdName) {
+    return cmd::meta::Registry::get_man(cmdName);
+  }
+
   // Get all registered command names
   std::vector<std::pair<std::string_view, std::string_view>> list() {
     std::vector<std::pair<std::string_view, std::string_view>> commands;
@@ -215,5 +220,10 @@ export class CommandRegistry {
     return std::ranges::any_of(all, [cmdName](const auto &item) {
       return item.first == cmdName;
     });
+  }
+
+  // Print man page for a command
+  static std::string getManPage(std::string_view cmdName) noexcept {
+    return getImpl().man(cmdName);
   }
 };
