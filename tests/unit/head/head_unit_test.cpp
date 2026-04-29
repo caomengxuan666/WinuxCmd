@@ -75,3 +75,26 @@ TEST(head, head_verbose_header_multi_files) {
   EXPECT_TRUE(r.stdout_text.find("A1\n") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("B1\n") != std::string::npos);
 }
+
+TEST(head, head_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "line1\nline2\nline3\n");
+  tmp.write("file2.txt", "line4\nline5\nline6\n");
+  tmp.write("other.log", "log1\nlog2\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"head.exe", {L"-n", L"1", L"*.txt"});
+
+  TEST_LOG_CMD_LIST("head.exe", L"-n", L"1", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("head output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("line1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line4") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("log1") == std::string::npos);
+}

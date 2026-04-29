@@ -162,8 +162,15 @@ export bool wildcard_match(const std::wstring &pattern, const std::wstring &text
  * @brief Check if a string contains wildcard characters (*, ?, [)
  * @param str The string to check
  * @return true if the string contains wildcard characters, false otherwise
+ *
+ * Note: If the string starts with \x01, it was quoted in the shell
+ * and should not be treated as a wildcard pattern.
  */
 export bool contains_wildcard(std::wstring_view str) {
+  // Check for quote protection marker
+  if (!str.empty() && str[0] == L'\x01') {
+    return false;
+  }
   return str.find(L'*') != std::wstring_view::npos ||
          str.find(L'?') != std::wstring_view::npos ||
          str.find(L'[') != std::wstring_view::npos;
@@ -203,32 +210,37 @@ export GlobResult glob_expand(std::wstring_view pattern) {
     return result;
   }
   
-  // 2. Try wildcard expansion
-  WIN32_FIND_DATAW find_data;
-  HANDLE hFind = FindFirstFileW(pattern.data(), &find_data);
+  // Check if pattern contains [...] character class (not supported by FindFirstFileW)
+  bool has_char_class = (pattern.find(L'[') != std::wstring_view::npos);
   
-  if (hFind != INVALID_HANDLE_VALUE) {
+  if (has_char_class) {
+    // Use custom wildcard matching for [...] patterns
     // Extract directory part from pattern
     std::wstring pattern_str(pattern);
     size_t last_sep = pattern_str.find_last_of(L"\\/");
     std::wstring dir;
+    std::wstring file_pattern;
     if (last_sep != std::wstring::npos) {
       dir = pattern_str.substr(0, last_sep + 1);
+      file_pattern = pattern_str.substr(last_sep + 1);
+    } else {
+      dir = L".";
+      file_pattern = pattern_str;
     }
     
-    do {
-      std::wstring filename = find_data.cFileName;
-      // Skip . and .. entries
-      if (filename != L"." && filename != L"..") {
-        if (!dir.empty()) {
+    // Enumerate directory and match with wildcard_match
+    std::error_code iter_ec;
+    for (const auto& entry : std::filesystem::directory_iterator(dir, iter_ec)) {
+      std::wstring filename = entry.path().filename().wstring();
+      if (wildcard_match(file_pattern, filename)) {
+        if (!dir.empty() && dir != L".") {
           result.files.push_back(dir + filename);
         } else {
           result.files.push_back(filename);
         }
       }
-    } while (FindNextFileW(hFind, &find_data) != 0);
-    FindClose(hFind);
-    result.expanded = true;
+    }
+    result.expanded = !result.files.empty();
     
     // If no files matched, return original pattern as literal
     if (result.files.empty()) {
@@ -236,9 +248,43 @@ export GlobResult glob_expand(std::wstring_view pattern) {
       result.expanded = false;
     }
   } else {
-    // 3. Expansion failed, return original literal value
-    result.files.push_back(std::wstring(pattern));
-    result.expanded = false;
+    // Use FindFirstFileW for * and ? patterns (faster)
+    WIN32_FIND_DATAW find_data;
+    HANDLE hFind = FindFirstFileW(pattern.data(), &find_data);
+    
+    if (hFind != INVALID_HANDLE_VALUE) {
+      // Extract directory part from pattern
+      std::wstring pattern_str(pattern);
+      size_t last_sep = pattern_str.find_last_of(L"\\/");
+      std::wstring dir;
+      if (last_sep != std::wstring::npos) {
+        dir = pattern_str.substr(0, last_sep + 1);
+      }
+      
+      do {
+        std::wstring filename = find_data.cFileName;
+        // Skip . and .. entries
+        if (filename != L"." && filename != L"..") {
+          if (!dir.empty()) {
+            result.files.push_back(dir + filename);
+          } else {
+            result.files.push_back(filename);
+          }
+        }
+      } while (FindNextFileW(hFind, &find_data) != 0);
+      FindClose(hFind);
+      result.expanded = true;
+      
+      // If no files matched, return original pattern as literal
+      if (result.files.empty()) {
+        result.files.push_back(std::wstring(pattern));
+        result.expanded = false;
+      }
+    } else {
+      // Expansion failed, return original literal value
+      result.files.push_back(std::wstring(pattern));
+      result.expanded = false;
+    }
   }
   
   return result;
@@ -271,8 +317,15 @@ export bool wildcard_match(const std::string &pattern, const std::string &text, 
  * @brief Check if a narrow string contains wildcard characters (*, ?, [)
  * @param str The string to check
  * @return true if the string contains wildcard characters, false otherwise
+ *
+ * Note: If the string starts with \x01, it was quoted in the shell
+ * and should not be treated as a wildcard pattern.
  */
 export bool contains_wildcard(std::string_view str) {
+  // Check for quote protection marker
+  if (!str.empty() && str[0] == '\x01') {
+    return false;
+  }
   return str.find('*') != std::string_view::npos ||
          str.find('?') != std::string_view::npos ||
          str.find('[') != std::string_view::npos;

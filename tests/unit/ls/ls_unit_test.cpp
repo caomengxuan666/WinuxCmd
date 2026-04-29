@@ -145,6 +145,45 @@ TEST(ls, ls_wildcard) {
   EXPECT_TRUE(r.stdout_text.find("other.log") == std::string::npos);
 }
 
+TEST(ls, ls_char_class_wildcard) {
+  TempDir tmp;
+  tmp.write("a1.txt", "a1");
+  tmp.write("a2.txt", "a2");
+  tmp.write("b1.txt", "b1");
+  tmp.write("c.log", "c");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ls.exe", {L"a?.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("a1.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("a2.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("b1.txt") == std::string::npos);
+}
+
+TEST(ls, ls_char_class_range_wildcard) {
+  TempDir tmp;
+  tmp.write("a.txt", "a");
+  tmp.write("b.txt", "b");
+  tmp.write("c.txt", "c");
+  tmp.write("d.txt", "d");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ls.exe", {L"[ab]*.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("a.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("b.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("c.txt") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("d.txt") == std::string::npos);
+}
+
 TEST(ls, ls_directory_only) {
   TempDir tmp;
   tmp.write("file.txt", "content");

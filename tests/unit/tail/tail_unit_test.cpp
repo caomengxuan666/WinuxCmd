@@ -70,3 +70,26 @@ TEST(tail, tail_not_supported_follow) {
 
   EXPECT_EQ(r.exit_code, 1);
 }
+
+TEST(tail, tail_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "line1\nline2\nline3\n");
+  tmp.write("file2.txt", "line4\nline5\nline6\n");
+  tmp.write("other.log", "log1\nlog2\nlog3\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"tail.exe", {L"-n", L"1", L"*.txt"});
+
+  TEST_LOG_CMD_LIST("tail.exe", L"-n", L"1", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("tail output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("line3") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line6") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("log3") == std::string::npos);
+}

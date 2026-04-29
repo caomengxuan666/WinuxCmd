@@ -522,12 +522,43 @@ static void runReplMode() noexcept {
       continue;
     }
 
-    // Tokenise (simple whitespace split; no quoting yet)
+    // Tokenise with basic quoting support
+    // Quoted arguments get a \x01 prefix to protect wildcards from expansion
     std::vector<std::string> tokens;
     {
-      std::istringstream iss(resolved_line);
       std::string tok;
-      while (iss >> tok) tokens.push_back(std::move(tok));
+      bool in_single_quote = false;
+      bool in_double_quote = false;
+      bool was_quoted = false;
+      for (size_t i = 0; i < resolved_line.size(); ++i) {
+        char c = resolved_line[i];
+        if (c == '\'' && !in_double_quote) {
+          in_single_quote = !in_single_quote;
+          was_quoted = true;
+        } else if (c == '"' && !in_single_quote) {
+          in_double_quote = !in_double_quote;
+          was_quoted = true;
+        } else if (std::isspace(static_cast<unsigned char>(c)) && !in_single_quote && !in_double_quote) {
+          if (!tok.empty()) {
+            if (was_quoted) {
+              tokens.push_back("\x01" + tok);
+            } else {
+              tokens.push_back(std::move(tok));
+            }
+            tok.clear();
+            was_quoted = false;
+          }
+        } else {
+          tok += c;
+        }
+      }
+      if (!tok.empty()) {
+        if (was_quoted) {
+          tokens.push_back("\x01" + tok);
+        } else {
+          tokens.push_back(std::move(tok));
+        }
+      }
     }
     if (tokens.empty()) continue;
 

@@ -134,3 +134,21 @@ TEST(cat, cat_wildcard_question_mark) {
   EXPECT_TRUE(r.stdout_text.find("content2") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("content10") == std::string::npos);
 }
+
+TEST(cat, cat_wildcard_char_class) {
+  TempDir tmp;
+  tmp.write("a.txt", "aaa\n");
+  tmp.write("b.txt", "bbb\n");
+  tmp.write("c.log", "ccc\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"[ab]*"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("aaa") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("bbb") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("ccc") == std::string::npos);
+}

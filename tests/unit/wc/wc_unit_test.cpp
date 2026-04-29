@@ -118,3 +118,27 @@ TEST(wc, wc_combined_options) {
 
   EXPECT_EQ_TEXT(r.stdout_text, "2 2 12\n");
 }
+
+TEST(wc, wc_wildcard) {
+  TempDir tmp;
+  tmp.write("file1.txt", "hello\nworld\n");
+  tmp.write("file2.txt", "foo\nbar\nbaz\n");
+  tmp.write("other.log", "line1\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"wc.exe", {L"-l", L"*.txt"});
+
+  TEST_LOG_CMD_LIST("wc.exe", L"-l", L"*.txt");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("wc output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  // file1.txt has 2 lines, file2.txt has 3 lines
+  EXPECT_TRUE(r.stdout_text.find("file1.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("file2.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("other.log") == std::string::npos);
+}
