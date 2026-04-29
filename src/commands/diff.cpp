@@ -53,7 +53,7 @@ using cmd::meta::OptionType;
  * @par Options:
  * - @a -q, @a --brief: Report only when files differ [IMPLEMENTED]
  * - @a -u, @a --unified: Output unified diff format [IMPLEMENTED]
- * - @a -y, @a --side-by-side: Output in two columns [NOT SUPPORT]
+ * - @a -y, @a --side-by-side: Output in two columns [IMPLEMENTED]
  * - @a -w, @a --ignore-all-space: Ignore all white space [NOT SUPPORT]
  * - @a -B, @a --ignore-blank-lines: Ignore changes whose lines are all blank [NOT SUPPORT]
  */
@@ -432,6 +432,80 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
   }
 }
 
+/**
+ * @brief Output side-by-side diff format
+ * @param path1 First file path
+ * @param path2 Second file path
+ * @param lines1 Lines from first file
+ * @param lines2 Lines from second file
+ */
+auto output_side_by_side(const std::string &path1, const std::string &path2,
+                          const std::vector<std::string> &lines1,
+                          const std::vector<std::string> &lines2) -> void {
+  auto edits = compute_diff(lines1, lines2);
+
+  if (edits.empty()) {
+    return;  // Files are identical
+  }
+
+  const size_t col_width = 30;
+
+  auto print_padded = [](const std::string &s, size_t width) {
+    if (s.size() <= width) {
+      safePrint(s);
+      for (size_t i = s.size(); i < width; ++i) safePrint(" ");
+    } else {
+      safePrint(s.substr(0, width - 2));
+      safePrint("..");
+    }
+  };
+
+  size_t i1 = 0, i2 = 0;
+  for (const auto &edit : edits) {
+    if (edit.type == EditType::KEEP) {
+      while (i1 < edit.line1_index) {
+        print_padded(lines1[i1], col_width);
+        safePrint("  ");
+        print_padded(lines2[i2], col_width);
+        safePrint("\n");
+        ++i1; ++i2;
+      }
+      print_padded(lines1[edit.line1_index], col_width);
+      safePrint("  ");
+      print_padded(lines2[edit.line2_index], col_width);
+      safePrint("\n");
+      ++i1; ++i2;
+    } else if (edit.type == EditType::DEL) {
+      print_padded(lines1[edit.line1_index], col_width);
+      safePrint(" +");
+      for (size_t p = 0; p < col_width; ++p) safePrint(" ");
+      safePrint("\n");
+      ++i1;
+    } else {
+      for (size_t p = 0; p < col_width; ++p) safePrint(" ");
+      safePrint(" +");
+      print_padded(lines2[edit.line2_index], col_width);
+      safePrint("\n");
+      ++i2;
+    }
+  }
+
+  while (i1 < lines1.size()) {
+    print_padded(lines1[i1], col_width);
+    safePrint("  ");
+    for (size_t p = 0; p < col_width; ++p) safePrint(" ");
+    safePrint("\n");
+    ++i1;
+  }
+  while (i2 < lines2.size()) {
+    for (size_t p = 0; p < col_width; ++p) safePrint(" ");
+    safePrint("  ");
+    print_padded(lines2[i2], col_width);
+    safePrint("\n");
+    ++i2;
+  }
+}
+
 }  // namespace diff_pipeline
 
 REGISTER_COMMAND(diff, "diff",
@@ -450,6 +524,8 @@ REGISTER_COMMAND(diff, "diff",
   bool brief = ctx.get<bool>("-q", false) || ctx.get<bool>("--brief", false);
   bool unified = ctx.get<bool>("-u", false) ||
                  ctx.get<bool>("--unified", false);
+  bool side_by_side = ctx.get<bool>("-y", false) ||
+                      ctx.get<bool>("--side-by-side", false);
   int context = 3;  // Default context lines for unified diff
 
   // Need exactly two files
@@ -495,6 +571,8 @@ REGISTER_COMMAND(diff, "diff",
 
   if (unified) {
     output_unified_diff(file1, file2, lines1, lines2, context);
+  } else if (side_by_side) {
+    output_side_by_side(file1, file2, lines1, lines2);
   } else {
     // Simple comparison using LCS
     auto edits = compute_diff(lines1, lines2);
