@@ -543,53 +543,56 @@ auto collect_matches_in_line(std::string_view line, const Config& cfg)
   return out;
 }
 
-auto print_prefix(const Config& cfg, bool show_filename,
-                  std::string_view display_name, size_t line_no, size_t offset)
+auto append_prefix(std::string& out, const Config& cfg, bool show_filename,
+                   std::string_view display_name, size_t line_no, size_t offset)
     -> void {
   if (show_filename) {
     if (cfg.color) {
-      safePrint("\033[1;35m");
-      safePrint(display_name);
-      safePrint("\033[0m");
+      out.append("\033[1;35m");
+      out.append(display_name);
+      out.append("\033[0m");
     } else {
-      safePrint(display_name);
+      out.append(display_name);
     }
-    safePrint(":");
+    out.push_back(':');
   }
   if (cfg.line_number) {
     if (cfg.color) {
-      safePrint("\033[1;32m");
-      safePrint(std::to_string(line_no));
-      safePrint("\033[0m");
+      out.append("\033[1;32m");
+      auto s = std::to_string(line_no);
+      out.append(s);
+      out.append("\033[0m");
     } else {
-      safePrint(std::to_string(line_no));
+      auto s = std::to_string(line_no);
+      out.append(s);
     }
-    safePrint(":");
+    out.push_back(':');
   }
   if (cfg.byte_offset) {
-    safePrint(std::to_string(offset));
-    safePrint(":");
+    auto s = std::to_string(offset);
+    out.append(s);
+    out.push_back(':');
   }
 }
 
-auto print_line_with_color(std::string_view line, const std::vector<MatchPiece>& matches, bool color)
+auto append_line_with_color(std::string& out, std::string_view line, const std::vector<MatchPiece>& matches, bool color)
     -> void {
   if (!color || matches.empty()) {
-    safePrint(line);
+    out.append(line);
     return;
   }
   size_t pos = 0;
   for (const auto& m : matches) {
     if (m.begin > pos) {
-      safePrint(line.substr(pos, m.begin - pos));
+      out.append(line.substr(pos, m.begin - pos));
     }
-    safePrint("\033[1;31m");
-    safePrint(line.substr(m.begin, m.end - m.begin));
-    safePrint("\033[0m");
+    out.append("\033[1;31m");
+    out.append(line.substr(m.begin, m.end - m.begin));
+    out.append("\033[0m");
     pos = m.end;
   }
   if (pos < line.size()) {
-    safePrint(line.substr(pos));
+    out.append(line.substr(pos));
   }
 }
 
@@ -609,29 +612,35 @@ auto process_selected_record(std::string_view line, bool had_delim,
     return true;
 
   const char delim = cfg.null_data ? '\0' : '\n';
+  std::string output_buf;
+  output_buf.reserve(line.size() + 128);
+
   if (cfg.only_matching && !cfg.invert_match) {
     for (const auto& m : matches) {
       if (m.end <= m.begin) continue;
-      print_prefix(cfg, show_filename, display_name, line_no, offset + m.begin);
-      if (cfg.initial_tab) safePrint("\t");
+      output_buf.clear();
+      append_prefix(output_buf, cfg, show_filename, display_name, line_no, offset + m.begin);
+      if (cfg.initial_tab) output_buf.push_back('\t');
       if (cfg.color) {
-        safePrint("\033[1;31m");
-        safePrint(line.substr(m.begin, m.end - m.begin));
-        safePrint("\033[0m");
+        output_buf.append("\033[1;31m");
+        output_buf.append(line.substr(m.begin, m.end - m.begin));
+        output_buf.append("\033[0m");
       } else {
-        safePrint(line.substr(m.begin, m.end - m.begin));
+        output_buf.append(line.substr(m.begin, m.end - m.begin));
       }
-      safePrint(cfg.null_data ? "\0" : "\n");
+      output_buf.append(1, delim);
+      safePrint(output_buf);
     }
   } else {
-    print_prefix(cfg, show_filename, display_name, line_no, offset);
-    if (cfg.initial_tab) safePrint("\t");
-    print_line_with_color(line, matches, cfg.color);
+    append_prefix(output_buf, cfg, show_filename, display_name, line_no, offset);
+    if (cfg.initial_tab) output_buf.push_back('\t');
+    append_line_with_color(output_buf, line, matches, cfg.color);
     if (had_delim) {
-      safePrint(std::string_view(&delim, 1));
+      output_buf.append(1, delim);
     } else {
-      safePrint(cfg.null_data ? "\0" : "\n");
+      output_buf.append(cfg.null_data ? "\0" : "\n");
     }
+    safePrint(output_buf);
   }
   return true;
 }
@@ -728,24 +737,30 @@ auto scan_text(const std::string& text, std::string_view display_name,
         bool is_match = !matches.empty();
         bool selected = cfg.invert_match ? !is_match : is_match;
         if (selected) {
-          print_prefix(cfg, show_filename, display_name, i + 1, b);
-          if (cfg.initial_tab) safePrint("\t");
-          print_line_with_color(line, matches, cfg.color);
+          std::string line_buf;
+          line_buf.reserve(line.size() + 128);
+          append_prefix(line_buf, cfg, show_filename, display_name, i + 1, b);
+          if (cfg.initial_tab) line_buf.push_back('\t');
+          append_line_with_color(line_buf, line, matches, cfg.color);
           if (had_delim) {
-            safePrint(std::string_view(&delim, 1));
+            line_buf.append(1, delim);
           } else {
-            safePrint(cfg.null_data ? "\0" : "\n");
+            line_buf.append(cfg.null_data ? "\0" : "\n");
           }
+          safePrint(line_buf);
         }
       } else {
-        print_prefix(cfg, show_filename, display_name, i + 1, b);
-        if (cfg.initial_tab) safePrint("\t");
-        safePrint(line);
+        std::string line_buf;
+        line_buf.reserve(line.size() + 128);
+        append_prefix(line_buf, cfg, show_filename, display_name, i + 1, b);
+        if (cfg.initial_tab) line_buf.push_back('\t');
+        line_buf.append(line);
         if (had_delim) {
-          safePrint(std::string_view(&delim, 1));
+          line_buf.append(1, delim);
         } else {
-          safePrint(cfg.null_data ? "\0" : "\n");
+          line_buf.append(cfg.null_data ? "\0" : "\n");
         }
+        safePrint(line_buf);
       }
     }
   }
