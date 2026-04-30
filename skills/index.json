@@ -1,350 +1,395 @@
 {
   "version": "1.0",
-  "updated_at": "2026-04-30T10:42:16Z",
+  "updated_at": "2026-05-01T03:05:25Z",
   "skills": [
     {
-      "name": "CLIUtils_CLI11",
+      "name": "CLI11",
       "repo": "CLIUtils/CLI11",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "Cameron314_concurrentqueue",
+      "name": "concurrentqueue",
       "repo": "Cameron314/concurrentqueue",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "Cameron314_readerwriterqueue",
+      "name": "readerwriterqueue",
       "repo": "Cameron314/readerwriterqueue",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "Ewenwan_ceres-solver",
+      "name": "ceres-solver",
       "repo": "Ewenwan/ceres-solver",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "SFML_SFML",
+      "name": "SFML",
       "repo": "SFML/SFML",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "SergiusTheBest_plog",
+      "name": "plog",
       "repo": "SergiusTheBest/plog",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "boostorg_asio",
+      "name": "rapidjson",
+      "repo": "Tencent/rapidjson",
+      "trust_score": 85,
+      "files": [
+        "best-practices.md",
+        "lifecycle.md",
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
+      ]
+    },
+    {
+      "name": "asio",
       "repo": "boostorg/asio",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "boostorg_filesystem",
+      "name": "filesystem",
       "repo": "boostorg/filesystem",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "boostorg_gil",
+      "name": "gil",
       "repo": "boostorg/gil",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "fltk_fltk",
+      "name": "zstd",
+      "repo": "facebook/zstd",
+      "trust_score": 85,
+      "files": [
+        "best-practices.md",
+        "lifecycle.md",
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
+      ]
+    },
+    {
+      "name": "fltk",
       "repo": "fltk/fltk",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "google_double-conversion",
+      "name": "double-conversion",
       "repo": "google/double-conversion",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "greg7mdp_parallel-hashmap",
+      "name": "parallel-hashmap",
       "repo": "greg7mdp/parallel-hashmap",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "imageworks_pystring",
+      "name": "pystring",
       "repo": "imageworks/pystring",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "jarro2783_cxxopts",
+      "name": "cxxopts",
       "repo": "jarro2783/cxxopts",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "libcurl_curl",
+      "name": "curl",
       "repo": "libcurl/curl",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "libigl_eigen",
+      "name": "eigen",
       "repo": "libigl/eigen",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "libsdl_org_SDL",
+      "name": "SDL",
       "repo": "libsdl-org/SDL",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "martinmoene_filesystem",
+      "name": "libuv",
+      "repo": "libuv/libuv",
+      "trust_score": 85,
+      "files": [
+        "best-practices.md",
+        "lifecycle.md",
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
+      ]
+    },
+    {
+      "name": "filesystem",
       "repo": "martinmoene/filesystem",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "ocornut_imgui",
+      "name": "imgui",
       "repo": "ocornut/imgui",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "preshing_junction",
+      "name": "junction",
       "repo": "preshing/junction",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "skarupke_flat_hash_map",
+      "name": "flat_hash_map",
       "repo": "skarupke/flat_hash_map",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "stduuid_f410",
+      "name": "f410",
       "repo": "stduuid/f410",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     },
     {
-      "name": "usoa_msgpack-c",
+      "name": "msgpack-c",
       "repo": "usoa/msgpack-c",
       "trust_score": 85,
       "files": [
-        "quickstart.md",
-        "threading.md",
-        "pitfalls.md",
         "best-practices.md",
-        "safety.md",
-        "performance.md",
         "lifecycle.md",
-        "overview.md"
+        "overview.md",
+        "performance.md",
+        "pitfalls.md",
+        "quickstart.md",
+        "safety.md",
+        "threading.md"
       ]
     }
   ]
