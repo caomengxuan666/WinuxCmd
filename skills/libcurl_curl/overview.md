@@ -1,0 +1,7 @@
+# Overview
+
+libcurl is a free, client-side URL transfer library that supports a wide range of protocols including HTTP, HTTPS, FTP, FTPS, SCP, SFTP, LDAP, and more. It provides a simple, consistent API for making network requests across different protocols, handling everything from basic GET requests to complex multi-protocol transfers with authentication, cookies, and SSL/TLS encryption.
+
+Use libcurl when you need to make HTTP requests, download files, interact with REST APIs, or perform any client-side network communication in C++. It's particularly well-suited for applications that need reliable, cross-platform network functionality with support for modern protocols and security features. Do not use libcurl for server-side HTTP implementations, as it is strictly a client library. For simple file downloads, consider higher-level wrappers or language-specific HTTP clients if you don't need the full feature set.
+
+The library's key design revolves around three main interfaces: the easy interface for simple synchronous transfers, the multi interface for asynchronous and multiple simultaneous transfers, and the share interface for sharing data between easy handles. libcurl uses callback functions for data delivery, allowing you to process incoming data as it arrives rather than buffering everything in memory. The library handles connection pooling, retry logic, and protocol negotiation internally, making it robust for production use.

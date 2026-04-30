@@ -1,0 +1,351 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-04-30T10:42:16Z",
+  "skills": [
+    {
+      "name": "CLIUtils_CLI11",
+      "repo": "CLIUtils/CLI11",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "Cameron314_concurrentqueue",
+      "repo": "Cameron314/concurrentqueue",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "Cameron314_readerwriterqueue",
+      "repo": "Cameron314/readerwriterqueue",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "Ewenwan_ceres-solver",
+      "repo": "Ewenwan/ceres-solver",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "SFML_SFML",
+      "repo": "SFML/SFML",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "SergiusTheBest_plog",
+      "repo": "SergiusTheBest/plog",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "boostorg_asio",
+      "repo": "boostorg/asio",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "boostorg_filesystem",
+      "repo": "boostorg/filesystem",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "boostorg_gil",
+      "repo": "boostorg/gil",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "fltk_fltk",
+      "repo": "fltk/fltk",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "google_double-conversion",
+      "repo": "google/double-conversion",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "greg7mdp_parallel-hashmap",
+      "repo": "greg7mdp/parallel-hashmap",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "imageworks_pystring",
+      "repo": "imageworks/pystring",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "jarro2783_cxxopts",
+      "repo": "jarro2783/cxxopts",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "libcurl_curl",
+      "repo": "libcurl/curl",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "libigl_eigen",
+      "repo": "libigl/eigen",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "libsdl_org_SDL",
+      "repo": "libsdl-org/SDL",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "martinmoene_filesystem",
+      "repo": "martinmoene/filesystem",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "ocornut_imgui",
+      "repo": "ocornut/imgui",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "preshing_junction",
+      "repo": "preshing/junction",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "skarupke_flat_hash_map",
+      "repo": "skarupke/flat_hash_map",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "stduuid_f410",
+      "repo": "stduuid/f410",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    },
+    {
+      "name": "usoa_msgpack-c",
+      "repo": "usoa/msgpack-c",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "threading.md",
+        "pitfalls.md",
+        "best-practices.md",
+        "safety.md",
+        "performance.md",
+        "lifecycle.md",
+        "overview.md"
+      ]
+    }
+  ]
+}
