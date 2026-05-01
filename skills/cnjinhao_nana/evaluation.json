@@ -1,0 +1,62 @@
+{
+  "repo": "cnjinhao/nana",
+  "safe_name": "cnjinhao_nana",
+  "results": [
+    {
+      "strategy": "Custom",
+      "scores": {
+        "structure": 2.0,
+        "read_order": 1.0,
+        "pitfalls_quality": 2.5,
+        "quickstart_quality": 2.5,
+        "total": 8.0
+      },
+      "details": {
+        "structure": {
+          "present": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "missing": []
+        },
+        "read_order": {
+          "skill_json": true,
+          "read_order": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "cross_references": 1,
+          "cross_ref_details": {
+            "threading.md": [
+              "safety.md"
+            ]
+          },
+          "read_order_valid": "8/8 files exist"
+        },
+        "pitfalls_reason": "Good examples but missing context",
+        "quickstart_reason": "Comprehensive with minor issues"
+      }
+    }
+  ],
+  "manual": null,
+  "summary": {
+    "best_strategy": "Custom",
+    "best_score": 8.0,
+    "all_scores": {
+      "Custom": 8.0
+    },
+    "manual_score": null
+  }
+}

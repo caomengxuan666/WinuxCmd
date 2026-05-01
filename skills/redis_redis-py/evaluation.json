@@ -1,0 +1,65 @@
+{
+  "repo": "redis/redis-py",
+  "safe_name": "redis_redis-py",
+  "results": [
+    {
+      "strategy": "Custom",
+      "scores": {
+        "structure": 2.0,
+        "read_order": 1.2,
+        "pitfalls_quality": 2.5,
+        "quickstart_quality": 2.5,
+        "total": 8.2
+      },
+      "details": {
+        "structure": {
+          "present": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "missing": []
+        },
+        "read_order": {
+          "skill_json": true,
+          "read_order": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "cross_references": 2,
+          "cross_ref_details": {
+            "safety.md": [
+              "threading.md"
+            ],
+            "threading.md": [
+              "safety.md"
+            ]
+          },
+          "read_order_valid": "8/8 files exist"
+        },
+        "pitfalls_reason": "Good examples but missing real-world nuance",
+        "quickstart_reason": "Good copy-paste examples covering essential operations"
+      }
+    }
+  ],
+  "manual": null,
+  "summary": {
+    "best_strategy": "Custom",
+    "best_score": 8.2,
+    "all_scores": {
+      "Custom": 8.2
+    },
+    "manual_score": null
+  }
+}
