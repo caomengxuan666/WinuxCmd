@@ -1,0 +1,5 @@
+# Overview
+
+Snappy is a fast compression and decompression library developed by Google. It prioritizes speed over compression ratio, making it ideal for real-time applications where throughput matters more than storage efficiency. Typical compression ratios range from 1.5x to 3x for text data, but it can compress at speeds exceeding 250 MB/s and decompress at over 500 MB/s on modern hardware.
+
+Use Snappy when you need low-latency compression for network protocols, database storage, or caching layers. Do NOT use it when you need maximum compression (use zlib or LZMA instead) or when dealing with very small inputs (< 100 bytes) where overhead may negate benefits. Key design features include: no memory allocation during compression (uses caller-provided buffers), streamable format, and deterministic output for identical inputs.
