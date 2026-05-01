@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-05-01T10:08:14Z",
+  "updated_at": "2026-05-01T10:09:55Z",
   "skills": [
     {
       "name": "CLI11",
@@ -108,6 +108,21 @@
       ]
     },
     {
+      "name": "backward-cpp",
+      "repo": "bombela/backward-cpp",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "overview.md",
+        "pitfalls.md",
+        "safety.md",
+        "best-practices.md",
+        "lifecycle.md",
+        "performance.md",
+        "threading.md"
+      ]
+    },
+    {
       "name": "asio",
       "repo": "boostorg/asio",
       "trust_score": 85,
@@ -170,6 +185,21 @@
     {
       "name": "drogon",
       "repo": "drogonframework/drogon",
+      "trust_score": 85,
+      "files": [
+        "quickstart.md",
+        "overview.md",
+        "pitfalls.md",
+        "safety.md",
+        "best-practices.md",
+        "lifecycle.md",
+        "performance.md",
+        "threading.md"
+      ]
+    },
+    {
+      "name": "loguru",
+      "repo": "emilk/loguru",
       "trust_score": 85,
       "files": [
         "quickstart.md",
