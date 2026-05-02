@@ -1,354 +1,302 @@
 {
   "version": "1.0",
-  "updated_at": "2026-05-02T03:20:00+08:00",
+  "updated_at": "2026-05-02T10:00:00+08:00",
   "skills": [
     {
       "name": "CLI11",
       "dir": "CLIUtils_CLI11",
-      "description": "CLI11 is a header-only C++11 command line parser that provides a modern, intuitive API for parsing command line arguments. It supports options, flags, positional arguments, subcommands, validators, and configuration files (TOML/INI format). The library is designed to be easy to include (single header file available), has no external dependencies, and works on Linux, macOS, and Windows.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "CLIUtils/CLI11"
     },
     {
       "name": "concurrentqueue",
       "dir": "Cameron314_concurrentqueue",
-      "description": "`moodycamel::ConcurrentQueue<T>` is a high-performance, lock-free, multi-producer/multi-consumer (MPMC) queue for C++11 and later. It provides thread-safe FIFO queue semantics without using traditional mutex-based synchronization, achieving significantly better performance under contention.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "Cameron314/concurrentqueue"
     },
     {
       "name": "readerwriterqueue",
       "dir": "Cameron314_readerwriterqueue",
-      "description": "`Cameron314/readerwriterqueue` is a single-producer, single-consumer (SPSC) lock-free queue for C++. It provides blazing-fast, wait-free enqueue and dequeue operations that are O(1) in the common case. The library is header-only and requires only C++11.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "Cameron314/readerwriterqueue"
     },
     {
       "name": "ceres-solver",
       "dir": "Ewenwan_ceres-solver",
-      "description": "Ceres Solver is a C++ library for modeling and solving large, complicated optimization problems.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "Ewenwan/ceres-solver"
     },
     {
       "name": "SFML",
       "dir": "SFML_SFML",
-      "description": "SFML (Simple and Fast Multimedia Library) is a cross-platform multimedia API that provides access to windowing, graphics, audio, and networking functionality. It's designed to be simple, fast, and object-oriented, making it ideal for game development, multimedia applications, and interactive visualizations.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "SFML/SFML"
     },
     {
       "name": "plog",
       "dir": "SergiusTheBest_plog",
-      "description": "Plog is a header-only, portable C++ logging library designed for simplicity and minimal overhead. It provides a clean macro-based API for writing log messages with severity levels, timestamps, and source location information.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "SergiusTheBest/plog"
     },
     {
       "name": "rapidjson",
       "dir": "Tencent_rapidjson",
-      "description": "RapidJSON is a header-only C++ library for parsing and generating JSON data. It provides both DOM (Document Object Model) and SAX (Simple API for XML) style APIs, making it suitable for different use cases. The library is designed for high performance, with parsing speeds comparable to `strlen()`, and optionally supports SSE2/SSE4.2 acceleration.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "Tencent/rapidjson"
     },
     {
       "name": "robin-map",
       "dir": "Tessil_robin-map",
-      "description": "`tsl::robin_map` is a header-only C++ library that implements fast hash maps and hash sets using open-addressing with Robin Hood hashing and backward shift deletion. It provides four main classes: `tsl::robin_map`, `tsl::robin_set`, `tsl::robin_pg_map`, and `tsl::robin_pg_set`. The first two use a power-of-two growth policy for maximum speed, while the prime growth variants (`_pg`) handle poor hash functions better.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "Tessil/robin-map"
     },
     {
-      "name": "academic-deep-research",
-      "dir": "academic-deep-research",
+      "name": "actix-web",
+      "dir": "actix_actix-web",
       "description": "",
-      "category": ""
+      "category": "rust/core",
+      "language": "rust",
+      "repo": "actix/actix-web"
     },
     {
-      "name": "agent-wal",
-      "dir": "agent-wal",
+      "name": "aiohttp",
+      "dir": "aio-libs_aiohttp",
       "description": "",
-      "category": ""
-    },
-    {
-      "name": "ai-daily-briefing",
-      "dir": "ai-daily-briefing",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "ai-review",
-      "dir": "ai-review",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "airadar",
-      "dir": "airadar",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "blogburst",
-      "dir": "blogburst",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "blogwatcher",
-      "dir": "blogwatcher",
-      "description": "",
-      "category": ""
+      "category": "python/core",
+      "language": "python",
+      "repo": "aio-libs/aiohttp"
     },
     {
       "name": "backward-cpp",
       "dir": "bombela_backward-cpp",
-      "description": "Backward-cpp is a header-only C++ library that provides beautiful, detailed stack trace printing for debugging and error reporting. It captures the current call stack and resolves symbol names, source file locations, and line numbers, presenting them in a human-readable format with color coding and code snippets.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "bombela/backward-cpp"
     },
     {
       "name": "asio",
       "dir": "boostorg_asio",
-      "description": "Boost.Asio is a cross-platform C++ library for network and low-level I/O programming. It provides a consistent asynchronous model using a proactor design pattern, where I/O operations are initiated and their completion is signaled through completion handlers (callbacks). The library supports TCP, UDP, serial ports, timers, and custom I/O objects.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "boostorg/asio"
     },
     {
       "name": "filesystem",
       "dir": "boostorg_filesystem",
-      "description": "Boost.Filesystem provides a portable way to perform filesystem operations like path manipulation, directory iteration, and file status queries. It abstracts away platform-specific details (POSIX vs Windows) behind a consistent C++ interface.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "boostorg/filesystem"
     },
     {
       "name": "gil",
       "dir": "boostorg_gil",
-      "description": "Boost.GIL (Generic Image Library) provides a generic, extensible framework for image processing in C++. It separates image representation from algorithms, allowing algorithms to work with any image type (color space, channel depth, memory layout) without modification. The library supports common operations like pixel access, color conversion, resizing, and I/O through extension modules.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "briefing",
-      "dir": "briefing",
       "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "boostorg/gil"
     },
     {
       "name": "websocketpp",
       "dir": "chriskohlhoff_websocketpp",
-      "description": "WebSocket++ is a header-only C++ library that implements the WebSocket protocol (RFC 6455). It provides both client and server implementations with support for TLS/SSL, configurable transports (Asio-based), and extensible logging. The library is designed to be lightweight, portable, and easy to integrate into existing C++ projects.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "clawdchat",
-      "dir": "clawdchat",
       "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "chriskohlhoff/websocketpp"
     },
     {
       "name": "nana",
       "dir": "cnjinhao_nana",
-      "description": "Nana is a C++ GUI library designed to provide a modern, cross-platform way to create graphical user interfaces. It follows C++ standard-like conventions and uses modern C++ features like lambdas, templates, and RAII. The library is regularly tested on Linux (X11) and Windows, with experimental support for macOS and FreeBSD.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "content-creator",
-      "dir": "content-creator",
       "description": "",
-      "category": ""
-    },
-    {
-      "name": "content-generation",
-      "dir": "content-generation",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "content-repurposer",
-      "dir": "content-repurposer",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "context-anchor",
-      "dir": "context-anchor",
-      "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "cnjinhao/nana"
     },
     {
       "name": "drogon",
       "dir": "drogonframework_drogon",
-      "description": "Drogon is a high-performance C++17 web application framework designed for building HTTP/HTTPS servers, WebSocket services, and RESTful APIs.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "elevenlabs-cli",
-      "dir": "elevenlabs-cli",
       "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "drogonframework/drogon"
     },
     {
       "name": "loguru",
       "dir": "emilk_loguru",
-      "description": "Loguru is a lightweight, single-header C++ logging library designed for simplicity and performance. It provides printf-style and stream-style logging with verbosity levels, assertions, stack traces, and scope-based indentation. The library is contained in just two files (`loguru.hpp` and `loguru.cpp`) with no external dependencies, making it ideal for projects that need a minimal logging solution.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "emilk/loguru"
     },
     {
       "name": "zstd",
       "dir": "facebook_zstd",
-      "description": "Zstandard (zstd) is a fast lossless compression library developed by Facebook, providing real-time compression speeds with better ratios than zlib. It's the reference implementation of the RFC 8878 standard, offering a C library with bindings for many languages.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "ffmpeg-master",
-      "dir": "ffmpeg-master",
       "description": "",
-      "category": ""
-    },
-    {
-      "name": "find-skills",
-      "dir": "find-skills",
-      "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "facebook/zstd"
     },
     {
       "name": "fltk",
       "dir": "fltk_fltk",
-      "description": "FLTK (Fast Light Tool Kit) is a cross-platform C++ GUI toolkit that provides modern GUI functionality without bloat. It supports UNIX/Linux (X11 or Wayland), Microsoft Windows, and macOS, with built-in OpenGL support and GLUT emulation for 3D graphics. The library is designed to be lightweight, fast, and easy to use, making it ideal for applications where resource efficiency is critical.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "fltk/fltk"
     },
     {
       "name": "double-conversion",
       "dir": "google_double-conversion",
-      "description": "The double-conversion library provides efficient, accurate binary-decimal and decimal-binary conversion routines for IEEE 754 double-precision floating-point numbers. Extracted from the V8 JavaScript engine, it offers high-performance conversion with full control over formatting options.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "google/double-conversion"
     },
     {
       "name": "snappy",
       "dir": "google_snappy",
-      "description": "Snappy is a fast compression and decompression library developed by Google.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "google/snappy"
     },
     {
       "name": "parallel-hashmap",
       "dir": "greg7mdp_parallel-hashmap",
-      "description": "The Parallel Hashmap library provides high-performance hash map and btree implementations that serve as drop-in replacements for `std::unordered_map`, `std::unordered_set`, `std::map`, and `std::set`. It is header-only, requires only C++11 support, and offers significant performance improvements over standard library containers through the use of closed hashing and SSE2 parallel lookup instructions.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "greg7mdp/parallel-hashmap"
     },
     {
       "name": "pystring",
       "dir": "imageworks_pystring",
-      "description": "Pystring is a C++ library that provides Python-style string manipulation functions for `std::string`. It implements common Python string methods like `split()`, `join()`, `strip()`, `replace()`, `find()`, `count()`, `startswith()`, `endswith()`, `lower()`, and `upper()` without requiring a Python interpreter.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "imageworks/pystring"
     },
     {
       "name": "cxxopts",
       "dir": "jarro2783_cxxopts",
-      "description": "`cxxopts` is a lightweight, header-only C++ option parser library that follows GNU-style syntax for command-line argument parsing. It provides a clean, modern C++ interface for defining and parsing command-line options without external dependencies beyond the C++ standard library.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "jarro2783/cxxopts"
     },
     {
       "name": "curl",
       "dir": "libcurl_curl",
-      "description": "libcurl is a free, client-side URL transfer library that supports a wide range of protocols including HTTP, HTTPS, FTP, FTPS, SCP, SFTP, LDAP, and more.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "libcurl/curl"
     },
     {
       "name": "eigen",
       "dir": "libigl_eigen",
-      "description": "Eigen is a high-performance C++ template library for linear algebra operations. It provides comprehensive support for matrices, vectors, numerical solvers, and related algorithms. The library is header-only, meaning no separate compilation is needed - just include the headers and use.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "libigl/eigen"
     },
     {
       "name": "SDL",
       "dir": "libsdl_org_SDL",
-      "description": "SDL (Simple DirectMedia Layer) is a cross-platform library that provides low-level access to audio, keyboard, mouse, joystick, and graphics hardware via OpenGL, Vulkan, Direct3D, and Metal. It's designed for building multimedia applications like games, emulators, and media players.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "libsdl-org/SDL"
     },
     {
       "name": "libuv",
       "dir": "libuv_libuv",
-      "description": "libuv is a multi-platform C library focused on asynchronous I/O, originally developed for Node.js. It provides a full-featured event loop backed by epoll (Linux), kqueue (macOS/BSD), IOCP (Windows), and event ports (Solaris). The library handles asynchronous TCP/UDP sockets, DNS resolution, file system operations, file system events, TTY control, IPC with socket sharing, child processes, thread pools, signal handling, and high-resolution clocks.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "libuv/libuv"
     },
     {
       "name": "filesystem",
       "dir": "martinmoene_filesystem",
-      "description": "```cpp // Overview of martinmoene/filesystem // A portable C++17 filesystem library implementation for pre-C++17 compilers #include \"filesystem.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "martinmoene/filesystem"
     },
     {
       "name": "imgui",
       "dir": "ocornut_imgui",
-      "description": "Dear ImGui is an **immediate-mode graphical user interface library** for C++. Unlike traditional retained-mode UI frameworks, it doesn't store UI state between frames. Instead, you describe your UI every frame using function calls. This makes it ideal for **debugging tools, in-game overlays, content creation tools, and real-time data visualization**.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "ocornut/imgui"
     },
     {
       "name": "junction",
       "dir": "preshing_junction",
-      "description": "Junction is a C++ library providing high-performance concurrent hash map implementations. It offers four map variants: `ConcurrentMap_Crude`, `ConcurrentMap_Linear`, `ConcurrentMap_Leapfrog`, and `ConcurrentMap_Grampa`, each with different performance characteristics and trade-offs. The maps support lock-free concurrent access from multiple threads without mutual exclusion.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "preshing/junction"
     },
     {
       "name": "redis-py",
       "dir": "redis_redis-py",
-      "description": "redis-py is the official Python client library for Redis, providing a comprehensive interface to interact with Redis key-value stores. It supports all Redis commands, connection pooling, pipelines, pub/sub messaging, and both synchronous and asynchronous operations.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "self-improving-agent",
-      "dir": "self-improving-agent",
       "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "redis/redis-py"
     },
     {
       "name": "flat_hash_map",
       "dir": "skarupke_flat_hash_map",
-      "description": "`skarupke/flat_hash_map` is a C++ implementation of an open-addressing hash map that stores all data in a single contiguous array, unlike `std::unordered_map` which uses separate chaining with linked lists. This design provides superior cache locality and typically 2-5x faster performance for most operations.",
-      "category": "cpp/tier1"
+      "description": "",
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "skarupke/flat_hash_map"
     },
     {
-      "name": "skill-creator-enhanced",
-      "dir": "skill-creator-enhanced",
+      "name": "cobra",
+      "dir": "spf13_cobra",
       "description": "",
-      "category": ""
+      "category": "go/core",
+      "language": "go",
+      "repo": "spf13/cobra"
     },
     {
       "name": "f410",
       "dir": "stduuid_f410",
-      "description": "The `stduuid` library provides a C++ implementation of Universally Unique Identifiers (UUIDs) as specified in RFC 4122.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "subreddit-scout",
-      "dir": "subreddit-scout",
       "description": "",
-      "category": ""
-    },
-    {
-      "name": "test-skill-template",
-      "dir": "test-skill-template",
-      "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "stduuid/f410"
     },
     {
       "name": "msgpack-c",
       "dir": "usoa_msgpack-c",
-      "description": "msgpack-c is a C++ implementation of MessagePack, a binary serialization format that is more compact than JSON and faster to parse. It supports automatic serialization of C++ types including primitives, containers, and custom classes via the `MSGPACK_DEFINE` macro.",
-      "category": "cpp/tier1"
-    },
-    {
-      "name": "\u8349\u7eb8-\u5199\u4f5c\u6280\u80fd",
-      "dir": "\u8349\u7eb8-\u5199\u4f5c\u6280\u80fd",
       "description": "",
-      "category": ""
-    },
-    {
-      "name": "\u8349\u7eb8-\u63a2\u7d22\u6280\u80fd",
-      "dir": "\u8349\u7eb8-\u63a2\u7d22\u6280\u80fd",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "\u8349\u7eb8-\u8d26\u53f7\u6ce8\u518c",
-      "dir": "\u8349\u7eb8-\u8d26\u53f7\u6ce8\u518c",
-      "description": "",
-      "category": ""
-    },
-    {
-      "name": "\u8349\u7eb8-\u9605\u8bfb\u6280\u80fd",
-      "dir": "\u8349\u7eb8-\u9605\u8bfb\u6280\u80fd",
-      "description": "",
-      "category": ""
+      "category": "cpp/tier1",
+      "language": "cpp",
+      "repo": "usoa/msgpack-c"
     }
   ]
 }
