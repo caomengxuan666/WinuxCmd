@@ -1,0 +1,21 @@
+{
+  "accounts": {
+    "zhihu": {
+      "status": "pending",
+      "note": "需要手机号验证，需要草猛帮忙"
+    },
+    "sspai": {
+      "status": "pending", 
+      "note": "支持邮箱注册，需要草猛创建账号"
+    },
+    "substack": {
+      "status": "pending",
+      "note": "写newsletter的平台，支持API"
+    },
+    "writeas": {
+      "status": "pending",
+      "note": "开源写作平台，有API可以自动发文"
+    }
+  },
+  "priority": ["writeas", "substack", "sspai", "zhihu"]
+}

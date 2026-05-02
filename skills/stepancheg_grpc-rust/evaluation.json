@@ -1,0 +1,97 @@
+{
+  "repo": "stepancheg/grpc-rust",
+  "safe_name": "stepancheg_grpc-rust",
+  "results": [
+    {
+      "strategy": "Custom",
+      "scores": {
+        "structure": 2.0,
+        "read_order": 2.0,
+        "pitfalls_quality": 2.5,
+        "quickstart_quality": 2.0,
+        "total": 8.5
+      },
+      "details": {
+        "structure": {
+          "present": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "missing": []
+        },
+        "read_order": {
+          "skill_json": true,
+          "read_order": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "cross_references": 22,
+          "cross_ref_details": {
+            "quickstart.md": [
+              "safety.md",
+              "performance.md",
+              "threading.md"
+            ],
+            "overview.md": [
+              "quickstart.md",
+              "pitfalls.md",
+              "performance.md",
+              "threading.md"
+            ],
+            "pitfalls.md": [
+              "safety.md",
+              "best-practices.md",
+              "lifecycle.md"
+            ],
+            "safety.md": [
+              "pitfalls.md",
+              "lifecycle.md"
+            ],
+            "best-practices.md": [
+              "safety.md",
+              "performance.md",
+              "threading.md"
+            ],
+            "lifecycle.md": [
+              "safety.md",
+              "threading.md"
+            ],
+            "performance.md": [
+              "lifecycle.md",
+              "threading.md"
+            ],
+            "threading.md": [
+              "safety.md",
+              "lifecycle.md",
+              "performance.md"
+            ]
+          },
+          "read_order_valid": "8/8 files exist"
+        },
+        "pitfalls_reason": "Good examples but missing context",
+        "quickstart_reason": "Good examples but incomplete\n\nThe document provides copy-pasteable code and covers essential gRPC operations (unary, server/client streaming, bidirectional), but the bidirectional streaming example is cut off, and there's no mention of TLS/SSL configuration or generated proto file setup."
+      }
+    }
+  ],
+  "manual": null,
+  "summary": {
+    "best_strategy": "Custom",
+    "best_score": 8.5,
+    "all_scores": {
+      "Custom": 8.5
+    },
+    "manual_score": null
+  }
+}

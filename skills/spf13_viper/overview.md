@@ -1,0 +1,7 @@
+# Overview
+
+Viper is a complete configuration solution for Go applications that follows the 12-Factor App methodology. It acts as a centralized registry for all application configuration needs, supporting multiple sources including config files (JSON, TOML, YAML, INI, envfile, Java Properties), environment variables, command-line flags, remote key-value stores (etcd, Consul), and runtime overrides.
+
+Use Viper when your application needs flexible configuration management with support for multiple formats, hierarchical keys, live reloading, and environment variable binding. It's particularly valuable for microservices, CLI tools, and any application that needs to support different deployment environments. Do not use Viper for simple applications with static configuration that never changes, or when you need type-safe configuration structs with compile-time validation (consider using a library like `envconfig` instead).
+
+Key design principles include case-insensitive keys, a strict precedence order (explicit Set > flags > env vars > config files > remote stores > defaults), and non-deep merging of complex values. Viper uses a singleton pattern by default but supports creating multiple instances for different configuration contexts.

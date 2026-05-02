@@ -1,0 +1,74 @@
+{
+  "name": "rust-clippy",
+  "repo": "rust-lang/rust-clippy",
+  "language": "rust",
+  "tier": "utility",
+  "group": "tooling",
+  "version": "1.0.0",
+  "skill_version": "0.1.0",
+  "schema": "libskills/v1",
+  "skill_type": "library",
+  "repo_skill": true,
+  "trust_score": 85,
+  "verified": false,
+  "official": false,
+  "updated_at": "2026-05-03T00:00:00Z",
+  "trust_score_sources": {
+    "official_review": 30,
+    "stars": 20,
+    "community_votes": 15,
+    "update_freshness": 10,
+    "issue_health": 10
+  },
+  "completeness": 100,
+  "risk_level": "medium",
+  "tags": [
+    "rust",
+    "clippy",
+    "lint",
+    "tooling"
+  ],
+  "compatibility": {
+    "rust": [
+      "1.60",
+      "1.70",
+      "1.80",
+      "1.84"
+    ]
+  },
+  "dependencies": {
+    "required": [],
+    "optional": [],
+    "skills": []
+  },
+  "read_order": [
+    "quickstart.md",
+    "overview.md",
+    "pitfalls.md",
+    "safety.md",
+    "best-practices.md",
+    "lifecycle.md",
+    "performance.md",
+    "threading.md"
+  ],
+  "files": {
+    "P0": [
+      "quickstart.md"
+    ],
+    "P1": [
+      "overview.md",
+      "pitfalls.md",
+      "safety.md"
+    ],
+    "P2": [
+      "best-practices.md",
+      "lifecycle.md"
+    ],
+    "P3": [
+      "performance.md",
+      "threading.md"
+    ]
+  },
+  "inherits": null,
+  "compilers": []
+}

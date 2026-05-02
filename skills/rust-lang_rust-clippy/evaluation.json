@@ -1,0 +1,87 @@
+{
+  "repo": "rust-lang/rust-clippy",
+  "safe_name": "rust-lang_rust-clippy",
+  "results": [
+    {
+      "strategy": "Custom",
+      "scores": {
+        "structure": 2.0,
+        "read_order": 2.0,
+        "pitfalls_quality": 2.5,
+        "quickstart_quality": 2.5,
+        "total": 9.0
+      },
+      "details": {
+        "structure": {
+          "present": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "missing": []
+        },
+        "read_order": {
+          "skill_json": true,
+          "read_order": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "cross_references": 12,
+          "cross_ref_details": {
+            "quickstart.md": [
+              "overview.md",
+              "best-practices.md"
+            ],
+            "overview.md": [
+              "pitfalls.md",
+              "safety.md",
+              "performance.md"
+            ],
+            "pitfalls.md": [
+              "safety.md"
+            ],
+            "safety.md": [
+              "best-practices.md"
+            ],
+            "best-practices.md": [
+              "lifecycle.md"
+            ],
+            "lifecycle.md": [
+              "performance.md"
+            ],
+            "performance.md": [
+              "threading.md"
+            ],
+            "threading.md": [
+              "safety.md",
+              "lifecycle.md"
+            ]
+          },
+          "read_order_valid": "8/8 files exist"
+        },
+        "pitfalls_reason": "Clear examples but missing explanation of why restriction lints are problematic",
+        "quickstart_reason": "Clear, copy-paste commands with essential patterns"
+      }
+    }
+  ],
+  "manual": null,
+  "summary": {
+    "best_strategy": "Custom",
+    "best_score": 9.0,
+    "all_scores": {
+      "Custom": 9.0
+    },
+    "manual_score": null
+  }
+}

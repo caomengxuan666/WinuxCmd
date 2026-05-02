@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-05-02T10:00:00+08:00",
+  "updated_at": "2026-05-03T03:20:44+08:00",
   "skills": [
     {
       "name": "CLI11",
@@ -83,6 +83,14 @@
       "repo": "aio-libs/aiohttp"
     },
     {
+      "dir": "aws_aws-sdk-go",
+      "name": "aws-sdk-go",
+      "description": "Official AWS SDK for Go providing client packages for all AWS services",
+      "category": "go/core",
+      "language": "go",
+      "repo": "aws/aws-sdk-go"
+    },
+    {
       "name": "backward-cpp",
       "dir": "bombela_backward-cpp",
       "description": "",
@@ -113,6 +121,14 @@
       "category": "cpp/tier1",
       "language": "cpp",
       "repo": "boostorg/gil"
+    },
+    {
+      "dir": "celery_celery",
+      "name": "celery",
+      "description": "Distributed task queue for Python supporting async execution across threads, processes, or machines via message broker",
+      "category": "python/advanced",
+      "language": "python",
+      "repo": "celery/celery"
     },
     {
       "name": "websocketpp",
@@ -179,6 +195,14 @@
       "repo": "google/snappy"
     },
     {
+      "dir": "gorilla_mux",
+      "name": "mux",
+      "description": "Powerful HTTP request router and dispatcher for Go extending the standard http.ServeMux",
+      "category": "go/core",
+      "language": "go",
+      "repo": "gorilla/mux"
+    },
+    {
       "name": "parallel-hashmap",
       "dir": "greg7mdp_parallel-hashmap",
       "description": "",
@@ -243,6 +267,14 @@
       "repo": "martinmoene/filesystem"
     },
     {
+      "dir": "mitsuhiko_flask",
+      "name": "flask",
+      "description": "Lightweight WSGI web application framework for Python with URL routing, templating, and session management",
+      "category": "python/core",
+      "language": "python",
+      "repo": "mitsuhiko/flask"
+    },
+    {
       "name": "imgui",
       "dir": "ocornut_imgui",
       "description": "",
@@ -262,9 +294,25 @@
       "name": "redis-py",
       "dir": "redis_redis-py",
       "description": "",
-      "category": "cpp/tier1",
-      "language": "cpp",
+      "category": "python/core",
+      "language": "python",
       "repo": "redis/redis-py"
+    },
+    {
+      "dir": "rust-lang_rust-clippy",
+      "name": "clippy",
+      "description": "Static analysis tool for Rust providing over 800 lints to catch mistakes and improve code quality",
+      "category": "rust/utility",
+      "language": "rust",
+      "repo": "rust-lang/rust-clippy"
+    },
+    {
+      "dir": "rustls_rustls",
+      "name": "rustls",
+      "description": "Modern TLS library for Rust providing cryptographic security without OpenSSL dependencies",
+      "category": "rust/core",
+      "language": "rust",
+      "repo": "rustls/rustls"
     },
     {
       "name": "flat_hash_map",
@@ -275,6 +323,14 @@
       "repo": "skarupke/flat_hash_map"
     },
     {
+      "dir": "smol-rs_smol",
+      "name": "smol",
+      "description": "Small, fast, and ergonomic async runtime for Rust with modular architecture",
+      "category": "rust/core",
+      "language": "rust",
+      "repo": "smol-rs/smol"
+    },
+    {
       "name": "cobra",
       "dir": "spf13_cobra",
       "description": "",
@@ -283,12 +339,28 @@
       "repo": "spf13/cobra"
     },
     {
+      "dir": "spf13_viper",
+      "name": "viper",
+      "description": "Complete configuration solution for Go with multi-source support (files, env, flags, remote stores)",
+      "category": "go/core",
+      "language": "go",
+      "repo": "spf13/viper"
+    },
+    {
       "name": "f410",
       "dir": "stduuid_f410",
       "description": "",
       "category": "cpp/tier1",
       "language": "cpp",
       "repo": "stduuid/f410"
+    },
+    {
+      "dir": "stepancheg_grpc-rust",
+      "name": "grpc-rust",
+      "description": "Pure Rust implementation of the gRPC protocol with protobuf code generation for servers and clients",
+      "category": "rust/core",
+      "language": "rust",
+      "repo": "stepancheg/grpc-rust"
     },
     {
       "name": "msgpack-c",

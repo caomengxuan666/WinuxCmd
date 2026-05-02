@@ -1,0 +1,68 @@
+{
+  "repo": "smol-rs/smol",
+  "safe_name": "smol-rs_smol",
+  "results": [
+    {
+      "strategy": "Custom",
+      "scores": {
+        "structure": 2.0,
+        "read_order": 1.2,
+        "pitfalls_quality": 2.5,
+        "quickstart_quality": 2.0,
+        "total": 7.8
+      },
+      "details": {
+        "structure": {
+          "present": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "missing": []
+        },
+        "read_order": {
+          "skill_json": true,
+          "read_order": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "cross_references": 3,
+          "cross_ref_details": {
+            "overview.md": [
+              "performance.md"
+            ],
+            "best-practices.md": [
+              "performance.md"
+            ],
+            "threading.md": [
+              "safety.md"
+            ]
+          },
+          "read_order_valid": "8/8 files exist"
+        },
+        "pitfalls_reason": "Good examples but missing context on why holding lock across await is problematic",
+        "quickstart_reason": "Good examples but incomplete\n\nThe document provides copy-paste ready code (1 point), covers essential operations like TCP, file I/O, tasks, channels, timers, and DNS (1 point), but the DNS resolution example is cut off, making it incomplete and not fully usable (0 points for clarity/completeness)."
+      }
+    }
+  ],
+  "manual": null,
+  "summary": {
+    "best_strategy": "Custom",
+    "best_score": 7.8,
+    "all_scores": {
+      "Custom": 7.8
+    },
+    "manual_score": null
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "repo": "gorilla/mux",
+  "safe_name": "gorilla_mux",
+  "results": [
+    {
+      "strategy": "Custom",
+      "scores": {
+        "structure": 2.0,
+        "read_order": 1.2,
+        "pitfalls_quality": 2.5,
+        "quickstart_quality": 2.5,
+        "total": 8.2
+      },
+      "details": {
+        "structure": {
+          "present": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "missing": []
+        },
+        "read_order": {
+          "skill_json": true,
+          "read_order": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md",
+            "best-practices.md",
+            "lifecycle.md",
+            "performance.md",
+            "threading.md"
+          ],
+          "cross_references": 2,
+          "cross_ref_details": {
+            "overview.md": [
+              "performance.md"
+            ],
+            "threading.md": [
+              "safety.md"
+            ]
+          },
+          "read_order_valid": "8/8 files exist"
+        },
+        "pitfalls_reason": "Good examples but missing context",
+        "quickstart_reason": "Clear patterns but missing runnable main and import for unused examples"
+      }
+    }
+  ],
+  "manual": null,
+  "summary": {
+    "best_strategy": "Custom",
+    "best_score": 8.2,
+    "all_scores": {
+      "Custom": 8.2
+    },
+    "manual_score": null
+  }
+}
