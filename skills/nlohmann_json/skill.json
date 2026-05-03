@@ -1,0 +1,45 @@
+{
+  "name": "json",
+  "repo": "nlohmann/json",
+  "language": "cpp",
+  "tier": "core",
+  "group": "serialization",
+  "version": "1.0.0",
+  "skill_version": "1.0.0",
+  "trust_score": 80,
+  "verified": false,
+  "official": false,
+  "tags": [
+    "cpp",
+    "core",
+    "serialization"
+  ],
+  "summary": "LibSkills skill for nlohmann/json",
+  "risk_level": "medium",
+  "repo_skill": false,
+  "completeness": 100,
+  "read_order": [
+    "quickstart.md",
+    "overview.md",
+    "pitfalls.md",
+    "safety.md"
+  ],
+  "files": {
+    "P0": [
+      "quickstart.md"
+    ],
+    "P1": [
+      "overview.md",
+      "pitfalls.md",
+      "safety.md"
+    ],
+    "P2": [
+      "best-practices.md",
+      "lifecycle.md"
+    ],
+    "P3": [
+      "performance.md",
+      "threading.md"
+    ]
+  }
+}

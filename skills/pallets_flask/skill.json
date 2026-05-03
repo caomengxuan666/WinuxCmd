@@ -1,0 +1,79 @@
+{
+    "name": "flask",
+    "repo": "pallets/flask",
+    "language": "python",
+    "tier": "core",
+    "group": "web",
+    "version": "1.0.0",
+    "skill_version": "0.1.0",
+    "schema": "libskills/v1",
+    "skill_type": "library",
+    "repo_skill": true,
+    "trust_score": 85,
+    "verified": true,
+    "official": true,
+    "updated_at": "2026-04-29T00:00:00Z",
+    "trust_score_sources": {
+        "official_review": 30,
+        "stars": 20,
+        "community_votes": 15,
+        "update_freshness": 10,
+        "issue_health": 10
+    },
+    "completeness": 100,
+    "risk_level": "medium",
+    "tags": [
+        "web",
+        "framework",
+        "python",
+        "wsgi",
+        "micro"
+    ],
+    "compatibility": {
+        "python": [
+            "3.8",
+            "3.9",
+            "3.10",
+            "3.11",
+            "3.12"
+        ],
+        "platforms": [
+            "linux-x64",
+            "macos-x64",
+            "windows-x64"
+        ]
+    },
+    "dependencies": {
+        "required": [
+            "flask"
+        ],
+        "optional": [
+            "jinja2",
+            "werkzeug"
+        ],
+        "skills": []
+    },
+    "read_order": [
+        "quickstart.md",
+        "overview.md",
+        "pitfalls.md",
+        "safety.md"
+    ],
+    "files": {
+        "P0": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md"
+        ],
+        "P1": [
+            "lifecycle.md",
+            "threading.md",
+            "best-practices.md"
+        ],
+        "P2": [
+            "performance.md"
+        ]
+    },
+    "inherits": null
+}

@@ -1,0 +1,80 @@
+{
+  "name": "nameof",
+  "repo": "Neargye/nameof",
+  "language": "cpp",
+  "tier": "utility",
+  "group": "reflection",
+  "version": "1.0.0",
+  "skill_version": "0.1.0",
+  "schema": "libskills/v1",
+  "skill_type": "library",
+  "repo_skill": true,
+  "trust_score": 85,
+  "verified": false,
+  "official": false,
+  "updated_at": "2026-04-29T00:00:00Z",
+  "trust_score_sources": {
+    "official_review": 30,
+    "stars": 20,
+    "community_votes": 15,
+    "update_freshness": 10,
+    "issue_health": 10
+  },
+  "completeness": 100,
+  "risk_level": "medium",
+  "tags": [
+    "cpp",
+    "nameof"
+  ],
+  "compatibility": {
+    "c++": [
+      "11",
+      "14",
+      "17",
+      "20",
+      "23"
+    ],
+    "compilers": [
+      "clang>=3.4",
+      "gcc>=4.8",
+      "msvc>=2015"
+    ],
+    "platforms": [
+      "linux-x64",
+      "linux-arm64",
+      "macos-x64",
+      "macos-arm64",
+      "windows-x64"
+    ]
+  },
+  "dependencies": {
+    "required": [],
+    "optional": [],
+    "skills": []
+  },
+  "read_order": [
+    "quickstart.md",
+    "overview.md",
+    "pitfalls.md",
+    "safety.md"
+  ],
+  "files": {
+    "P0": [
+      "quickstart.md"
+    ],
+    "P1": [
+      "overview.md",
+      "pitfalls.md",
+      "safety.md"
+    ],
+    "P2": [
+      "best-practices.md",
+      "lifecycle.md"
+    ],
+    "P3": [
+      "performance.md",
+      "threading.md"
+    ]
+  },
+  "inherits": null
+}

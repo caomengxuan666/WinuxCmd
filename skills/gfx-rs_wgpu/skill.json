@@ -1,0 +1,80 @@
+{
+    "name": "wgpu",
+    "repo": "gfx-rs/wgpu",
+    "language": "rust",
+    "tier": "core",
+    "group": "graphics",
+    "version": "1.0.0",
+    "skill_version": "0.1.0",
+    "schema": "libskills/v1",
+    "skill_type": "library",
+    "repo_skill": true,
+    "trust_score": 85,
+    "verified": true,
+    "official": true,
+    "updated_at": "2026-04-29T00:00:00Z",
+    "trust_score_sources": {
+        "official_review": 30,
+        "stars": 20,
+        "community_votes": 15,
+        "update_freshness": 10,
+        "issue_health": 10
+    },
+    "completeness": 100,
+    "risk_level": "medium",
+    "tags": [
+        "graphics",
+        "gpu",
+        "webgpu",
+        "rust",
+        "rendering"
+    ],
+    "compatibility": {
+        "rust": [
+            "1.70",
+            "1.71",
+            "1.72",
+            "1.73",
+            "1.74"
+        ],
+        "platforms": [
+            "linux-x64",
+            "macos-x64",
+            "windows-x64"
+        ]
+    },
+    "dependencies": {
+        "required": [
+            "wgpu"
+        ],
+        "optional": [
+            "wgpu-core",
+            "wgpu-hal",
+            "naga"
+        ],
+        "skills": []
+    },
+    "read_order": [
+        "quickstart.md",
+        "overview.md",
+        "pitfalls.md",
+        "safety.md"
+    ],
+    "files": {
+        "P0": [
+            "quickstart.md",
+            "overview.md",
+            "pitfalls.md",
+            "safety.md"
+        ],
+        "P1": [
+            "lifecycle.md",
+            "threading.md",
+            "best-practices.md"
+        ],
+        "P2": [
+            "performance.md"
+        ]
+    },
+    "inherits": null
+}
