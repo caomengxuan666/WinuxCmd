@@ -215,7 +215,7 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
       "          \"urls\": [\"" +
       file_url(artifact_path) +
       "\"],\n"
-      "          \"files\": [{\"from\":\"jq.exe\",\"to\":\"jq.exe\"}]\n"
+      "          \"files\": [{\"from\":\"bin/jq.exe\"}]\n"
       "        }\n"
       "      }\n"
       "    }\n"

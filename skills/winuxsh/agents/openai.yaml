@@ -1,0 +1,7 @@
+interface:
+  display_name: "Winuxsh Agent Workflow"
+  short_description: "Use winuxsh and bundled WinuxCmd tools for Windows agent work"
+  default_prompt: "Use $winuxsh when working on Windows repos that have winuxsh available. Ensure the winuxsh release directory is on PATH, then run commands as winuxsh -c '...'. Prefer bundled WinuxCmd coreutils and explicit MSVC environment exports when building C++ projects."
+
+policy:
+  allow_implicit_invocation: true

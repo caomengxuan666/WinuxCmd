@@ -137,6 +137,13 @@ constexpr std::string_view kBuiltinIndex = R"json(
       "description": "External zstd package slot. Fill this from a refreshed index.",
       "kind": "external",
       "artifacts": {}
+    },
+    {
+      "name": "yq",
+      "version": "",
+      "description": "External yq package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
     }
   ]
 }
@@ -836,6 +843,15 @@ auto find_file_recursive(const fs::path& root, std::string_view filename)
   return std::nullopt;
 }
 
+auto find_artifact_file(const fs::path& root, std::string_view from)
+    -> std::optional<fs::path> {
+  fs::path requested = fs::path(std::string(from));
+  std::error_code ec;
+  auto direct = root / requested;
+  if (fs::is_regular_file(direct, ec)) return direct;
+  return find_file_recursive(root, requested.filename().string());
+}
+
 auto artifact_for_current_arch(const nlohmann::json& pkg)
     -> std::optional<nlohmann::json> {
   if (!pkg.contains("artifacts") || !pkg["artifacts"].is_object())
@@ -904,13 +920,15 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
 
   for (const auto& mapping : artifact["files"]) {
     std::string from = mapping.value("from", "");
-    std::string to = mapping.value("to", from);
+    std::string to = mapping.contains("to") && mapping["to"].is_string()
+                         ? mapping["to"].get<std::string>()
+                         : fs::path(from).filename().string();
     if (from.empty() || to.empty()) {
       safeErrorPrintLn("wpm: invalid file mapping in artifact");
       return false;
     }
 
-    auto src = find_file_recursive(extracted, from);
+    auto src = find_artifact_file(extracted, from);
     if (!src) {
       safeErrorPrintLn("wpm: extracted file not found: " + from);
       return false;

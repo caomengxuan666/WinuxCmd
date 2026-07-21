@@ -85,6 +85,13 @@
       "description": "External zstd package slot. Fill this from a refreshed index.",
       "kind": "external",
       "artifacts": {}
+    },
+    {
+      "name": "yq",
+      "version": "",
+      "description": "External yq package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
     }
   ]
 }
