@@ -1,27 +1,21 @@
 <#
 .SYNOPSIS
-    WinuxCmd Command Link Generator
+    WinuxCmd Command Link Generator compatibility wrapper.
 .DESCRIPTION
-    Creates hardlinks or symbolic links for all WinuxCmd commands
-    from winuxcmd.exe in the current directory.
+    Delegates command link management to the internal WPM command:
+    winuxcmd.exe wpm links rebuild/remove.
 .PARAMETER Force
-    Overwrite existing command executables without prompting.
+    Overwrite existing command executables when WPM can do so safely.
 .PARAMETER UseSymbolicLinks
-    Use symbolic links instead of hardlinks (useful for non-NTFS filesystems).
+    Deprecated. WPM manages hardlinks only.
 .PARAMETER Remove
-    Remove all created links (winuxcmd.exe is kept).
-.EXAMPLE
-    .\create_links.ps1
-    Create hardlinks for all commands (requires NTFS).
-.EXAMPLE
-    .\create_links.ps1 -UseSymbolicLinks
-    Create symbolic links (works on all Windows filesystems).
+    Remove generated command hardlinks. winuxcmd.exe is kept.
 .EXAMPLE
     .\create_links.ps1 -Force
-    Create hardlinks, overwriting existing files without prompting.
+    Rebuild hardlinks through WPM.
 .EXAMPLE
     .\create_links.ps1 -Remove
-    Remove all command links.
+    Remove hardlinks through WPM.
 #>
 
 [CmdletBinding()]
@@ -32,270 +26,42 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Script:Version = "0.7.2"
 
-# Escape special characters for PowerShell path handling
-function Escape-WildcardChars {
-    param([string]$Path)
-    $specialChars = @('[', ']', '*', '?')
-    foreach ($char in $specialChars) {
-        $Path = $Path.Replace($char, "`$char")
-    }
-    return $Path
-}
-
-# Available commands list (auto-generated from src/commands/*.cpp)
-$Script:Commands = @(
-    "arch", "b2sum", "base32", "base64", "basename", "basenc", "cal", "cat",
-    "chcon", "chgrp", "chmod", "chown", "chroot", "cksum", "clear", "cmp", "col", "column", "comm", "cp", "cpio", "csplit",
-    "cut", "cygpath", "d2u", "date", "dd", "df", "diff", "diff3", "dirname",
-    "dir", "dircolors", "dos2unix", "du", "echo", "env", "expand", "expr", "factor", "false", "file",
-    "find", "fmt", "fold", "free", "getconf", "grep", "groups", "head", "hexdump",
-    "hmac256", "hostid", "hostname", "id", "infocmp", "install", "join", "jq",
-    "kill", "less", "link", "ln", "locale", "logname", "ls", "lsof", "man", "md5sum",
-    "mkdir", "mkfifo", "mknod", "mktemp", "more", "mpicalc", "mv", "nice", "nl", "nohup",
-    "nproc", "numfmt", "od", "paste", "patch", "pathchk", "pinky", "pr",
-    "printenv", "printf", "ps", "ptx", "pwd", "readlink", "realpath", "reset",
-    "rev", "rm", "rmdir", "runcon", "sdiff", "sed", "seq", "sha1sum", "sha224sum",
-    "sha256sum", "sha384sum", "sha512sum", "shred", "shuf", "sleep", "sort",
-    "split", "stat", "stdbuf", "strings", "stty", "sum", "sync", "tac", "tail", "tee", "test",
-    "[", "tic", "timeout", "toe", "top", "touch", "tput", "tr", "tree", "true",
-    "truncate", "tsort", "tty", "tzset", "u2d", "uname", "unexpand", "uniq",
-    "unix2dos", "unlink", "uptime", "users", "vdir", "watch", "wc", "which", "who",
-    "whoami", "xargs", "xxd", "yes"
-)
-
-function Write-ColorOutput {
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet("Green", "Yellow", "Red", "Cyan", "Blue", "Gray")]
-        [string]$Color,
-        
-        [Parameter(Mandatory = $true)]
-        [string]$Text
-    )
-    
-    # Simple text-based markers for older terminals
-    $Markers = @{
-        Green  = "[OK]"
-        Yellow = "[INFO]"
-        Red    = "[ERROR]"
-        Cyan   = "[INFO]"
-        Blue   = "[NOTE]"
-        Gray   = "      "
-    }
-    
-    Write-Host "$($Markers[$Color]) $Text"
+function Write-ErrorLine {
+    param([string]$Text)
+    Write-Host "[ERROR] $Text"
 }
 
 function Get-WinuxCmdPath {
-    $currentDir = Get-Location
-    $WinuxCmdPath = Join-Path $currentDir "winuxcmd.exe"
-    
-    if (-not (Test-Path $WinuxCmdPath)) {
-        Write-ColorOutput "Red" "Error: winuxcmd.exe not found in current directory."
-        Write-ColorOutput "Yellow" "Current directory: $currentDir"
-        Write-ColorOutput "Gray" "Please run this script from the WinuxCmd bin directory."
+    $candidate = Join-Path (Get-Location) "winuxcmd.exe"
+    if (-not (Test-Path -LiteralPath $candidate)) {
+        Write-ErrorLine "winuxcmd.exe not found in current directory."
+        Write-Host "[INFO] Current directory: $(Get-Location)"
+        Write-Host "[INFO] Run this wrapper from the WinuxCmd bin directory."
         exit 1
     }
-    
-    return $WinuxCmdPath
+    return $candidate
 }
 
-function Get-FileSystemType {
-    try {
-        $drive = (Get-Location).Drive.Root
-        $volume = Get-WmiObject -Class Win32_Volume -Filter "DriveLetter='$drive'" -ErrorAction SilentlyContinue
-        
-        if ($volume) {
-            return $volume.FileSystem
-        }
-    }
-    catch {
-        # Fall back to assuming NTFS if WMI fails
-        return "Unknown"
-    }
-    
-    return "Unknown"
+if ($UseSymbolicLinks) {
+    Write-ErrorLine "-UseSymbolicLinks is no longer supported here."
+    Write-Host "[INFO] WPM owns command-link management and creates hardlinks only."
+    Write-Host "[INFO] For one-off symlinks, use: winuxcmd.exe ln -s SOURCE LINK"
+    exit 2
 }
 
-function Remove-CommandLinks {
-    param(
-        [string]$WinuxCmdPath
-    )
-    
-    $removedCount = 0
-    $skippedCount = 0
-    $errorsCount = 0
-    
-    Write-ColorOutput "Cyan" "Removing WinuxCmd command links..."
-    Write-Host ""
-    
-    foreach ($cmd in $Script:Commands) {
-        $cmdPath = Join-Path (Get-Location) "$cmd.exe"
-
-        if (-not (Test-Path -LiteralPath $cmdPath)) {
-            continue
-        }
-        
-        try {
-            # Use winuxcmd rm to remove the file
-            & $WinuxCmdPath @("rm", "-f", $cmdPath)
-            if ($LASTEXITCODE -eq 0) {
-                Write-ColorOutput "Green" "  [Removed] $cmd.exe"
-                $removedCount++
-            }
-        }
-        catch {
-            Write-ColorOutput "Red" "  [Error] Failed to remove $cmd.exe: $($_.Exception.Message)"
-            $errorsCount++
-        }
-    }
-    
-    Write-Host ""
-    Write-ColorOutput "Cyan" "Summary:"
-    Write-ColorOutput "Green" "  Removed: $removedCount"
-    if ($skippedCount -gt 0) {
-        Write-ColorOutput "Yellow" "  Skipped: $skippedCount"
-    }
-    if ($errorsCount -gt 0) {
-        Write-ColorOutput "Red" "  Errors: $errorsCount"
-    }
-    Write-ColorOutput "Gray" "  winuxcmd.exe is preserved"
-}
-
-function New-CommandLinks {
-    param(
-        [string]$WinuxCmdPath,
-        [bool]$UseSymbolic
-    )
-    
-    $createdCount = 0
-    $skippedCount = 0
-    $errorsCount = 0
-    $fsType = Get-FileSystemType
-    
-    $linkType = if ($UseSymbolic) { "symbolic link" } else { "hardlink" }
-    
-    Write-ColorOutput "Cyan" "WinuxCmd Command Link Generator v$Script:Version"
-    Write-ColorOutput "Cyan" "========================================="
-    Write-Host ""
-    Write-ColorOutput "Blue" "Configuration:"
-    Write-ColorOutput "Gray" "  Target: $WinuxCmdPath"
-    Write-ColorOutput "Gray" "  Link Type: $linkType"
-    Write-ColorOutput "Gray" "  Filesystem: $fsType"
-    Write-Host ""
-    
-    if (-not $UseSymbolic -and $fsType -ne "NTFS" -and $fsType -ne "Unknown") {
-        Write-ColorOutput "Yellow" "Warning: Hardlinks require NTFS filesystem."
-        Write-ColorOutput "Yellow" "         Current filesystem: $fsType"
-        Write-ColorOutput "Yellow" "         Consider using -UseSymbolicLinks flag."
-        Write-Host ""
-        
-        if (-not $Force) {
-            $continue = Read-Host "Continue anyway? (Y/N)"
-            if ($continue -notmatch '^[Yy]') {
-                Write-ColorOutput "Yellow" "Cancelled."
-                exit 0
-            }
-        }
-    }
-    
-    # Check for existing files
-    $existingFiles = @()
-    foreach ($cmd in $Script:Commands) {
-        $cmdPath = Join-Path (Get-Location) "$cmd.exe"
-        if (Test-Path -LiteralPath $cmdPath) {
-            $existingFiles += $cmd
-        }
-    }
-    
-    if ($existingFiles.Count -gt 0 -and -not $Force) {
-        Write-ColorOutput "Yellow" "Warning: The following files already exist:"
-        foreach ($file in $existingFiles) {
-            Write-ColorOutput "Yellow" "  - $file.exe"
-        }
-        Write-Host ""
-        
-        $overwrite = Read-Host "Overwrite existing files? (Y/N)"
-        if ($overwrite -notmatch '^[Yy]') {
-            Write-ColorOutput "Yellow" "Cancelled."
-            exit 0
-        }
-    }
-    
-    Write-ColorOutput "Cyan" "Creating links (batch mode)..."
-    Write-Host ""
-    
-    foreach ($cmd in $Script:Commands) {
-        $cmdPath = Join-Path (Get-Location) "$cmd.exe"
-
-        try {
-            $lnArgs = @("ln")
-            if ($UseSymbolic) {
-                $lnArgs += @("-s")
-            }
-            if ($Force) {
-                $lnArgs += @("-f")
-            }
-            $lnArgs += @($WinuxCmdPath, $cmdPath)
-
-            & $WinuxCmdPath @lnArgs
-
-            if ($LASTEXITCODE -eq 0) {
-                $createdCount++
-            }
-            else {
-                Write-ColorOutput "Red" "  [Failed] $cmd.exe (exit $LASTEXITCODE)"
-                $errorsCount++
-            }
-        }
-        catch {
-            Write-ColorOutput "Red" "  [Failed] $cmd.exe: $($_.Exception.Message)"
-            $errorsCount++
-        }
-    }
-
-    if ($createdCount -gt 0 -and $errorsCount -eq 0) {
-        Write-ColorOutput "Green" "  [Created] $createdCount command links"
-    }
-    
-    Write-Host ""
-    Write-ColorOutput "Cyan" "Summary:"
-    Write-ColorOutput "Green" "  Created: $createdCount"
-    if ($errorsCount -gt 0) {
-        Write-ColorOutput "Red" "  Errors: $errorsCount"
-    }
-    Write-Host ""
-    
-    if ($createdCount -gt 0) {
-        Write-ColorOutput "Green" "Success! WinuxCmd commands are now available."
-        Write-Host ""
-        Write-ColorOutput "Blue" "Usage:"
-        Write-ColorOutput "Gray" "  $ ls -la           # Use ls command"
-        Write-ColorOutput "Gray" "  $ cat file.txt     # Use cat command"
-        Write-ColorOutput "Gray" "  $ grep pattern file  # Use grep command"
-        Write-Host ""
-        
-        if ($UseSymbolic) {
-            Write-ColorOutput "Yellow" "Note: Symbolic links were used. These may require elevated permissions"
-            Write-ColorOutput "Yellow" "      on some systems. If you encounter permission issues, try running"
-            Write-ColorOutput "Yellow" "      PowerShell as Administrator."
-        }
-    }
-    else {
-        Write-ColorOutput "Red" "Failed to create any command links."
-        exit 1
-    }
-}
-
-# Main script logic
-$WinuxCmdPath = Get-WinuxCmdPath
+$winuxCmdPath = Get-WinuxCmdPath
+$root = Get-Location
 
 if ($Remove) {
-    Remove-CommandLinks -WinuxCmdPath $WinuxCmdPath
+    $wpmArgs = @("wpm", "links", "remove", "--root", "$root")
 }
 else {
-    New-CommandLinks -WinuxCmdPath $WinuxCmdPath -UseSymbolic $UseSymbolicLinks
+    $wpmArgs = @("wpm", "links", "rebuild", "--root", "$root")
+    if ($Force) {
+        $wpmArgs += "--force"
+    }
 }
 
+& $winuxCmdPath @wpmArgs
+exit $LASTEXITCODE

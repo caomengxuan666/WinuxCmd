@@ -95,12 +95,22 @@ begin
 end;
 
 procedure CreateCommandLinks;
+var
+    ResultCode: Integer;
 begin
-    RunPowerShell(
-        ExpandConstant('{app}\create_links.ps1'),
-        '-Force',
+    if not Exec(
+        ExpandConstant('{app}\winuxcmd.exe'),
+        'wpm links rebuild --root "' + ExpandConstant('{app}') + '" --force',
         ExpandConstant('{app}'),
-        'Failed to create WinuxCmd command links');
+        SW_HIDE,
+        ewWaitUntilTerminated,
+        ResultCode) then
+    begin
+        RaiseException('Failed to create WinuxCmd command links: failed to launch winuxcmd.exe');
+    end;
+
+    if ResultCode <> 0 then
+        RaiseException('Failed to create WinuxCmd command links: exit code ' + IntToStr(ResultCode));
 end;
 
 procedure ConfigurePowerShellProfiles(Install: Boolean);
