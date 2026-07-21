@@ -121,6 +121,9 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-path", "", "file name matches shell pattern PATTERN", STRING_TYPE),
     OPTION("-ipath", "", "like -path, but the match is case insensitive",
            STRING_TYPE),
+    OPTION("-wholename", "", "same as -path", STRING_TYPE),
+    OPTION("-iwholename", "", "same as -ipath, but case insensitive",
+           STRING_TYPE),
     OPTION("-type", "",
            "file is of type c: b,d,p,f,l,s,D [only d,f,l are supported]",
            STRING_TYPE),
@@ -146,6 +149,9 @@ auto constexpr FIND_OPTIONS = std::array{
            "do not follow symbolic links, except while processing command line "
            "arguments"),
     OPTION("-P", "", "never follow symbolic links (default)"),
+    OPTION("-follow", "", "dereference symbolic links"),
+    OPTION("-O", "", "set optimization level (0-3, currently ignored)",
+           INT_TYPE),
     OPTION("-delete", "", "delete files"),
     OPTION("-exec", "", "execute command", TERMINATED_STRING_TYPE),
     OPTION("-ok", "", "execute command after confirmation",
@@ -165,6 +171,13 @@ auto constexpr FIND_OPTIONS = std::array{
            STRING_TYPE),
     OPTION("-depth", "",
            "process each directory's contents before the directory itself"),
+    OPTION("-d", "", "same as -depth"),
+    OPTION("-daystart", "", "measure times from start of today"),
+    OPTION("-mount", "", "do not descend into other file systems"),
+    OPTION("-xdev", "", "same as -mount"),
+    OPTION("-noleaf", "", "do not optimize by assuming 2+ hard links"),
+    OPTION("-regextype", "", "set regex syntax (currently ignored)",
+           STRING_TYPE),
     OPTION("!", "", "negate expression"),
     OPTION("-not", "", "negate expression"),
     OPTION("-a", "", "and expression"),
@@ -409,22 +422,46 @@ auto is_unsupported_used(const CommandContext<FIND_OPTIONS.size()>& ctx)
 
 auto is_path_option(std::string_view arg) -> bool {
   return arg == "-name" || arg == "-iname" || arg == "-path" ||
-         arg == "-ipath" || arg == "-regex" || arg == "-iregex" ||
+         arg == "-ipath" || arg == "-wholename" || arg == "-iwholename" ||
+         arg == "-regex" || arg == "-iregex" ||
          arg == "-type" || arg == "-size" || arg == "-empty" ||
          arg == "-mtime" || arg == "-mmin" || arg == "-newer" ||
          arg == "-mindepth" || arg == "-maxdepth" || arg == "-print" ||
          arg == "-print0" || arg == "-delete" || arg == "-exec" ||
          arg == "-ok" || arg == "-printf" || arg == "-prune" ||
          arg == "-quit" || arg == "-true" || arg == "-false" ||
-         arg == "-depth" || arg == "!" || arg == "-not" || arg == "-a" ||
-         arg == "-and" || arg == "-o" || arg == "-or";
+         arg == "-depth" || arg == "-d" || arg == "-follow" ||
+         arg == "-mount" || arg == "-xdev" || arg == "-noleaf" ||
+         arg == "-daystart" || arg == "-regextype" || arg == "-O" ||
+         arg == "!" || arg == "-not" || arg == "-a" || arg == "-and" ||
+         arg == "-o" || arg == "-or";
 }
 
 auto parse_roots(std::span<const std::string_view> args)
     -> SmallVector<std::string, 64> {
   SmallVector<std::string, 64> roots;
-  for (auto arg : args) {
-    if (arg == "-L" || arg == "-P" || arg == "-H") continue;
+  for (size_t i = 0; i < args.size(); ++i) {
+    auto arg = args[i];
+    if (roots.empty() &&
+        (arg == "-L" || arg == "-P" || arg == "-H" || arg == "-follow" ||
+         arg == "-mount" || arg == "-xdev" || arg == "-noleaf" ||
+         arg == "-daystart" || arg == "-d")) {
+      continue;
+    }
+    if (roots.empty() && arg == "-O") {
+      ++i;
+      continue;
+    }
+    if (roots.empty() && arg == "-regextype") {
+      ++i;
+      continue;
+    }
+    if (roots.empty() && arg.size() > 2 && arg[0] == '-' && arg[1] == 'O' &&
+        std::all_of(arg.begin() + 2, arg.end(), [](char ch) {
+          return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+        })) {
+      continue;
+    }
     if (is_path_option(arg) || arg == "!" || arg == "(" || arg == ")" ||
         arg == ",") {
       break;
@@ -489,7 +526,7 @@ auto resolve_symlink_mode(const CommandContext<FIND_OPTIONS.size()>& ctx)
     if (occurrence.index >= FIND_OPTIONS.size()) continue;
     const auto& meta = FIND_OPTIONS[occurrence.index];
 
-    if (meta.short_name == "-L") {
+    if (meta.short_name == "-L" || meta.short_name == "-follow") {
       mode = SymlinkMode::All;
     } else if (meta.short_name == "-H") {
       mode = SymlinkMode::CommandLineOnly;
@@ -502,12 +539,33 @@ auto resolve_symlink_mode(const CommandContext<FIND_OPTIONS.size()>& ctx)
 }
 
 auto expression_start_index(std::span<const std::string_view> args) -> size_t {
+  bool roots_seen = false;
   for (size_t i = 0; i < args.size(); ++i) {
     auto arg = args[i];
-    if (arg == "-L" || arg == "-P" || arg == "-H") continue;
+    if (!roots_seen &&
+        (arg == "-L" || arg == "-P" || arg == "-H" || arg == "-follow" ||
+         arg == "-mount" || arg == "-xdev" || arg == "-noleaf" ||
+         arg == "-daystart" || arg == "-d")) {
+      continue;
+    }
+    if (!roots_seen && arg == "-O" && i + 1 < args.size()) {
+      ++i;
+      continue;
+    }
+    if (!roots_seen && arg == "-regextype" && i + 1 < args.size()) {
+      ++i;
+      continue;
+    }
+    if (!roots_seen && arg.size() > 2 && arg[0] == '-' && arg[1] == 'O' &&
+        std::all_of(arg.begin() + 2, arg.end(), [](char ch) {
+          return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+        })) {
+      continue;
+    }
     if (is_path_option(arg) || arg == "(" || arg == ")" || arg == ",") {
       return i;
     }
+    roots_seen = true;
   }
   return args.size();
 }
@@ -572,8 +630,11 @@ class ExpressionParser {
            token == "-mindepth" || token == "-maxdepth" || token == "-print" ||
            token == "-print0" || token == "-printf" || token == "-prune" ||
            token == "-quit" || token == "-true" || token == "-false" ||
-           token == "-depth" || token == "-delete" || token == "-exec" ||
-           token == "-ok" || token == "-L" || token == "-P" || token == "-H";
+           token == "-depth" || token == "-d" || token == "-follow" ||
+           token == "-mount" || token == "-xdev" || token == "-noleaf" ||
+           token == "-daystart" || token == "-regextype" || token == "-O" ||
+           token == "-delete" || token == "-exec" || token == "-ok" ||
+           token == "-L" || token == "-P" || token == "-H";
   }
 
   auto require_value(std::string_view option) -> cp::Result<std::string> {
@@ -664,13 +725,16 @@ class ExpressionParser {
 
     auto option = consume();
     if (option == "-name" || option == "-iname" || option == "-path" ||
-        option == "-ipath" || option == "-type") {
+        option == "-ipath" || option == "-wholename" ||
+        option == "-iwholename" || option == "-type") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       ExprKind kind = ExprKind::Name;
       if (option == "-iname") kind = ExprKind::IName;
       if (option == "-path") kind = ExprKind::Path;
       if (option == "-ipath") kind = ExprKind::IPath;
+      if (option == "-wholename") kind = ExprKind::Path;
+      if (option == "-iwholename") kind = ExprKind::IPath;
       if (option == "-type") {
         if (*value != "f" && *value != "d" && *value != "l") {
           return std::unexpected("-type currently supports only f,d,l");
@@ -730,13 +794,17 @@ class ExpressionParser {
       return node;
     }
 
-    if (option == "-mindepth" || option == "-maxdepth") {
+    if (option == "-mindepth" || option == "-maxdepth" || option == "-O" ||
+        option == "-regextype") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       return make_expr(ExprKind::Always);
     }
 
-    if (option == "-true" || option == "-depth") {
+    if (option == "-true" || option == "-depth" || option == "-d" ||
+        option == "-follow" || option == "-mount" || option == "-xdev" ||
+        option == "-noleaf" || option == "-daystart" ||
+        option == "-regextype") {
       return make_expr(ExprKind::Always);
     }
 
@@ -826,7 +894,7 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
   cfg.maxdepth = ctx.get<int>("-maxdepth", std::numeric_limits<int>::max());
 
   cfg.delete_action = ctx.get<bool>("-delete", false);
-  cfg.depth_first = ctx.get<bool>("-depth", false);
+  cfg.depth_first = ctx.get<bool>("-depth", false) || ctx.get<bool>("-d", false);
   if (cfg.delete_action && ctx.get<bool>("-prune", false) && !cfg.depth_first) {
     return std::unexpected(
         "The -delete action automatically turns on -depth, but -prune does "

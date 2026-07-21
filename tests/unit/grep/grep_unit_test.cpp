@@ -116,6 +116,73 @@ TEST(grep, grep_color_never_and_colour_alias) {
   EXPECT_NE(alias_result.stdout_text.find("\x1b["), std::string::npos);
 }
 
+TEST(grep, grep_color_always_uses_gnu_sgr_erase_sequence) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"");
+  p.set_env(L"GREP_COLORS", L"");
+  p.add(L"grep.exe", {L"--color=always", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "\x1b[01;31m\x1b[Kalpha\x1b[m\x1b[K\n");
+}
+
+TEST(grep, grep_colors_mt_overrides_match_color) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"");
+  p.set_env(L"GREP_COLORS", L"mt=36:ne");
+  p.add(L"grep.exe", {L"--color=always", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "\x1b[36malpha\x1b[m\n");
+}
+
+TEST(grep, grep_colors_controls_prefix_components) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"");
+  p.set_env(L"GREP_COLORS", L"fn=33:ln=34:se=35:mt=36:ne");
+  p.add(L"grep.exe", {L"--color=always", L"-Hn", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "\x1b[33ma.txt\x1b[m"
+                 "\x1b[35m:\x1b[m"
+                 "\x1b[34m1\x1b[m"
+                 "\x1b[35m:\x1b[m"
+                 "\x1b[36malpha\x1b[m\n");
+}
+
+TEST(grep, grep_color_env_is_deprecated_but_applied) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"36");
+  p.set_env(L"GREP_COLORS", L"");
+  p.add(L"grep.exe", {L"--color=always", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "\x1b[36m\x1b[Kalpha\x1b[m\x1b[K\n");
+  EXPECT_TRUE(r.stderr_text.find("GREP_COLOR='36' is deprecated") !=
+              std::string::npos);
+}
+
 TEST(grep, grep_color_rejects_invalid_when) {
   TempDir tmp;
   tmp.write("a.txt", "alpha\n");

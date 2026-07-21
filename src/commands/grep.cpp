@@ -45,7 +45,33 @@ using cmd::meta::OptionType;
 
 static auto grep_is_terminal(FILE* stream) -> bool {
   int fd = _fileno(stream);
-  return fd >= 0 && _isatty(fd) != 0;
+  if (fd < 0) return false;
+
+  DWORD mode = 0;
+  auto handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
+  if (handle == INVALID_HANDLE_VALUE) return false;
+  if (GetConsoleMode(handle, &mode) != 0) return true;
+
+  if (GetFileType(handle) != FILE_TYPE_PIPE) return false;
+
+  constexpr DWORD kPipeNameBufferBytes =
+      sizeof(FILE_NAME_INFO) + (MAX_PATH * sizeof(wchar_t));
+  std::vector<char> buffer(kPipeNameBufferBytes);
+  auto* info = reinterpret_cast<FILE_NAME_INFO*>(buffer.data());
+  if (!GetFileInformationByHandleEx(handle, FileNameInfo, info,
+                                    static_cast<DWORD>(buffer.size()))) {
+    return false;
+  }
+
+  std::wstring name(info->FileName,
+                    info->FileNameLength / sizeof(wchar_t));
+  std::ranges::transform(name, name.begin(), [](wchar_t ch) {
+    return static_cast<wchar_t>(std::towlower(ch));
+  });
+
+  return name.find(L"pty") != std::wstring::npos &&
+         (name.find(L"msys") != std::wstring::npos ||
+          name.find(L"cygwin") != std::wstring::npos);
 }
 
 /**
@@ -226,6 +252,16 @@ struct FileSelectionRule {
   std::string pattern;
 };
 
+struct ColorConfig {
+  std::string matched_selected = "01;31";
+  std::string matched_context = "01;31";
+  std::string filename = "35";
+  std::string line_number = "32";
+  std::string byte_offset = "32";
+  std::string separator = "36";
+  bool no_erase = false;
+};
+
 struct Config {
   PatternMode mode = PatternMode::BasicRegex;
   bool ignore_case = false;
@@ -258,6 +294,7 @@ struct Config {
   int after_context = 0;
   bool context_requested = false;
   bool color = false;
+  ColorConfig color_config;
   BinaryMode binary_mode = BinaryMode::Binary;
   SmallVector<FileSelectionRule, 32> file_selection_rules;
   SmallVector<std::string, 16> exclude_dir_patterns;
@@ -265,6 +302,85 @@ struct Config {
   bool no_group_separator = false;
   bool initial_tab = false;
 };
+
+auto getenv_string(const char* name) -> std::string {
+  if (const char* value = std::getenv(name); value != nullptr) {
+    return std::string(value);
+  }
+  return {};
+}
+
+auto build_color_config(std::string_view grep_color,
+                        std::string_view grep_colors) -> ColorConfig {
+  ColorConfig config;
+  if (!grep_color.empty()) {
+    config.matched_selected = std::string(grep_color);
+    config.matched_context = std::string(grep_color);
+  }
+
+  size_t start = 0;
+  while (start <= grep_colors.size()) {
+    size_t end = grep_colors.find(':', start);
+    if (end == std::string_view::npos) end = grep_colors.size();
+    std::string_view item = grep_colors.substr(start, end - start);
+    if (item == "ne") {
+      config.no_erase = true;
+    } else if (auto pos = item.find('='); pos != std::string_view::npos) {
+      std::string_view key = item.substr(0, pos);
+      std::string value(item.substr(pos + 1));
+      if (key == "mt") {
+        config.matched_selected = value;
+        config.matched_context = value;
+      } else if (key == "ms") {
+        config.matched_selected = value;
+      } else if (key == "mc") {
+        config.matched_context = value;
+      } else if (key == "fn") {
+        config.filename = value;
+      } else if (key == "ln") {
+        config.line_number = value;
+      } else if (key == "bn") {
+        config.byte_offset = value;
+      } else if (key == "se") {
+        config.separator = value;
+      }
+    }
+    if (end == grep_colors.size()) break;
+    start = end + 1;
+  }
+
+  return config;
+}
+
+auto append_sgr_prefix(std::string& out, const ColorConfig& cfg,
+                       std::string_view sgr) -> void {
+  if (sgr.empty()) return;
+  out.append("\033[");
+  out.append(sgr);
+  out.append("m");
+  if (!cfg.no_erase) out.append("\033[K");
+}
+
+auto append_sgr_suffix(std::string& out, const ColorConfig& cfg,
+                       std::string_view sgr) -> void {
+  if (sgr.empty()) return;
+  out.append("\033[m");
+  if (!cfg.no_erase) out.append("\033[K");
+}
+
+auto append_colored(std::string& out, const ColorConfig& cfg,
+                    std::string_view sgr, std::string_view text) -> void {
+  append_sgr_prefix(out, cfg, sgr);
+  out.append(text);
+  append_sgr_suffix(out, cfg, sgr);
+}
+
+auto append_colored_char(std::string& out, const ColorConfig& cfg,
+                         std::string_view sgr, char ch) -> void {
+  append_sgr_prefix(out, cfg, sgr);
+  out.push_back(ch);
+  append_sgr_suffix(out, cfg, sgr);
+}
 
 auto to_lower_ascii(std::string_view s) -> std::string {
   std::string out;
@@ -548,16 +664,26 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx)
        ctx.string_occurrences({"--color", "--colour"})) {
     color_opt = occurrence.value.empty() ? "auto" : occurrence.value;
   }
-  if (color_opt.has_value()) {
-    if (*color_opt == "always") {
-      cfg.color = true;
-    } else if (*color_opt == "auto") {
-      cfg.color = grep_is_terminal(stdout);
-    } else if (*color_opt == "never") {
-      cfg.color = false;
-    } else {
-      return std::unexpected("invalid color mode '" + *color_opt + "'");
-    }
+  std::string color_mode = color_opt.value_or("auto");
+  if (color_mode == "always") {
+    cfg.color = true;
+  } else if (color_mode == "auto") {
+    cfg.color = grep_is_terminal(stdout);
+  } else if (color_mode == "never") {
+    cfg.color = false;
+  } else {
+    return std::unexpected("invalid color mode '" + color_mode + "'");
+  }
+
+  std::string grep_color = getenv_string("GREP_COLOR");
+  std::string grep_colors = getenv_string("GREP_COLORS");
+  cfg.color_config = build_color_config(grep_color, grep_colors);
+  if (cfg.color && !grep_color.empty()) {
+    safeErrorPrint("grep: warning: GREP_COLOR='");
+    safeErrorPrint(grep_color);
+    safeErrorPrint("' is deprecated; use GREP_COLORS='mt=");
+    safeErrorPrint(grep_color);
+    safeErrorPrint("'\n");
   }
 
   for (const auto& occurrence : ctx.string_occurrences(
@@ -750,37 +876,54 @@ auto append_prefix(std::string& out, const Config& cfg, bool show_filename,
                    char separator = ':') -> void {
   if (show_filename) {
     if (cfg.color) {
-      out.append("\033[1;35m");
-      out.append(display_name);
-      out.append("\033[0m");
+      append_colored(out, cfg.color_config, cfg.color_config.filename,
+                     display_name);
     } else {
       out.append(display_name);
     }
-    out.push_back(separator);
+    if (cfg.color) {
+      append_colored_char(out, cfg.color_config, cfg.color_config.separator,
+                          separator);
+    } else {
+      out.push_back(separator);
+    }
   }
   if (cfg.line_number) {
     if (cfg.color) {
-      out.append("\033[1;32m");
       auto s = std::to_string(line_no);
-      out.append(s);
-      out.append("\033[0m");
+      append_colored(out, cfg.color_config, cfg.color_config.line_number, s);
     } else {
       auto s = std::to_string(line_no);
       out.append(s);
     }
-    out.push_back(separator);
+    if (cfg.color) {
+      append_colored_char(out, cfg.color_config, cfg.color_config.separator,
+                          separator);
+    } else {
+      out.push_back(separator);
+    }
   }
   if (cfg.byte_offset) {
     auto s = std::to_string(offset);
-    out.append(s);
-    out.push_back(separator);
+    if (cfg.color) {
+      append_colored(out, cfg.color_config, cfg.color_config.byte_offset, s);
+    } else {
+      out.append(s);
+    }
+    if (cfg.color) {
+      append_colored_char(out, cfg.color_config, cfg.color_config.separator,
+                          separator);
+    } else {
+      out.push_back(separator);
+    }
   }
 }
 
 auto append_line_with_color(std::string& out, std::string_view line,
-                            const std::vector<MatchPiece>& matches, bool color)
+                            const std::vector<MatchPiece>& matches,
+                            const Config& cfg)
     -> void {
-  if (!color || matches.empty()) {
+  if (!cfg.color || matches.empty()) {
     out.append(line);
     return;
   }
@@ -789,9 +932,8 @@ auto append_line_with_color(std::string& out, std::string_view line,
     if (m.begin > pos) {
       out.append(line.substr(pos, m.begin - pos));
     }
-    out.append("\033[1;31m");
-    out.append(line.substr(m.begin, m.end - m.begin));
-    out.append("\033[0m");
+    append_colored(out, cfg.color_config, cfg.color_config.matched_selected,
+                   line.substr(m.begin, m.end - m.begin));
     pos = m.end;
   }
   if (pos < line.size()) {
@@ -826,9 +968,9 @@ auto process_selected_record(std::string_view line, bool had_delim,
                     offset + m.begin);
       if (cfg.initial_tab) output_buf.push_back('\t');
       if (cfg.color) {
-        output_buf.append("\033[1;31m");
-        output_buf.append(line.substr(m.begin, m.end - m.begin));
-        output_buf.append("\033[0m");
+        append_colored(output_buf, cfg.color_config,
+                       cfg.color_config.matched_selected,
+                       line.substr(m.begin, m.end - m.begin));
       } else {
         output_buf.append(line.substr(m.begin, m.end - m.begin));
       }
@@ -840,7 +982,7 @@ auto process_selected_record(std::string_view line, bool had_delim,
     append_prefix(output_buf, cfg, show_filename, display_name, line_no,
                   offset);
     if (cfg.initial_tab) output_buf.push_back('\t');
-    append_line_with_color(output_buf, line, matches, cfg.color);
+    append_line_with_color(output_buf, line, matches, cfg);
     if (had_delim) {
       output_buf.append(1, delim);
     } else {
@@ -960,7 +1102,7 @@ auto scan_text(const std::string& text, std::string_view display_name,
         line_buf.reserve(line.size() + 128);
         append_prefix(line_buf, cfg, show_filename, display_name, i + 1, b);
         if (cfg.initial_tab) line_buf.push_back('\t');
-        append_line_with_color(line_buf, line, matches, cfg.color);
+        append_line_with_color(line_buf, line, matches, cfg);
         if (had_delim) {
           line_buf.append(1, delim);
         } else {

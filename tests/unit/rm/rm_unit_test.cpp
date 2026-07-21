@@ -24,6 +24,26 @@
  */
 #include "framework/winuxtest.h"
 
+namespace {
+
+bool create_directory_junction(const std::filesystem::path& link,
+                               const std::filesystem::path& target) {
+  std::wstring command = L"cmd /d /c mklink /j \"" + link.wstring() + L"\" \"" +
+                         target.wstring() + L"\" >nul";
+  return _wsystem(command.c_str()) == 0;
+}
+
+bool set_readonly(const std::filesystem::path& path) {
+  DWORD attrs = GetFileAttributesW(path.wstring().c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+  return SetFileAttributesW(path.wstring().c_str(),
+                            attrs | FILE_ATTRIBUTE_READONLY) != FALSE;
+}
+
+}  // namespace
+
 TEST(rm, rm_basic) {
   TempDir tmp;
   tmp.write("file.txt", "content");
@@ -71,6 +91,88 @@ TEST(rm, rm_recursive) {
   // Verify the directory and its contents were removed
   bool dir_exists = std::filesystem::exists(tmp.path / "dir1");
   EXPECT_TRUE(!dir_exists);
+}
+
+TEST(rm, rm_recursive_removes_readonly_file) {
+  TempDir tmp;
+  std::filesystem::create_directory(tmp.path / "dir1");
+  tmp.write("dir1/file.txt", "content");
+  bool readonly_set = set_readonly(tmp.path / "dir1" / "file.txt");
+  EXPECT_TRUE(readonly_set);
+  if (!readonly_set) return;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rm.exe", {L"-r", L"-f", L"dir1"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dir1"));
+}
+
+TEST(rm, rm_recursive_removes_readonly_directory) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "dir1" / "subdir");
+  tmp.write("dir1/subdir/file.txt", "content");
+  bool readonly_set = set_readonly(tmp.path / "dir1" / "subdir");
+  EXPECT_TRUE(readonly_set);
+  if (!readonly_set) return;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rm.exe", {L"-r", L"-f", L"dir1"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dir1"));
+}
+
+TEST(rm, rm_recursive_removes_directory_junction_without_deleting_target) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "tree" / "target");
+  tmp.write("tree/target/keep.txt", "content");
+  bool created = create_directory_junction(tmp.path / "tree" / "link",
+                                           tmp.path / "tree" / "target");
+  EXPECT_TRUE(created);
+  if (!created) return;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rm.exe", {L"-r", L"-f", L"tree\\link"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "tree" / "link"));
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "tree" / "target" /
+                                      "keep.txt"));
+}
+
+TEST(rm, rm_recursive_refuses_current_or_parent_directory_operands) {
+  TempDir current_dir;
+  current_dir.write("keep.txt", "content");
+
+  Pipeline current_pipeline;
+  current_pipeline.set_cwd(current_dir.wpath());
+  current_pipeline.add(L"rm.exe", {L"-r", L"-f", L"."});
+  auto current_result = current_pipeline.run();
+
+  EXPECT_EQ(current_result.exit_code, 1);
+  EXPECT_TRUE(current_result.stderr_text.find("refusing to remove") !=
+              std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(current_dir.path / "keep.txt"));
+
+  TempDir parent_dir;
+  parent_dir.write("keep.txt", "content");
+
+  Pipeline parent_pipeline;
+  parent_pipeline.set_cwd(parent_dir.wpath());
+  parent_pipeline.add(L"rm.exe", {L"-r", L"-f", L".."});
+  auto parent_result = parent_pipeline.run();
+
+  EXPECT_EQ(parent_result.exit_code, 1);
+  EXPECT_TRUE(parent_result.stderr_text.find("refusing to remove") !=
+              std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(parent_dir.path / "keep.txt"));
 }
 
 TEST(rm, rm_force) {
@@ -249,6 +351,47 @@ TEST(rm, rm_interactive_never_does_not_prompt) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stderr_text.find("remove 'file.txt'?") == std::string::npos);
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "file.txt"));
+}
+
+TEST(rm, rm_interactive_accepts_gnu_aliases) {
+  TempDir no_alias;
+  no_alias.write("file.txt", "content");
+
+  Pipeline no_pipeline;
+  no_pipeline.set_cwd(no_alias.wpath());
+  no_pipeline.set_stdin("y\n");
+  no_pipeline.add(L"rm.exe", {L"--interactive=no", L"file.txt"});
+  auto no_result = no_pipeline.run();
+
+  EXPECT_EQ(no_result.exit_code, 0);
+  EXPECT_TRUE(no_result.stderr_text.find("remove 'file.txt'?") ==
+              std::string::npos);
+  EXPECT_FALSE(std::filesystem::exists(no_alias.path / "file.txt"));
+
+  TempDir yes_alias;
+  yes_alias.write("file.txt", "content");
+
+  Pipeline yes_pipeline;
+  yes_pipeline.set_cwd(yes_alias.wpath());
+  yes_pipeline.set_stdin("n\n");
+  yes_pipeline.add(L"rm.exe", {L"--interactive=yes", L"file.txt"});
+  auto yes_result = yes_pipeline.run();
+
+  EXPECT_EQ(yes_result.exit_code, 0);
+  EXPECT_TRUE(yes_result.stderr_text.find("remove 'file.txt'?") !=
+              std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(yes_alias.path / "file.txt"));
+
+  TempDir none_alias;
+  none_alias.write("file.txt", "content");
+
+  Pipeline none_pipeline;
+  none_pipeline.set_cwd(none_alias.wpath());
+  none_pipeline.add(L"rm.exe", {L"--interactive=none", L"file.txt"});
+  auto none_result = none_pipeline.run();
+
+  EXPECT_EQ(none_result.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(none_alias.path / "file.txt"));
 }
 
 TEST(rm, rm_interactive_always_declines_single_remove) {

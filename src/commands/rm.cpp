@@ -214,16 +214,91 @@ auto confirm_bulk_remove(size_t path_count, bool recursive) -> bool {
 
 auto parse_interactive_mode(std::string_view value)
     -> std::optional<InteractiveMode> {
-  if (value.empty() || value == "always") {
+  if (value.empty() || value == "always" || value == "yes") {
     return InteractiveMode::always;
   }
   if (value == "once") {
     return InteractiveMode::once;
   }
-  if (value == "never") {
+  if (value == "never" || value == "no" || value == "none") {
     return InteractiveMode::never;
   }
   return std::nullopt;
+}
+
+auto strip_trailing_separators(std::wstring_view path) -> std::wstring_view {
+  while (path.size() > 1 && (path.back() == L'\\' || path.back() == L'/')) {
+    if (path.size() == 3 && path[1] == L':') break;
+    path.remove_suffix(1);
+  }
+  return path;
+}
+
+auto path_is_current_or_parent_directory(std::wstring_view path) -> bool {
+  path = strip_trailing_separators(path);
+  size_t pos = path.find_last_of(L"\\/");
+  auto name = pos == std::wstring_view::npos ? path : path.substr(pos + 1);
+  if (name.empty() && pos != std::wstring_view::npos) {
+    auto parent = strip_trailing_separators(path.substr(0, pos));
+    pos = parent.find_last_of(L"\\/");
+    name = pos == std::wstring_view::npos ? parent : parent.substr(pos + 1);
+  }
+  return name == L"." || name == L"..";
+}
+
+auto clear_readonly_attribute(const std::wstring& path, DWORD attr) -> void {
+  if (attr == INVALID_FILE_ATTRIBUTES ||
+      (attr & FILE_ATTRIBUTE_READONLY) == 0) {
+    return;
+  }
+  SetFileAttributesW(path.c_str(), attr & ~FILE_ATTRIBUTE_READONLY);
+}
+
+auto remove_empty_directory_path(const std::wstring& wpath,
+                                 std::string_view display_path,
+                                 const RmConfig& cfg) -> bool {
+  DWORD attr = GetFileAttributesW(wpath.c_str());
+  clear_readonly_attribute(wpath, attr);
+  if (!RemoveDirectoryW(wpath.c_str())) {
+    DWORD error = GetLastError();
+    std::wstring errorMsg = get_system_error_message(error);
+    safeErrorPrint("rm: cannot remove directory '");
+    safeErrorPrint(display_path);
+    safeErrorPrint("': ");
+    safeErrorPrint(errorMsg);
+    safeErrorPrint("\n");
+    return false;
+  }
+
+  if (cfg.verbose) {
+    safePrint("removed '");
+    safePrint(display_path);
+    safePrint("'\n");
+  }
+  return true;
+}
+
+auto remove_file_path(const std::wstring& wpath, std::string_view display_path,
+                      const RmConfig& cfg) -> bool {
+  DWORD attr = GetFileAttributesW(wpath.c_str());
+  clear_readonly_attribute(wpath, attr);
+  if (!DeleteFileW(wpath.c_str())) {
+    DWORD error = GetLastError();
+    std::wstring errorMsg = get_system_error_message(error);
+    safeErrorPrint("rm: cannot remove file '");
+    safeErrorPrint(display_path);
+    safeErrorPrint("': ");
+    safeErrorPrint(errorMsg);
+    safeErrorPrint("\n");
+    return false;
+  }
+
+  if (cfg.verbose) {
+    safePrint("removed '");
+    safePrint(display_path);
+    safePrint("'\n");
+  }
+  return true;
 }
 
 auto build_config(const CommandContext<RM_OPTIONS.size()>& ctx)
@@ -294,6 +369,13 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
   std::wstring wpath = to_extended_path(utf8_to_wstring(path));
   DWORD attr = GetFileAttributesW(wpath.c_str());
 
+  if (cfg.recursive && path_is_current_or_parent_directory(utf8_to_wstring(path))) {
+    safeErrorPrint("rm: refusing to remove '.' or '..' directory: skipping '");
+    safeErrorPrint(path);
+    safeErrorPrint("'\n");
+    return false;
+  }
+
   if (cfg.preserve_root && is_root_path(path)) {
     safeErrorPrint("rm: it is dangerous to operate recursively on root '");
     safeErrorPrint(path);
@@ -358,26 +440,14 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
       return false;
     }
 
-    if (!RemoveDirectoryW(wpath.c_str())) {
-      DWORD error = GetLastError();
-      std::wstring errorMsg = get_system_error_message(error);
-      safeErrorPrint("rm: cannot remove directory '");
-      safeErrorPrint(path);
-      safeErrorPrint("': ");
-      safeErrorPrint(errorMsg);
-      safeErrorPrint("\n");
-      return false;
-    }
-
-    if (cfg.verbose) {
-      safePrint("removed '");
-      safePrint(path);
-      safePrint("'\n");
-    }
-    return true;
+    return remove_empty_directory_path(wpath, path, cfg);
   }
 
   if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+    if (attr & FILE_ATTRIBUTE_REPARSE_POINT) {
+      return remove_empty_directory_path(wpath, path, cfg);
+    }
+
     // Recursive function to delete directory with post-order traversal
     std::function<bool(const std::wstring&)> remove_directory_recursive;
     std::wstring root_volume =
@@ -431,23 +501,8 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
             // Store subdirectory for later recursive deletion
             subdirs.push_back(itemPath);
           } else {
-            // Delete file
-            if (!DeleteFileW(itemPath.c_str())) {
-              DWORD error = GetLastError();
-              std::string itemPathStr = wstring_to_utf8(itemPath);
-              std::wstring errorMsg = get_system_error_message(error);
-              safeErrorPrint("rm: cannot remove file '");
-              safeErrorPrint(itemPathStr);
-              safeErrorPrint("': ");
-              safeErrorPrint(errorMsg);
-              safeErrorPrint("\n");
+            if (!remove_file_path(itemPath, wstring_to_utf8(itemPath), cfg)) {
               success = false;
-            } else if (cfg.verbose) {
-              // OPTIMIZED: Direct conversion
-              std::string itemPathStr = wstring_to_utf8(itemPath);
-              safePrint("removed '");
-              safePrint(itemPathStr);
-              safePrint("'\n");
             }
           }
         }
@@ -462,58 +517,33 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
 
       // Recursively delete all subdirectories (post-order traversal)
       for (const auto& subdir : subdirs) {
-        if (!remove_directory_recursive(subdir)) {
-          return false;
+        DWORD sub_attr = GetFileAttributesW(subdir.c_str());
+        bool sub_success = false;
+        if (sub_attr != INVALID_FILE_ATTRIBUTES &&
+            (sub_attr & FILE_ATTRIBUTE_REPARSE_POINT)) {
+          sub_success =
+              remove_empty_directory_path(subdir, wstring_to_utf8(subdir), cfg);
+        } else {
+          sub_success = remove_directory_recursive(subdir);
+        }
+        if (!sub_success) {
+          success = false;
         }
       }
 
-      // Finally, remove the directory itself
-      if (!RemoveDirectoryW(dirPath.c_str())) {
-        DWORD error = GetLastError();
-        std::string dirPathStr = wstring_to_utf8(dirPath);
-        std::wstring errorMsg = get_system_error_message(error);
-        safeErrorPrint("rm: cannot remove directory '");
-        safeErrorPrint(dirPathStr);
-        safeErrorPrint("': ");
-        safeErrorPrint(errorMsg);
-        safeErrorPrint("\n");
+      if (!success) {
         return false;
       }
 
-      if (cfg.verbose) {
-        // OPTIMIZED: Direct conversion
-        std::string dirPathStr = wstring_to_utf8(dirPath);
-        safePrint("removed '");
-        safePrint(dirPathStr);
-        safePrint("'\n");
-      }
-
-      return true;
+      // Finally, remove the directory itself
+      return remove_empty_directory_path(dirPath, wstring_to_utf8(dirPath),
+                                         cfg);
     };
 
     // Start recursive directory deletion
     return remove_directory_recursive(wpath);
   } else {
-    // Delete regular file
-    BOOL success = DeleteFileW(wpath.c_str());
-    if (!success) {
-      DWORD error = GetLastError();
-      std::wstring errorMsg = get_system_error_message(error);
-      // OPTIMIZED: Avoid redundant conversions
-      safeErrorPrint("rm: cannot remove file '");
-      safeErrorPrint(path);
-      safeErrorPrint("': ");
-      safeErrorPrint(errorMsg);
-      safeErrorPrint("\n");
-      return false;
-    }
-
-    if (cfg.verbose) {
-      // OPTIMIZED: Avoid wstring conversion
-      safePrint("removed '");
-      safePrint(path);
-      safePrint("'\n");
-    }
+    return remove_file_path(wpath, path, cfg);
   }
 
   return true;
