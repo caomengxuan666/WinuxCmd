@@ -463,6 +463,54 @@ TEST(find, find_path_pattern_matches_full_path) {
   EXPECT_TRUE(r.stdout_text.find("src/nested/skip.log") == std::string::npos);
 }
 
+TEST(find, find_wholename_alias_matches_path_pattern) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src" / "nested");
+  tmp.write("src/nested/match.txt", "");
+  tmp.write("src/nested/skip.log", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L"src", L"-wholename", L"src/*/*.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("src/nested/match.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("src/nested/skip.log") == std::string::npos);
+}
+
+TEST(find, find_iwholename_alias_is_case_insensitive) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "Case" / "Inner");
+  tmp.write("Case/Inner/ReadMe.TXT", "");
+  tmp.write("Case/Inner/Other.log", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L"Case", L"-iwholename", L"case/*/*.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("Case/Inner/ReadMe.TXT") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Case/Inner/Other.log") == std::string::npos);
+}
+
+TEST(find, find_follow_and_optimization_flags_are_accepted_before_roots) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/a.txt", "");
+  tmp.write("src/b.log", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L"-follow", L"-O2", L"src", L"-name", L"*.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("src/a.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("src/b.log") == std::string::npos);
+}
+
 TEST(find, find_ipath_pattern_is_case_insensitive) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "Case" / "Inner");
