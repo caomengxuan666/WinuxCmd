@@ -151,6 +151,10 @@ configure_file(
     ${CMAKE_BINARY_DIR}/version.hpp
     @ONLY
 )
+set_source_files_properties(
+    "${CMAKE_SOURCE_DIR}/src/version/version.cppm"
+    PROPERTIES OBJECT_DEPENDS "${CMAKE_BINARY_DIR}/version.hpp"
+)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -666,7 +670,8 @@ if(BUILD_STANDALONE)
 endif()
 
 # Note: Hardlinks are no longer created during build.
-# Users should run create_links.ps1 in the bin directory to generate command links.
+# Users can run `winuxcmd wpm links rebuild` in the bin directory to generate
+# command links. scripts/create_links.ps1 remains as a compatibility wrapper.
 
 # Scaffold tool for generating new command modules
 add_executable(scaffold
@@ -697,53 +702,6 @@ add_custom_command(TARGET scaffold POST_BUILD
         ${CMAKE_SOURCE_DIR}/scaffold.exe
         COMMENT "Copying scaffold to project root"
 )
-
-# Winux Package Manager (wpm) tool
-add_executable(wpm
-        src/tools/wpm.cpp
-)
-
-# Add necessary modules for wpm
-target_sources(wpm
-        PUBLIC
-        FILE_SET CXX_MODULES
-        TYPE CXX_MODULES
-        BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
-        FILES
-        src/utils/utils.cppm
-        src/utils/console.cppm
-        src/utils/json.cppm
-        src/utils/cppbar.cppm
-        src/utils/utf8.cppm
-        src/utils/path.cppm
-        src/utils/wildcard.cppm
-        src/utils/text_io.cppm
-        src/utils/file_io.cppm
-        src/utils/encoding.cppm
-        src/utils/file_io.cppm
-)
-
-# Set C++ standard for wpm tool
-set_target_properties(wpm PROPERTIES
-        CXX_STANDARD 23
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF
-)
-
-# Add include directories for wpm tool
-target_include_directories(wpm PRIVATE ${SRC_DIR})
-
-# MSVC-specific configuration for wpm tool
-if (MSVC)
-    target_compile_options(wpm PRIVATE
-            /std:c++latest
-            /experimental:module
-            /interface
-            /EHsc
-            /GR-
-    )
-    target_include_directories(wpm PRIVATE "${MODULES_DIR}")
-endif ()
 
 add_subdirectory(examples)
 
@@ -799,6 +757,11 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/winuxcmd_uninstall.cmd"
 )
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/create_links.ps1"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
+)
+
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/wpm-source"
         DESTINATION "${CMAKE_INSTALL_BINDIR}"
         COMPONENT Runtime
 )
@@ -878,7 +841,7 @@ message(STATUS "Unity Build: ${ENABLE_UNITY_BUILD}")
 message(STATUS "UPX Compression: ${ENABLE_UPX} (PERMANENTLY DISABLED)")
 message(STATUS "Static CRT: ${USE_STATIC_CRT}")
 message(STATUS "Note: UPX compression has been permanently disabled for reliability")
-message(STATUS "Note: Run create_links.ps1 in bin directory to generate command links")
+message(STATUS "Note: Run `winuxcmd wpm links rebuild` in bin directory to generate command links")
 message(STATUS "=================================================================")
 
 # Print out supported the amount of supported commands

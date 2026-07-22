@@ -2,42 +2,97 @@
 
 [English](README.md) | 中文
 
-> 让 GNU 风格命令在真正的 Windows shell 里顺手工作。
+> Windows 原生 shell 的 GNU 风格命令层。
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/caomengxuan666/WinuxCmd)
-![GitHub all releases](https://img.shields.io/github/downloads/caomengxuan666/WinuxCmd/total)
-![GitHub stars](https://img.shields.io/github/stars/caomengxuan666/WinuxCmd)
-![GitHub license](https://img.shields.io/github/license/caomengxuan666/WinuxCmd)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/unixwin/WinuxCmd)
+![GitHub all releases](https://img.shields.io/github/downloads/unixwin/WinuxCmd/total)
+![GitHub stars](https://img.shields.io/github/stars/unixwin/WinuxCmd)
+![GitHub license](https://img.shields.io/github/license/unixwin/WinuxCmd)
 ![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
 
-WinuxCmd 把 `grep`、`sed`、`find`、`xargs`、`ls`、`cat`、`rm` 这一类 GNU 风格命令带回 Windows，而且是以适合 PowerShell、`cmd`、Windows Terminal 的方式落地，而不是要求你先离开它们。
+WinuxCmd 为 Windows 提供原生命令实现，包括 `ls`、`cat`、`grep`、`find`、`xargs`、`rm`、`cp`、`mv`、`sed`、`sort`、`uniq` 等常见 Unix/GNU 风格工具。
 
-它面向的是一个很真实的场景：AI、文档、CI 日志、issue 评论、旧 shell 习惯，都会不断给你 Linux 命令；但你眼前真正要操作的机器，仍然是 Windows。
+它是 [winuxsh](https://github.com/unixwin/winuxsh) 使用的命令层，也可以单独安装给 PowerShell、命令提示符、Windows Terminal、构建脚本和 CI 使用。
 
 ![Windows Terminal](DOCS/images/WindowsTerminal.png)
 
-## 安装
+## 推荐入口：winuxsh
 
-WinuxCmd 已经进入 winget：
+如果你想要的是 Windows 上接近 bash 的终端体验，优先从 [winuxsh](https://github.com/unixwin/winuxsh) 开始：
+
+```text
+winuxsh = rubash shell engine + reedline frontend + winuxcmd coreutils
+```
+
+winuxsh 提供 bash 兼容 shell 语法、prompt/git 状态、历史、补全和内置 WinuxCmd 命令集，不需要 WSL、MSYS2、Git Bash，也不会落入 PowerShell 语义。
+
+从 [winuxsh releases](https://github.com/unixwin/winuxsh/releases) 下载对应架构的包：
+
+```powershell
+# 选择 x64 或 arm64，解压后运行：
+.\winuxsh.exe
+```
+
+winuxsh release 包会自带架构匹配的 `winuxcmd/winuxcmd.exe` 和激活脚本。这份 WinuxCmd 是给 winuxsh 自己用的，刻意和 winget / 安装器给 PowerShell 安装的 WinuxCmd 隔离。
+
+## PowerShell 安装
+
+如果你只是想在现有 PowerShell 工作流里使用 GNU 风格命令，直接安装 WinuxCmd：
 
 ```powershell
 winget install caomengxuan666.WinuxCmd
 ```
 
-如果你更喜欢 zip 包，也可以直接从 [Releases](https://github.com/caomengxuan666/WinuxCmd/releases) 下载最新版本。
+然后通过 `winuxcmd` 使用命令：
 
-它同样适合那些依旧只有 Windows PowerShell 5.1 的保守环境，所以对很多 AI sandbox 和自动化宿主也比较友好。
+```powershell
+winuxcmd ls -la
+winuxcmd grep --color=auto TODO README.md
+winuxcmd find . -name "*.cpp"
+```
 
-## 为什么是 WinuxCmd
+交互式 PowerShell 场景下，包里也带有 `winux.ps1` / `winux.cmd` 辅助脚本。完成 profile 设置后，`winux activate` 可以在当前会话里覆盖 `ls`、`cat`、`rm`、`grep`、`man` 等常见 PowerShell alias；`winux deactivate` 会恢复原来的 alias。
 
-- 原生 Windows 优先，不是 WSL，不是虚拟机，也不是换 shell。
-- 重点不是“模拟 Linux”，而是让 Windows 原生命令和 GNU 风格过滤链自然共存。
-- 项目从 2026 年 1 月 23 日开始，早于微软当前那条 Windows coreutils 仓库在 2026 年 5 月 15 日出现。
-- 对 Windows PowerShell 5.1 这类现实环境更友好，包括很多 AI sandbox 和 Codex 这类只给你 PWSH5 的场景。
+## 渠道要分清
 
-这也是和微软当前 [Coreutils for Windows](https://github.com/microsoft/coreutils) 路线的根本差异之一：它们的 README 明确要求 PowerShell 7.4 或更新版本，而 WinuxCmd 从一开始就考虑了 PowerShell 5.1 宿主里的可用性。
+按用途选择对应渠道：
 
-## 它的实际体验
+- **winuxsh release**：自带 `winuxcmd/` 目录，只服务 winuxsh；升级 winuxsh 时一起升级。
+- **winget / 安装器 release**：给 PowerShell、命令提示符和直接 `winuxcmd <command>` 使用。
+- **开发构建**：从本地 build tree 运行 `winuxcmd <command>`，或用本地 hardlink。
+
+正常使用时不要让 winuxsh 依赖 winget 安装的 WinuxCmd。winuxsh 包应该是自包含的，这样 x64 和 arm64 远程构建才可复现，也不会和 PowerShell 安装路径互相污染。
+
+## 用 WPM 管外部工具
+
+WinuxCmd 应该专注维护自己能做好的 GNU 风格命令层。`jq`、`ncat`、`7z`、`zstd`、`yq` 这类完整第三方工具，应该通过 WPM 外部包或其他包管理器提供，而不是在 WinuxCmd 里做不完整内置实现。
+
+WPM 默认会把外部可执行文件安装到指定 WinuxCmd root 目录下。也就是说，`wpm install jq --root <dir>` 会把 `jq.exe` 放在 `winuxcmd.exe` 同级目录里；把这一个目录加入 `PATH` 就够了。需要 DLL 或其他 side-by-side 文件的包，仍然可以在索引里显式声明文件映射。
+
+典型流程：
+
+```powershell
+winuxcmd wpm source list
+winuxcmd wpm index update
+winuxcmd wpm install jq --root "C:\path\to\winuxcmd"
+winuxcmd wpm links rebuild --root "C:\path\to\winuxcmd"
+```
+
+对 winuxsh bundle 来说，要对它自带的 WinuxCmd 目录运行 WPM，而不是混用 winget 安装路径。外部 helper exe 也应该放在 winuxsh 实际加入 PATH 的同一个目录里。
+
+## 为什么需要 WinuxCmd
+
+Windows 开发者每天都会从文档、CI 日志、issue 评论、shell 片段和肌肉记忆里收到 Linux 风格命令。WinuxCmd 的目标是让这些文本工作流在 Windows 上可用，而不是要求你离开 Windows。
+
+它关注这些点：
+
+- Windows 原生进程行为和路径
+- 高频 GNU 风格参数的兼容性
+- 能和 `tasklist`、`netstat`、`sc`、`ipconfig` 等 Windows 工具组成可预期的管道
+- 对 Windows PowerShell 5.1 这类较旧脚本环境保持可用
+- 产物足够小，方便被其他工具内置
+
+## 实际体验
 
 ```bash
 netstat -ano | grep 8080
@@ -47,45 +102,11 @@ dir /b | grep -E "\.cpp$" | sort | uniq
 find . -name "*.cpp" -print0 | xargs -0 grep -n TODO
 ```
 
-WinuxCmd 不是把 Windows 伪装成 Linux，而是把你熟悉的 GNU 文本工作流真正接到 Windows 终端里。
-
-## 怎么用最顺手
-
-在当前 PowerShell 会话里优先使用 WinuxCmd 命令名：
-
-```powershell
-winux activate
-cat README.md
-rm old.txt
-man ls
-```
-
-恢复 PowerShell 原始行为：
-
-```powershell
-winux deactivate
-```
-
-如果你希望每次打开交互式 PowerShell 都自动激活，把这段放到 `$PROFILE` 里的 `winux` wrapper 后面：
-
-```powershell
-if (Get-Command winux -ErrorAction SilentlyContinue) {
-    winux activate 6>$null
-}
-```
-
-## 它适合哪些场景
-
-WinuxCmd 很适合下面这些情况：
-
-- AI 给了 GNU 风格 one-liner，但你的宿主系统是 Windows。
-- 你想用 `grep | sort | xargs | find` 这类链路，但不想专门打开 WSL。
-- 你希望 `tasklist`、`netstat`、`sc`、`ipconfig` 这些原生命令也能进入熟悉的文本过滤流程。
-- 你的环境比较旧或受限，真正拿到手的仍然是 Windows PowerShell 5.1。
+WinuxCmd 不是把 Windows 伪装成 Linux，而是把熟悉的文本工作流接到你已经在用的文件、终端、脚本和 CI 里。
 
 ## 命令覆盖
 
-WinuxCmd 目前已经实现 148 个命令，覆盖了这些高频能力：
+WinuxCmd 目前实现 153 个命令，覆盖这些高频能力：
 
 - 文件工具：`ls`、`cp`、`mv`、`rm`、`mkdir`、`ln`、`stat`、`readlink`、`realpath`
 - 文本工具：`cat`、`grep`、`sed`、`sort`、`uniq`、`cut`、`head`、`tail`、`wc`
@@ -102,13 +123,27 @@ WinuxCmd 目前已经实现 148 个命令，覆盖了这些高频能力：
 ## Windows 侧说明
 
 - 未识别命令会回退给父 shell，所以 WinuxCmd 是补足 PowerShell 和 `cmd`，不是替换它们。
-- 执行 `winux activate` 之后，`man` 可以在当前 PowerShell 会话里直接覆盖 PowerShell 自带映射。
+- `--version` 由 WinuxCmd 统一处理，不要把单个命令的 version 输出当成独立兼容事项。
+- `grep` 这类支持颜色的命令会遵循终端和 `--color` 行为；如果你明确要在管道里保留 ANSI 颜色，用 `--color=always`。
 - 如果你主要在交互式 `cmd` 下用它，优先考虑让 Windows Terminal 以 `%SystemRoot%\System32\cmd.exe /k winuxcmd` 启动，而不是配置全局 `AutoRun`。
+
+## 构建
+
+```powershell
+cmake --preset vs2022
+cmake --build build-vs --target winuxcmd --parallel
+```
+
+常用本地检查：
+
+```powershell
+ctest --test-dir build-vs -R "^(grep|find|rm)\." --output-on-failure
+```
 
 ## 更多
 
+- [winuxsh](https://github.com/unixwin/winuxsh)
 - [贡献指南（英文）](CONTRIBUTING.md)
 - [贡献指南（中文）](CONTRIBUTING_ZH.MD)
 - [构建模式文档](DOCS/zh/build_modes.md)
 - [自定义容器与基准说明](DOCS/en/custom_containers.md)
-- [仓库内 AI 工作说明](skills/winuxcmd/SKILL.md)

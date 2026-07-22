@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "name": "official",
+  "version": "builtin-2026.07.22",
+  "updated": "2026-07-22",
+  "sources": [
+    {
+      "name": "official-github-raw",
+      "region": "global",
+      "priority": 10,
+      "index_urls": [
+        "https://raw.githubusercontent.com/unixwin/WinuxCmd/main/wpm-source/index.json"
+      ]
+    },
+    {
+      "name": "official-github-release",
+      "region": "global",
+      "priority": 20,
+      "index_urls": [
+        "https://github.com/unixwin/WinuxCmd/releases/latest/download/wpm-index.json"
+      ]
+    },
+    {
+      "name": "official-cn",
+      "region": "cn",
+      "priority": 30,
+      "index_urls": []
+    }
+  ],
+  "packages": [
+    {
+      "name": "winuxcmd",
+      "version": "0.12.4",
+      "description": "WinuxCmd core command set",
+      "kind": "core",
+      "artifacts": {
+        "windows-x64": {
+          "type": "zip",
+          "sha256": "",
+          "urls": [],
+          "files": [
+            {
+              "from": "winuxcmd.exe",
+              "to": "winuxcmd.exe"
+            }
+          ]
+        },
+        "windows-arm64": {
+          "type": "zip",
+          "sha256": "",
+          "urls": [],
+          "files": [
+            {
+              "from": "winuxcmd.exe",
+              "to": "winuxcmd.exe"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "jq",
+      "version": "",
+      "description": "External jq package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
+    },
+    {
+      "name": "ncat",
+      "version": "",
+      "description": "External ncat/netcat package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
+    },
+    {
+      "name": "7zip",
+      "version": "",
+      "description": "External 7-Zip package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
+    },
+    {
+      "name": "zstd",
+      "version": "",
+      "description": "External zstd package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
+    },
+    {
+      "name": "yq",
+      "version": "",
+      "description": "External yq package slot. Fill this from a refreshed index.",
+      "kind": "external",
+      "artifacts": {}
+    }
+  ]
+}

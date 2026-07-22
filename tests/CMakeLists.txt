@@ -130,12 +130,12 @@ endif()
 # Get the path to winuxcmd.exe (it should be in the same directory)
 set(WINUXCMD_EXE_PATH "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/winuxcmd.exe")
 
-# Custom target to create command links using PowerShell script
-# Add DEPENDS on winuxcmd.exe to ensure it exists before running
+# Custom target to create command links through WinuxCmd itself.
+# WPM owns link generation; scripts/create_links.ps1 is only a compatibility wrapper.
 add_custom_target(create-test-links
-    COMMAND ${POWERSHELL_EXE} -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/../scripts/create_links.ps1" -Force
+    COMMAND $<TARGET_FILE:winuxcmd> wpm links rebuild --root "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}" --force
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-    DEPENDS ${WINUXCMD_EXE_PATH}
+    DEPENDS winuxcmd
     COMMENT "Creating WinuxCmd command links in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}..."
     VERBATIM
 )
