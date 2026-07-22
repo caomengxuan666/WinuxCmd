@@ -29,6 +29,7 @@ import std;
 import :cmd_meta;
 import :command_context;
 import utils;
+import version;
 
 export template <size_t N>
 using CommandFunc = int (*)(CommandContext<N> &) noexcept;
@@ -583,17 +584,19 @@ auto echo_posixly_correct_literal_mode(std::string_view cmdName,
   return args.empty() || args[0] != "-n";
 }
 
-auto command_supports_dispatcher_version(std::string_view cmdName) -> bool {
-  return cmdName == "yes" || cmdName == "true" || cmdName == "false" ||
-         cmdName == "link" || cmdName == "unlink" || cmdName == "arch" ||
-         cmdName == "hostid" || cmdName == "logname" ||
-         cmdName == "whoami" || cmdName == "factor" || cmdName == "tsort" ||
-         cmdName == "users";
+auto command_declares_option(
+    std::span<const cmd::meta::OptionMeta> options,
+    std::string_view name) -> bool {
+  return std::ranges::any_of(options, [name](const auto& option) {
+    return option.short_name == name || option.long_name == name;
+  });
 }
 
 auto wants_standard_version(std::string_view cmdName,
-                            std::span<std::string_view> args) -> bool {
-  if (!command_supports_dispatcher_version(cmdName)) {
+                            std::span<std::string_view> args,
+                            std::span<const cmd::meta::OptionMeta> options)
+    -> bool {
+  if (echo_posixly_correct_literal_mode(cmdName, args)) {
     return false;
   }
 
@@ -602,7 +605,7 @@ auto wants_standard_version(std::string_view cmdName,
       break;
     }
     if (arg == "--version" || arg == "-V") {
-      return true;
+      return !command_declares_option(options, arg);
     }
   }
 
@@ -790,8 +793,9 @@ class RegistryImpl {
       return 0;
     }
 
-    if (wants_standard_version(cmdName, effective_args)) {
-      safePrintLn(std::string(cmdName) + " (WinuxCmd) 0.1.0");
+    if (wants_standard_version(cmdName, effective_args, options)) {
+      safePrintLn(std::string(cmdName) + " (WinuxCmd) " +
+                  std::string(WinuxCmd::VERSION_STRING));
       return 0;
     }
 
