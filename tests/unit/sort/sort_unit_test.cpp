@@ -442,6 +442,28 @@ TEST(sort, sort_version_sort) {
   EXPECT_EQ_TEXT(r.stdout_text, "1.2.0\n1.2.2\n1.2.10\n1.10.0\n");
 }
 
+TEST(sort, sort_version_flag_does_not_steal_version_sort_short_option) {
+  TempDir tmp;
+  tmp.write("v.txt", "1.10\n1.2\n");
+
+  Pipeline version_sort;
+  version_sort.set_cwd(tmp.wpath());
+  version_sort.add(L"sort.exe", {L"-V", L"v.txt"});
+  auto sort_result = version_sort.run();
+
+  EXPECT_EQ(sort_result.exit_code, 0);
+  EXPECT_EQ_TEXT(sort_result.stdout_text, "1.2\n1.10\n");
+
+  Pipeline version_flag;
+  version_flag.add(L"sort.exe", {L"--version"});
+  auto version_result = version_flag.run();
+
+  EXPECT_EQ(version_result.exit_code, 0);
+  EXPECT_NE(version_result.stdout_text.find("sort (WinuxCmd)"),
+            std::string::npos);
+  EXPECT_TRUE(version_result.stderr_text.empty());
+}
+
 TEST(sort, sort_long_sort_numeric_word) {
   TempDir tmp;
   tmp.write("n.txt", "10\n2\n1\n");

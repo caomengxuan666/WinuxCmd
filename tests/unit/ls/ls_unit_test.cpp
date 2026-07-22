@@ -2637,6 +2637,24 @@ TEST(ls, ls_version_sort) {
   EXPECT_LT(file2_pos, file10_pos);
 }
 
+TEST(ls, ls_dispatcher_version_flags_succeed) {
+  Pipeline short_flag;
+  short_flag.add(L"ls.exe", {L"-V"});
+  auto short_result = short_flag.run();
+
+  EXPECT_EQ(short_result.exit_code, 0);
+  EXPECT_NE(short_result.stdout_text.find("ls (WinuxCmd)"), std::string::npos);
+  EXPECT_TRUE(short_result.stderr_text.empty());
+
+  Pipeline long_flag;
+  long_flag.add(L"ls.exe", {L"--version"});
+  auto long_result = long_flag.run();
+
+  EXPECT_EQ(long_result.exit_code, 0);
+  EXPECT_NE(long_result.stdout_text.find("ls (WinuxCmd)"), std::string::npos);
+  EXPECT_TRUE(long_result.stderr_text.empty());
+}
+
 TEST(ls, ls_long_with_file) {
   TempDir tmp;
   tmp.write("testfile.txt", "test content for long format");
