@@ -88,7 +88,7 @@ constexpr std::string_view kBuiltinIndex = R"json(
   "packages": [
     {
       "name": "winuxcmd",
-      "version": "0.12.4",
+      "version": "0.12.5",
       "description": "WinuxCmd core command set",
       "kind": "core",
       "artifacts": {
