@@ -761,11 +761,6 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/scripts/create_links.ps1"
         COMPONENT Runtime
 )
 
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/wpm-source"
-        DESTINATION "${CMAKE_INSTALL_BINDIR}"
-        COMPONENT Runtime
-)
-
 install(FILES
         "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
         "${CMAKE_CURRENT_SOURCE_DIR}/README-ZH.md"

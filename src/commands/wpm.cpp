@@ -27,12 +27,14 @@
 /// @License: MIT
 
 #include <bcrypt.h>
+#include <urlmon.h>
 #include <winhttp.h>
 
 #include "core/command_macros.h"
 #include "pch/pch.h"
 
 #pragma comment(lib, "bcrypt.lib")
+#pragma comment(lib, "urlmon.lib")
 #pragma comment(lib, "winhttp.lib")
 
 import std;
@@ -59,38 +61,56 @@ constexpr std::string_view kBuiltinIndex = R"json(
 {
   "schema": 1,
   "name": "official",
-  "version": "builtin-2026.07.22",
-  "updated": "2026-07-22",
+  "version": "builtin-2026.07.26",
+  "updated": "2026-07-26",
   "sources": [
     {
       "name": "official-github-raw",
       "region": "global",
       "priority": 10,
+      "description": "Canonical raw GitHub index for the official WinuxCmd WPM source.",
+      "homepage": "https://github.com/unixwin/wpm-source",
       "index_urls": [
-        "https://raw.githubusercontent.com/unixwin/WinuxCmd/main/wpm-source/index.json"
+        "https://raw.githubusercontent.com/unixwin/wpm-source/main/index.json"
+      ]
+    },
+    {
+      "name": "official-jsdelivr",
+      "region": "global",
+      "priority": 15,
+      "description": "CDN mirror of the canonical WPM index.",
+      "homepage": "https://cdn.jsdelivr.net/gh/unixwin/wpm-source@main/index.json",
+      "index_urls": [
+        "https://cdn.jsdelivr.net/gh/unixwin/wpm-source@main/index.json"
       ]
     },
     {
       "name": "official-github-release",
       "region": "global",
       "priority": 20,
+      "description": "Release-pinned WPM index for stable WinuxCmd packages.",
+      "homepage": "https://github.com/unixwin/wpm-source/releases",
       "index_urls": [
-        "https://github.com/unixwin/WinuxCmd/releases/latest/download/wpm-index.json"
+        "https://github.com/unixwin/wpm-source/releases/latest/download/wpm-index.json"
       ]
     },
     {
       "name": "official-cn",
       "region": "cn",
       "priority": 30,
+      "description": "Reserved China-friendly WPM index mirror.",
+      "homepage": "",
       "index_urls": []
     }
   ],
   "packages": [
     {
       "name": "winuxcmd",
-      "version": "0.12.5",
+      "version": "0.13.0",
       "description": "WinuxCmd core command set",
       "kind": "core",
+      "license": "MIT",
+      "commands": ["winuxcmd", "wpm"],
       "artifacts": {
         "windows-x64": {
           "type": "zip",
@@ -110,41 +130,105 @@ constexpr std::string_view kBuiltinIndex = R"json(
         }
       }
     },
+    { "name": "awk", "version": "1.31.0", "description": "POSIX AWK interpreter provided by GoAWK.", "kind": "external", "category": "text", "license": "MIT", "commands": ["awk"], "artifacts": { "windows-x64": { "type": "zip", "sha256": "8c59523cf56d47621a9b84124a9fc15f580048103195caacf4f8964dfe632e78", "urls": ["https://github.com/benhoyt/goawk/releases/download/v1.31.0/goawk_v1.31.0_windows_amd64.zip"], "files": [{ "from": "goawk.exe", "to": "awk.exe" }] } } },
+    { "name": "gawk", "version": "", "description": "GNU awk sidecar slot for users who need GNU awk compatibility; not the default awk provider.", "kind": "external", "category": "text", "license": "GPL-3.0-or-later", "commands": ["gawk", "awk"], "artifacts": {} },
     {
       "name": "jq",
       "version": "",
-      "description": "External jq package slot. Fill this from a refreshed index.",
+      "description": "Command-line JSON processor.",
       "kind": "external",
+      "category": "data",
+      "license": "MIT",
+      "commands": ["jq"],
       "artifacts": {}
     },
+    { "name": "yq", "version": "", "description": "Command-line YAML, JSON, XML, CSV, TOML and properties processor.", "kind": "external", "category": "data", "license": "MIT", "commands": ["yq"], "artifacts": {} },
     {
       "name": "ncat",
       "version": "",
-      "description": "External ncat/netcat package slot. Fill this from a refreshed index.",
+      "description": "Nmap netcat-compatible networking utility.",
       "kind": "external",
+      "category": "network",
+      "license": "Nmap",
+      "commands": ["ncat"],
       "artifacts": {}
     },
     {
       "name": "7zip",
       "version": "",
-      "description": "External 7-Zip package slot. Fill this from a refreshed index.",
+      "description": "7-Zip archive utility.",
       "kind": "external",
+      "category": "archive",
+      "license": "LGPL-2.1-or-later",
+      "commands": ["7z", "7zz"],
       "artifacts": {}
     },
     {
       "name": "zstd",
       "version": "",
-      "description": "External zstd package slot. Fill this from a refreshed index.",
+      "description": "Zstandard compression tools.",
       "kind": "external",
+      "category": "archive",
+      "license": "BSD-3-Clause OR GPL-2.0-only",
+      "commands": ["zstd", "unzstd", "zstdcat"],
       "artifacts": {}
     },
-    {
-      "name": "yq",
-      "version": "",
-      "description": "External yq package slot. Fill this from a refreshed index.",
-      "kind": "external",
-      "artifacts": {}
-    }
+    { "name": "ripgrep", "version": "", "description": "Fast recursive search tool.", "kind": "external", "category": "search", "license": "MIT OR Unlicense", "commands": ["rg"], "artifacts": {} },
+    { "name": "fd", "version": "", "description": "Fast user-friendly file finder.", "kind": "external", "category": "search", "license": "MIT OR Apache-2.0", "commands": ["fd"], "artifacts": {} },
+    { "name": "fzf", "version": "", "description": "Command-line fuzzy finder.", "kind": "external", "category": "interactive", "license": "MIT", "commands": ["fzf"], "artifacts": {} },
+    { "name": "bat", "version": "", "description": "Cat-like file viewer with syntax highlighting.", "kind": "external", "category": "viewer", "license": "MIT OR Apache-2.0", "commands": ["bat"], "artifacts": {} },
+    { "name": "delta", "version": "", "description": "Syntax-highlighting pager for git, diff and grep output.", "kind": "external", "category": "viewer", "license": "MIT", "commands": ["delta"], "artifacts": {} },
+    { "name": "sd", "version": "", "description": "Intuitive find-and-replace command.", "kind": "external", "category": "text", "license": "MIT", "commands": ["sd"], "artifacts": {} },
+    { "name": "hyperfine", "version": "", "description": "Command-line benchmarking tool.", "kind": "external", "category": "developer", "license": "MIT OR Apache-2.0", "commands": ["hyperfine"], "artifacts": {} },
+    { "name": "just", "version": "", "description": "Command runner for project recipes.", "kind": "external", "category": "developer", "license": "CC0-1.0", "commands": ["just"], "artifacts": {} },
+    { "name": "dust", "version": "", "description": "Disk usage analyzer with a terminal tree view.", "kind": "external", "category": "system", "license": "Apache-2.0", "commands": ["dust"], "artifacts": {} },
+    { "name": "duf", "version": "", "description": "Disk usage and free space viewer.", "kind": "external", "category": "system", "license": "MIT", "commands": ["duf"], "artifacts": {} },
+    { "name": "procs", "version": "", "description": "Modern process viewer.", "kind": "external", "category": "system", "license": "MIT", "commands": ["procs"], "artifacts": {} },
+    { "name": "bottom", "version": "", "description": "Graphical terminal system monitor.", "kind": "external", "category": "system", "license": "MIT", "commands": ["btm"], "artifacts": {} },
+    { "name": "wget", "version": "", "description": "Non-interactive network downloader.", "kind": "external", "category": "network", "license": "GPL-3.0-or-later", "commands": ["wget"], "artifacts": {} },
+    { "name": "aria2", "version": "", "description": "Multi-protocol command-line downloader.", "kind": "external", "category": "network", "license": "GPL-2.0-or-later", "commands": ["aria2c"], "artifacts": {} },
+    { "name": "rclone", "version": "", "description": "Cloud storage sync tool.", "kind": "external", "category": "network", "license": "MIT", "commands": ["rclone"], "artifacts": {} },
+    { "name": "eza", "version": "", "description": "Modern ls replacement.", "kind": "external", "category": "filesystem", "license": "MIT", "commands": ["eza"], "artifacts": {} },
+    { "name": "lsd", "version": "", "description": "Colorful ls replacement.", "kind": "external", "category": "filesystem", "license": "Apache-2.0", "commands": ["lsd"], "artifacts": {} },
+    { "name": "zoxide", "version": "", "description": "Smarter cd command.", "kind": "external", "category": "navigation", "license": "MIT", "commands": ["zoxide"], "artifacts": {} },
+    { "name": "starship", "version": "", "description": "Cross-shell prompt renderer.", "kind": "external", "category": "shell", "license": "ISC", "commands": ["starship"], "artifacts": {} },
+    { "name": "chezmoi", "version": "", "description": "Dotfile manager.", "kind": "external", "category": "developer", "license": "MIT", "commands": ["chezmoi"], "artifacts": {} },
+    { "name": "gh", "version": "", "description": "GitHub command-line client.", "kind": "external", "category": "developer", "license": "MIT", "commands": ["gh"], "artifacts": {} },
+    { "name": "glab", "version": "", "description": "GitLab command-line client.", "kind": "external", "category": "developer", "license": "MIT", "commands": ["glab"], "artifacts": {} },
+    { "name": "lazygit", "version": "", "description": "Terminal UI for git.", "kind": "external", "category": "developer", "license": "MIT", "commands": ["lazygit"], "artifacts": {} },
+    { "name": "lazydocker", "version": "", "description": "Terminal UI for Docker.", "kind": "external", "category": "developer", "license": "MIT", "commands": ["lazydocker"], "artifacts": {} },
+    { "name": "kubectl", "version": "", "description": "Kubernetes command-line tool.", "kind": "external", "category": "cloud", "license": "Apache-2.0", "commands": ["kubectl"], "artifacts": {} },
+    { "name": "helm", "version": "", "description": "Kubernetes package manager.", "kind": "external", "category": "cloud", "license": "Apache-2.0", "commands": ["helm"], "artifacts": {} },
+    { "name": "k9s", "version": "", "description": "Terminal UI for Kubernetes.", "kind": "external", "category": "cloud", "license": "Apache-2.0", "commands": ["k9s"], "artifacts": {} },
+    { "name": "opentofu", "version": "", "description": "Infrastructure-as-code CLI.", "kind": "external", "category": "cloud", "license": "MPL-2.0", "commands": ["tofu"], "artifacts": {} },
+    { "name": "sqlite", "version": "", "description": "SQLite command-line shell.", "kind": "external", "category": "data", "license": "blessing", "commands": ["sqlite3"], "artifacts": {} },
+    { "name": "duckdb", "version": "", "description": "DuckDB analytical database CLI.", "kind": "external", "category": "data", "license": "MIT", "commands": ["duckdb"], "artifacts": {} },
+    { "name": "pandoc", "version": "", "description": "Universal document converter.", "kind": "external", "category": "document", "license": "GPL-2.0-or-later", "commands": ["pandoc"], "artifacts": {} },
+    { "name": "shellcheck", "version": "", "description": "Shell script static analyzer.", "kind": "external", "category": "developer", "license": "GPL-3.0-or-later", "commands": ["shellcheck"], "artifacts": {} },
+    { "name": "shfmt", "version": "", "description": "Shell parser and formatter.", "kind": "external", "category": "developer", "license": "BSD-3-Clause", "commands": ["shfmt"], "artifacts": {} },
+    { "name": "hadolint", "version": "", "description": "Dockerfile linter.", "kind": "external", "category": "developer", "license": "GPL-3.0-or-later", "commands": ["hadolint"], "artifacts": {} },
+    { "name": "tokei", "version": "", "description": "Code statistics counter.", "kind": "external", "category": "developer", "license": "MIT OR Apache-2.0", "commands": ["tokei"], "artifacts": {} },
+    { "name": "scc", "version": "", "description": "Fast source code counter.", "kind": "external", "category": "developer", "license": "MIT", "commands": ["scc"], "artifacts": {} },
+    { "name": "watchexec", "version": "", "description": "Run commands when files change.", "kind": "external", "category": "developer", "license": "Apache-2.0", "commands": ["watchexec"], "artifacts": {} },
+    { "name": "miniserve", "version": "", "description": "Small static file server.", "kind": "external", "category": "network", "license": "MIT", "commands": ["miniserve"], "artifacts": {} },
+    { "name": "xh", "version": "", "description": "Friendly HTTP client.", "kind": "external", "category": "network", "license": "MIT OR Apache-2.0", "commands": ["xh"], "artifacts": {} },
+    { "name": "grpcurl", "version": "", "description": "Command-line gRPC client.", "kind": "external", "category": "network", "license": "MIT", "commands": ["grpcurl"], "artifacts": {} },
+    { "name": "age", "version": "", "description": "Simple modern file encryption tool.", "kind": "external", "category": "security", "license": "BSD-3-Clause", "commands": ["age", "age-keygen"], "artifacts": {} },
+    { "name": "sops", "version": "", "description": "Encrypted secrets editor.", "kind": "external", "category": "security", "license": "MPL-2.0", "commands": ["sops"], "artifacts": {} },
+    { "name": "cosign", "version": "", "description": "Container signing and verification tool.", "kind": "external", "category": "security", "license": "Apache-2.0", "commands": ["cosign"], "artifacts": {} },
+    { "name": "trivy", "version": "", "description": "Security scanner for containers and filesystems.", "kind": "external", "category": "security", "license": "Apache-2.0", "commands": ["trivy"], "artifacts": {} },
+    { "name": "syft", "version": "", "description": "SBOM generator.", "kind": "external", "category": "security", "license": "Apache-2.0", "commands": ["syft"], "artifacts": {} },
+    { "name": "grype", "version": "", "description": "Vulnerability scanner for container images and filesystems.", "kind": "external", "category": "security", "license": "Apache-2.0", "commands": ["grype"], "artifacts": {} },
+    { "name": "oras", "version": "", "description": "OCI registry client.", "kind": "external", "category": "cloud", "license": "Apache-2.0", "commands": ["oras"], "artifacts": {} },
+    { "name": "crane", "version": "", "description": "Container registry CLI.", "kind": "external", "category": "cloud", "license": "Apache-2.0", "commands": ["crane"], "artifacts": {} },
+    { "name": "restic", "version": "", "description": "Fast encrypted backup tool.", "kind": "external", "category": "backup", "license": "BSD-2-Clause", "commands": ["restic"], "artifacts": {} },
+    { "name": "yazi", "version": "", "description": "Terminal file manager.", "kind": "external", "category": "filesystem", "license": "MIT", "commands": ["yazi"], "artifacts": {} },
+    { "name": "ouch", "version": "", "description": "Compression and decompression utility.", "kind": "external", "category": "archive", "license": "MIT", "commands": ["ouch"], "artifacts": {} },
+    { "name": "erdtree", "version": "", "description": "Modern tree and disk usage tool.", "kind": "external", "category": "filesystem", "license": "MIT", "commands": ["erd"], "artifacts": {} },
+    { "name": "micro", "version": "", "description": "Terminal text editor.", "kind": "external", "category": "editor", "license": "MIT", "commands": ["micro"], "artifacts": {} },
+    { "name": "helix", "version": "", "description": "Modal terminal text editor.", "kind": "external", "category": "editor", "license": "MPL-2.0", "commands": ["hx"], "artifacts": {} },
+    { "name": "busybox", "version": "", "description": "Single-binary Unix utilities collection.", "kind": "external", "category": "compat", "license": "GPL-2.0-only", "commands": ["busybox"], "artifacts": {} },
+    { "name": "ffmpeg", "version": "", "description": "Audio and video conversion tools.", "kind": "external", "category": "media", "license": "LGPL-2.1-or-later OR GPL-2.0-or-later", "commands": ["ffmpeg", "ffprobe"], "artifacts": {} }
   ]
 }
 )json";
@@ -231,10 +315,6 @@ auto config_path(const fs::path& root) -> fs::path {
 auto local_index_path(const fs::path& root) -> fs::path {
   return index_dir(root) / "official.json";
 }
-auto bundled_index_path(const fs::path& root) -> fs::path {
-  return root / "wpm-source" / "index.json";
-}
-
 auto read_text(const fs::path& path) -> std::optional<std::string> {
   std::ifstream in(path, std::ios::binary);
   if (!in.is_open()) return std::nullopt;
@@ -288,9 +368,6 @@ auto load_index(const fs::path& root) -> nlohmann::json {
   if (auto text = read_text(local_index_path(root))) {
     if (auto parsed = parse_json_text(*text)) return *parsed;
   }
-  if (auto text = read_text(bundled_index_path(root))) {
-    if (auto parsed = parse_json_text(*text)) return *parsed;
-  }
   if (auto parsed = parse_json_text(kBuiltinIndex)) return *parsed;
   return nlohmann::json::object();
 }
@@ -298,8 +375,24 @@ auto load_index(const fs::path& root) -> nlohmann::json {
 auto merged_sources(const fs::path& root, const nlohmann::json& index)
     -> std::vector<nlohmann::json> {
   std::vector<nlohmann::json> sources;
+  std::unordered_set<std::string> builtin_names;
+  if (auto builtin = parse_json_text(kBuiltinIndex);
+      builtin && builtin->contains("sources") && (*builtin)["sources"].is_array()) {
+    for (const auto& source : (*builtin)["sources"]) {
+      if (!source.is_object()) continue;
+      sources.push_back(source);
+      auto name = source.value("name", "");
+      if (!name.empty()) builtin_names.insert(name);
+    }
+  }
+
   if (index.contains("sources") && index["sources"].is_array()) {
-    for (const auto& source : index["sources"]) sources.push_back(source);
+    for (const auto& source : index["sources"]) {
+      if (!source.is_object()) continue;
+      auto name = source.value("name", "");
+      if (!name.empty() && builtin_names.contains(name)) continue;
+      sources.push_back(source);
+    }
   }
 
   auto config = load_config(root);
@@ -589,6 +682,51 @@ auto remove_links(const fs::path& root, bool dry_run) -> int {
   return failed == 0 ? 0 : 1;
 }
 
+auto http_get_urlmon(std::wstring_view url) -> HttpResult {
+  HttpResult result;
+
+  std::array<wchar_t, MAX_PATH> temp_dir{};
+  DWORD temp_len = GetTempPathW(static_cast<DWORD>(temp_dir.size()),
+                                temp_dir.data());
+  if (temp_len == 0 || temp_len >= temp_dir.size()) {
+    result.error = "URLMon fallback failed to get temp path";
+    return result;
+  }
+
+  std::array<wchar_t, MAX_PATH> temp_file{};
+  if (GetTempFileNameW(temp_dir.data(), L"wpm", 0, temp_file.data()) == 0) {
+    result.error = "URLMon fallback failed to create temp file";
+    return result;
+  }
+
+  HRESULT hr =
+      URLDownloadToFileW(nullptr, std::wstring(url).c_str(), temp_file.data(),
+                         0, nullptr);
+  if (FAILED(hr)) {
+    DeleteFileW(temp_file.data());
+    result.error =
+        std::format("URLMon fallback failed: 0x{:08x}",
+                    static_cast<unsigned int>(static_cast<ULONG>(hr)));
+    return result;
+  }
+
+  std::ifstream in{fs::path(temp_file.data()), std::ios::binary};
+  if (!in.is_open()) {
+    DeleteFileW(temp_file.data());
+    result.error = "URLMon fallback failed to read temp file";
+    return result;
+  }
+
+  std::string payload{std::istreambuf_iterator<char>(in),
+                      std::istreambuf_iterator<char>()};
+  result.data.resize(payload.size());
+  std::memcpy(result.data.data(), payload.data(), payload.size());
+  result.ok = true;
+  result.status = 200;
+  DeleteFileW(temp_file.data());
+  return result;
+}
+
 auto http_get(std::string_view url) -> HttpResult {
   HttpResult result;
 
@@ -638,14 +776,16 @@ auto http_get(std::string_view url) -> HttpResult {
                   WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
   if (!session) {
     result.error = "failed to open WinHTTP session";
-    return result;
+    auto fallback = http_get_urlmon(wurl);
+    return fallback.ok ? fallback : result;
   }
 
   HINTERNET connect = WinHttpConnect(session, host.c_str(), parts.nPort, 0);
   if (!connect) {
     result.error = "failed to connect";
     WinHttpCloseHandle(session);
-    return result;
+    auto fallback = http_get_urlmon(wurl);
+    return fallback.ok ? fallback : result;
   }
 
   DWORD flags = https ? WINHTTP_FLAG_SECURE : 0;
@@ -656,7 +796,8 @@ auto http_get(std::string_view url) -> HttpResult {
     result.error = "failed to create request";
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    return result;
+    auto fallback = http_get_urlmon(wurl);
+    return fallback.ok ? fallback : result;
   }
 
   DWORD timeout_ms = 12000;
@@ -674,7 +815,8 @@ auto http_get(std::string_view url) -> HttpResult {
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    return result;
+    auto fallback = http_get_urlmon(wurl);
+    return fallback.ok ? fallback : result;
   }
 
   DWORD status = 0;
@@ -689,7 +831,8 @@ auto http_get(std::string_view url) -> HttpResult {
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    return result;
+    auto fallback = http_get_urlmon(wurl);
+    return fallback.ok ? fallback : result;
   }
 
   for (;;) {
@@ -712,6 +855,10 @@ auto http_get(std::string_view url) -> HttpResult {
   WinHttpCloseHandle(request);
   WinHttpCloseHandle(connect);
   WinHttpCloseHandle(session);
+  if (!result.ok) {
+    auto fallback = http_get_urlmon(wurl);
+    return fallback.ok ? fallback : result;
+  }
   return result;
 }
 
@@ -872,6 +1019,59 @@ auto artifact_urls(const nlohmann::json& artifact) -> std::vector<std::string> {
     }
   }
   return urls;
+}
+
+auto join_json_string_array(const nlohmann::json& object, std::string_view key)
+    -> std::string {
+  if (!object.contains(std::string(key)) ||
+      !object[std::string(key)].is_array()) {
+    return "";
+  }
+
+  std::vector<std::string> values;
+  for (const auto& item : object[std::string(key)]) {
+    if (item.is_string()) values.push_back(item.get<std::string>());
+  }
+
+  std::string out;
+  for (const auto& value : values) {
+    if (!out.empty()) out += ", ";
+    out += value;
+  }
+  return out;
+}
+
+auto artifact_install_state(const nlohmann::json& pkg) -> std::string {
+  auto artifact = artifact_for_current_arch(pkg);
+  if (!artifact) return "metadata-only (no current-arch artifact)";
+  if (artifact_urls(*artifact).empty())
+    return "metadata-only (no download URLs)";
+  if (artifact->value("sha256", "").empty())
+    return "metadata-only (missing sha256)";
+  if (!artifact->contains("files") || !(*artifact)["files"].is_array() ||
+      (*artifact)["files"].empty())
+    return "metadata-only (missing files mapping)";
+  return "ready";
+}
+
+auto package_state_label(const nlohmann::json& pkg) -> std::string {
+  return artifact_install_state(pkg) == "ready" ? "ready" : "index-only";
+}
+
+auto contains_ci(std::string_view text, std::string_view needle) -> bool {
+  if (needle.empty()) return true;
+  return lower_ascii(std::string(text)).find(lower_ascii(std::string(needle))) !=
+         std::string::npos;
+}
+
+auto package_matches_query(const nlohmann::json& pkg, std::string_view query)
+    -> bool {
+  if (query.empty()) return true;
+  if (contains_ci(pkg.value("name", ""), query)) return true;
+  if (contains_ci(pkg.value("description", ""), query)) return true;
+  if (contains_ci(pkg.value("category", ""), query)) return true;
+  if (contains_ci(pkg.value("license", ""), query)) return true;
+  return contains_ci(join_json_string_array(pkg, "commands"), query);
 }
 
 auto download_artifact(const fs::path& root, const std::string& package,
@@ -1196,7 +1396,7 @@ auto print_index_status(const Options& opts) -> int {
   safePrintLn("WPM index");
   safePrintLn("  root: " + opts.root.string());
   safePrintLn("  local: " + local_index_path(opts.root).string());
-  safePrintLn("  bundled: " + bundled_index_path(opts.root).string());
+  safePrintLn("  fallback: builtin");
   safePrintLn("  version: " + index.value("version", "unknown"));
   safePrintLn("  packages: " + std::to_string(packages.size()));
   return 0;
@@ -1216,6 +1416,16 @@ auto list_sources(const Options& opts) -> int {
             : 0;
     safePrintLn("  " + name + " region=" + region +
                 " urls=" + std::to_string(urls));
+    std::string description = source.value("description", "");
+    if (!description.empty()) safePrintLn("    " + description);
+    if (!opts.verbose) continue;
+    std::string homepage = source.value("homepage", "");
+    if (!homepage.empty()) safePrintLn("    homepage: " + homepage);
+    if (source.contains("index_urls") && source["index_urls"].is_array()) {
+      for (const auto& url : source["index_urls"]) {
+        if (url.is_string()) safePrintLn("    url: " + url.get<std::string>());
+      }
+    }
   }
   return 0;
 }
@@ -1250,13 +1460,28 @@ auto source_add(const Options& opts, std::string_view name,
   return 0;
 }
 
-auto list_packages(const Options& opts) -> int {
+auto print_package_summary(const nlohmann::json& pkg) -> void {
+  std::string version = pkg.value("version", "");
+  if (!version.empty()) version = " " + version;
+  std::string commands = join_json_string_array(pkg, "commands");
+  if (!commands.empty()) commands = " [" + commands + "]";
+  std::string category = pkg.value("category", "");
+  if (!category.empty()) category = " {" + category + "}";
+  safePrintLn("  [" + package_state_label(pkg) + "] " +
+              pkg.value("name", "") + version + commands + category + " - " +
+              pkg.value("description", ""));
+}
+
+auto list_packages(const Options& opts, std::string_view query = {}) -> int {
   auto index = load_index(opts.root);
+  int matched = 0;
   for (const auto& pkg : package_array(index)) {
-    std::string version = pkg.value("version", "");
-    if (!version.empty()) version = " " + version;
-    safePrintLn("  " + pkg.value("name", "") + version + " - " +
-                pkg.value("description", ""));
+    if (!package_matches_query(pkg, query)) continue;
+    print_package_summary(pkg);
+    ++matched;
+  }
+  if (!query.empty() && matched == 0) {
+    safePrintLn("wpm: no packages matched '" + std::string(query) + "'");
   }
   return 0;
 }
@@ -1271,13 +1496,25 @@ auto show_info(const Options& opts, std::string_view name) -> int {
   safePrintLn("Name: " + pkg->value("name", ""));
   safePrintLn("Version: " + pkg->value("version", ""));
   safePrintLn("Kind: " + pkg->value("kind", ""));
+  safePrintLn("Category: " + pkg->value("category", ""));
+  safePrintLn("License: " + pkg->value("license", ""));
+  safePrintLn("Commands: " + join_json_string_array(*pkg, "commands"));
   safePrintLn("Description: " + pkg->value("description", ""));
+  safePrintLn("Install state: " + artifact_install_state(*pkg));
   auto artifact = artifact_for_current_arch(*pkg);
   safePrintLn("Artifact: " +
               std::string(artifact ? detect_arch_key() : "none"));
   if (artifact) {
     safePrintLn("Type: " + artifact->value("type", ""));
     safePrintLn("URLs: " + std::to_string(artifact_urls(*artifact).size()));
+    std::string sha256 = artifact->value("sha256", "");
+    safePrintLn("SHA256: " + std::string(sha256.empty() ? "missing"
+                                                        : "present"));
+    size_t file_count =
+        artifact->contains("files") && (*artifact)["files"].is_array()
+            ? (*artifact)["files"].size()
+            : 0;
+    safePrintLn("Files: " + std::to_string(file_count));
   }
   return 0;
 }
@@ -1290,7 +1527,8 @@ auto print_usage() -> int {
   safePrintLn("  links list|rebuild|remove     manage WinuxCmd hardlinks");
   safePrintLn("  index status|update           inspect or refresh local index");
   safePrintLn("  source list|use|add           manage index sources");
-  safePrintLn("  list                          list indexed packages");
+  safePrintLn("  list                          list indexed packages and install state");
+  safePrintLn("  search <query>                search names, commands, categories, licenses");
   safePrintLn("  info <package>                show package metadata");
   safePrintLn(
       "  install <package>             install package from local index");
@@ -1356,7 +1594,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return 1;
   }
 
-  if (args[0] == "list" || args[0] == "search") return list_packages(opts);
+  if (args[0] == "list") return list_packages(opts);
+  if (args[0] == "search")
+    return list_packages(opts, args.size() >= 2 ? args[1] : std::string_view{});
   if (args[0] == "info" && args.size() >= 2) return show_info(opts, args[1]);
   if (args[0] == "install" && args.size() >= 2)
     return install_package(opts, args[1]);

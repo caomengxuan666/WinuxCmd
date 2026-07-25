@@ -97,6 +97,86 @@ TEST(wpm, wpm_index_status_uses_builtin_index_offline) {
   EXPECT_TRUE(r.stdout_text.find("packages:") != std::string::npos);
 }
 
+TEST(wpm, wpm_sources_prefer_builtin_urls_over_stale_local_index) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json",
+            "{\n"
+            "  \"schema\": 1,\n"
+            "  \"name\": \"stale\",\n"
+            "  \"version\": \"stale-1\",\n"
+            "  \"sources\": [\n"
+            "    {\n"
+            "      \"name\": \"official-github-raw\",\n"
+            "      \"region\": \"global\",\n"
+            "      \"priority\": 10,\n"
+            "      \"index_urls\": [\n"
+            "        \"https://raw.githubusercontent.com/unixwin/WinuxCmd/main/wpm-source/index.json\"\n"
+            "      ]\n"
+            "    }\n"
+            "  ],\n"
+            "  \"packages\": []\n"
+            "}\n");
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"source", L"list", L"-v", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("https://raw.githubusercontent.com/unixwin/"
+                                 "wpm-source/main/index.json") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("https://raw.githubusercontent.com/unixwin/"
+                                 "WinuxCmd/main/wpm-source/index.json") ==
+              std::string::npos);
+}
+
+TEST(wpm, wpm_list_shows_builtin_external_package_slots) {
+  TempDir tmp;
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"list", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  if (current_arch_key() == "windows-x64") {
+    EXPECT_TRUE(r.stdout_text.find("[ready] awk 1.31.0 [awk]") !=
+                std::string::npos);
+  }
+  EXPECT_TRUE(r.stdout_text.find("[index-only] ripgrep [rg]") !=
+              std::string::npos);
+}
+
+TEST(wpm, wpm_info_marks_awk_installable_on_windows_x64) {
+  if (current_arch_key() != "windows-x64") return;
+
+  TempDir tmp;
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"info", L"awk", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("Name: awk") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Version: 1.31.0") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Install state: ready") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Artifact: windows-x64") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("SHA256: present") != std::string::npos);
+}
+
+TEST(wpm, wpm_search_filters_builtin_packages) {
+  TempDir tmp;
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"search", L"kubernetes", L"--root",
+                          tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("kubectl") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("helm") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("jq [jq]") == std::string::npos);
+}
+
 TEST(wpm, wpm_links_rebuild_creates_internal_tool_hardlink) {
   TempDir tmp;
   auto root_exe = tmp.path / L"winuxcmd.exe";

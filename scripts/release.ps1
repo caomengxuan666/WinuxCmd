@@ -43,28 +43,23 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 Write-Color "Yellow" "Version: $Version"
 Write-Host ""
 
-# Files to update
-$filesToUpdate = @{
-    "CMakeLists.txt" = "VERSION 0.4.4", "VERSION $Version"
-    "scripts\create_links.ps1" = "0.4.4", "$Version"
-    "scripts\winuxcmd_init.cmd" = "0.4.4", "$Version"
-}
+# Update version sources
+Write-Color "Yellow" "Updating version metadata..."
+Set-Content -Path "PROJECT_VERSION" -Value $Version -Encoding ascii -NoNewline
+Write-Color "Green" "  Updated PROJECT_VERSION"
 
-# Update files
-Write-Color "Yellow" "Updating version numbers..."
-foreach ($file in $filesToUpdate.Keys) {
-    $oldVersion = $filesToUpdate[$file]
-    $newVersion = $filesToUpdate[$file + "_NEW"]
-    
-    $content = Get-Content $file -Raw
-    if ($content -match $oldVersion) {
-        $content = $content -replace $oldVersion, $newVersion
-        Set-Content $file -Value $content -Encoding UTF8
-        Write-Color "Green" "  Updated $file"
-    } else {
-        Write-Color "Yellow" "  Skipped $file (version not found or already updated)"
-    }
-}
+$releaseDate = Get-Date -Format "yyyy-MM-dd"
+$builtinIndexVersion = "builtin-" + $releaseDate.Replace("-", ".")
+$wpmPath = "src\commands\wpm.cpp"
+$wpm = Get-Content $wpmPath -Raw
+$wpm = $wpm -replace '"version": "builtin-\d{4}\.\d{2}\.\d{2}"',
+                    ('"version": "' + $builtinIndexVersion + '"')
+$wpm = $wpm -replace '"updated": "\d{4}-\d{2}-\d{2}"',
+                    ('"updated": "' + $releaseDate + '"')
+$wpm = $wpm -replace '"version": "\d+\.\d+\.\d+",\r?\n      "description": "WinuxCmd core command set"',
+                    ('"version": "' + $Version + '",' + "`n" + '      "description": "WinuxCmd core command set"')
+Set-Content -Path $wpmPath -Value $wpm -Encoding utf8 -NoNewline
+Write-Color "Green" "  Updated WPM builtin index metadata"
 
 Write-Host ""
 
@@ -93,7 +88,7 @@ if (-not $SkipCommit) {
 
 # Push to remote
 Write-Color "Yellow" "Pushing to remote..."
-git push origin develop
+git push origin main
 Write-Color "Green" "  Pushed successfully"
 Write-Host ""
 
@@ -114,6 +109,6 @@ Write-Color "Green" "Release v$Version completed successfully!"
 Write-Color "Cyan" "================================"
 Write-Host ""
 Write-Host "Next steps:"
-Write-Host "1. Monitor GitHub Actions build: https://github.com/caomengxuan666/WinuxCmd/actions"
-Write-Host "2. Check release: https://github.com/caomengxuan666/WinuxCmd/releases/tag/v$Version"
+Write-Host "1. Monitor GitHub Actions build: https://github.com/unixwin/WinuxCmd/actions"
+Write-Host "2. Check release: https://github.com/unixwin/WinuxCmd/releases/tag/v$Version"
 Write-Host ""
