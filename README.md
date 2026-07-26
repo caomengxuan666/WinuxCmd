@@ -28,6 +28,12 @@ winuxcmd wpm search json
 winuxcmd wpm info jq
 ```
 
+## Demo
+
+Watch the short Unix-style workflow recording: [winuxcmd-unix-demo.mp4](DOCS/media/winuxcmd-unix-demo.mp4).
+
+![WinuxCmd terminal demo](DOCS/images/auto.gif)
+
 ## Why It Exists
 
 Windows developers constantly paste Linux-shaped commands from docs, CI logs,
@@ -132,19 +138,6 @@ Detailed compatibility references:
 - [GNU Parity Ledger (EN)](DOCS/en/gnu_coreutils_parity.md)
 - [命令兼容性矩阵 (ZH)](DOCS/zh/commands_implementation.md)
 - [GNU 兼容清单 (ZH)](DOCS/zh/gnu_coreutils_parity.md)
-
-## Demo Recording
-
-For a short release video, use the helper script. It opens a demo terminal and
-records the desktop with FFmpeg:
-
-```powershell
-.\scripts\record-winuxcmd-demo.ps1
-```
-
-The script defaults to the local Gyan FFmpeg winget path and writes to
-`DOCS\media\winuxcmd-wpm-demo.mp4`. Review the screen before recording because
-desktop capture records whatever is visible.
 
 ## Build
 
