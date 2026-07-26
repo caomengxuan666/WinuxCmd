@@ -106,7 +106,7 @@ constexpr std::string_view kBuiltinIndex = R"json(
   "packages": [
     {
       "name": "winuxcmd",
-      "version": "0.13.0",
+      "version": "0.13.1",
       "description": "WinuxCmd core command set",
       "kind": "core",
       "license": "MIT",
@@ -1154,7 +1154,7 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
       return false;
     }
     if (dry_run) {
-      safePrintLn("install " + src->string() + " -> " + dest.string());
+      safePrintLn("would copy " + src->string() + " -> " + dest.string());
       continue;
     }
     fs::create_directories(dest.parent_path(), ec);
@@ -1217,8 +1217,13 @@ auto install_package(const Options& opts, std::string_view package_name)
                            opts.dry_run)) {
     return 1;
   }
-  safePrintLn("wpm: installed " +
-              pkg->value("name", std::string(package_name)));
+  if (opts.dry_run) {
+    safePrintLn("wpm: dry-run complete; would install " +
+                pkg->value("name", std::string(package_name)));
+  } else {
+    safePrintLn("wpm: installed " +
+                pkg->value("name", std::string(package_name)));
+  }
   return 0;
 }
 
@@ -1534,6 +1539,15 @@ auto print_usage() -> int {
       "  install <package>             install package from local index");
   safePrintLn(
       "  update winuxcmd               update WinuxCmd from local index");
+  safePrintLn("");
+  safePrintLn("Options:");
+  safePrintLn("  -r, --root <dir>              manage a specific WinuxCmd root");
+  safePrintLn("  -s, --source <name>           use a specific index source");
+  safePrintLn("  -f, --force                   overwrite existing files when safe");
+  safePrintLn("  -n, --dry-run                 show planned changes without writing");
+  safePrintLn("  -v, --verbose                 print detailed progress");
+  safePrintLn("  -h, --help                    display this help and exit");
+  safePrintLn("  -V, --version                 output version information and exit");
   return 0;
 }
 

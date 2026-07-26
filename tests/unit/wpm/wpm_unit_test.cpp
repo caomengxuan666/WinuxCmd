@@ -38,6 +38,36 @@ auto file_url(std::filesystem::path path) -> std::string {
   return "file://" + text;
 }
 
+auto install_fixture_index_json(const std::filesystem::path& artifact_path)
+    -> std::string {
+  return "{\n"
+         "  \"schema\": 1,\n"
+         "  \"name\": \"fixture\",\n"
+         "  \"version\": \"fixture-install\",\n"
+         "  \"packages\": [\n"
+         "    {\n"
+         "      \"name\": \"jq\",\n"
+         "      \"version\": \"1.0.0\",\n"
+         "      \"description\": \"Local fixture executable\",\n"
+         "      \"kind\": \"external\",\n"
+         "      \"artifacts\": {\n"
+         "        \"" +
+         current_arch_key() +
+         "\": {\n"
+         "          \"type\": \"exe\",\n"
+         "          \"sha256\": "
+         "\"5140f4f6bf8b5691b7bccc1c4f00a2027dae00b2110d38a1e090af291226f322\",\n"
+         "          \"urls\": [\"" +
+         file_url(artifact_path) +
+         "\"],\n"
+         "          \"files\": [{\"from\":\"bin/jq.exe\"}]\n"
+         "        }\n"
+         "      }\n"
+         "    }\n"
+         "  ]\n"
+         "}\n";
+}
+
 auto same_file(const std::filesystem::path& a, const std::filesystem::path& b)
     -> bool {
   HANDLE ha =
@@ -73,6 +103,33 @@ TEST(wpm, wpm_hardlink_entrypoint_reports_version) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("wpm 0.2.0") != std::string::npos);
+}
+
+TEST(wpm, wpm_help_matches_plain_usage) {
+  Pipeline plain;
+  plain.add(L"wpm.exe", {});
+  auto plain_result = plain.run();
+
+  Pipeline help;
+  help.add(L"wpm.exe", {L"--help"});
+  auto help_result = help.run();
+
+  EXPECT_EQ(plain_result.exit_code, 0);
+  EXPECT_EQ(help_result.exit_code, 0);
+  EXPECT_EQ_TEXT(help_result.stdout_text, plain_result.stdout_text);
+  EXPECT_TRUE(help_result.stdout_text.find("Usage: wpm <command> [args] "
+                                           "[options]") != std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("Commands:") != std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("Options:") != std::string::npos);
+}
+
+TEST(wpm, wpm_standard_version_uses_wpm_version) {
+  Pipeline p;
+  p.add(L"wpm.exe", {L"--version"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "wpm 0.2.0\n");
 }
 
 TEST(wpm, wpm_links_list_includes_internal_tool) {
@@ -274,34 +331,8 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
   if (!linked) return;
   tmp.write("source/jq.exe", "external exe\n");
 
-  std::string index_json =
-      "{\n"
-      "  \"schema\": 1,\n"
-      "  \"name\": \"fixture\",\n"
-      "  \"version\": \"fixture-install\",\n"
-      "  \"packages\": [\n"
-      "    {\n"
-      "      \"name\": \"jq\",\n"
-      "      \"version\": \"1.0.0\",\n"
-      "      \"description\": \"Local fixture executable\",\n"
-      "      \"kind\": \"external\",\n"
-      "      \"artifacts\": {\n"
-      "        \"" +
-      current_arch_key() +
-      "\": {\n"
-      "          \"type\": \"exe\",\n"
-      "          \"sha256\": "
-      "\"5140f4f6bf8b5691b7bccc1c4f00a2027dae00b2110d38a1e090af291226f322\",\n"
-      "          \"urls\": [\"" +
-      file_url(artifact_path) +
-      "\"],\n"
-      "          \"files\": [{\"from\":\"bin/jq.exe\"}]\n"
-      "        }\n"
-      "      }\n"
-      "    }\n"
-      "  ]\n"
-      "}\n";
-  tmp.write("fixture-install-index.json", index_json);
+  tmp.write("fixture-install-index.json",
+            install_fixture_index_json(artifact_path));
 
   Pipeline add;
   add.add(L"winuxcmd.exe",
@@ -329,4 +360,51 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
               std::string::npos);
   EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
   EXPECT_FALSE(same_file(root_exe, legacy_jq));
+}
+
+TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
+  TempDir tmp;
+  const auto artifact_path = tmp.path / L"source" / L"jq.exe";
+  const auto index_path = tmp.path / L"fixture-install-index.json";
+  const auto root_exe = tmp.path / L"winuxcmd.exe";
+  const auto legacy_jq = tmp.path / L"jq.exe";
+  std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
+                             std::filesystem::copy_options::overwrite_existing);
+  bool linked = CreateHardLinkW(legacy_jq.wstring().c_str(),
+                                root_exe.wstring().c_str(), nullptr) != 0;
+  EXPECT_TRUE(linked);
+  if (!linked) return;
+  tmp.write("source/jq.exe", "external exe\n");
+  tmp.write("fixture-install-index.json",
+            install_fixture_index_json(artifact_path));
+
+  Pipeline add;
+  add.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"add", L"fixture",
+           widen_ascii(file_url(index_path)), L"--root", tmp.wpath()});
+  EXPECT_EQ(add.run().exit_code, 0);
+
+  Pipeline use;
+  use.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"use", L"fixture", L"--root", tmp.wpath()});
+  EXPECT_EQ(use.run().exit_code, 0);
+
+  Pipeline update;
+  update.add(L"winuxcmd.exe",
+             {L"wpm", L"index", L"update", L"--root", tmp.wpath()});
+  EXPECT_EQ(update.run().exit_code, 0);
+
+  Pipeline install;
+  install.add(L"winuxcmd.exe", {L"wpm", L"install", L"jq", L"--dry-run",
+                                L"--root", tmp.wpath()});
+  auto install_result = install.run();
+
+  EXPECT_EQ(install_result.exit_code, 0);
+  EXPECT_TRUE(install_result.stdout_text.find("would copy") !=
+              std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("would install jq") !=
+              std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("installed jq") ==
+              std::string::npos);
+  EXPECT_TRUE(same_file(root_exe, legacy_jq));
 }
