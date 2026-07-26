@@ -142,6 +142,7 @@ struct TopConfig {
   int max_iterations = -1;
   SortField sort_field = SortField::CPU;
   bool should_exit = false;
+  int rows = 0;
 
   // Runtime interactive options
   bool show_full_command = false;
@@ -167,6 +168,7 @@ constexpr auto TOP_OPTIONS = std::array{
     OPTION("-H", "--threads", "show threads as if they were processes"),
     OPTION("-o", "--field-sort", "override sort field"),
     OPTION("-w", "--width", "override output width"),
+    OPTION("", "--rows", "limit number of processes displayed", INT_TYPE),
     OPTION("-v", "--version", "print version information"),
     OPTION("-h", "--help", "display this help")};
 
@@ -365,11 +367,10 @@ class ProcessEnumerator {
   }
 
   auto getPreviousSnapshot() const -> const std::vector<ProcessInfo>& {
-    return previous_snapshot_;
+    return current_snapshot_;
   }
 
   auto updateSnapshot(const std::vector<ProcessInfo>& snapshot) -> void {
-    previous_snapshot_ = current_snapshot_;
     current_snapshot_ = snapshot;
   }
 
@@ -389,7 +390,7 @@ class ProcessEnumerator {
 
     // Build PID -> previous info map
     std::unordered_map<DWORD, ProcessInfo> prev_map;
-    for (const auto& proc : previous_snapshot_) {
+    for (const auto& proc : current_snapshot_) {
       prev_map[proc.pid] = proc;
     }
 
@@ -408,7 +409,6 @@ class ProcessEnumerator {
 
  private:
   std::vector<ProcessInfo> current_snapshot_;
-  std::vector<ProcessInfo> previous_snapshot_;
 };
 
 // ======================================================
@@ -861,6 +861,9 @@ auto parse_config(const CommandContext<TOP_OPTIONS.size()>& ctx)
       cfg.sort_field = SortField::NAME;
   }
 
+  cfg.rows = ctx.get<int>("--rows", 0);
+  if (cfg.rows < 0) cfg.rows = 0;
+
   return cfg;
 }
 
@@ -873,6 +876,7 @@ auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
     safePrint("  -d, --delay DELAY  Update interval (default: 3s)\n");
     safePrint("  -n, --iterations N Exit after N iterations\n");
     safePrint("  -o, --field-sort F Sort by CPU|MEM|TIME|PID|NAME\n");
+    safePrint("      --rows N       Limit number of displayed processes\n");
     safePrint("  -h, --help         Show help\n");
     safePrint("  -v, --version      Show version\n");
     return true;  // Should exit
@@ -920,10 +924,11 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
   DisplayManager display;
 
   CPUSnapshot prev_cpu = monitor.getCPUSnapshot();
-  auto processes = enumerator.enumerate(cfg.show_threads);
-  enumerator.updateSnapshot(processes);
+  auto previous_processes = enumerator.enumerate(cfg.show_threads);
+  enumerator.updateSnapshot(previous_processes);
   Sleep(500);
   CPUSnapshot curr_cpu = monitor.getCPUSnapshot();
+  auto processes = enumerator.enumerate(cfg.show_threads);
 
   SystemStats stats = monitor.getSystemStats();
   enumerator.calculateCPUUsage(processes, prev_cpu, curr_cpu,
@@ -932,6 +937,7 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
   stats.cpu_usage = monitor.calculateSystemCPUUsage(prev_cpu, curr_cpu);
   stats.total_processes = static_cast<DWORD>(processes.size());
   stats.running_processes = 1;
+  enumerator.updateSnapshot(processes);
 
   char hostname[256] = "localhost";
   gethostname(hostname, sizeof(hostname));
@@ -948,8 +954,10 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
       display.setCursorPos(0, 0);
     }
 
+    const size_t display_rows =
+        cfg.rows > 0 ? static_cast<size_t>(cfg.rows) : 50;
     display.printHeader(stats, hostname, cfg.delay);
-    display.printProcessList(processes, stats, 50, cfg);
+    display.printProcessList(processes, stats, display_rows, cfg);
 
     if (!cfg.batch_mode) {
       for (int i = 0; i < cfg.delay * 10 && running; ++i) {
@@ -1080,7 +1088,7 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
             display.clearScreen();
             display.setCursorPos(0, 0);
             display.printHeader(stats, hostname, cfg.delay);
-            display.printProcessList(processes, stats, 50, cfg);
+            display.printProcessList(processes, stats, display_rows, cfg);
           }
         }
         Sleep(100);
@@ -1148,7 +1156,8 @@ REGISTER_COMMAND(
     "  top                      Show all processes\n"
     "  top -d 5                 Refresh every 5 seconds\n"
     "  top -n 10                Exit after 10 iterations\n"
-    "  top -p 1234,5678         Monitor specific PIDs",
+    "  top -p 1234,5678         Monitor specific PIDs\n"
+    "  top -o MEM --rows 12     Show the largest memory consumers",
     /* see_also */ "ps(1), kill(1), nice(1)",
     /* author */ "caomengxuan666",
     /* copyright */ "Copyright © 2026 WinuxCmd",
