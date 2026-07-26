@@ -30,6 +30,8 @@ winuxcmd wpm info jq
 
 ## 演示
 
+观看这段短的 Unix 风格工作流录屏：[winuxcmd-unix-demo.mp4](DOCS/media/winuxcmd-unix-demo.mp4)。
+
 ![WinuxCmd 终端演示](DOCS/images/auto.gif)
 
 ## 为什么需要

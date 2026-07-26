@@ -30,6 +30,8 @@ winuxcmd wpm info jq
 
 ## Demo
 
+Watch the short Unix-style workflow recording: [winuxcmd-unix-demo.mp4](DOCS/media/winuxcmd-unix-demo.mp4).
+
 ![WinuxCmd terminal demo](DOCS/images/auto.gif)
 
 ## Why It Exists
