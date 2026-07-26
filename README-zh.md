@@ -28,6 +28,10 @@ winuxcmd wpm search json
 winuxcmd wpm info jq
 ```
 
+## 演示
+
+![WinuxCmd 终端演示](DOCS/images/auto.gif)
+
 ## 为什么需要
 
 Windows 开发者每天都会从文档、CI 日志、issue 评论和肌肉记忆里遇到
@@ -125,18 +129,6 @@ WinuxCmd 目前实现 153 个命令，覆盖这些常见场景：
 - [GNU 兼容清单 (ZH)](DOCS/zh/gnu_coreutils_parity.md)
 - [Command Compatibility Matrix (EN)](DOCS/en/commands_implementation_en.md)
 - [GNU Parity Ledger (EN)](DOCS/en/gnu_coreutils_parity.md)
-
-## 录制演示
-
-要录一段短 release 视频，可以用辅助脚本。它会打开一个演示终端，并用
-FFmpeg 录制桌面：
-
-```powershell
-.\scripts\record-winuxcmd-demo.ps1
-```
-
-脚本默认使用本机 Gyan FFmpeg 的 winget 路径，并输出到
-`DOCS\media\winuxcmd-wpm-demo.mp4`。录制前请确认桌面上没有不想入镜的内容。
 
 ## 构建
 
