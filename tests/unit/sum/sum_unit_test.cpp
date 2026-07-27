@@ -119,9 +119,9 @@ TEST(sum, sum_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("sum: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "sum: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }
 
 TEST(sum, sum_continues_past_unreadable_files_and_returns_nonzero) {
@@ -138,6 +138,5 @@ TEST(sum, sum_continues_past_unreadable_files_and_returns_nonzero) {
   EXPECT_TRUE(r.stderr_text.find(
                   "sum: cannot open 'missing.txt' for reading: No such file "
                   "or directory") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("08403     1 ok.txt\n") !=
-              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("08403     1 ok.txt\n") != std::string::npos);
 }

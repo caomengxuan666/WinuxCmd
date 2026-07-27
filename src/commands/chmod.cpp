@@ -69,18 +69,12 @@ auto constexpr CHMOD_OPTIONS = std::array{
     OPTION("", "--quiet", "suppress most error messages"),
     OPTION("", "--reference", "use RFILE's mode instead of MODE values",
            STRING_TYPE),
-    OPTION("-H", "",
-           "traverse command-line symlinks to directories"),
-    OPTION("-L", "",
-           "traverse every symlink to a directory"),
-    OPTION("-P", "",
-           "do not traverse any symbolic links (default)"),
-    OPTION("", "--dereference",
-           "affect the referent of each symbolic link"),
-    OPTION("", "--preserve-root",
-           "fail to operate recursively on '/'"),
-    OPTION("", "--no-preserve-root",
-           "do not treat '/' specially")};
+    OPTION("-H", "", "traverse command-line symlinks to directories"),
+    OPTION("-L", "", "traverse every symlink to a directory"),
+    OPTION("-P", "", "do not traverse any symbolic links (default)"),
+    OPTION("", "--dereference", "affect the referent of each symbolic link"),
+    OPTION("", "--preserve-root", "fail to operate recursively on '/'"),
+    OPTION("", "--no-preserve-root", "do not treat '/' specially")};
 
 namespace chmod_pipeline {
 namespace cp = core::pipeline;
@@ -355,8 +349,7 @@ auto apply_reference_mode(const std::string &path, DWORD reference_attrs)
  * @param mode_str Mode string to parse
  * @return Tuple of (is_numeric, numeric_mode, who, op, perms) or error message
  */
-auto parse_mode(std::string_view mode_str)
-    -> cp::Result<ParsedMode> {
+auto parse_mode(std::string_view mode_str) -> cp::Result<ParsedMode> {
   ParsedMode parsed_mode;
 
   // Check if it's a numeric mode (e.g., "755", "644")
@@ -667,8 +660,8 @@ REGISTER_COMMAND(
   }
 
   std::string_view mode_str = {};
-  std::vector<std::string> files =
-      has_reference ? expand_file_operands(ctx, 0) : expand_file_operands(ctx, 1);
+  std::vector<std::string> files = has_reference ? expand_file_operands(ctx, 0)
+                                                 : expand_file_operands(ctx, 1);
   if (!has_reference) {
     mode_str = ctx.positionals[0];
     auto mode_result = parse_mode(mode_str);

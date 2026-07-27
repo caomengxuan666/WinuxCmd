@@ -51,12 +51,12 @@ auto constexpr NUMFMT_OPTIONS = std::array{
     OPTION("", "--to", "autoconvert to X", STRING_TYPE),
     OPTION("", "--round", "use METHOD for rounding", STRING_TYPE),
     OPTION("", "--padding", "pad numbers to width N", INT_TYPE),
-    OPTION("-f", "--format",
-           "use printf style floating-point FORMAT", STRING_TYPE),
-    OPTION("", "--header",
-           "print the first N header lines unchanged", INT_TYPE),
-    OPTION("", "--grouping",
-           "group digits with locale thousands separator", BOOL_TYPE),
+    OPTION("-f", "--format", "use printf style floating-point FORMAT",
+           STRING_TYPE),
+    OPTION("", "--header", "print the first N header lines unchanged",
+           INT_TYPE),
+    OPTION("", "--grouping", "group digits with locale thousands separator",
+           BOOL_TYPE),
     OPTION("", "--invalid",
            "set policy for invalid values: 'abort' (default), 'warn', 'ignore'",
            STRING_TYPE)};
@@ -197,7 +197,10 @@ REGISTER_COMMAND(
   int header = 0;
   auto header_str = ctx.get<std::string>("--header", "0");
   if (!header_str.empty()) {
-    try { header = std::stoi(header_str); } catch (...) {}
+    try {
+      header = std::stoi(header_str);
+    } catch (...) {
+    }
   }
   bool grouping = ctx.get<bool>("--grouping", false);
   std::string invalid_policy = ctx.get<std::string>("--invalid", "abort");

@@ -1,6 +1,6 @@
-#include "framework/winuxtest.h"
-
 #include <aclapi.h>
+
+#include "framework/winuxtest.h"
 
 namespace {
 
@@ -65,10 +65,10 @@ auto get_owner_name_for_path(const std::filesystem::path& path) -> std::string {
   PSECURITY_DESCRIPTOR security_desc = nullptr;
   PSID owner_sid = nullptr;
 
-  const DWORD status = GetNamedSecurityInfoW(
-      const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
-      OWNER_SECURITY_INFORMATION, &owner_sid, nullptr, nullptr, nullptr,
-      &security_desc);
+  const DWORD status =
+      GetNamedSecurityInfoW(const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
+                            OWNER_SECURITY_INFORMATION, &owner_sid, nullptr,
+                            nullptr, nullptr, &security_desc);
   if (status != ERROR_SUCCESS) {
     if (security_desc != nullptr) {
       LocalFree(security_desc);
@@ -88,10 +88,10 @@ auto get_group_name_for_path(const std::filesystem::path& path) -> std::string {
   PSECURITY_DESCRIPTOR security_desc = nullptr;
   PSID group_sid = nullptr;
 
-  const DWORD status = GetNamedSecurityInfoW(
-      const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
-      GROUP_SECURITY_INFORMATION, nullptr, &group_sid, nullptr, nullptr,
-      &security_desc);
+  const DWORD status =
+      GetNamedSecurityInfoW(const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
+                            GROUP_SECURITY_INFORMATION, nullptr, &group_sid,
+                            nullptr, nullptr, &security_desc);
   if (status != ERROR_SUCCESS) {
     if (security_desc != nullptr) {
       LocalFree(security_desc);
@@ -287,8 +287,7 @@ TEST(chown, chown_dot_separator_owner_form_warns) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stderr_text,
-                 "chown: warning: '.' should be ':'\n");
+  EXPECT_EQ_TEXT(r.stderr_text, "chown: warning: '.' should be ':'\n");
 }
 
 TEST(chown, chown_dot_separator_owner_group_form_warns) {
@@ -301,8 +300,7 @@ TEST(chown, chown_dot_separator_owner_group_form_warns) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stderr_text,
-                 "chown: warning: '.' should be ':'\n");
+  EXPECT_EQ_TEXT(r.stderr_text, "chown: warning: '.' should be ':'\n");
 }
 
 TEST(chown, chown_invalid_from_user_fails) {
@@ -311,8 +309,7 @@ TEST(chown, chown_invalid_from_user_fails) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chown.exe",
-        {L"--from=nonexistent_user_xyz", L"Users", L"file.txt"});
+  p.add(L"chown.exe", {L"--from=nonexistent_user_xyz", L"Users", L"file.txt"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
@@ -358,9 +355,8 @@ TEST(chown, chown_from_mismatching_group_skips_reference_processing) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chown.exe",
-        {utf8_to_wstring("--from=:" + mismatch_group), L"-v",
-         L"--reference=reference.txt", L"target.txt"});
+  p.add(L"chown.exe", {utf8_to_wstring("--from=:" + mismatch_group), L"-v",
+                       L"--reference=reference.txt", L"target.txt"});
 
   auto r = p.run();
 
@@ -390,9 +386,8 @@ TEST(chown, chown_from_mismatching_group_skips_direct_processing) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chown.exe",
-        {utf8_to_wstring("--from=:" + mismatch_group), L"-v", L":Users",
-         L"target.txt"});
+  p.add(L"chown.exe", {utf8_to_wstring("--from=:" + mismatch_group), L"-v",
+                       L":Users", L"target.txt"});
 
   auto r = p.run();
 
@@ -416,9 +411,8 @@ TEST(chown, chown_from_matching_group_reference_avoids_placeholder_warning) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chown.exe",
-        {utf8_to_wstring("--from=:" + current_group), L"-v",
-         L"--reference=reference.txt", L"target.txt"});
+  p.add(L"chown.exe", {utf8_to_wstring("--from=:" + current_group), L"-v",
+                       L"--reference=reference.txt", L"target.txt"});
 
   auto r = p.run();
 
@@ -441,9 +435,8 @@ TEST(chown, chown_from_matching_group_direct_avoids_placeholder_warning) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chown.exe",
-        {utf8_to_wstring("--from=:" + current_group), L"-v", L":Users",
-         L"target.txt"});
+  p.add(L"chown.exe", {utf8_to_wstring("--from=:" + current_group), L"-v",
+                       L":Users", L"target.txt"});
 
   auto r = p.run();
 
@@ -503,10 +496,9 @@ TEST(chown, chown_preserve_root_recursive_root_failsafe) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "chown: it is dangerous to operate recursively on '/'\n"
-      "chown: use --no-preserve-root to override this failsafe\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "chown: it is dangerous to operate recursively on '/'\n"
+                 "chown: use --no-preserve-root to override this failsafe\n");
 }
 
 TEST(chown, chown_no_args_fails) {

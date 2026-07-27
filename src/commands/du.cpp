@@ -86,8 +86,7 @@ auto constexpr DU_OPTIONS = std::array{
            "dereference only symlinks that are command line arguments"),
     OPTION("", "--si", "print sizes in powers of 1000 (e.g., 1.1G)"),
     OPTION("-k", "", "like --block-size=1K"),
-    OPTION("-L", "--dereference",
-           "dereference all symbolic links"),
+    OPTION("-L", "--dereference", "dereference all symbolic links"),
     OPTION("-P", "--no-dereference",
            "don't follow any symbolic links (default)"),
     OPTION("-s", "--summarize", "display only a total for each argument"),
@@ -106,16 +105,15 @@ auto constexpr DU_OPTIONS = std::array{
     OPTION("-D", "--dereference-args",
            "dereference only symlinks that are command line arguments"),
     OPTION("", "--files0-from",
-           "summarize disk usage of the NUL-terminated file names specified in file F",
+           "summarize disk usage of the NUL-terminated file names specified in "
+           "file F",
            STRING_TYPE),
-    OPTION("-l", "--count-links",
-           "count sizes many times if hard linked"),
+    OPTION("-l", "--count-links", "count sizes many times if hard linked"),
     OPTION("-m", "", "like --block-size=1M"),
     OPTION("-S", "--separate-dirs",
            "for directories, do not include size of subdirectories"),
     OPTION("-X", "--exclude-from",
-           "exclude files that match any pattern in FILE",
-           STRING_TYPE)};
+           "exclude files that match any pattern in FILE", STRING_TYPE)};
 
 // ======================================================
 // Pipeline components
@@ -346,14 +344,14 @@ struct DuConfig {
   bool count_all = false;
   bool total = false;
   bool summarize = false;
-  bool dereference = false;       // -L
-  bool one_file_system = false;   // -x
-  bool show_inodes = false;       // --inodes
-  bool null_terminated = false;   // -0
-  bool separate_dirs = false;     // -S
-  bool show_time = false;         // --time
+  bool dereference = false;      // -L
+  bool one_file_system = false;  // -x
+  bool show_inodes = false;      // --inodes
+  bool null_terminated = false;  // -0
+  bool separate_dirs = false;    // -S
+  bool show_time = false;        // --time
   DuTimeMode time_mode = DuTimeMode::Modification;
-  std::string time_word;          // --time
+  std::string time_word;  // --time
   int max_depth = -1;
   ThresholdMode threshold_mode = ThresholdMode::None;
   uint64_t threshold_size = 0;
@@ -579,10 +577,10 @@ auto configure_du(const CommandContext<DU_OPTIONS.size()>& ctx)
     }
   }
 
-  cfg.dereference = ctx.get<bool>("--dereference", false) ||
-                    ctx.get<bool>("-L", false);
-  cfg.one_file_system = ctx.get<bool>("--one-file-system", false) ||
-                        ctx.get<bool>("-x", false);
+  cfg.dereference =
+      ctx.get<bool>("--dereference", false) || ctx.get<bool>("-L", false);
+  cfg.one_file_system =
+      ctx.get<bool>("--one-file-system", false) || ctx.get<bool>("-x", false);
   cfg.show_inodes = ctx.get<bool>("--inodes", false);
   cfg.null_terminated =
       ctx.get<bool>("--null", false) || ctx.get<bool>("-0", false);
@@ -726,9 +724,9 @@ auto calculate_dir_size(const std::wstring& path,
     if (cfg.one_file_system && !drive.empty() && full_path.size() >= 2 &&
         full_path[1] == L':') {
       std::wstring file_drive = full_path.substr(0, 2);
-        if (file_drive != drive) {
-          continue;
-        }
+      if (file_drive != drive) {
+        continue;
+      }
     }
 
     const int child_depth = current_depth + 1;
@@ -864,7 +862,8 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
 
     if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
       // Calculate directory size
-      UsageSummary dir_summary = calculate_dir_size(wpath, sizes, times, 0, cfg);
+      UsageSummary dir_summary =
+          calculate_dir_size(wpath, sizes, times, 0, cfg);
 
       // Print directory size
       uint64_t dir_size = sizes[wpath];
@@ -923,7 +922,8 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
           WIN32_FILE_ATTRIBUTE_DATA file_data{};
           if (GetFileAttributesExW(wpath.c_str(), GetFileExInfoStandard,
                                    &file_data)) {
-            file_summary.latest_time = get_selected_time(file_data, cfg.time_mode);
+            file_summary.latest_time =
+                get_selected_time(file_data, cfg.time_mode);
             file_summary.has_time = true;
           }
         }

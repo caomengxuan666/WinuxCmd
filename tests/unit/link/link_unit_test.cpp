@@ -80,10 +80,9 @@ TEST(link, link_unknown_option_reports_gnu_style_parse_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "link: unrecognized option '--bogus'\n"
-      "Try 'link --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "link: unrecognized option '--bogus'\n"
+                 "Try 'link --help' for more information.\n");
 }
 
 TEST(link, link_version_succeeds) {

@@ -190,8 +190,9 @@ void print_machine_readable(HANDLE hCon) {
   // Output in stty-readable format: colon-separated hex values
   // intr:03 quit:1c erase:7f kill:15 eof:04 eol:ff eol2:ff swtch:ff
   // start:13 stop:13 susp:1a rprnt:12 werase:17 lnext:16 discard:0f
-  safePrintLn("00:0:4:7f:11:1:1:0:3:1c:15:12:16:0:f:0:1:0:0:0:0:0:0:"
-              "0:0:0:0:0:0:0:0:0:0:0:0:0");
+  safePrintLn(
+      "00:0:4:7f:11:1:1:0:3:1c:15:12:16:0:f:0:1:0:0:0:0:0:0:"
+      "0:0:0:0:0:0:0:0:0:0:0:0:0");
 }
 
 void apply_sane(HANDLE hCon) {
@@ -287,12 +288,11 @@ bool apply_setting(HANDLE hCon, const std::string& setting) {
 
   // Settings that don't map to Windows but we accept silently
   static const std::vector<std::string> accepted = {
-      "ignbrk",  "brkint",  "parmrk", "istrip", "inlcr",  "igncr",
-      "icrnl",   "ixon",    "ixoff",  "iuclc",  "ixany",  "imaxbel",
-      "iutf8",   "opost",   "olcuc",  "ocrnl",  "onlcr",  "onocr",
-      "onlret",  "ofill",   "ofdel",  "echoctl", "echoprt", "echoke",
-      "echok",   "echonl",  "noflsh", "tostop",  "flusho",  "extproc",
-      "pendin",  "echoe"};
+      "ignbrk",  "brkint",  "parmrk", "istrip", "inlcr",   "igncr",  "icrnl",
+      "ixon",    "ixoff",   "iuclc",  "ixany",  "imaxbel", "iutf8",  "opost",
+      "olcuc",   "ocrnl",   "onlcr",  "onocr",  "onlret",  "ofill",  "ofdel",
+      "echoctl", "echoprt", "echoke", "echok",  "echonl",  "noflsh", "tostop",
+      "flusho",  "extproc", "pendin", "echoe"};
 
   for (const auto& a : accepted) {
     if (name == a) return true;
@@ -301,8 +301,8 @@ bool apply_setting(HANDLE hCon, const std::string& setting) {
   // Settings with values
   if (name == "intr" || name == "quit" || name == "erase" || name == "kill" ||
       name == "eof" || name == "eol" || name == "start" || name == "stop" ||
-      name == "susp" || name == "rprnt" || name == "werase" || name == "lnext" ||
-      name == "discard") {
+      name == "susp" || name == "rprnt" || name == "werase" ||
+      name == "lnext" || name == "discard") {
     return true;  // Accept but no-op on Windows
   }
   if (name == "min" || name == "time" || name == "rows" || name == "cols" ||

@@ -32,9 +32,9 @@
 
 #include "pch/pch.h"
 // include other header after pch.h
-#include "core/command_macros.h"
-
 #include <aclapi.h>
+
+#include "core/command_macros.h"
 #pragma comment(lib, "advapi32.lib")
 import std;
 import core;
@@ -45,30 +45,24 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CHGRP_OPTIONS = std::array{
-    OPTION("-c", "--changes", "like verbose but report only when a change is made"),
+    OPTION("-c", "--changes",
+           "like verbose but report only when a change is made"),
     OPTION("-f", "--silent", "suppress most error messages"),
     OPTION("-f", "--quiet", "suppress most error messages"),
-    OPTION("-v", "--verbose",
-           "output a diagnostic for every file processed"),
+    OPTION("-v", "--verbose", "output a diagnostic for every file processed"),
     OPTION("-R", "--recursive", "operate on files and directories recursively"),
     OPTION("-h", "--no-dereference",
            "affect symbolic links instead of any referenced file"),
     OPTION("", "--dereference",
            "affect the referent of each symbolic link (default)"),
-    OPTION("-H", "",
-           "command line symbolic links are followed"),
-    OPTION("-L", "",
-           "indirect symbolic links are followed"),
-    OPTION("-P", "",
-           "no symbolic links are followed (default)"),
-    OPTION("", "--from",
-           "change only if current group is GROUP", STRING_TYPE),
-    OPTION("", "--reference",
-           "use RFILE's group instead of specifying GROUP", STRING_TYPE),
-    OPTION("", "--preserve-root",
-           "fail to operate recursively on '/'"),
-    OPTION("", "--no-preserve-root",
-           "do not treat '/' specially (default)")};
+    OPTION("-H", "", "command line symbolic links are followed"),
+    OPTION("-L", "", "indirect symbolic links are followed"),
+    OPTION("-P", "", "no symbolic links are followed (default)"),
+    OPTION("", "--from", "change only if current group is GROUP", STRING_TYPE),
+    OPTION("", "--reference", "use RFILE's group instead of specifying GROUP",
+           STRING_TYPE),
+    OPTION("", "--preserve-root", "fail to operate recursively on '/'"),
+    OPTION("", "--no-preserve-root", "do not treat '/' specially (default)")};
 
 namespace chgrp_pipeline {
 namespace cp = core::pipeline;
@@ -107,10 +101,9 @@ auto is_numeric_group_id_spec(std::string_view spec) -> bool {
     spec.remove_prefix(1);
   }
 
-  return !spec.empty() &&
-         std::ranges::all_of(spec, [](char ch) { return std::isdigit(
-                                                    static_cast<unsigned char>(
-                                                        ch)) != 0; });
+  return !spec.empty() && std::ranges::all_of(spec, [](char ch) {
+    return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+  });
 }
 
 auto is_valid_group_name(const std::string& group_name) -> bool {
@@ -193,10 +186,10 @@ auto get_group_info_for_path(const std::string& path) -> GroupInfo {
   PSECURITY_DESCRIPTOR security_desc = nullptr;
   PSID group_sid = nullptr;
 
-  const DWORD status = GetNamedSecurityInfoW(
-      const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
-      GROUP_SECURITY_INFORMATION, nullptr, &group_sid, nullptr, nullptr,
-      &security_desc);
+  const DWORD status =
+      GetNamedSecurityInfoW(const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
+                            GROUP_SECURITY_INFORMATION, nullptr, &group_sid,
+                            nullptr, nullptr, &security_desc);
   if (status != ERROR_SUCCESS) {
     if (security_desc != nullptr) {
       LocalFree(security_desc);
@@ -221,11 +214,10 @@ auto group_names_equal(std::string_view lhs, std::string_view rhs) -> bool {
     return false;
   }
 
-  return std::ranges::equal(
-      lhs, rhs, [](char left, char right) {
-        return std::tolower(static_cast<unsigned char>(left)) ==
-               std::tolower(static_cast<unsigned char>(right));
-      });
+  return std::ranges::equal(lhs, rhs, [](char left, char right) {
+    return std::tolower(static_cast<unsigned char>(left)) ==
+           std::tolower(static_cast<unsigned char>(right));
+  });
 }
 
 auto should_process_file(const std::string& file, const Config& cfg) -> bool {
@@ -239,9 +231,9 @@ auto should_process_file(const std::string& file, const Config& cfg) -> bool {
   }
 
   if (is_numeric_group_id_spec(cfg.from_group)) {
-    std::string expected_id =
-        cfg.from_group.front() == ':' ? cfg.from_group.substr(1)
-                                      : cfg.from_group;
+    std::string expected_id = cfg.from_group.front() == ':'
+                                  ? cfg.from_group.substr(1)
+                                  : cfg.from_group;
     return !current_group.numeric_id.empty() &&
            current_group.numeric_id == expected_id;
   }
@@ -263,9 +255,8 @@ auto get_full_path(const std::wstring& path) -> std::wstring {
   }
 
   std::wstring buffer(required, L'\0');
-  DWORD written =
-      GetFullPathNameW(path.c_str(), static_cast<DWORD>(buffer.size()),
-                       buffer.data(), nullptr);
+  DWORD written = GetFullPathNameW(
+      path.c_str(), static_cast<DWORD>(buffer.size()), buffer.data(), nullptr);
   if (written == 0) {
     return {};
   }
@@ -313,7 +304,8 @@ auto build_config(const CommandContext<CHGRP_OPTIONS.size()>& ctx)
   cfg.silent = ctx.get<bool>("-f", false) || ctx.get<bool>("--silent", false) ||
                ctx.get<bool>("--quiet", false);
   cfg.verbose = ctx.get<bool>("-v", false) || ctx.get<bool>("--verbose", false);
-  cfg.recursive = ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);
+  cfg.recursive =
+      ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);
   cfg.no_dereference =
       ctx.get<bool>("-h", false) || ctx.get<bool>("--no-dereference", false);
   cfg.preserve_root = ctx.get<bool>("--preserve-root", false);
@@ -425,12 +417,12 @@ auto change_group(const std::string& file, const std::string& group_name,
   }
 
   // Set the group on the file
-  DWORD result = SetNamedSecurityInfoW(
-      &wfile[0], SE_FILE_OBJECT, GROUP_SECURITY_INFORMATION,
-      NULL,                        // pOwner
-      sid.data(),                  // pGroup
-      NULL,                        // pDacl
-      NULL                         // pSacl
+  DWORD result = SetNamedSecurityInfoW(&wfile[0], SE_FILE_OBJECT,
+                                       GROUP_SECURITY_INFORMATION,
+                                       NULL,        // pOwner
+                                       sid.data(),  // pGroup
+                                       NULL,        // pDacl
+                                       NULL         // pSacl
   );
 
   if (result != ERROR_SUCCESS) {
@@ -559,13 +551,16 @@ REGISTER_COMMAND(
     "\n"
     "Mandatory arguments to long options are mandatory for short options too.\n"
     "\n"
-    "  -c, --changes          like verbose but report only when a change is made\n"
+    "  -c, --changes          like verbose but report only when a change is "
+    "made\n"
     "  -f, --silent           suppress most error messages\n"
     "  -f, --quiet            suppress most error messages\n"
     "  -v, --verbose          output a diagnostic for every file processed\n"
     "  -R, --recursive        operate on files and directories recursively\n"
-    "  -h, --no-dereference   affect symbolic links instead of any referenced file\n"
-    "      --dereference      affect the referent of each symbolic link (default)\n"
+    "  -h, --no-dereference   affect symbolic links instead of any referenced "
+    "file\n"
+    "      --dereference      affect the referent of each symbolic link "
+    "(default)\n"
     "  -H                     command line symbolic links are followed\n"
     "  -L                     indirect symbolic links are followed\n"
     "  -P                     no symbolic links are followed (default)\n"

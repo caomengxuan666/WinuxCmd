@@ -378,8 +378,7 @@ auto sort_processes(std::vector<ProcessInfo>& processes,
 
 // Print processes in simple format
 auto print_simple(const std::vector<ProcessInfo>& processes, bool no_headers,
-                  bool wide_output = true)
-    -> void {
+                  bool wide_output = true) -> void {
   if (!no_headers) {
     safePrintLn(L"  PID TTY          TIME CMD");
   }

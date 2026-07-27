@@ -32,12 +32,13 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "core/command_macros.h"
-#include "pch/pch.h"
-
-#include <csignal>
 #include <fcntl.h>
 #include <io.h>
+
+#include <csignal>
+
+#include "core/command_macros.h"
+#include "pch/pch.h"
 
 #pragma comment(lib, "advapi32.lib")
 import std;
@@ -66,7 +67,8 @@ auto constexpr TEE_OPTIONS = std::array{
     OPTION("-i", "--ignore-interrupts", "ignore interrupt signals"),
     OPTION("-p", "--diagnose", "write errors to standard error"),
     OPTION("", "--output-error",
-           "set behavior on write error: 'warn' (default), 'warn-nopipe', 'exit', 'exit-nopipe'",
+           "set behavior on write error: 'warn' (default), 'warn-nopipe', "
+           "'exit', 'exit-nopipe'",
            STRING_TYPE)};
 
 REGISTER_COMMAND(
@@ -89,7 +91,8 @@ REGISTER_COMMAND(
   bool append = ctx.get<bool>("-a", false) || ctx.get<bool>("--append", false);
   bool ignore_interrupts =
       ctx.get<bool>("-i", false) || ctx.get<bool>("--ignore-interrupts", false);
-  bool diagnose = ctx.get<bool>("-p", false) || ctx.get<bool>("--diagnose", false);
+  bool diagnose =
+      ctx.get<bool>("-p", false) || ctx.get<bool>("--diagnose", false);
 
   auto output_error = ctx.get<std::string>("--output-error", "");
   if (output_error.empty()) {
@@ -123,7 +126,7 @@ REGISTER_COMMAND(
 
   // Open output files
   SmallVector<std::ofstream, 32> file_streams;
-  for (const auto &filename : output_files) {
+  for (const auto& filename : output_files) {
     if (filename == "-") {
       // "-" means stdout, skip opening
       continue;
@@ -193,7 +196,7 @@ REGISTER_COMMAND(
   }
 
   // Close all files
-  for (auto &file : file_streams) {
+  for (auto& file : file_streams) {
     file.close();
     if (file.fail()) {
       safeErrorPrint("tee: error closing file\n");

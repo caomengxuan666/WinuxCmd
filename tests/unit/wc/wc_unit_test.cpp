@@ -311,10 +311,9 @@ TEST(wc, wc_files0_from_stdin_rejects_dash_name) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_TRUE(
-      r.stderr_text.find(
-          "wc: when reading file names from stdin, no file name of '-' allowed") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("wc: when reading file names from stdin, no "
+                                 "file name of '-' allowed") !=
+              std::string::npos);
 }
 
 TEST(wc, wc_files0_from_rejects_named_operands) {

@@ -185,10 +185,9 @@ TEST(diff, diff_rejects_extra_operand_with_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "diff: extra operand 'c'\n"
-      "Try 'diff --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "diff: extra operand 'c'\n"
+                 "Try 'diff --help' for more information.\n");
 }
 
 TEST(diff, diff_missing_all_operands_reports_help_hint) {
@@ -202,10 +201,9 @@ TEST(diff, diff_missing_all_operands_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "diff: missing operand\n"
-      "Try 'diff --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "diff: missing operand\n"
+                 "Try 'diff --help' for more information.\n");
 }
 
 TEST(diff, diff_single_operand_reports_help_hint) {
@@ -219,10 +217,9 @@ TEST(diff, diff_single_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "diff: missing operand after 'a'\n"
-      "Try 'diff --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "diff: missing operand after 'a'\n"
+                 "Try 'diff --help' for more information.\n");
 }
 
 TEST(diff, diff_missing_input_reports_no_such_file) {

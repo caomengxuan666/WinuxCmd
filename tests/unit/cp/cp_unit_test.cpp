@@ -261,8 +261,7 @@ TEST(cp, cp_strip_trailing_slashes_allows_file_source_with_trailing_separator) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"cp.exe",
-        {L"--strip-trailing-slashes", L"source.txt/", L"dest.txt"});
+  p.add(L"cp.exe", {L"--strip-trailing-slashes", L"source.txt/", L"dest.txt"});
 
   auto r = p.run();
 
@@ -270,7 +269,8 @@ TEST(cp, cp_strip_trailing_slashes_allows_file_source_with_trailing_separator) {
   EXPECT_EQ(tmp.read("dest.txt"), "content");
 }
 
-TEST(cp, cp_file_source_with_trailing_separator_still_fails_without_strip_option) {
+TEST(cp,
+     cp_file_source_with_trailing_separator_still_fails_without_strip_option) {
   TempDir tmp;
   tmp.write("source.txt", "content");
 

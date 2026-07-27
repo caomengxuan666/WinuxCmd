@@ -174,8 +174,7 @@ auto run(const Config& cfg) -> int {
 }  // namespace col_pipeline
 
 REGISTER_COMMAND(
-    col, "col",
-    "col [OPTION]...",
+    col, "col", "col [OPTION]...",
     "Filter reverse line feeds from standard input.\n"
     "\n"
     "col filters out reverse (and half-reverse) line feeds so that the output\n"

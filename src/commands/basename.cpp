@@ -66,8 +66,7 @@ struct Config {
 auto build_config(const CommandContext<BASENAME_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
-  bool suffix_option_present =
-      ctx.count({"--suffix", "-s", "--suf"}) > 0;
+  bool suffix_option_present = ctx.count({"--suffix", "-s", "--suf"}) > 0;
   cfg.multiple = ctx.get<bool>("--multiple", false) ||
                  ctx.get<bool>("--mul", false) || ctx.get<bool>("-a", false);
   auto suffix_occurrences = ctx.string_occurrences({"--suffix", "-s", "--suf"});
@@ -126,8 +125,7 @@ auto run(const Config& cfg) -> int {
   }
 
   if (!cfg.multiple && cfg.names.size() > 2) {
-    safeErrorPrintLn(
-        std::format("basename: extra operand '{}'", cfg.names[2]));
+    safeErrorPrintLn(std::format("basename: extra operand '{}'", cfg.names[2]));
     safeErrorPrintLn("Try 'basename --help' for more information.");
     return 1;
   }

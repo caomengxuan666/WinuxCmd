@@ -8,16 +8,15 @@ import core;
 import utils;
 import container;
 
-auto constexpr PINKY_OPTIONS =
-    std::array{OPTION("-l", "", "long format", BOOL_TYPE),
-               OPTION("-b", "", "omit host and user info", BOOL_TYPE),
-               OPTION("-f", "", "omit the line header column", BOOL_TYPE),
-               OPTION("-w", "", "omit the user's full name", BOOL_TYPE),
-               OPTION("-i", "", "omit the user's idle time", BOOL_TYPE),
-               OPTION("-p", "", "omit the user's login time", BOOL_TYPE),
-               OPTION("-s", "", "short format (default)", BOOL_TYPE),
-               OPTION("-q", "", "omit the user's home directory and shell",
-                      BOOL_TYPE)};
+auto constexpr PINKY_OPTIONS = std::array{
+    OPTION("-l", "", "long format", BOOL_TYPE),
+    OPTION("-b", "", "omit host and user info", BOOL_TYPE),
+    OPTION("-f", "", "omit the line header column", BOOL_TYPE),
+    OPTION("-w", "", "omit the user's full name", BOOL_TYPE),
+    OPTION("-i", "", "omit the user's idle time", BOOL_TYPE),
+    OPTION("-p", "", "omit the user's login time", BOOL_TYPE),
+    OPTION("-s", "", "short format (default)", BOOL_TYPE),
+    OPTION("-q", "", "omit the user's home directory and shell", BOOL_TYPE)};
 
 REGISTER_COMMAND(pinky,
                  /* cmd_name */ "pinky",

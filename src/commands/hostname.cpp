@@ -55,16 +55,15 @@ auto constexpr HOSTNAME_OPTIONS = std::array{
     OPTION("-f", "--fqdn", "long host name (FQDN)", BOOL_TYPE),
     OPTION("-a", "--alias", "host alias names (not supported on Windows)",
            BOOL_TYPE),
-    OPTION("-A", "--all-fqdns", "all FQDNs of the host (not supported on Windows)",
-           BOOL_TYPE),
+    OPTION("-A", "--all-fqdns",
+           "all FQDNs of the host (not supported on Windows)", BOOL_TYPE),
     OPTION("-d", "--domain", "DNS domain name", BOOL_TYPE),
-    OPTION("-F", "--file",
-           "read host name or NIS domain name from FILE", STRING_TYPE),
+    OPTION("-F", "--file", "read host name or NIS domain name from FILE",
+           STRING_TYPE),
     OPTION("-y", "--yp", "NIS/YP domain name (not supported on Windows)",
            BOOL_TYPE),
-    OPTION("-n", "--node",
-           "network node hostname (not supported on Windows)", BOOL_TYPE)
-};
+    OPTION("-n", "--node", "network node hostname (not supported on Windows)",
+           BOOL_TYPE)};
 
 namespace hostname_pipeline {
 namespace cp = core::pipeline;

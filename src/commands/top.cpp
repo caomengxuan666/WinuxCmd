@@ -891,9 +891,9 @@ auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
 }
 
 auto parse_priority_class(std::string value) -> std::optional<DWORD> {
-  std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
+  std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
   if (value == "idle") return IDLE_PRIORITY_CLASS;
   if (value == "below" || value == "below_normal")
@@ -1042,8 +1042,9 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
               char input[32];
               if (fgets(input, sizeof(input), stdin)) {
                 DWORD pid = atoi(input);
-                safePrint("Enter priority (idle, below, normal, above, high, "
-                          "realtime, or 0-31): ");
+                safePrint(
+                    "Enter priority (idle, below, normal, above, high, "
+                    "realtime, or 0-31): ");
                 if (fgets(input, sizeof(input), stdin)) {
                   input[strcspn(input, "\n")] = '\0';
                   auto priority = parse_priority_class(input);

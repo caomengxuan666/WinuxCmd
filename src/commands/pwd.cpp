@@ -61,11 +61,10 @@ using cmd::meta::OptionType;
 // Options (constexpr)
 // ======================================================
 
-auto constexpr PWD_OPTIONS =
-    std::array{OPTION(
-                   "-L", "--logical",
-                   "use PWD from environment when it names the current directory"),
-               OPTION("-P", "--physical", "avoid all symlinks")};
+auto constexpr PWD_OPTIONS = std::array{
+    OPTION("-L", "--logical",
+           "use PWD from environment when it names the current directory"),
+    OPTION("-P", "--physical", "avoid all symlinks")};
 
 // ======================================================
 // Pipeline components
@@ -123,9 +122,8 @@ auto is_absolute_pwd_value(const std::string& path) -> bool {
     return true;
   }
 
-  if (path.size() >= 2 &&
-      ((path[0] == '\\' && path[1] == '\\') ||
-       (path[0] == '/' && path[1] == '/'))) {
+  if (path.size() >= 2 && ((path[0] == '\\' && path[1] == '\\') ||
+                           (path[0] == '/' && path[1] == '/'))) {
     return true;
   }
 

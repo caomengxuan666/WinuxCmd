@@ -49,8 +49,7 @@ auto constexpr SPLIT_OPTIONS = std::array{
            STRING_TYPE),
     OPTION("-l", "--lines", "put NUMBER lines per output file", STRING_TYPE),
     OPTION("-n", "--number",
-           "generate CHUNKS output files; see explanation below",
-           STRING_TYPE),
+           "generate CHUNKS output files; see explanation below", STRING_TYPE),
     OPTION("-d", "--numeric-suffixes",
            "use numeric suffixes instead of alphabetic", OPTIONAL_STRING_TYPE),
     OPTION("-x", "--hex-suffixes", "use hexadecimal suffixes",
@@ -69,8 +68,7 @@ auto constexpr SPLIT_OPTIONS = std::array{
            "specifies the NUL character",
            STRING_TYPE),
     OPTION("-u", "--unbuffered",
-           "immediately copy input to output with '-n r/...'")
-};
+           "immediately copy input to output with '-n r/...'")};
 
 namespace split_pipeline {
 namespace cp = core::pipeline;
@@ -624,12 +622,10 @@ auto run(const Config& cfg) -> int {
       const size_t total_records = records.size();
 
       for (int64_t i = 0; i < cfg.num_chunks; ++i) {
-        const size_t start_record =
-            (static_cast<size_t>(i) * total_records) /
-            static_cast<size_t>(cfg.num_chunks);
-        const size_t end_record =
-            (static_cast<size_t>(i + 1) * total_records) /
-            static_cast<size_t>(cfg.num_chunks);
+        const size_t start_record = (static_cast<size_t>(i) * total_records) /
+                                    static_cast<size_t>(cfg.num_chunks);
+        const size_t end_record = (static_cast<size_t>(i + 1) * total_records) /
+                                  static_cast<size_t>(cfg.num_chunks);
 
         std::string_view chunk;
         if (start_record < end_record) {
@@ -667,8 +663,7 @@ auto run(const Config& cfg) -> int {
         if (start >= input.size()) break;
 
         auto result = write_chunk(
-            cfg, part_num,
-            std::string_view(input.data() + start, end - start));
+            cfg, part_num, std::string_view(input.data() + start, end - start));
         if (!result) {
           cp::report_error(result, L"split");
           return 1;

@@ -324,8 +324,8 @@ auto build_config(const CommandContext<SEQ_OPTIONS.size()>& ctx)
     cfg.increment = *increment;
     cfg.last = *last;
   } else {
-    return error_result<Config>("extra operand '" +
-                                std::string(operands[3]) + "'");
+    return error_result<Config>("extra operand '" + std::string(operands[3]) +
+                                "'");
   }
 
   if (cfg.increment == 0.0) {

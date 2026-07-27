@@ -89,10 +89,9 @@ bool has_empty_or_leading_dash_component(const std::string& path) {
 auto windows_path_error(const std::string& path) -> std::optional<std::string> {
   if (path.empty()) return "empty file name";
 
-  bool has_drive_prefix =
-      path.size() >= 2 &&
-      std::isalpha(static_cast<unsigned char>(path[0])) &&
-      path[1] == ':';
+  bool has_drive_prefix = path.size() >= 2 &&
+                          std::isalpha(static_cast<unsigned char>(path[0])) &&
+                          path[1] == ':';
 
   // Check for invalid characters
   const std::string invalid_chars = "<>:\"|?*";
@@ -193,8 +192,8 @@ REGISTER_COMMAND(
     std::string path_str(path);
     std::optional<std::string> error_msg;
 
-    if (path_str.empty() && !check_portability &&
-        !ctx.get<bool>("-P", false) && !ctx.get<bool>("--posix", false) &&
+    if (path_str.empty() && !check_portability && !ctx.get<bool>("-P", false) &&
+        !ctx.get<bool>("--posix", false) &&
         !ctx.get<bool>("--portability", false) &&
         std::getenv("POSIXLY_CORRECT") == nullptr) {
       error_msg = "No such file or directory";

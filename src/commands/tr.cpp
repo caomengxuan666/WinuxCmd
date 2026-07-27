@@ -162,9 +162,9 @@ auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
       std::string_view name = str.substr(2, close - 2);
       auto chars = ascii_class(name);
       if (!chars) {
-        return std::unexpected(make_dynamic_error(
-            std::string("invalid character class '") + std::string(name) +
-            "'"));
+        return std::unexpected(
+            make_dynamic_error(std::string("invalid character class '") +
+                               std::string(name) + "'"));
       }
       str = str.substr(close + 2);
       return *chars;
@@ -482,7 +482,8 @@ REGISTER_COMMAND(
     if (cfg_result.error() == "missing operand after set1 for delete+squeeze") {
       safeErrorPrintLn(
           std::format("tr: missing operand after '{}'", ctx.positionals[0]));
-      safeErrorPrintLn("Two strings must be given when deleting and squeezing.");
+      safeErrorPrintLn(
+          "Two strings must be given when deleting and squeezing.");
       safeErrorPrintLn("Try 'tr --help' for more information.");
       return 1;
     }

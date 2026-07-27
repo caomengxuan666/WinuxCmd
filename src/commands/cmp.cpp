@@ -75,8 +75,7 @@ auto parse_unsigned_with_base_prefix(std::string_view text)
 
   int base = 10;
   size_t prefix_len = 0;
-  if (text.size() > 2 && text[0] == '0' &&
-      (text[1] == 'x' || text[1] == 'X')) {
+  if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
     base = 16;
     prefix_len = 2;
   } else if (text.size() > 1 && text[0] == '0') {
@@ -88,9 +87,9 @@ auto parse_unsigned_with_base_prefix(std::string_view text)
 
   for (char ch : digits) {
     unsigned char uch = static_cast<unsigned char>(ch);
-    bool ok = std::isdigit(uch) ||
-              (base == 16 && ((ch >= 'a' && ch <= 'f') ||
-                              (ch >= 'A' && ch <= 'F')));
+    bool ok =
+        std::isdigit(uch) ||
+        (base == 16 && ((ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')));
     if (!ok) return std::nullopt;
   }
 
@@ -209,10 +208,9 @@ auto build_config(const CommandContext<CMP_OPTIONS.size()>& ctx)
   }
 
   if (raw_positionals.size() < 2) {
-    return std::unexpected("missing operand after '" +
-                           (raw_positionals.empty() ? std::string()
-                                                    : raw_positionals[0]) +
-                           "'");
+    return std::unexpected(
+        "missing operand after '" +
+        (raw_positionals.empty() ? std::string() : raw_positionals[0]) + "'");
   }
   if (raw_positionals.size() > 4) {
     return std::unexpected("extra operand '" + raw_positionals[4] + "'");

@@ -145,8 +145,8 @@ REGISTER_COMMAND(unlink,
   BOOL result = remove_unlink_target(wfilename);
   if (!result) {
     DWORD error = GetLastError();
-    safeErrorPrintLn("unlink: cannot unlink '" + expanded[0] + "': " +
-                     describe_unlink_failure(wfilename, error));
+    safeErrorPrintLn("unlink: cannot unlink '" + expanded[0] +
+                     "': " + describe_unlink_failure(wfilename, error));
     return 1;
   }
 

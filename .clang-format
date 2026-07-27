@@ -174,7 +174,7 @@ IndentRequiresClause: true
 IndentWidth:     2
 IndentWrappedFunctionNames: false
 InsertBraces:    false
-InsertNewlineAtEOF: false
+InsertNewlineAtEOF: true
 InsertTrailingCommas: None
 IntegerLiteralSeparator:
   Binary:          0
@@ -191,7 +191,7 @@ KeepEmptyLines:
   AtStartOfFile:   true
 KeepFormFeed:    false
 LambdaBodyIndentation: Signature
-LineEnding:      DeriveLF
+LineEnding:      LF
 MacroBlockBegin: ''
 MacroBlockEnd:   ''
 MainIncludeChar: Quote

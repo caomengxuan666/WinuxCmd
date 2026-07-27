@@ -67,8 +67,8 @@ auto constexpr DATE_OPTIONS = std::array{
     OPTION("-I", "--iso-8601", "output ISO 8601 date/time",
            OPTIONAL_STRING_TYPE),
     OPTION("", "--rfc-3339", "output RFC 3339 date/time", STRING_TYPE),
-    OPTION("-f", "--file",
-           "display date strings from DATEFILE, one per line", STRING_TYPE),
+    OPTION("-f", "--file", "display date strings from DATEFILE, one per line",
+           STRING_TYPE),
     OPTION("", "--universal", "alias for --utc")};
 
 namespace date_pipeline {

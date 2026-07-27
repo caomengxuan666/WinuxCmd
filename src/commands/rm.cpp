@@ -369,7 +369,8 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
   std::wstring wpath = to_extended_path(utf8_to_wstring(path));
   DWORD attr = GetFileAttributesW(wpath.c_str());
 
-  if (cfg.recursive && path_is_current_or_parent_directory(utf8_to_wstring(path))) {
+  if (cfg.recursive &&
+      path_is_current_or_parent_directory(utf8_to_wstring(path))) {
     safeErrorPrint("rm: refusing to remove '.' or '..' directory: skipping '");
     safeErrorPrint(path);
     safeErrorPrint("'\n");
@@ -389,11 +390,13 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
     if (!wvol.empty()) {
       // Normalize: ensure trailing backslash for comparison
       std::wstring norm_path = wpath;
-      if (!norm_path.empty() && norm_path.back() != L'\\' && norm_path.back() != L'/') {
+      if (!norm_path.empty() && norm_path.back() != L'\\' &&
+          norm_path.back() != L'/') {
         norm_path += L'\\';
       }
       std::wstring norm_vol = wvol;
-      if (!norm_vol.empty() && norm_vol.back() != L'\\' && norm_vol.back() != L'/') {
+      if (!norm_vol.empty() && norm_vol.back() != L'\\' &&
+          norm_vol.back() != L'/') {
         norm_vol += L'\\';
       }
       if (_wcsicmp(norm_path.c_str(), norm_vol.c_str()) == 0) {

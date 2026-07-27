@@ -105,8 +105,7 @@ TEST(sync, sync_data_without_files_reports_gnu_style_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(r.stderr_text,
-                 "sync: --data needs at least one argument\n");
+  EXPECT_EQ_TEXT(r.stderr_text, "sync: --data needs at least one argument\n");
 }
 
 TEST(sync, sync_data_and_file_system_are_mutually_exclusive) {
@@ -162,10 +161,9 @@ TEST(sync, sync_unknown_option_reports_gnu_style_parse_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sync: unrecognized option '--bogus'\n"
-      "Try 'sync --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sync: unrecognized option '--bogus'\n"
+                 "Try 'sync --help' for more information.\n");
 }
 
 TEST(sync, sync_nonexistent_file) {
@@ -194,8 +192,7 @@ TEST(sync, sync_multiple_nonexistent_files_report_all_errors) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sync: error opening 'bad1': No such file or directory\n"
-      "sync: error opening 'bad2': No such file or directory\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sync: error opening 'bad1': No such file or directory\n"
+                 "sync: error opening 'bad2': No such file or directory\n");
 }

@@ -27,10 +27,10 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
+#include <aclapi.h>
+
 #include "core/command_macros.h"
 #include "pch/pch.h"
-
-#include <aclapi.h>
 
 #pragma comment(lib, "advapi32.lib")
 
@@ -103,9 +103,8 @@ struct OwnershipInfo {
 
 auto is_numeric_id(const std::string& value) -> bool {
   return !value.empty() &&
-         std::all_of(value.begin(), value.end(), [](unsigned char ch) {
-           return std::isdigit(ch) != 0;
-         });
+         std::all_of(value.begin(), value.end(),
+                     [](unsigned char ch) { return std::isdigit(ch) != 0; });
 }
 
 auto lookup_account_type(const std::string& account_name)
@@ -239,11 +238,10 @@ auto get_ownership_info_for_path(const std::string& path) -> OwnershipInfo {
     return {};
   }
 
-  OwnershipInfo info{
-      .owner_name = lookup_account_name_from_sid(owner_sid),
-      .owner_id = lookup_account_id_from_sid(owner_sid),
-      .group_name = lookup_account_name_from_sid(group_sid),
-      .group_id = lookup_account_id_from_sid(group_sid)};
+  OwnershipInfo info{.owner_name = lookup_account_name_from_sid(owner_sid),
+                     .owner_id = lookup_account_id_from_sid(owner_sid),
+                     .group_name = lookup_account_name_from_sid(group_sid),
+                     .group_id = lookup_account_id_from_sid(group_sid)};
   if (security_desc != nullptr) {
     LocalFree(security_desc);
   }
@@ -269,11 +267,10 @@ auto names_equal_case_insensitive(std::string_view lhs, std::string_view rhs)
     return false;
   }
 
-  return std::ranges::equal(
-      lhs, rhs, [](char left, char right) {
-        return std::tolower(static_cast<unsigned char>(left)) ==
-               std::tolower(static_cast<unsigned char>(right));
-      });
+  return std::ranges::equal(lhs, rhs, [](char left, char right) {
+    return std::tolower(static_cast<unsigned char>(left)) ==
+           std::tolower(static_cast<unsigned char>(right));
+  });
 }
 
 auto matches_from_spec(const OwnerGroupSpec& from,
@@ -310,11 +307,10 @@ auto matches_requested_ownership(const Config& cfg,
     -> bool {
   if (!cfg.owner.empty()) {
     const bool owner_matches =
-        is_numeric_id(cfg.owner)
-            ? (!current_ownership.owner_id.empty() &&
-               current_ownership.owner_id == cfg.owner)
-            : names_equal_case_insensitive(current_ownership.owner_name,
-                                           cfg.owner);
+        is_numeric_id(cfg.owner) ? (!current_ownership.owner_id.empty() &&
+                                    current_ownership.owner_id == cfg.owner)
+                                 : names_equal_case_insensitive(
+                                       current_ownership.owner_name, cfg.owner);
     if (!owner_matches) {
       return false;
     }
@@ -353,9 +349,8 @@ auto get_full_path(const std::wstring& path) -> std::wstring {
   }
 
   std::wstring buffer(required, L'\0');
-  DWORD written =
-      GetFullPathNameW(path.c_str(), static_cast<DWORD>(buffer.size()),
-                       buffer.data(), nullptr);
+  DWORD written = GetFullPathNameW(
+      path.c_str(), static_cast<DWORD>(buffer.size()), buffer.data(), nullptr);
   if (written == 0) {
     return {};
   }
@@ -525,8 +520,8 @@ auto build_config(const CommandContext<CHOWN_OPTIONS.size()>& ctx)
     cfg.group = parsed.group;
     cfg.has_group = parsed.has_group;
 
-    if (auto parsed_valid = validate_owner_group_spec(
-            parsed, std::string(ctx.positionals[0]));
+    if (auto parsed_valid =
+            validate_owner_group_spec(parsed, std::string(ctx.positionals[0]));
         !parsed_valid) {
       return std::unexpected(parsed_valid.error());
     }
@@ -560,7 +555,8 @@ auto process_file(const std::string& path, const Config& cfg) -> int {
   }
 
   const bool needs_current_ownership =
-      cfg.has_from_spec || ((cfg.verbose || cfg.changes) && cfg.has_reference) ||
+      cfg.has_from_spec ||
+      ((cfg.verbose || cfg.changes) && cfg.has_reference) ||
       ((cfg.verbose || cfg.changes) && !cfg.has_reference);
   OwnershipInfo current_ownership;
   if (needs_current_ownership) {

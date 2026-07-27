@@ -48,7 +48,8 @@ TEST(sha512sum, sha512sum_directory_input_reports_is_a_directory) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find("sha512sum: cannot open 'indir' for reading: Is a directory") !=
+      r.stderr_text.find(
+          "sha512sum: cannot open 'indir' for reading: Is a directory") !=
       std::string::npos);
 }
 
@@ -131,11 +132,10 @@ TEST(sha512sum, sha512sum_check) {
 TEST(sha512sum, sha512sum_check_invalid) {
   TempDir tmp;
   tmp.write("test.txt", "hello");
-  tmp.write(
-      "check.sha512",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "00000000000000000000000000000000000000000000000000000000000000  "
-      "test.txt");
+  tmp.write("check.sha512",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "00000000000000000000000000000000000000000000000000000000000000  "
+            "test.txt");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -168,11 +168,10 @@ TEST(sha512sum, sha512sum_check_status_suppresses_output) {
   EXPECT_EQ_TEXT(good_result.stdout_text, "");
   EXPECT_EQ_TEXT(good_result.stderr_text, "");
 
-  tmp.write(
-      "check.sha512",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "00000000000000000000000000000000000000000000000000000000000000  "
-      "check.txt");
+  tmp.write("check.sha512",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "00000000000000000000000000000000000000000000000000000000000000  "
+            "check.txt");
 
   Pipeline bad;
   bad.set_cwd(tmp.wpath());
@@ -206,11 +205,10 @@ TEST(sha512sum, sha512sum_check_quiet_suppresses_ok_lines_only) {
   EXPECT_EQ_TEXT(good_result.stdout_text, "");
   EXPECT_EQ_TEXT(good_result.stderr_text, "");
 
-  tmp.write(
-      "check.sha512",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "00000000000000000000000000000000000000000000000000000000000000  "
-      "check.txt");
+  tmp.write("check.sha512",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "00000000000000000000000000000000000000000000000000000000000000  "
+            "check.txt");
 
   Pipeline bad;
   bad.set_cwd(tmp.wpath());
@@ -233,18 +231,18 @@ TEST(sha512sum, sha512sum_check_directory_input_reports_is_a_directory) {
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 1);
-  EXPECT_TRUE(result.stderr_text.find(
-                  "sha512sum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find(
+          "sha512sum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
 TEST(sha512sum, sha512sum_check_reports_unreadable_listed_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha512",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "00000000000000000000000000000000000000000000000000000000000000  "
-      "missing.txt\n");
+  tmp.write("check.sha512",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "00000000000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
@@ -253,8 +251,9 @@ TEST(sha512sum, sha512sum_check_reports_unreadable_listed_files) {
 
   EXPECT_NE(result.exit_code, 0);
   EXPECT_EQ_TEXT(result.stdout_text, "");
-  EXPECT_TRUE(result.stderr_text.find("cannot open 'missing.txt' for reading") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find("cannot open 'missing.txt' for reading") !=
+      std::string::npos);
   EXPECT_TRUE(result.stderr_text.find(
                   "sha512sum: WARNING: 1 listed file could not be read") !=
               std::string::npos);
@@ -262,14 +261,14 @@ TEST(sha512sum, sha512sum_check_reports_unreadable_listed_files) {
 
 TEST(sha512sum, sha512sum_check_ignore_missing_skips_missing_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha512",
-      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha512",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "00000000000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
-  check.add(L"sha512sum.exe",
-            {L"--ignore-missing", L"-c", L"check.sha512"});
+  check.add(L"sha512sum.exe", {L"--ignore-missing", L"-c", L"check.sha512"});
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 0);
@@ -319,7 +318,8 @@ TEST(sha512sum, sha512sum_check_warn_reports_malformed_line_locations) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(
-      r.stderr_text.find("sha512sum: check.sha512: 1: improperly formatted checksum line") !=
+      r.stderr_text.find(
+          "sha512sum: check.sha512: 1: improperly formatted checksum line") !=
       std::string::npos);
   EXPECT_TRUE(r.stderr_text.find(
                   "sha512sum: WARNING: 1 line is improperly formatted") !=
@@ -338,9 +338,9 @@ TEST(sha512sum, sha512sum_check_without_valid_lines_reports_error) {
 
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
-  EXPECT_TRUE(
-      r.stderr_text.find("sha512sum: check.sha512: no properly formatted checksum lines found") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("sha512sum: check.sha512: no properly "
+                                 "formatted checksum lines found") !=
+              std::string::npos);
 }
 
 TEST(sha512sum, sha512sum_check_strict_rejects_malformed_lines) {
@@ -391,11 +391,9 @@ TEST(sha512sum, sha512sum_short_zero_alias_uses_nul_terminator) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(
-      r.stdout_text,
-      std::string(
-          "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2"
-          "dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c46"
-          "63475c2e5c3adef46f73bcdec043  test.txt\0",
-          139));
+  EXPECT_EQ(r.stdout_text,
+            std::string("9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2"
+                        "dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c46"
+                        "63475c2e5c3adef46f73bcdec043  test.txt\0",
+                        139));
 }

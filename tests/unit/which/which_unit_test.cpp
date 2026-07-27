@@ -42,3 +42,17 @@ TEST(which, which_missing_returns_nonzero) {
 
   EXPECT_EQ(r.exit_code, 1);
 }
+
+TEST(which, which_ignores_directory_named_like_executable) {
+  TempDir tmp;
+  std::filesystem::create_directory(tmp.path / "tool.exe");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"PATH", tmp.wpath());
+  p.add(L"which.exe", {L"tool"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+}

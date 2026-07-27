@@ -246,11 +246,11 @@ auto run(const Config& cfg) -> int {
 }  // namespace more_pipeline
 
 REGISTER_COMMAND(
-    more, "more",
-    "more [OPTION]... [FILE]...",
+    more, "more", "more [OPTION]... [FILE]...",
     "Display the contents of a file, one screenful at a time.\n"
     "\n"
-    "The more command is a filter for paging through text one screen at a time.\n"
+    "The more command is a filter for paging through text one screen at a "
+    "time.\n"
     "\n"
     "Mandatory arguments to long options are mandatory for short options too.\n"
     "\n"

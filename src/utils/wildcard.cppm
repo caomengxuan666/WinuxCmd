@@ -201,7 +201,8 @@ static auto expand_path_components(std::wstring_view pattern)
       std::filesystem::path dir =
           base.empty() ? std::filesystem::path(L".") : base;
       std::error_code iter_ec;
-      for (const auto &entry : std::filesystem::directory_iterator(dir, iter_ec)) {
+      for (const auto &entry :
+           std::filesystem::directory_iterator(dir, iter_ec)) {
         std::wstring filename = entry.path().filename().wstring();
         if (wildcard_match_impl(to_lower_asciiish(segment),
                                 to_lower_asciiish(filename))) {

@@ -40,8 +40,7 @@ TEST(grep, grep_basic_match) {
 
 TEST(grep, grep_crlf_lines_match_line_anchors_and_whole_line) {
   TempDir tmp;
-  tmp.write_bytes("a.txt", {'a', '\r', '\n', 'b', '\r', '\n', 'a', '\r',
-                            '\n'});
+  tmp.write_bytes("a.txt", {'a', '\r', '\n', 'b', '\r', '\n', 'a', '\r', '\n'});
 
   Pipeline anchored;
   anchored.set_cwd(tmp.wpath());
@@ -610,9 +609,8 @@ TEST(grep, grep_strips_utf8_bom) {
 TEST(grep, grep_decodes_utf16le_input) {
   TempDir tmp;
   tmp.write_bytes("a.txt",
-                  {static_cast<char>(0xFF), static_cast<char>(0xFE),
-                   'h', '\0', 'e', '\0', 'l', '\0', 'l', '\0', 'o',
-                   '\0', '\n', '\0'});
+                  {static_cast<char>(0xFF), static_cast<char>(0xFE), 'h', '\0',
+                   'e', '\0', 'l', '\0', 'l', '\0', 'o', '\0', '\n', '\0'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -749,10 +747,8 @@ TEST(grep, grep_wildcard_char_class_in_parent_directory_segment) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("d1\\a.txt:needle one") !=
-              std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("d2\\b.txt:needle two") !=
-              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("d1\\a.txt:needle one") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("d2\\b.txt:needle two") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("d3\\c.txt") == std::string::npos);
 }
 

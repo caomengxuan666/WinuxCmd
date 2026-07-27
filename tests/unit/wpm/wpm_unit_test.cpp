@@ -110,7 +110,9 @@ TEST(wpm, wpm_sources_prefer_builtin_urls_over_stale_local_index) {
             "      \"region\": \"global\",\n"
             "      \"priority\": 10,\n"
             "      \"index_urls\": [\n"
-            "        \"https://raw.githubusercontent.com/unixwin/WinuxCmd/main/wpm-source/index.json\"\n"
+            "        "
+            "\"https://raw.githubusercontent.com/unixwin/WinuxCmd/main/"
+            "wpm-source/index.json\"\n"
             "      ]\n"
             "    }\n"
             "  ],\n"
@@ -157,18 +159,16 @@ TEST(wpm, wpm_info_marks_awk_installable_on_windows_x64) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("Name: awk") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("Version: 1.31.0") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Install state: ready") !=
-              std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Artifact: windows-x64") !=
-              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Install state: ready") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Artifact: windows-x64") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("SHA256: present") != std::string::npos);
 }
 
 TEST(wpm, wpm_search_filters_builtin_packages) {
   TempDir tmp;
   Pipeline p;
-  p.add(L"winuxcmd.exe", {L"wpm", L"search", L"kubernetes", L"--root",
-                          tmp.wpath()});
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"search", L"kubernetes", L"--root", tmp.wpath()});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);

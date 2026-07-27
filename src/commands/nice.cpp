@@ -102,8 +102,7 @@ auto parse_adjustment_value(std::string_view raw) -> std::optional<int> {
   }
 
   int value = 0;
-  auto [ptr, ec] =
-      std::from_chars(raw.data(), raw.data() + raw.size(), value);
+  auto [ptr, ec] = std::from_chars(raw.data(), raw.data() + raw.size(), value);
   if (ec == std::errc::result_out_of_range) {
     bool negative = raw.front() == '-';
     return negative ? -kNiceNoOverflowBound : kNiceNoOverflowBound;
@@ -141,7 +140,8 @@ auto quote_windows_arg(const std::wstring& arg) -> std::wstring {
   return out;
 }
 
-auto build_command_line(std::span<const std::string_view> args) -> std::wstring {
+auto build_command_line(std::span<const std::string_view> args)
+    -> std::wstring {
   std::wstring out;
   bool first = true;
   for (auto arg : args) {
@@ -217,8 +217,8 @@ REGISTER_COMMAND(
                       priority_class, nullptr, nullptr, &si, &pi)) {
     DWORD error = GetLastError();
     safeErrorPrintLn("nice: failed to run command '" +
-                     std::string(ctx.positionals[0]) + "': " +
-                     nice_windows_error_text(error));
+                     std::string(ctx.positionals[0]) +
+                     "': " + nice_windows_error_text(error));
     return nice_command_status_from_create_error(error);
   }
 

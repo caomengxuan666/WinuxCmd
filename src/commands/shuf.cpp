@@ -121,8 +121,8 @@ class DeterministicRng {
   }
 
   auto choose_index(size_t size) -> size_t {
-    return static_cast<size_t>(generate_at_most(
-        static_cast<uint64_t>(size == 0 ? 0 : size - 1)));
+    return static_cast<size_t>(
+        generate_at_most(static_cast<uint64_t>(size == 0 ? 0 : size - 1)));
   }
 
   template <typename T>
@@ -134,34 +134,30 @@ class DeterministicRng {
   void shuffle_prefix(T& vals, size_t amount) {
     amount = std::min(amount, vals.size());
     for (size_t idx = 0; idx < amount; ++idx) {
-      const auto offset = static_cast<size_t>(generate_at_most(
-          static_cast<uint64_t>(vals.size() - idx - 1)));
+      const auto offset = static_cast<size_t>(
+          generate_at_most(static_cast<uint64_t>(vals.size() - idx - 1)));
       std::swap(vals[idx], vals[idx + offset]);
     }
   }
 
  private:
   static constexpr std::array<uint64_t, 24> keccak_round_constants_{
-      0x0000000000000001ull, 0x0000000000008082ull,
-      0x800000000000808Aull, 0x8000000080008000ull,
-      0x000000000000808Bull, 0x0000000080000001ull,
-      0x8000000080008081ull, 0x8000000000008009ull,
-      0x000000000000008Aull, 0x0000000000000088ull,
-      0x0000000080008009ull, 0x000000008000000Aull,
-      0x000000008000808Bull, 0x800000000000008Bull,
-      0x8000000000008089ull, 0x8000000000008003ull,
-      0x8000000000008002ull, 0x8000000000000080ull,
-      0x000000000000800Aull, 0x800000008000000Aull,
-      0x8000000080008081ull, 0x8000000000008080ull,
-      0x0000000080000001ull, 0x8000000080008008ull};
+      0x0000000000000001ull, 0x0000000000008082ull, 0x800000000000808Aull,
+      0x8000000080008000ull, 0x000000000000808Bull, 0x0000000080000001ull,
+      0x8000000080008081ull, 0x8000000000008009ull, 0x000000000000008Aull,
+      0x0000000000000088ull, 0x0000000080008009ull, 0x000000008000000Aull,
+      0x000000008000808Bull, 0x800000000000008Bull, 0x8000000000008089ull,
+      0x8000000000008003ull, 0x8000000000008002ull, 0x8000000000000080ull,
+      0x000000000000800Aull, 0x800000008000000Aull, 0x8000000080008081ull,
+      0x8000000000008080ull, 0x0000000080000001ull, 0x8000000080008008ull};
 
   static constexpr std::array<int, 25> keccak_rho_offsets_{
       0,  1,  62, 28, 27, 36, 44, 6,  55, 20, 3,  10, 43,
       25, 39, 41, 45, 15, 21, 8,  18, 2,  61, 56, 14};
 
   static constexpr std::array<int, 25> keccak_pi_indices_{
-      0,  10, 20, 5,  15, 16, 1,  11, 21, 6,  7,  17, 2,
-      12, 22, 23, 8,  18, 3,  13, 14, 24, 9,  19, 4};
+      0,  10, 20, 5, 15, 16, 1,  11, 21, 6, 7,  17, 2,
+      12, 22, 23, 8, 18, 3,  13, 14, 24, 9, 19, 4};
 
   static constexpr std::array<uint32_t, 4> chacha_constants_{
       0x61707865u, 0x3320646Eu, 0x79622D32u, 0x6B206574u};
@@ -179,8 +175,8 @@ class DeterministicRng {
       std::array<uint64_t, 5> c{};
       std::array<uint64_t, 5> d{};
       for (int x = 0; x < 5; ++x) {
-        c[x] =
-            state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20];
+        c[x] = state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^
+               state[x + 20];
       }
       for (int x = 0; x < 5; ++x) {
         d[x] = c[(x + 4) % 5] ^ std::rotl(c[(x + 1) % 5], 1);
@@ -193,15 +189,13 @@ class DeterministicRng {
 
       std::array<uint64_t, 25> b{};
       for (int i = 0; i < 25; ++i) {
-        b[keccak_pi_indices_[i]] =
-            std::rotl(state[i], keccak_rho_offsets_[i]);
+        b[keccak_pi_indices_[i]] = std::rotl(state[i], keccak_rho_offsets_[i]);
       }
 
       for (int y = 0; y < 5; ++y) {
         for (int x = 0; x < 5; ++x) {
-          state[x + 5 * y] =
-              b[x + 5 * y] ^
-              ((~b[((x + 1) % 5) + 5 * y]) & b[((x + 2) % 5) + 5 * y]);
+          state[x + 5 * y] = b[x + 5 * y] ^ ((~b[((x + 1) % 5) + 5 * y]) &
+                                             b[((x + 2) % 5) + 5 * y]);
         }
       }
 
@@ -376,8 +370,8 @@ class CompatRandomSource {
         }
         return std::unexpected("error reading random source");
       }
-      state_ = state_ * 256 +
-               static_cast<uint64_t>(static_cast<unsigned char>(ch));
+      state_ =
+          state_ * 256 + static_cast<uint64_t>(static_cast<unsigned char>(ch));
       entropy_ = entropy_ * 256 + 255;
     }
 
@@ -538,7 +532,8 @@ auto build_config(const CommandContext<SHUF_OPTIONS.size()>& ctx)
   std::optional<size_t> min_count;
   auto head_count_values = ctx.get_all<std::string>("--head-count");
   auto short_head_count_values = ctx.get_all<std::string>("-n");
-  head_count_values.insert(head_count_values.end(), short_head_count_values.begin(),
+  head_count_values.insert(head_count_values.end(),
+                           short_head_count_values.begin(),
                            short_head_count_values.end());
   for (const auto& count_opt : head_count_values) {
     auto count = parse_unsigned_decimal(count_opt, "invalid line count");
@@ -657,7 +652,8 @@ auto run(const Config& cfg) -> int {
   if (!cfg.random_source.empty()) {
     std::ifstream random_source(cfg.random_source, std::ios::binary);
     if (!random_source) {
-      cp::Result<int> open_result = std::unexpected("cannot open random source");
+      cp::Result<int> open_result =
+          std::unexpected("cannot open random source");
       cp::report_error(open_result, L"shuf");
       return 1;
     }

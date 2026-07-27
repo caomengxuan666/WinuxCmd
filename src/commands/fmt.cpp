@@ -57,11 +57,12 @@ auto constexpr FMT_OPTIONS = std::array{
            BOOL_TYPE),
     OPTION("-u", "--uniform-spacing",
            "one space between words, two after sentences", BOOL_TYPE),
-    OPTION("-x", "--exact-prefix",
-           "do not ignore leading whitespace for -p", BOOL_TYPE),
+    OPTION("-x", "--exact-prefix", "do not ignore leading whitespace for -p",
+           BOOL_TYPE),
     OPTION("-X", "--exact-skip-prefix",
            "do not ignore leading whitespace for -P", BOOL_TYPE),
-    OPTION("-T", "--tab-width", "treat tabs as TABWIDTH spaces when measuring line length",
+    OPTION("-T", "--tab-width",
+           "treat tabs as TABWIDTH spaces when measuring line length",
            STRING_TYPE),
     OPTION("-w", "--width", "maximum line width (default 75)", STRING_TYPE),
     OPTION("-g", "--goal", "goal width (default 93% of width)", STRING_TYPE)};
@@ -103,8 +104,8 @@ auto build_config(const CommandContext<FMT_OPTIONS.size()>& ctx)
   Config cfg;
   cfg.crown_margin =
       ctx.get<bool>("--crown-margin", false) || ctx.get<bool>("-c", false);
-  cfg.preserve_headers = ctx.get<bool>("--preserve-headers", false) ||
-                         ctx.get<bool>("-m", false);
+  cfg.preserve_headers =
+      ctx.get<bool>("--preserve-headers", false) || ctx.get<bool>("-m", false);
   cfg.split_only =
       ctx.get<bool>("--split-only", false) || ctx.get<bool>("-s", false);
   cfg.tagged_paragraph =
@@ -125,8 +126,8 @@ auto build_config(const CommandContext<FMT_OPTIONS.size()>& ctx)
     skip_prefix_opt = ctx.get<std::string>("-P", "");
   }
   cfg.skip_prefix = skip_prefix_opt;
-  cfg.exact_skip_prefix = ctx.get<bool>("--exact-skip-prefix", false) ||
-                          ctx.get<bool>("-X", false);
+  cfg.exact_skip_prefix =
+      ctx.get<bool>("--exact-skip-prefix", false) || ctx.get<bool>("-X", false);
 
   auto width_opt = ctx.get<std::string>("--width", "");
   if (width_opt.empty()) {
@@ -268,8 +269,7 @@ auto indentation_of(std::string_view line) -> std::string {
 
 auto prefix_match(std::string_view line, std::string_view prefix,
                   bool allow_leading_blank_match = true,
-                  bool consume_attachment = true)
-    -> std::optional<size_t> {
+                  bool consume_attachment = true) -> std::optional<size_t> {
   size_t blanks = allow_leading_blank_match ? leading_blank_count(line) : 0;
   if (prefix.empty()) return 0;
   if (line.substr(blanks, prefix.size()) != prefix) return std::nullopt;
@@ -354,7 +354,8 @@ auto append_wrapped_words(std::string& out,
   }
 
   int preferred_width =
-      use_full_width ? cfg.width : (cfg.goal > 0 ? cfg.goal : (cfg.width * 93 / 100));
+      use_full_width ? cfg.width
+                     : (cfg.goal > 0 ? cfg.goal : (cfg.width * 93 / 100));
   preferred_width = std::max(1, std::min(preferred_width, cfg.width));
 
   std::string line;
@@ -415,11 +416,12 @@ auto append_wrapped_words(std::string& out,
           break;
         }
 
-        size_t continuation_cost = end + 1 < word_count ? best_cost[end + 1] : 0;
+        size_t continuation_cost =
+            end + 1 < word_count ? best_cost[end + 1] : 0;
         size_t current_cost =
-            end + 1 == word_count ? 0
-                                  : squared_distance(length, preferred) +
-                                        continuation_cost;
+            end + 1 == word_count
+                ? 0
+                : squared_distance(length, preferred) + continuation_cost;
         if (current_cost < chosen_cost ||
             (current_cost == chosen_cost && end > chosen_end)) {
           chosen_cost = current_cost;
@@ -470,9 +472,8 @@ auto append_wrapped_words(std::string& out,
       if (allow_overfull_tail) {
         size_t remaining_words = words.size() - word_index - 1;
         if (remaining_words == 1) {
-          keep_overfull =
-              squared_distance(candidate, preferred) <=
-              squared_distance(line.size(), preferred);
+          keep_overfull = squared_distance(candidate, preferred) <=
+                          squared_distance(line.size(), preferred);
         } else if (remaining_words == 0 && emitted_wrapped_line) {
           keep_overfull = true;
         }
@@ -606,8 +607,8 @@ auto format_content(const std::string& content, const Config& cfg)
       if (paragraph.front().has_newline) out.push_back('\n');
     } else if (cfg.tagged_paragraph && paragraph.size() > 1 &&
                cfg.prefix.empty() &&
-        indentation_of(paragraph[0].text) ==
-            indentation_of(paragraph[1].text)) {
+               indentation_of(paragraph[0].text) ==
+                   indentation_of(paragraph[1].text)) {
       out += format_group(std::span<const Line>(paragraph.data(), 1), cfg, "");
       out += format_group(
           std::span<const Line>(paragraph.data() + 1, paragraph.size() - 1),
@@ -642,10 +643,9 @@ auto format_content(const std::string& content, const Config& cfg)
       }
     }
 
-    auto skip_prefix_match =
-        prefix_match(line.text, cfg.skip_prefix,
-                     false /* observed Microsoft behavior is exact here */,
-                     false);
+    auto skip_prefix_match = prefix_match(
+        line.text, cfg.skip_prefix,
+        false /* observed Microsoft behavior is exact here */, false);
     if (!cfg.skip_prefix.empty() && skip_prefix_match) {
       flush();
       out += line.text;

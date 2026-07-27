@@ -89,10 +89,9 @@ TEST(unlink, unlink_unknown_option_reports_gnu_style_parse_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "unlink: unrecognized option '--bogus'\n"
-      "Try 'unlink --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "unlink: unrecognized option '--bogus'\n"
+                 "Try 'unlink --help' for more information.\n");
 }
 
 TEST(unlink, unlink_version_succeeds) {
@@ -124,10 +123,9 @@ TEST(unlink, unlink_rejects_multiple_operands) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "unlink: extra operand 'two.txt'\n"
-      "Try 'unlink --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "unlink: extra operand 'two.txt'\n"
+                 "Try 'unlink --help' for more information.\n");
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "one.txt"));
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "two.txt"));
 }
@@ -160,7 +158,8 @@ TEST(unlink, unlink_directory_reports_directory_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(r.stderr_text, "unlink: cannot unlink 'dir': Is a directory\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "unlink: cannot unlink 'dir': Is a directory\n");
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "dir"));
 }
 
@@ -201,10 +200,9 @@ TEST(unlink, unlink_wildcard_multiple_matches_reports_extra_operand_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "unlink: extra operand 'b.txt'\n"
-      "Try 'unlink --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "unlink: extra operand 'b.txt'\n"
+                 "Try 'unlink --help' for more information.\n");
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "a.txt"));
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "b.txt"));
 }

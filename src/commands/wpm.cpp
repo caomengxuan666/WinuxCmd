@@ -61,8 +61,8 @@ constexpr std::string_view kBuiltinIndex = R"json(
 {
   "schema": 1,
   "name": "official",
-  "version": "builtin-2026.07.26",
-  "updated": "2026-07-26",
+  "version": "builtin-2026.07.27",
+  "updated": "2026-07-27",
   "sources": [
     {
       "name": "official-github-raw",
@@ -106,7 +106,7 @@ constexpr std::string_view kBuiltinIndex = R"json(
   "packages": [
     {
       "name": "winuxcmd",
-      "version": "0.13.0",
+      "version": "0.13.2",
       "description": "WinuxCmd core command set",
       "kind": "core",
       "license": "MIT",
@@ -377,7 +377,8 @@ auto merged_sources(const fs::path& root, const nlohmann::json& index)
   std::vector<nlohmann::json> sources;
   std::unordered_set<std::string> builtin_names;
   if (auto builtin = parse_json_text(kBuiltinIndex);
-      builtin && builtin->contains("sources") && (*builtin)["sources"].is_array()) {
+      builtin && builtin->contains("sources") &&
+      (*builtin)["sources"].is_array()) {
     for (const auto& source : (*builtin)["sources"]) {
       if (!source.is_object()) continue;
       sources.push_back(source);
@@ -686,8 +687,8 @@ auto http_get_urlmon(std::wstring_view url) -> HttpResult {
   HttpResult result;
 
   std::array<wchar_t, MAX_PATH> temp_dir{};
-  DWORD temp_len = GetTempPathW(static_cast<DWORD>(temp_dir.size()),
-                                temp_dir.data());
+  DWORD temp_len =
+      GetTempPathW(static_cast<DWORD>(temp_dir.size()), temp_dir.data());
   if (temp_len == 0 || temp_len >= temp_dir.size()) {
     result.error = "URLMon fallback failed to get temp path";
     return result;
@@ -699,9 +700,8 @@ auto http_get_urlmon(std::wstring_view url) -> HttpResult {
     return result;
   }
 
-  HRESULT hr =
-      URLDownloadToFileW(nullptr, std::wstring(url).c_str(), temp_file.data(),
-                         0, nullptr);
+  HRESULT hr = URLDownloadToFileW(nullptr, std::wstring(url).c_str(),
+                                  temp_file.data(), 0, nullptr);
   if (FAILED(hr)) {
     DeleteFileW(temp_file.data());
     result.error =
@@ -1060,8 +1060,8 @@ auto package_state_label(const nlohmann::json& pkg) -> std::string {
 
 auto contains_ci(std::string_view text, std::string_view needle) -> bool {
   if (needle.empty()) return true;
-  return lower_ascii(std::string(text)).find(lower_ascii(std::string(needle))) !=
-         std::string::npos;
+  return lower_ascii(std::string(text))
+             .find(lower_ascii(std::string(needle))) != std::string::npos;
 }
 
 auto package_matches_query(const nlohmann::json& pkg, std::string_view query)
@@ -1467,8 +1467,8 @@ auto print_package_summary(const nlohmann::json& pkg) -> void {
   if (!commands.empty()) commands = " [" + commands + "]";
   std::string category = pkg.value("category", "");
   if (!category.empty()) category = " {" + category + "}";
-  safePrintLn("  [" + package_state_label(pkg) + "] " +
-              pkg.value("name", "") + version + commands + category + " - " +
+  safePrintLn("  [" + package_state_label(pkg) + "] " + pkg.value("name", "") +
+              version + commands + category + " - " +
               pkg.value("description", ""));
 }
 
@@ -1508,8 +1508,8 @@ auto show_info(const Options& opts, std::string_view name) -> int {
     safePrintLn("Type: " + artifact->value("type", ""));
     safePrintLn("URLs: " + std::to_string(artifact_urls(*artifact).size()));
     std::string sha256 = artifact->value("sha256", "");
-    safePrintLn("SHA256: " + std::string(sha256.empty() ? "missing"
-                                                        : "present"));
+    safePrintLn("SHA256: " +
+                std::string(sha256.empty() ? "missing" : "present"));
     size_t file_count =
         artifact->contains("files") && (*artifact)["files"].is_array()
             ? (*artifact)["files"].size()
@@ -1527,8 +1527,12 @@ auto print_usage() -> int {
   safePrintLn("  links list|rebuild|remove     manage WinuxCmd hardlinks");
   safePrintLn("  index status|update           inspect or refresh local index");
   safePrintLn("  source list|use|add           manage index sources");
-  safePrintLn("  list                          list indexed packages and install state");
-  safePrintLn("  search <query>                search names, commands, categories, licenses");
+  safePrintLn(
+      "  list                          list indexed packages and install "
+      "state");
+  safePrintLn(
+      "  search <query>                search names, commands, categories, "
+      "licenses");
   safePrintLn("  info <package>                show package metadata");
   safePrintLn(
       "  install <package>             install package from local index");

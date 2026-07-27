@@ -56,9 +56,9 @@ TEST(sort, sort_missing_file_reports_gnu_shaped_read_error) {
 
 TEST(sort, sort_strips_cr_from_crlf_input_records) {
   TempDir tmp;
-  tmp.write_bytes("a.txt", {'p', 'e', 'a', 'r', '\r', '\n', 'a', 'p', 'p',
-                            'l', 'e', '\r', '\n', 'b', 'a', 'n', 'a', 'n',
-                            'a', '\r', '\n'});
+  tmp.write_bytes("a.txt",
+                  {'p',  'e',  'a', 'r', '\r', '\n', 'a', 'p', 'p',  'l', 'e',
+                   '\r', '\n', 'b', 'a', 'n',  'a',  'n', 'a', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -347,8 +347,7 @@ TEST(sort, sort_rejects_invalid_batch_size_hint) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 2);
-  EXPECT_TRUE(r.stderr_text.find("invalid batch size") !=
-              std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("invalid batch size") != std::string::npos);
 }
 
 TEST(sort, sort_accepts_compress_program_hint) {

@@ -162,12 +162,10 @@ TEST(comm, comm_zero_terminated_records) {
 
 TEST(comm, comm_newline_mode_trims_trailing_cr_from_crlf_records) {
   TempDir tmp;
-  tmp.write_bytes("file1.txt",
-                  {'a', 'p', 'p', 'l', 'e', '\r', '\n',
-                   'b', 'a', 'n', 'a', 'n', 'a', '\r', '\n'});
-  tmp.write_bytes("file2.txt",
-                  {'b', 'a', 'n', 'a', 'n', 'a', '\r', '\n',
-                   'c', 'h', 'e', 'r', 'r', 'y', '\r', '\n'});
+  tmp.write_bytes("file1.txt", {'a', 'p', 'p', 'l', 'e', '\r', '\n', 'b', 'a',
+                                'n', 'a', 'n', 'a', '\r', '\n'});
+  tmp.write_bytes("file2.txt", {'b', 'a', 'n', 'a', 'n', 'a', '\r', '\n', 'c',
+                                'h', 'e', 'r', 'r', 'y', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

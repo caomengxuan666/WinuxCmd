@@ -61,12 +61,11 @@ auto constexpr SHA1SUM_OPTIONS = std::array{
            BOOL_TYPE),
     OPTION("-w", "--warn", "warn about improperly formatted checksum lines",
            BOOL_TYPE),
-    OPTION("", "--tag",
-           "create a BSD-style checksum", BOOL_TYPE),
-    OPTION("-z", "--zero",
-           "end each output line with NUL, not newline", BOOL_TYPE),
-    OPTION("", "--strict",
-           "with --check, exit non-zero for any invalid input", BOOL_TYPE)};
+    OPTION("", "--tag", "create a BSD-style checksum", BOOL_TYPE),
+    OPTION("-z", "--zero", "end each output line with NUL, not newline",
+           BOOL_TYPE),
+    OPTION("", "--strict", "with --check, exit non-zero for any invalid input",
+           BOOL_TYPE)};
 
 namespace sha1sum_pipeline {
 namespace cp = core::pipeline;
@@ -309,8 +308,8 @@ auto run(const Config& cfg) -> int {
     if (!cfg.check_file.empty() && cfg.check_file != "-") {
       file.open(cfg.check_file);
       if (!file) {
-        cp::report_custom_error(L"sha1sum",
-                                utf8_to_wstring(input_open_error(cfg.check_file)));
+        cp::report_custom_error(
+            L"sha1sum", utf8_to_wstring(input_open_error(cfg.check_file)));
         return 1;
       }
       input = &file;

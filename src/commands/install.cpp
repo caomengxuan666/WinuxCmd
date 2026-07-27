@@ -74,8 +74,7 @@ auto constexpr INSTALL_OPTIONS = std::array{
     OPTION("-Z", "",
            "set SELinux security context of destination files to default",
            BOOL_TYPE),
-    OPTION("", "--context",
-           "set SELinux security context of destination files",
+    OPTION("", "--context", "set SELinux security context of destination files",
            OPTIONAL_STRING_TYPE)};
 
 namespace install_pipeline {
@@ -286,8 +285,9 @@ auto run(const Config& cfg) -> int {
         "Windows\n");
   }
   if (cfg.strip && !cfg.strip_program.empty()) {
-    safeErrorPrint("install: warning: --strip-program is not supported on "
-                   "Windows\n");
+    safeErrorPrint(
+        "install: warning: --strip-program is not supported on "
+        "Windows\n");
   }
 
   if (cfg.directory_mode) {

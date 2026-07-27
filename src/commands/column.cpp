@@ -53,8 +53,8 @@ auto constexpr COLUMN_OPTIONS = std::array{
            "specify the columns separator for table output", STRING_TYPE),
     OPTION("-o", "output-separator",
            "specify the columns separator for table output", STRING_TYPE),
-    OPTION("", "--table-name",
-           "specify the table name for JSON or XML output", STRING_TYPE),
+    OPTION("", "--table-name", "specify the table name for JSON or XML output",
+           STRING_TYPE),
     OPTION("-n", "table-name", "specify the table name for JSON or XML output",
            STRING_TYPE),
     OPTION("", "--output-fields",
@@ -153,10 +153,10 @@ auto build_config(const CommandContext<COLUMN_OPTIONS.size()>& ctx)
       ctx.get<bool>("--table-hide", false) || ctx.get<bool>("-H", false);
   cfg.table_empty =
       ctx.get<bool>("--table-empty", false) || ctx.get<bool>("-e", false);
-  cfg.table_no_trunc = ctx.get<bool>("--table-no-trunc", false) ||
-                       ctx.get<bool>("-N", false);
-  cfg.table_noescape = ctx.get<bool>("--table-noescape", false) ||
-                       ctx.get<bool>("-E", false);
+  cfg.table_no_trunc =
+      ctx.get<bool>("--table-no-trunc", false) || ctx.get<bool>("-N", false);
+  cfg.table_noescape =
+      ctx.get<bool>("--table-noescape", false) || ctx.get<bool>("-E", false);
   cfg.json_output =
       ctx.get<bool>("--json", false) || ctx.get<bool>("-J", false);
   cfg.output_width = ctx.get<int>("--output-width", 0);
@@ -337,7 +337,8 @@ auto run(const Config& cfg) -> int {
 
       for (size_t col_idx = 0; col_idx < row.size(); ++col_idx) {
         if (col_idx > 0) {
-          line_output += cfg.output_separator.empty() ? " " : cfg.output_separator;
+          line_output +=
+              cfg.output_separator.empty() ? " " : cfg.output_separator;
         }
 
         size_t width = (col_idx < col_widths.size()) ? col_widths[col_idx]
@@ -407,8 +408,7 @@ auto run(const Config& cfg) -> int {
           }
           safePrint("\"" + key + "\":\"" + row[col_idx] + "\"");
         }
-        safePrintLn("}" +
-                     std::string(row_idx < table.size() - 1 ? "," : ""));
+        safePrintLn("}" + std::string(row_idx < table.size() - 1 ? "," : ""));
       }
       safePrintLn("]");
     }

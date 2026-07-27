@@ -54,9 +54,9 @@ TEST(chroot, chroot_option_surface_reports_windows_limitation) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chroot.exe", {L"--userspec=user:group", L"--groups=users",
-                        L"--skip-chdir", L"jail", L"cmd.exe", L"/c", L"echo",
-                        L"hi"});
+  p.add(L"chroot.exe",
+        {L"--userspec=user:group", L"--groups=users", L"--skip-chdir", L"jail",
+         L"cmd.exe", L"/c", L"echo", L"hi"});
 
   auto r = p.run();
 
