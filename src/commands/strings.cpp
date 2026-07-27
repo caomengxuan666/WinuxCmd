@@ -43,24 +43,30 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr STRINGS_OPTIONS = std::array{
-    OPTION("-a", "--all",
-           "scan each file in its entirety (default)"),
+    OPTION("-a", "--all", "scan each file in its entirety (default)"),
     OPTION("-n", "--bytes",
            "print sequences of at least MIN printable characters (default 4)",
            STRING_TYPE),
     OPTION("-t", "--radix",
-           "print the offset within the file before each string",
-           STRING_TYPE),
+           "print the offset within the file before each string", STRING_TYPE),
     OPTION("-e", "--encoding",
-           "select character encoding: s=7-bit-ascii, S=8-bit-UTF8, b=16-bit-big-endian, l=16-bit-little-endian, B=32-bit-big-endian, L=32-bit-little-endian",
+           "select character encoding: s=7-bit-ascii, S=8-bit-UTF8, "
+           "b=16-bit-big-endian, l=16-bit-little-endian, B=32-bit-big-endian, "
+           "L=32-bit-little-endian",
            STRING_TYPE),
-    OPTION("-o", "",
-           "print offset before each string (alias for -t o)")};
+    OPTION("-o", "", "print offset before each string (alias for -t o)")};
 
 namespace strings_pipeline {
 namespace cp = core::pipeline;
 
-enum class Encoding { ASCII, UTF8, BigEndian16, LittleEndian16, BigEndian32, LittleEndian32 };
+enum class Encoding {
+  ASCII,
+  UTF8,
+  BigEndian16,
+  LittleEndian16,
+  BigEndian32,
+  LittleEndian32
+};
 enum class Radix { None, Octal, Decimal, Hex };
 
 struct Config {
@@ -155,9 +161,7 @@ auto print_offset(size_t offset, Radix radix) -> void {
   }
 }
 
-auto is_printable(unsigned char ch) -> bool {
-  return ch >= 32 && ch <= 126;
-}
+auto is_printable(unsigned char ch) -> bool { return ch >= 32 && ch <= 126; }
 
 auto extract_strings_ascii(const std::vector<uint8_t>& data, size_t min_length,
                            Radix radix) -> void {
@@ -208,8 +212,8 @@ auto extract_strings_utf8(const std::vector<uint8_t>& data, size_t min_length,
   }
 }
 
-auto extract_strings_from_file(const std::string& filename,
-                               const Config& cfg) -> int {
+auto extract_strings_from_file(const std::string& filename, const Config& cfg)
+    -> int {
   std::vector<uint8_t> data;
 
   if (filename.empty() || filename == "-") {
@@ -265,23 +269,28 @@ auto run(const Config& cfg) -> int {
 }  // namespace strings_pipeline
 
 REGISTER_COMMAND(
-    strings, "strings",
-    "strings [OPTION]... [FILE]...",
+    strings, "strings", "strings [OPTION]... [FILE]...",
     "Print printable strings from FILE(s).\n"
     "\n"
-    "For each FILE, write to standard output all printable character sequences\n"
-    "that are at least MIN characters long. With no FILE, read standard input.\n"
+    "For each FILE, write to standard output all printable character "
+    "sequences\n"
+    "that are at least MIN characters long. With no FILE, read standard "
+    "input.\n"
     "\n"
     "Mandatory arguments to long options are mandatory for short options too.\n"
     "\n"
     "  -a, --all                scan each file in its entirety (default)\n"
-    "  -n, --bytes=MIN          print sequences of at least MIN characters (default 4)\n"
-    "  -t, --radix=RADIX        print offset before each string: o=octal, d=decimal, x=hex\n"
+    "  -n, --bytes=MIN          print sequences of at least MIN characters "
+    "(default 4)\n"
+    "  -t, --radix=RADIX        print offset before each string: o=octal, "
+    "d=decimal, x=hex\n"
     "  -e, --encoding=ENCODING  select character encoding:\n"
     "                             s=7-bit-ascii (default), S=8-bit-UTF8,\n"
-    "                             b=16-bit-big-endian, l=16-bit-little-endian,\n"
+    "                             b=16-bit-big-endian, "
+    "l=16-bit-little-endian,\n"
     "                             B=32-bit-big-endian, L=32-bit-little-endian\n"
-    "  -o                       print offset before each string (alias for -t o)\n"
+    "  -o                       print offset before each string (alias for -t "
+    "o)\n"
     "\n"
     "Exit status:\n"
     "  0  if any string was found\n"

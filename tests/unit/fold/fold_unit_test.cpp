@@ -124,11 +124,10 @@ TEST(fold, fold_characters_option) {
 
 TEST(fold, fold_characters_option_counts_utf8_codepoints_without_splitting) {
   TempDir tmp;
-  tmp.write_bytes("utf8.txt",
-                  {static_cast<char>(0xE4), static_cast<char>(0xB8),
-                   static_cast<char>(0xAD), 'a', static_cast<char>(0xE6),
-                   static_cast<char>(0x96), static_cast<char>(0x87), 'b',
-                   '\n'});
+  tmp.write_bytes("utf8.txt", {static_cast<char>(0xE4), static_cast<char>(0xB8),
+                               static_cast<char>(0xAD), 'a',
+                               static_cast<char>(0xE6), static_cast<char>(0x96),
+                               static_cast<char>(0x87), 'b', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -137,21 +136,18 @@ TEST(fold, fold_characters_option_counts_utf8_codepoints_without_splitting) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stdout_text,
-      std::string("\xE4\xB8\xAD"
-                  "a\n"
-                  "\xE6\x96\x87"
-                  "b\n"));
+  EXPECT_EQ_TEXT(r.stdout_text, std::string("\xE4\xB8\xAD"
+                                            "a\n"
+                                            "\xE6\x96\x87"
+                                            "b\n"));
 }
 
 TEST(fold, fold_default_mode_uses_display_width_for_utf8_wide_characters) {
   TempDir tmp;
-  tmp.write_bytes("utf8.txt",
-                  {static_cast<char>(0xE4), static_cast<char>(0xB8),
-                   static_cast<char>(0xAD), 'a', static_cast<char>(0xE6),
-                   static_cast<char>(0x96), static_cast<char>(0x87), 'b',
-                   '\n'});
+  tmp.write_bytes("utf8.txt", {static_cast<char>(0xE4), static_cast<char>(0xB8),
+                               static_cast<char>(0xAD), 'a',
+                               static_cast<char>(0xE6), static_cast<char>(0x96),
+                               static_cast<char>(0x87), 'b', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -160,14 +156,12 @@ TEST(fold, fold_default_mode_uses_display_width_for_utf8_wide_characters) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stdout_text,
-      std::string("\xE4\xB8\xAD"
-                  "\n"
-                  "a\n"
-                  "\xE6\x96\x87"
-                  "\n"
-                  "b\n"));
+  EXPECT_EQ_TEXT(r.stdout_text, std::string("\xE4\xB8\xAD"
+                                            "\n"
+                                            "a\n"
+                                            "\xE6\x96\x87"
+                                            "\n"
+                                            "b\n"));
 }
 
 TEST(fold, fold_rejects_trailing_junk_width) {
@@ -193,9 +187,8 @@ TEST(fold, fold_spaces_breaks_at_last_blank) {
 
 TEST(fold, fold_newline_mode_trims_trailing_cr_from_crlf_records) {
   TempDir tmp;
-  tmp.write_bytes("crlf.txt",
-                  {'a', 'b', 'c', 'd', '\r', '\n',
-                   'e', 'f', 'g', 'h', '\r', '\n'});
+  tmp.write_bytes("crlf.txt", {'a', 'b', 'c', 'd', '\r', '\n', 'e', 'f', 'g',
+                               'h', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

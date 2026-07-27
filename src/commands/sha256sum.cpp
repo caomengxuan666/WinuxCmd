@@ -60,12 +60,11 @@ auto constexpr SHA256SUM_OPTIONS = std::array{
            BOOL_TYPE),
     OPTION("-w", "--warn", "warn about improperly formatted checksum lines",
            BOOL_TYPE),
-    OPTION("", "--tag",
-           "create a BSD-style checksum", BOOL_TYPE),
-    OPTION("-z", "--zero",
-           "end each output line with NUL, not newline", BOOL_TYPE),
-    OPTION("", "--strict",
-           "with --check, exit non-zero for any invalid input", BOOL_TYPE)};
+    OPTION("", "--tag", "create a BSD-style checksum", BOOL_TYPE),
+    OPTION("-z", "--zero", "end each output line with NUL, not newline",
+           BOOL_TYPE),
+    OPTION("", "--strict", "with --check, exit non-zero for any invalid input",
+           BOOL_TYPE)};
 
 namespace sha256sum_pipeline {
 namespace cp = core::pipeline;

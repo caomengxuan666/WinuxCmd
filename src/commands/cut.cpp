@@ -324,11 +324,11 @@ auto cut_fields(std::string_view line, const Config& cfg) -> std::string {
 
   std::string out;
   bool first = true;
-  std::string_view delimiter = cfg.output_delimiter_set
-                                   ? std::string_view(cfg.output_delimiter)
-                                   : (cfg.whitespace_delimited
-                                          ? std::string_view("\t", 1)
-                                          : std::string_view(&cfg.delimiter, 1));
+  std::string_view delimiter =
+      cfg.output_delimiter_set
+          ? std::string_view(cfg.output_delimiter)
+          : (cfg.whitespace_delimited ? std::string_view("\t", 1)
+                                      : std::string_view(&cfg.delimiter, 1));
   for (int idx = 1; idx <= static_cast<int>(fields.size()); ++idx) {
     bool selected = is_selected(idx, cfg.ranges);
     if (cfg.complement) selected = !selected;

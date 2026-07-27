@@ -70,9 +70,8 @@ auto build_config(const CommandContext<YES_OPTIONS.size()>& ctx)
   Config cfg;
 
   if (!ctx.positionals.empty()) {
-    cfg.output = join_yes_args(
-        std::span<const std::string_view>(ctx.positionals.data(),
-                                          ctx.positionals.size()));
+    cfg.output = join_yes_args(std::span<const std::string_view>(
+        ctx.positionals.data(), ctx.positionals.size()));
   }
 
   return cfg;

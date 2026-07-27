@@ -53,8 +53,8 @@ auto constexpr ID_OPTIONS = std::array{
     OPTION("-u", "--user", "print only the effective user ID", BOOL_TYPE),
     OPTION("-Z", "--context",
            "print only the security context (not implemented)", BOOL_TYPE),
-    OPTION("", "--zero",
-           "delimit entries with NUL, not whitespace", BOOL_TYPE)};
+    OPTION("", "--zero", "delimit entries with NUL, not whitespace",
+           BOOL_TYPE)};
 
 namespace id_pipeline {
 namespace cp = core::pipeline;
@@ -118,8 +118,8 @@ auto run(const Config& cfg) -> int {
   } else if (cfg.print_groups) {
     safePrint(user_str + term);
   } else {
-    safePrint("uid=0(" + user_str + ") gid=0(" + user_str +
-              ") groups=0(" + user_str + ")" + term);
+    safePrint("uid=0(" + user_str + ") gid=0(" + user_str + ") groups=0(" +
+              user_str + ")" + term);
   }
 
   return 0;

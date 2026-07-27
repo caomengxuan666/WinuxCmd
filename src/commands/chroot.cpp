@@ -58,8 +58,7 @@ auto run(const Config&) -> int {
 }  // namespace chroot_pipeline
 
 REGISTER_COMMAND(
-    chroot, "chroot",
-    "chroot [OPTION] NEWROOT [COMMAND [ARG]...]",
+    chroot, "chroot", "chroot [OPTION] NEWROOT [COMMAND [ARG]...]",
     "Run COMMAND with root directory set to NEWROOT.\n"
     "\n"
     "WinuxCmd accepts the GNU-compatible command line surface for chroot, but\n"

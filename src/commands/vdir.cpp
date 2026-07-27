@@ -46,9 +46,11 @@ auto constexpr VDIR_OPTIONS = std::array{
     OPTION("-a", "--all", "do not ignore entries starting with ."),
     OPTION("-A", "--almost-all", "do not list implied . and .."),
     OPTION("-b", "--escape", "print C-style escapes for nongraphic characters"),
-    OPTION("-B", "--ignore-backups", "do not list implied entries ending with ~"),
+    OPTION("-B", "--ignore-backups",
+           "do not list implied entries ending with ~"),
     OPTION("-C", "", "list entries by columns"),
-    OPTION("-d", "--directory", "list directories themselves, not their contents"),
+    OPTION("-d", "--directory",
+           "list directories themselves, not their contents"),
     OPTION("-F", "--classify", "append indicator (one of */=>@|) to entries"),
     OPTION("-g", "", "like -l, but do not list owner"),
     OPTION("-h", "--human-readable",
@@ -56,10 +58,12 @@ auto constexpr VDIR_OPTIONS = std::array{
     OPTION("-i", "--inode", "print the index number of each file"),
     OPTION("-l", "", "use a long listing format"),
     OPTION("-m", "", "fill width with a comma separated list of entries"),
-    OPTION("-n", "--numeric-uid-gid", "like -l, but list numeric user and group IDs"),
+    OPTION("-n", "--numeric-uid-gid",
+           "like -l, but list numeric user and group IDs"),
     OPTION("-o", "", "like -l, but do not list group information"),
     OPTION("-p", "", "append / indicator to directories"),
-    OPTION("-q", "--hide-control-chars", "print ? instead of nongraphic characters"),
+    OPTION("-q", "--hide-control-chars",
+           "print ? instead of nongraphic characters"),
     OPTION("-Q", "--quote-name", "enclose entry names in double quotes"),
     OPTION("-r", "--reverse", "reverse order while sorting"),
     OPTION("-R", "--recursive", "list subdirectories recursively"),
@@ -69,7 +73,8 @@ auto constexpr VDIR_OPTIONS = std::array{
     OPTION("-u", "", "with -lt: sort by, and show, access time"),
     OPTION("-U", "", "do not sort; list entries in directory order"),
     OPTION("-v", "", "natural sort of (version) numbers within text"),
-    OPTION("-w", "--width", "assume screen is instead of COLS wide", STRING_TYPE),
+    OPTION("-w", "--width", "assume screen is instead of COLS wide",
+           STRING_TYPE),
     OPTION("-x", "", "list entries by lines across"),
     OPTION("-X", "", "sort alphabetically by entry extension"),
     OPTION("-1", "", "list one file per line")};
@@ -132,8 +137,8 @@ auto run(const CommandContext<VDIR_OPTIONS.size()>& ctx) -> int {
   si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
   si.dwFlags = STARTF_USESTDHANDLES;
 
-  if (!CreateProcessW(NULL, &cmd_line[0], NULL, NULL, TRUE, 0, NULL, NULL,
-                      &si, &pi)) {
+  if (!CreateProcessW(NULL, &cmd_line[0], NULL, NULL, TRUE, 0, NULL, NULL, &si,
+                      &pi)) {
     safeErrorPrintLn("vdir: failed to execute ls");
     return 1;
   }
@@ -159,29 +164,36 @@ REGISTER_COMMAND(
     "\n"
     "  -a, --all                  do not ignore entries starting with .\n"
     "  -A, --almost-all           do not list implied . and ..\n"
-    "  -b, --escape               print C-style escapes for nongraphic characters\n"
+    "  -b, --escape               print C-style escapes for nongraphic "
+    "characters\n"
     "  -B, --ignore-backups       do not list implied entries ending with ~\n"
     "  -C                         list entries by columns\n"
-    "  -d, --directory            list directories themselves, not their contents\n"
+    "  -d, --directory            list directories themselves, not their "
+    "contents\n"
     "  -F, --classify             append indicator (one of */=>@|) to entries\n"
     "  -g                         like -l, but do not list owner\n"
     "  -h, --human-readable       with -l and -s, print sizes like 1K 234M 2G\n"
     "  -i, --inode                print the index number of each file\n"
     "  -l                         use a long listing format (default)\n"
-    "  -m                         fill width with a comma separated list of entries\n"
-    "  -n, --numeric-uid-gid      like -l, but list numeric user and group IDs\n"
+    "  -m                         fill width with a comma separated list of "
+    "entries\n"
+    "  -n, --numeric-uid-gid      like -l, but list numeric user and group "
+    "IDs\n"
     "  -o                         like -l, but do not list group information\n"
     "  -p                         append / indicator to directories\n"
     "  -q, --hide-control-chars   print ? instead of nongraphic characters\n"
     "  -Q, --quote-name           enclose entry names in double quotes\n"
     "  -r, --reverse              reverse order while sorting\n"
     "  -R, --recursive            list subdirectories recursively\n"
-    "  -s, --size                 print the allocated size of each file, in blocks\n"
+    "  -s, --size                 print the allocated size of each file, in "
+    "blocks\n"
     "  -S                         sort by file size, largest first\n"
     "  -t                         sort by time, newest first\n"
     "  -u                         with -lt: sort by, and show, access time\n"
-    "  -U                         do not sort; list entries in directory order\n"
-    "  -v                         natural sort of (version) numbers within text\n"
+    "  -U                         do not sort; list entries in directory "
+    "order\n"
+    "  -v                         natural sort of (version) numbers within "
+    "text\n"
     "  -w, --width=COLS           assume screen is COLS wide\n"
     "  -x                         list entries by lines across\n"
     "  -X                         sort alphabetically by entry extension\n"

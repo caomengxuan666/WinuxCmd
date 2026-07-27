@@ -96,9 +96,9 @@ TEST(sha1sum, sha1sum_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("sha1sum: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "sha1sum: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }
 
 TEST(sha1sum, sha1sum_short_zero_alias_uses_nul_terminator) {
@@ -142,7 +142,8 @@ TEST(sha1sum, sha1sum_check_valid) {
 TEST(sha1sum, sha1sum_check_invalid) {
   TempDir tmp;
   tmp.write("check.txt", "hello\n");
-  tmp.write("check.sha1", "0000000000000000000000000000000000000000  check.txt");
+  tmp.write("check.sha1",
+            "0000000000000000000000000000000000000000  check.txt");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -234,14 +235,16 @@ TEST(sha1sum, sha1sum_check_directory_input_reports_is_a_directory) {
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 1);
-  EXPECT_TRUE(result.stderr_text.find(
-                  "sha1sum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find(
+          "sha1sum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
 TEST(sha1sum, sha1sum_check_reports_unreadable_listed_files) {
   TempDir tmp;
-  tmp.write("check.sha1", "0000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha1",
+            "0000000000000000000000000000000000000000  missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
@@ -250,8 +253,9 @@ TEST(sha1sum, sha1sum_check_reports_unreadable_listed_files) {
 
   EXPECT_NE(result.exit_code, 0);
   EXPECT_EQ_TEXT(result.stdout_text, "");
-  EXPECT_TRUE(result.stderr_text.find("cannot open 'missing.txt' for reading") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find("cannot open 'missing.txt' for reading") !=
+      std::string::npos);
   EXPECT_TRUE(result.stderr_text.find(
                   "sha1sum: WARNING: 1 listed file could not be read") !=
               std::string::npos);
@@ -259,12 +263,12 @@ TEST(sha1sum, sha1sum_check_reports_unreadable_listed_files) {
 
 TEST(sha1sum, sha1sum_check_ignore_missing_skips_missing_files) {
   TempDir tmp;
-  tmp.write("check.sha1", "0000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha1",
+            "0000000000000000000000000000000000000000  missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
-  check.add(L"sha1sum.exe",
-            {L"--ignore-missing", L"-c", L"check.sha1"});
+  check.add(L"sha1sum.exe", {L"--ignore-missing", L"-c", L"check.sha1"});
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 0);
@@ -314,11 +318,12 @@ TEST(sha1sum, sha1sum_check_warn_reports_malformed_line_locations) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(
-      r.stderr_text.find("sha1sum: check.sha1: 1: improperly formatted checksum line") !=
+      r.stderr_text.find(
+          "sha1sum: check.sha1: 1: improperly formatted checksum line") !=
       std::string::npos);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "sha1sum: WARNING: 1 line is improperly formatted") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find("sha1sum: WARNING: 1 line is improperly formatted") !=
+      std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("check.txt: OK") != std::string::npos);
 }
 
@@ -334,7 +339,8 @@ TEST(sha1sum, sha1sum_check_without_valid_lines_reports_error) {
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
   EXPECT_TRUE(
-      r.stderr_text.find("sha1sum: check.sha1: no properly formatted checksum lines found") !=
+      r.stderr_text.find(
+          "sha1sum: check.sha1: no properly formatted checksum lines found") !=
       std::string::npos);
 }
 

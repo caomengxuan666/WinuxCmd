@@ -299,8 +299,7 @@ auto run(const Config& cfg) -> int {
 }  // namespace hexdump_pipeline
 
 REGISTER_COMMAND(
-    hexdump, "hexdump",
-    "hexdump [OPTION]... [FILE]...",
+    hexdump, "hexdump", "hexdump [OPTION]... [FILE]...",
     "Display file contents in hexadecimal, decimal, octal, or ascii.\n"
     "\n"
     "The hexdump utility is a filter which displays the specified files,\n"

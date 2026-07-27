@@ -158,9 +158,8 @@ TEST(tail, tail_obsolete_count_after_options_reports_invalid_context) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("tail: option used in invalid context -- 5") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("tail: option used in invalid context -- 5") !=
+              std::string::npos);
 }
 
 TEST(tail, tail_bare_plus_count_is_treated_as_a_file_operand) {
@@ -293,9 +292,9 @@ TEST(tail, tail_missing_file_reports_gnu_shaped_open_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_TRUE(r.stderr_text.find(
-                  "tail: cannot open 'missing.txt' for reading: "
-                  "No such file or directory") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("tail: cannot open 'missing.txt' for reading: "
+                                 "No such file or directory") !=
+              std::string::npos);
 }
 
 TEST(tail, tail_multi_file_skips_header_for_missing_file) {
@@ -308,9 +307,9 @@ TEST(tail, tail_multi_file_skips_header_for_missing_file) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "tail: cannot open 'missing.txt' for reading: "
-                  "No such file or directory") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("tail: cannot open 'missing.txt' for reading: "
+                                 "No such file or directory") !=
+              std::string::npos);
   EXPECT_EQ(r.stdout_text.find("==> missing.txt <=="), std::string::npos);
   EXPECT_EQ_TEXT(r.stdout_text, "==> a.txt <==\nA2\n");
 }
@@ -326,9 +325,8 @@ TEST(tail, tail_directory_operand_reports_gnu_shaped_read_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_TRUE(
-      r.stderr_text.find("tail: error reading 'dir': Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("tail: error reading 'dir': Is a directory") !=
+              std::string::npos);
 }
 
 TEST(tail, tail_legacy_count_shorthand) {
@@ -367,11 +365,34 @@ TEST(tail, tail_strips_utf8_bom_in_line_mode) {
 
 TEST(tail, tail_decodes_utf16le_input) {
   TempDir tmp;
-  tmp.write_bytes("a.txt",
-                  {static_cast<char>(0xFF), static_cast<char>(0xFE),
-                   'h', '\0', 'e', '\0', 'l', '\0', 'l', '\0', 'o',
-                   '\0', '\n', '\0', 's', '\0', 'e', '\0', 'c', '\0',
-                   'o', '\0', 'n', '\0', 'd', '\0', '\n', '\0'});
+  tmp.write_bytes("a.txt", {static_cast<char>(0xFF),
+                            static_cast<char>(0xFE),
+                            'h',
+                            '\0',
+                            'e',
+                            '\0',
+                            'l',
+                            '\0',
+                            'l',
+                            '\0',
+                            'o',
+                            '\0',
+                            '\n',
+                            '\0',
+                            's',
+                            '\0',
+                            'e',
+                            '\0',
+                            'c',
+                            '\0',
+                            'o',
+                            '\0',
+                            'n',
+                            '\0',
+                            'd',
+                            '\0',
+                            '\n',
+                            '\0'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -453,7 +474,8 @@ TEST(tail, tail_obsolete_from_start_compact_line_suffix) {
   EXPECT_EQ_TEXT(r.stdout_text, "beta\ngamma\n");
 }
 
-TEST(tail, tail_obsolete_from_start_compact_line_suffix_supports_multiple_files) {
+TEST(tail,
+     tail_obsolete_from_start_compact_line_suffix_supports_multiple_files) {
   TempDir tmp;
   tmp.write("a.txt", "a1\na2\na3\n");
   tmp.write("b.txt", "b1\nb2\nb3\n");
@@ -516,10 +538,9 @@ TEST(tail, tail_pid_without_follow_warns_and_still_succeeds) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "gamma\n");
-  EXPECT_TRUE(
-      r.stderr_text.find(
-          "tail: warning: PID ignored; --pid=PID is useful only when "
-          "following") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "tail: warning: PID ignored; --pid=PID is useful only when "
+                  "following") != std::string::npos);
 }
 
 TEST(tail, tail_retry_without_follow_warns_and_still_succeeds) {
@@ -592,9 +613,8 @@ TEST(tail, tail_follow_mode_last_occurrence_wins_to_descriptor) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"tail.exe",
-        {L"--debug", L"-F", L"--follow=descriptor", L"--pid", L"999999",
-         L"a.txt"});
+  p.add(L"tail.exe", {L"--debug", L"-F", L"--follow=descriptor", L"--pid",
+                      L"999999", L"a.txt"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
@@ -609,9 +629,8 @@ TEST(tail, tail_follow_mode_last_occurrence_wins_to_name) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"tail.exe",
-        {L"--debug", L"--follow=descriptor", L"-F", L"--pid", L"999999",
-         L"a.txt"});
+  p.add(L"tail.exe", {L"--debug", L"--follow=descriptor", L"-F", L"--pid",
+                      L"999999", L"a.txt"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);

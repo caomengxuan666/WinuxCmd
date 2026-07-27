@@ -41,7 +41,8 @@ struct Config {
   std::vector<std::string> files;
 };
 
-auto add_file_args(Config& cfg, std::span<const std::string_view> args) -> void {
+auto add_file_args(Config& cfg, std::span<const std::string_view> args)
+    -> void {
   for (auto arg : args) {
     std::string file_arg(arg);
     if (contains_wildcard(file_arg)) {
@@ -83,9 +84,8 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
     if (ctx.positionals.empty()) {
       return std::unexpected("missing file operand");
     }
-    add_file_args(
-        cfg, std::span<const std::string_view>(ctx.positionals.data(),
-                                               ctx.positionals.size()));
+    add_file_args(cfg, std::span<const std::string_view>(
+                           ctx.positionals.data(), ctx.positionals.size()));
   } else {
     if (ctx.positionals.empty()) {
       return std::unexpected("missing operand");
@@ -133,13 +133,15 @@ auto run(const Config& cfg) -> int {
 REGISTER_COMMAND(
     chcon, "chcon",
     "chcon [OPTION]... CONTEXT FILE...\n"
-    "  or:  chcon [OPTION]... [-u USER] [-r ROLE] [-l RANGE] [-t TYPE] FILE...\n"
+    "  or:  chcon [OPTION]... [-u USER] [-r ROLE] [-l RANGE] [-t TYPE] "
+    "FILE...\n"
     "  or:  chcon [OPTION]... --reference=RFILE FILE...",
     "Change the SELinux security context of each FILE.\n"
     "\n"
     "WinuxCmd accepts the GNU-compatible command line surface for chcon, but\n"
     "Windows does not provide SELinux file contexts. This command therefore\n"
-    "acts as a compatibility placeholder and reports that the operation is not\n"
+    "acts as a compatibility placeholder and reports that the operation is "
+    "not\n"
     "supported on Windows.",
     "  chcon system_u:object_r:httpd_sys_content_t:s0 file.txt\n"
     "  chcon -R --type=httpd_sys_content_t public_html\n"

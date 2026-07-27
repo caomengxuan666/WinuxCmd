@@ -44,16 +44,16 @@ using cmd::meta::OptionType;
 // Options (constexpr)
 // ======================================================
 
-auto constexpr OD_OPTIONS =
-    std::array{OPTION("-A", "", "select input base", STRING_TYPE),
-               OPTION("-c", "", "select ASCII output"),
-               OPTION("-j", "", "skip bytes", STRING_TYPE),
-               OPTION("-N", "", "limit bytes", STRING_TYPE),
-               OPTION("-t", "", "select output type", STRING_TYPE),
-               OPTION("-v", "", "write all input data"),
-               OPTION("-x", "", "select hexadecimal 2-byte units"),
-               OPTION("", "--traditional",
-                      "accept arguments in traditional form (e.g., od -x file)")};
+auto constexpr OD_OPTIONS = std::array{
+    OPTION("-A", "", "select input base", STRING_TYPE),
+    OPTION("-c", "", "select ASCII output"),
+    OPTION("-j", "", "skip bytes", STRING_TYPE),
+    OPTION("-N", "", "limit bytes", STRING_TYPE),
+    OPTION("-t", "", "select output type", STRING_TYPE),
+    OPTION("-v", "", "write all input data"),
+    OPTION("-x", "", "select hexadecimal 2-byte units"),
+    OPTION("", "--traditional",
+           "accept arguments in traditional form (e.g., od -x file)")};
 
 // ======================================================
 // Helper functions

@@ -48,7 +48,8 @@ TEST(sha224sum, sha224sum_directory_input_reports_is_a_directory) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find("sha224sum: cannot open 'indir' for reading: Is a directory") !=
+      r.stderr_text.find(
+          "sha224sum: cannot open 'indir' for reading: Is a directory") !=
       std::string::npos);
 }
 
@@ -227,16 +228,17 @@ TEST(sha224sum, sha224sum_check_directory_input_reports_is_a_directory) {
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 1);
-  EXPECT_TRUE(result.stderr_text.find(
-                  "sha224sum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find(
+          "sha224sum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
 TEST(sha224sum, sha224sum_check_reports_unreadable_listed_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha224",
-      "00000000000000000000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha224",
+            "00000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
@@ -245,8 +247,9 @@ TEST(sha224sum, sha224sum_check_reports_unreadable_listed_files) {
 
   EXPECT_NE(result.exit_code, 0);
   EXPECT_EQ_TEXT(result.stdout_text, "");
-  EXPECT_TRUE(result.stderr_text.find("cannot open 'missing.txt' for reading") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find("cannot open 'missing.txt' for reading") !=
+      std::string::npos);
   EXPECT_TRUE(result.stderr_text.find(
                   "sha224sum: WARNING: 1 listed file could not be read") !=
               std::string::npos);
@@ -254,14 +257,13 @@ TEST(sha224sum, sha224sum_check_reports_unreadable_listed_files) {
 
 TEST(sha224sum, sha224sum_check_ignore_missing_skips_missing_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha224",
-      "00000000000000000000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha224",
+            "00000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
-  check.add(L"sha224sum.exe",
-            {L"--ignore-missing", L"-c", L"check.sha224"});
+  check.add(L"sha224sum.exe", {L"--ignore-missing", L"-c", L"check.sha224"});
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 0);
@@ -300,7 +302,8 @@ TEST(sha224sum, sha224sum_check_warn_reports_malformed_line_locations) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(
-      r.stderr_text.find("sha224sum: check.sha224: 1: improperly formatted checksum line") !=
+      r.stderr_text.find(
+          "sha224sum: check.sha224: 1: improperly formatted checksum line") !=
       std::string::npos);
   EXPECT_TRUE(r.stderr_text.find(
                   "sha224sum: WARNING: 1 line is improperly formatted") !=
@@ -319,9 +322,9 @@ TEST(sha224sum, sha224sum_check_without_valid_lines_reports_error) {
 
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
-  EXPECT_TRUE(
-      r.stderr_text.find("sha224sum: check.sha224: no properly formatted checksum lines found") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("sha224sum: check.sha224: no properly "
+                                 "formatted checksum lines found") !=
+              std::string::npos);
 }
 
 TEST(sha224sum, sha224sum_check_strict_rejects_malformed_lines) {
@@ -369,8 +372,7 @@ TEST(sha224sum, sha224sum_short_zero_alias_uses_nul_terminator) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(
       r.stdout_text,
-      std::string(
-          "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362"
-          "  test.txt\0",
-          67));
+      std::string("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362"
+                  "  test.txt\0",
+                  67));
 }

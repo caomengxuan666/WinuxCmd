@@ -117,9 +117,9 @@ TEST(ln, ln_force_readonly_target_reports_gnu_style_remove_error) {
   EXPECT_NE(attrs, INVALID_FILE_ATTRIBUTES);
   bool readonly_set = false;
   if (attrs != INVALID_FILE_ATTRIBUTES) {
-    readonly_set = SetFileAttributesW(
-        link_path.wstring().c_str(),
-        attrs | static_cast<DWORD>(FILE_ATTRIBUTE_READONLY));
+    readonly_set =
+        SetFileAttributesW(link_path.wstring().c_str(),
+                           attrs | static_cast<DWORD>(FILE_ATTRIBUTE_READONLY));
   }
   EXPECT_TRUE(readonly_set);
 
@@ -131,9 +131,9 @@ TEST(ln, ln_force_readonly_target_reports_gnu_style_remove_error) {
 
   DWORD readonly_attrs = GetFileAttributesW(link_path.wstring().c_str());
   if (readonly_attrs != INVALID_FILE_ATTRIBUTES) {
-    SetFileAttributesW(link_path.wstring().c_str(),
-                       readonly_attrs &
-                           ~static_cast<DWORD>(FILE_ATTRIBUTE_READONLY));
+    SetFileAttributesW(
+        link_path.wstring().c_str(),
+        readonly_attrs & ~static_cast<DWORD>(FILE_ATTRIBUTE_READONLY));
   }
 
   EXPECT_EQ(r.exit_code, 1);
@@ -280,6 +280,7 @@ TEST(ln, ln_multiple_sources_require_directory_target) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(r.stderr_text, "ln: target 'not-dir.txt' is not a directory\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "ln: target 'not-dir.txt' is not a directory\n");
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "not-dir.txt~"));
 }

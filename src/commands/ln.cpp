@@ -65,18 +65,12 @@ auto constexpr LN_OPTIONS = std::array{
     OPTION("-n", "--no-dereference",
            "treat LINK_NAME as a normal file if it is a symbolic link to a "
            "directory"),
-    OPTION("-i", "--interactive",
-           "prompt whether to remove destinations"),
-    OPTION("-L", "--logical",
-           "dereference TARGETs that are symbolic links"),
-    OPTION("-P", "--physical",
-           "make hard links directly to symbolic links"),
-    OPTION("", "--dereference",
-           "dereference TARGETs that are symbolic links"),
-    OPTION("-b", "--backup",
-           "make a backup of each existing destination file"),
-    OPTION("-S", "--suffix",
-           "override the usual backup suffix", STRING_TYPE),
+    OPTION("-i", "--interactive", "prompt whether to remove destinations"),
+    OPTION("-L", "--logical", "dereference TARGETs that are symbolic links"),
+    OPTION("-P", "--physical", "make hard links directly to symbolic links"),
+    OPTION("", "--dereference", "dereference TARGETs that are symbolic links"),
+    OPTION("-b", "--backup", "make a backup of each existing destination file"),
+    OPTION("-S", "--suffix", "override the usual backup suffix", STRING_TYPE),
     OPTION("-r", "--relative",
            "with -s, create links relative to link location"),
     OPTION("-t", "--target-directory",
@@ -90,7 +84,7 @@ auto constexpr LN_OPTIONS = std::array{
 namespace ln_pipeline {
 namespace cp = core::pipeline;
 
-auto join_target_path(const std::string& directory, const std::string& source)
+auto join_target_path(const std::string &directory, const std::string &source)
     -> std::string {
   std::string filename = source;
   size_t sep = filename.find_last_of("/\\");
@@ -119,7 +113,7 @@ auto ln_windows_error_text(DWORD error) -> std::string {
   }
 }
 
-auto ln_creation_failure_prefix(bool symbolic, const std::string& target)
+auto ln_creation_failure_prefix(bool symbolic, const std::string &target)
     -> std::string {
   return symbolic ? "failed to create symbolic link '" + target + "'"
                   : "failed to create hard link '" + target + "'";
@@ -270,12 +264,13 @@ REGISTER_COMMAND(
   if (backup && backup_suffix.empty()) backup_suffix = "~";
   std::string target_dir = ctx.get<std::string>("--target-directory", "");
   if (target_dir.empty()) target_dir = ctx.get<std::string>("-t", "");
-  bool no_target_dir =
-      ctx.get<bool>("-T", false) || ctx.get<bool>("--no-target-directory", false);
+  bool no_target_dir = ctx.get<bool>("-T", false) ||
+                       ctx.get<bool>("--no-target-directory", false);
 
   if (!target_dir.empty() && no_target_dir) {
-    safeErrorPrint("ln: cannot combine --target-directory (-t) and "
-                   "--no-target-directory (-T)\n");
+    safeErrorPrint(
+        "ln: cannot combine --target-directory (-t) and "
+        "--no-target-directory (-T)\n");
     return 1;
   }
 
@@ -350,7 +345,7 @@ REGISTER_COMMAND(
     safePrint("ln: creating " + std::to_string(target_count) + " links...\n");
   }
 
-  for (const auto& [source, target] : link_jobs) {
+  for (const auto &[source, target] : link_jobs) {
     // Check if target exists
     std::wstring wtarget = utf8_to_wstring(target);
     DWORD target_attrs = GetFileAttributesW(wtarget.c_str());
@@ -394,8 +389,7 @@ REGISTER_COMMAND(
         }
       } else if (!backup) {
         // No force, no backup, no interactive - error
-        if (!no_target_dir ||
-            (target_attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+        if (!no_target_dir || (target_attrs & FILE_ATTRIBUTE_DIRECTORY)) {
           safeErrorPrint("ln: " + ln_creation_failure_prefix(symbolic, target) +
                          ": File exists\n");
           error_count++;

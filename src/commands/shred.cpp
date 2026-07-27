@@ -19,14 +19,14 @@ auto constexpr SHRED_OPTIONS = std::array{
     OPTION("-z", "--zero",
            "add a final overwrite with zeros to hide shredding"),
     OPTION("-v", "--verbose", "show progress"),
-    OPTION("", "--random-source",
-           "use FILE as the source of random data", STRING_TYPE),
-    OPTION("-s", "--size",
-           "shred only BYTES bytes instead of the whole file", STRING_TYPE),
-    OPTION("-x", "--exact",
-           "do not round file size up to the next full block"),
+    OPTION("", "--random-source", "use FILE as the source of random data",
+           STRING_TYPE),
+    OPTION("-s", "--size", "shred only BYTES bytes instead of the whole file",
+           STRING_TYPE),
+    OPTION("-x", "--exact", "do not round file size up to the next full block"),
     OPTION("", "--remove",
-           "truncate and remove FILE after overwriting; HOW can be 'unlink' or 'wipe'",
+           "truncate and remove FILE after overwriting; HOW can be 'unlink' or "
+           "'wipe'",
            OPTIONAL_STRING_TYPE),
 };
 

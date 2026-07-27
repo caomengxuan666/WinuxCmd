@@ -210,8 +210,8 @@ REGISTER_COMMAND(
       CloseHandle(handle);
     }
     safeErrorPrintLn("nohup: failed to run command '" +
-                     std::string(ctx.positionals[0]) + "': " +
-                     nohup_windows_error_text(error));
+                     std::string(ctx.positionals[0]) +
+                     "': " + nohup_windows_error_text(error));
     return nohup_command_status_from_create_error(error);
   }
 

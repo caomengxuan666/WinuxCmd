@@ -297,8 +297,8 @@ REGISTER_COMMAND(
                       nullptr, nullptr, &si, &pi)) {
     DWORD error = GetLastError();
     safeErrorPrintLn("stdbuf: failed to run command '" +
-                     std::string(ctx.positionals[0]) + "': " +
-                     stdbuf_windows_error_text(error));
+                     std::string(ctx.positionals[0]) +
+                     "': " + stdbuf_windows_error_text(error));
     return stdbuf_command_status_from_create_error(error);
   }
 

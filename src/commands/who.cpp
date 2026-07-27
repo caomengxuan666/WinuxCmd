@@ -58,10 +58,9 @@ auto constexpr WHO_OPTIONS = std::array{
     OPTION("-t", "--time", "print last system clock change", BOOL_TYPE),
     OPTION("-T", "", "add user's message status as +, - or ?", BOOL_TYPE),
     OPTION("-u", "--users", "list users logged in", BOOL_TYPE),
-    OPTION("-w", "--mesg", "add user's message status as +, - or ?",
-           BOOL_TYPE),
-    OPTION("", "--lookup",
-           "attempt to canonicalize hostnames via DNS", BOOL_TYPE)};
+    OPTION("-w", "--mesg", "add user's message status as +, - or ?", BOOL_TYPE),
+    OPTION("", "--lookup", "attempt to canonicalize hostnames via DNS",
+           BOOL_TYPE)};
 
 namespace who_pipeline {
 namespace cp = core::pipeline;

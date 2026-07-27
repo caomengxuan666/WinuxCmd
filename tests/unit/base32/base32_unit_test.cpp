@@ -110,10 +110,9 @@ TEST(base32, base32_rejects_extra_file_operand) {
   auto r = p.run();
 
   EXPECT_NE(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "base32: extra operand 'two.txt'\n"
-      "Try 'base32 --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "base32: extra operand 'two.txt'\n"
+                 "Try 'base32 --help' for more information.\n");
 }
 
 TEST(base32, base32_missing_input_reports_no_such_file) {
@@ -142,9 +141,9 @@ TEST(base32, base32_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("base32: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "base32: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }
 
 TEST(base32, base32_file_operand_glob_expands_single_match) {
@@ -173,8 +172,7 @@ TEST(base32, base32_rejects_wildcard_that_expands_to_multiple_files) {
   auto r = p.run();
 
   EXPECT_NE(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "base32: extra operand 'two.txt'\n"
-      "Try 'base32 --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "base32: extra operand 'two.txt'\n"
+                 "Try 'base32 --help' for more information.\n");
 }

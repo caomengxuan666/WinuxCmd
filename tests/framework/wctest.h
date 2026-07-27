@@ -552,32 +552,33 @@ inline std::string normalize_newlines(std::string s) {
  * @param group Test group/category name
  * @param test_name Individual test name
  */
-#define TEST(group, test_name)                                                 \
-  static void test_fn_##group##_##test_name();                                 \
-  /**                                                                          \
-   * @brief Test runner function with hook integration                         \
-   *                                                                           \
-   * Executes before hooks, runs the test function, executes after hooks,      \
-   * and reports pass/fail status with colored output.                         \
-   */                                                                          \
-  static void test_runner_##group##_##test_name() {                            \
-    for (auto h : wctest::before_hooks()) h(#group, #test_name);               \
-    wctest::current_test_failed = 0;                                           \
-    test_fn_##group##_##test_name();                                           \
-    for (auto h : wctest::after_hooks()) h(#group, #test_name);                \
-    if (!wctest::current_test_failed) {                                        \
-      wctest::set_color(wctest::Color::Green);                                 \
-      std::cout << "  PASSED\n";                                               \
-      wctest::reset_color();                                                   \
-    }                                                                          \
-  }                                                                            \
-  /**                                                                          \
-   * @brief Automatic test registration                                        \
-   *                                                                           \
-   * Registers the test with the global registry during static initialization. \
-   */                                                                          \
-  static wctest::Registrar reg_##group##_##test_name(                          \
-      #group, #test_name, (void (*)()) & test_runner_##group##_##test_name);   \
+#define TEST(group, test_name)                                                   \
+  static void test_fn_##group##_##test_name();                                   \
+  /** \                                                                          \
+   * @brief Test runner function with hook integration \                         \
+   *                                                                           \ \
+   * Executes before hooks, runs the test function, executes after hooks, \      \
+   * and reports pass/fail status with colored output. \                         \
+   */                                                                            \
+  static void test_runner_##group##_##test_name() {                              \
+    for (auto h : wctest::before_hooks()) h(#group, #test_name);                 \
+    wctest::current_test_failed = 0;                                             \
+    test_fn_##group##_##test_name();                                             \
+    for (auto h : wctest::after_hooks()) h(#group, #test_name);                  \
+    if (!wctest::current_test_failed) {                                          \
+      wctest::set_color(wctest::Color::Green);                                   \
+      std::cout << "  PASSED\n";                                                 \
+      wctest::reset_color();                                                     \
+    }                                                                            \
+  }                                                                              \
+  /** \                                                                          \
+   * @brief Automatic test registration \                                        \
+   *                                                                           \ \
+   * Registers the test with the global registry during static initialization.   \
+   * \                                                                           \
+   */                                                                            \
+  static wctest::Registrar reg_##group##_##test_name(                            \
+      #group, #test_name, (void (*)()) & test_runner_##group##_##test_name);     \
   static void test_fn_##group##_##test_name()
 
 // ============================

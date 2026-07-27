@@ -40,8 +40,8 @@ TEST(uniq, uniq_basic_adjacent_behavior) {
 
 TEST(uniq, uniq_strips_cr_from_crlf_input_records) {
   TempDir tmp;
-  tmp.write_bytes("a.txt", {'a', '\r', '\n', 'a', '\r', '\n', 'b', '\r',
-                            '\n', 'a', '\r', '\n'});
+  tmp.write_bytes("a.txt", {'a', '\r', '\n', 'a', '\r', '\n', 'b', '\r', '\n',
+                            'a', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -175,8 +175,9 @@ TEST(uniq, uniq_reports_gnu_shaped_missing_input_diagnostic) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_TRUE(r.stderr_text.find("uniq: missing.txt: No such file or directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find("uniq: missing.txt: No such file or directory") !=
+      std::string::npos);
 }
 
 TEST(uniq, uniq_reports_is_a_directory_for_directory_input) {

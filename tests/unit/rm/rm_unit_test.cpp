@@ -143,8 +143,8 @@ TEST(rm, rm_recursive_removes_directory_junction_without_deleting_target) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "tree" / "link"));
-  EXPECT_TRUE(std::filesystem::exists(tmp.path / "tree" / "target" /
-                                      "keep.txt"));
+  EXPECT_TRUE(
+      std::filesystem::exists(tmp.path / "tree" / "target" / "keep.txt"));
 }
 
 TEST(rm, rm_recursive_refuses_current_or_parent_directory_operands) {

@@ -28,17 +28,16 @@ auto constexpr ENV_OPTIONS = std::array{
     OPTION("-S", "--split-string",
            "process and split S into separate arguments; useful for shebang",
            STRING_TYPE),
-    OPTION("-a", "--argv0",
-           "pass STRING as argv[0] to the command", STRING_TYPE),
+    OPTION("-a", "--argv0", "pass STRING as argv[0] to the command",
+           STRING_TYPE),
     OPTION("-C", "--chdir", "change working directory", STRING_TYPE),
-    OPTION("", "--default-signal",
-           "reset handling of SIG to its default", OPTIONAL_STRING_TYPE),
-    OPTION("", "--ignore-signal",
-           "set handling of SIG to do nothing", OPTIONAL_STRING_TYPE),
-    OPTION("", "--block-signal",
-           "block delivery of SIG to COMMAND", OPTIONAL_STRING_TYPE),
-    OPTION("", "--list-signal-handling",
-           "list non default signal handling"),
+    OPTION("", "--default-signal", "reset handling of SIG to its default",
+           OPTIONAL_STRING_TYPE),
+    OPTION("", "--ignore-signal", "set handling of SIG to do nothing",
+           OPTIONAL_STRING_TYPE),
+    OPTION("", "--block-signal", "block delivery of SIG to COMMAND",
+           OPTIONAL_STRING_TYPE),
+    OPTION("", "--list-signal-handling", "list non default signal handling"),
     OPTION("-v", "--debug", "print extra information about the processing")};
 
 namespace env_pipeline {
@@ -53,7 +52,7 @@ struct Config {
   std::string env_file;
   std::string env_file_error;
   std::string chdir;
-  std::string argv0;  // -a
+  std::string argv0;         // -a
   std::string split_string;  // -S
   size_t debug_level = 0;
   bool debug = false;
@@ -195,7 +194,8 @@ auto resolve_executable(std::string_view program,
 
   for (const auto& dir : get_path_entries()) {
     if (dir.empty()) continue;
-    std::filesystem::path base = std::filesystem::path(dir) / std::string(program);
+    std::filesystem::path base =
+        std::filesystem::path(dir) / std::string(program);
     if (auto match = scan_candidates(base)) {
       return {ExecutableLookupStatus::Found, std::move(match)};
     }
@@ -245,9 +245,8 @@ auto trim_ascii(std::string_view text) -> std::string_view {
          (text[start] == ' ' || text[start] == '\t' || text[start] == '\r')) {
     ++start;
   }
-  while (end > start &&
-         (text[end - 1] == ' ' || text[end - 1] == '\t' ||
-          text[end - 1] == '\r')) {
+  while (end > start && (text[end - 1] == ' ' || text[end - 1] == '\t' ||
+                         text[end - 1] == '\r')) {
     --end;
   }
   return text.substr(start, end - start);
@@ -326,8 +325,8 @@ auto split_string_args(const std::string& s)
     }
   };
 
-  auto append_escape = [&](char escape, bool quoted_double)
-      -> std::optional<bool> {
+  auto append_escape = [&](char escape,
+                           bool quoted_double) -> std::optional<bool> {
     switch (escape) {
       case 'c':
         if (!quoted_double) {
@@ -412,8 +411,8 @@ auto split_string_args(const std::string& s)
         if (stop.value_or(false)) {
           break;
         }
-      } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r' ||
-                 c == '\v' || c == '\f') {
+      } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' ||
+                 c == '\f') {
         push_current();
       } else if (c == '#' && current.empty()) {
         // Comment - rest of string is ignored
@@ -574,11 +573,9 @@ auto quote_arg(const std::wstring& arg) -> std::wstring {
 
 auto build_command_line(const SmallVector<std::string, 32>& command,
                         const std::optional<std::string>& argv0_override =
-                            std::nullopt)
-    -> std::wstring {
-  auto argv0 =
-      argv0_override.has_value() ? utf8_to_wstring(*argv0_override)
-                                 : utf8_to_wstring(command.front());
+                            std::nullopt) -> std::wstring {
+  auto argv0 = argv0_override.has_value() ? utf8_to_wstring(*argv0_override)
+                                          : utf8_to_wstring(command.front());
   std::wstring out = quote_arg(argv0);
   for (size_t i = 1; i < command.size(); ++i) {
     out.push_back(L' ');
@@ -704,8 +701,8 @@ auto run_command(const Config& cfg,
   }
 
   auto cmd_line = build_command_line(
-      cfg.command, cfg.argv0.empty() ? std::nullopt
-                                     : std::optional<std::string>(cfg.argv0));
+      cfg.command,
+      cfg.argv0.empty() ? std::nullopt : std::optional<std::string>(cfg.argv0));
   auto env_block = build_environment_block(vars);
   std::wstring working_directory;
   LPCWSTR working_directory_arg =
@@ -728,9 +725,8 @@ auto run_command(const Config& cfg,
   PROCESS_INFORMATION pi{};
   BOOL ok = CreateProcessW(
       application_name.has_value() ? application_name->c_str() : nullptr,
-      cmd_line.data(), nullptr, nullptr, TRUE,
-                           CREATE_UNICODE_ENVIRONMENT, env_block.data(),
-                           working_directory_arg, &si, &pi);
+      cmd_line.data(), nullptr, nullptr, TRUE, CREATE_UNICODE_ENVIRONMENT,
+      env_block.data(), working_directory_arg, &si, &pi);
   if (!ok) {
     DWORD error = GetLastError();
     safeErrorPrint("env: failed to run command '" + cfg.command.front() +
@@ -788,30 +784,30 @@ auto run(const Config& cfg) -> int {
 
 }  // namespace env_pipeline
 
-REGISTER_COMMAND(env, "env",
-                 "env [OPTION]... [NAME=VALUE]... [COMMAND [ARG]...]",
-                 "Set each NAME to VALUE in the environment and print the\n"
-                 "resulting environment, or run COMMAND in that environment.\n"
-                 "\n"
-                 "  -f, --file           read variables from a .env-style file\n"
-                 "  -S, --split-string   process and split S into arguments\n"
-                 "  -a, --argv0          pass STRING as argv[0] to command\n"
-                 "  -C, --chdir          change working directory\n"
-                 "\n"
-                 "Signal options (accepted, limited Windows support):\n"
-                 "  --default-signal     reset handling of SIG to default\n"
-                 "  --ignore-signal      set handling of SIG to do nothing\n"
-                 "  --block-signal       block delivery of SIG to COMMAND\n"
-                 "  --list-signal-handling  list non default signal handling",
-                 "  env\n"
-                 "  env -i FOO=bar\n"
-                 "  env -f .env command\n"
-                 "  env -u PATH\n"
-                 "  env -S '-i FOO=bar command args'\n"
-                 "  env -a 'myname' command\n"
-                 "  env -C /tmp command",
-                 "printenv(1), which(1)", "WinuxCmd",
-                 "Copyright © 2026 WinuxCmd", ENV_OPTIONS) {
+REGISTER_COMMAND(
+    env, "env", "env [OPTION]... [NAME=VALUE]... [COMMAND [ARG]...]",
+    "Set each NAME to VALUE in the environment and print the\n"
+    "resulting environment, or run COMMAND in that environment.\n"
+    "\n"
+    "  -f, --file           read variables from a .env-style file\n"
+    "  -S, --split-string   process and split S into arguments\n"
+    "  -a, --argv0          pass STRING as argv[0] to command\n"
+    "  -C, --chdir          change working directory\n"
+    "\n"
+    "Signal options (accepted, limited Windows support):\n"
+    "  --default-signal     reset handling of SIG to default\n"
+    "  --ignore-signal      set handling of SIG to do nothing\n"
+    "  --block-signal       block delivery of SIG to COMMAND\n"
+    "  --list-signal-handling  list non default signal handling",
+    "  env\n"
+    "  env -i FOO=bar\n"
+    "  env -f .env command\n"
+    "  env -u PATH\n"
+    "  env -S '-i FOO=bar command args'\n"
+    "  env -a 'myname' command\n"
+    "  env -C /tmp command",
+    "printenv(1), which(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
+    ENV_OPTIONS) {
   using namespace env_pipeline;
 
   auto cfg = build_config(ctx);

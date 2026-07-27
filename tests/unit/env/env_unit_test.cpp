@@ -34,8 +34,8 @@ auto write_argv0_helper(const TempDir& tmp) -> std::filesystem::path {
 
   Pipeline build;
   build.set_cwd(tmp.wpath());
-  build.add(csharp_compiler(), {L"/nologo", L"/out:argv0check.exe",
-                                L"argv0check.cs"});
+  build.add(csharp_compiler(),
+            {L"/nologo", L"/out:argv0check.exe", L"argv0check.cs"});
   auto result = build.run();
   if (result.exit_code != 0 || !std::filesystem::exists(exe)) {
     return {};
@@ -341,15 +341,12 @@ TEST(env, env_debug_shows_overridden_argv0) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"env.exe",
-        {L"-v", L"--argv0", L"debug-name", L"argv0check.exe"});
+  p.add(L"env.exe", {L"-v", L"--argv0", L"debug-name", L"argv0check.exe"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stderr_text.find("argv0:     debug-name") !=
-              std::string::npos);
-  EXPECT_TRUE(r.stderr_text.find("arg[0]= debug-name") !=
-              std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("argv0:     debug-name") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("arg[0]= debug-name") != std::string::npos);
 }
 
 TEST(env, env_double_debug_prints_input_args) {
@@ -365,8 +362,7 @@ TEST(env, env_double_debug_prints_input_args) {
 
 TEST(env, env_mixed_debug_flags_accumulate_level) {
   Pipeline p;
-  p.add(L"env.exe",
-        {L"-v", L"--debug", system_cmd(), L"/C", L"echo", L"ok"});
+  p.add(L"env.exe", {L"-v", L"--debug", system_cmd(), L"/C", L"echo", L"ok"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
@@ -424,8 +420,7 @@ TEST(env, env_argv0_last_occurrence_wins_across_aliases) {
 TEST(env, env_split_string_last_occurrence_wins_across_aliases) {
   Pipeline p;
   p.set_env(L"A", L"old");
-  p.add(L"env.exe",
-        {L"--split-string", L"A=first", L"-S", L"A=second"});
+  p.add(L"env.exe", {L"--split-string", L"A=first", L"-S", L"A=second"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
@@ -493,8 +488,7 @@ TEST(env, env_argv0_non_executable_command_returns_126) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"env.exe",
-        {L"--argv0", L"fake-name", L".\\not-executable"});
+  p.add(L"env.exe", {L"--argv0", L"fake-name", L".\\not-executable"});
 
   auto r = p.run();
 
@@ -513,8 +507,7 @@ TEST(env, env_invalid_option_returns_125_with_help_hint) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "env: unrecognized option '--definitely-invalid'\n"
-      "Try 'env --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "env: unrecognized option '--definitely-invalid'\n"
+                 "Try 'env --help' for more information.\n");
 }

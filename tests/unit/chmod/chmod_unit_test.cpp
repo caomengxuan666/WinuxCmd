@@ -229,10 +229,9 @@ TEST(chmod, chmod_preserve_root_recursive_root_failsafe) {
   TEST_LOG("chmod preserve-root stderr", r.stderr_text);
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_EQ(
-      r.stderr_text,
-      "chmod: it is dangerous to operate recursively on '/'\n"
-      "chmod: use --no-preserve-root to override this failsafe\n");
+  EXPECT_EQ(r.stderr_text,
+            "chmod: it is dangerous to operate recursively on '/'\n"
+            "chmod: use --no-preserve-root to override this failsafe\n");
 }
 
 TEST(chmod, chmod_reference_copies_reference_mode_approximation) {
@@ -277,10 +276,9 @@ TEST(chmod, chmod_reference_missing_reference_reports_gnu_style_error) {
   TEST_LOG("chmod missing reference stderr", r.stderr_text);
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_EQ(
-      r.stderr_text,
-      "chmod: failed to get attributes of 'missing.txt': No such file or "
-      "directory\n");
+  EXPECT_EQ(r.stderr_text,
+            "chmod: failed to get attributes of 'missing.txt': No such file or "
+            "directory\n");
 }
 
 TEST(chmod, chmod_invalid_mode_reports_gnu_style_error_before_file_access) {
@@ -298,10 +296,9 @@ TEST(chmod, chmod_invalid_mode_reports_gnu_style_error_before_file_access) {
   TEST_LOG("chmod invalid mode stderr", r.stderr_text);
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_EQ(
-      r.stderr_text,
-      "chmod: invalid mode: 'u+gr'\n"
-      "Try 'chmod --help' for more information.\n");
+  EXPECT_EQ(r.stderr_text,
+            "chmod: invalid mode: 'u+gr'\n"
+            "Try 'chmod --help' for more information.\n");
 }
 
 TEST(chmod, chmod_gnu_negative_mode_first_operand_is_accepted) {

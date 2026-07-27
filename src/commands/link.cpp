@@ -133,10 +133,9 @@ REGISTER_COMMAND(
   BOOL result = CreateHardLinkW(wlinkname.c_str(), wfile.c_str(), nullptr);
   if (!result) {
     DWORD error = GetLastError();
-    std::string error_text =
-        contains_wildcard(source_arg) && file == source_arg
-            ? "No such file or directory"
-            : link_windows_error_text(error);
+    std::string error_text = contains_wildcard(source_arg) && file == source_arg
+                                 ? "No such file or directory"
+                                 : link_windows_error_text(error);
     safeErrorPrintLn("link: cannot create link '" + linkname + "' to '" + file +
                      "': " + error_text);
     return 1;

@@ -156,9 +156,8 @@ TEST(nl, nl_empty_number_separator) {
 
 TEST(nl, nl_newline_mode_trims_trailing_cr_from_crlf_records) {
   TempDir tmp;
-  tmp.write_bytes("crlf.txt",
-                  {'l', 'i', 'n', 'e', '1', '\r', '\n',
-                   'l', 'i', 'n', 'e', '2', '\r', '\n'});
+  tmp.write_bytes("crlf.txt", {'l', 'i', 'n', 'e', '1', '\r', '\n', 'l', 'i',
+                               'n', 'e', '2', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

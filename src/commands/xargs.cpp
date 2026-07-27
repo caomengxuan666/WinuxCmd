@@ -201,49 +201,55 @@ auto warn_conflicting_batch_options(BatchOptionFamily previous_family,
 
   if (previous_family == BatchOptionFamily::MaxLines &&
       next_family == BatchOptionFamily::MaxArgs) {
-    safeErrorPrint("xargs: warning: options --max-lines and --max-args/-n "
-                   "are mutually exclusive, ignoring previous --max-lines "
-                   "value\n");
+    safeErrorPrint(
+        "xargs: warning: options --max-lines and --max-args/-n "
+        "are mutually exclusive, ignoring previous --max-lines "
+        "value\n");
     return;
   }
 
   if (previous_family == BatchOptionFamily::MaxArgs &&
       next_family == BatchOptionFamily::MaxLines) {
-    safeErrorPrint("xargs: warning: options --max-args and "
-                   "--max-lines/-L/-l are mutually exclusive, ignoring "
-                   "previous --max-args value\n");
+    safeErrorPrint(
+        "xargs: warning: options --max-args and "
+        "--max-lines/-L/-l are mutually exclusive, ignoring "
+        "previous --max-args value\n");
     return;
   }
 
   if (previous_family == BatchOptionFamily::MaxArgs &&
       next_family == BatchOptionFamily::Replace) {
-    safeErrorPrint("xargs: warning: options --max-args and "
-                   "--replace/-I/-i are mutually exclusive, ignoring "
-                   "previous --max-args value\n");
+    safeErrorPrint(
+        "xargs: warning: options --max-args and "
+        "--replace/-I/-i are mutually exclusive, ignoring "
+        "previous --max-args value\n");
     return;
   }
 
   if (previous_family == BatchOptionFamily::Replace &&
       next_family == BatchOptionFamily::MaxArgs) {
-    safeErrorPrint("xargs: warning: options --replace/-I/-i and "
-                   "--max-args/-n are mutually exclusive, ignoring "
-                   "previous --replace value\n");
+    safeErrorPrint(
+        "xargs: warning: options --replace/-I/-i and "
+        "--max-args/-n are mutually exclusive, ignoring "
+        "previous --replace value\n");
     return;
   }
 
   if (previous_family == BatchOptionFamily::MaxLines &&
       next_family == BatchOptionFamily::Replace) {
-    safeErrorPrint("xargs: warning: options --max-lines and "
-                   "--replace/-I/-i are mutually exclusive, ignoring "
-                   "previous --max-lines value\n");
+    safeErrorPrint(
+        "xargs: warning: options --max-lines and "
+        "--replace/-I/-i are mutually exclusive, ignoring "
+        "previous --max-lines value\n");
     return;
   }
 
   if (previous_family == BatchOptionFamily::Replace &&
       next_family == BatchOptionFamily::MaxLines) {
-    safeErrorPrint("xargs: warning: options --replace/-I/-i and "
-                   "--max-lines/-L/-l are mutually exclusive, ignoring "
-                   "previous --replace value\n");
+    safeErrorPrint(
+        "xargs: warning: options --replace/-I/-i and "
+        "--max-lines/-L/-l are mutually exclusive, ignoring "
+        "previous --replace value\n");
     return;
   }
 
@@ -251,8 +257,7 @@ auto warn_conflicting_batch_options(BatchOptionFamily previous_family,
   safeErrorPrint(std::string(batch_option_family_name(previous_family)));
   safeErrorPrint(" and ");
   safeErrorPrint(std::string(batch_option_family_name(next_family)));
-  safeErrorPrint(
-      " are mutually exclusive, ignoring previous ");
+  safeErrorPrint(" are mutually exclusive, ignoring previous ");
   safeErrorPrint(std::string(batch_option_family_name(previous_family)));
   safeErrorPrint(" value\n");
 }
@@ -1007,8 +1012,8 @@ auto wait_any_child(std::vector<ChildProcess> &running) -> size_t {
     handles.push_back(child.pi.hProcess);
   }
 
-  DWORD wait_result = WaitForMultipleObjects(
-      static_cast<DWORD>(handles.size()), handles.data(), FALSE, INFINITE);
+  DWORD wait_result = WaitForMultipleObjects(static_cast<DWORD>(handles.size()),
+                                             handles.data(), FALSE, INFINITE);
   if (wait_result >= WAIT_OBJECT_0 &&
       wait_result < WAIT_OBJECT_0 + handles.size()) {
     return static_cast<size_t>(wait_result - WAIT_OBJECT_0);
@@ -1077,7 +1082,8 @@ auto execute_command(const std::string &command,
     if (!process_slot_var.empty()) {
       free_slots.push_back(running[completed_index].slot);
     }
-    running.erase(running.begin() + static_cast<std::ptrdiff_t>(completed_index));
+    running.erase(running.begin() +
+                  static_cast<std::ptrdiff_t>(completed_index));
   };
 
   SmallVector<std::string, 256> batch;
@@ -1127,9 +1133,8 @@ auto execute_command(const std::string &command,
           "create process failed:";
       if (raw_error.starts_with(kCreateProcessFailedPrefix)) {
         auto code_text = raw_error.substr(kCreateProcessFailedPrefix.size());
-        auto parsed = std::from_chars(code_text.data(),
-                                      code_text.data() + code_text.size(),
-                                      error);
+        auto parsed = std::from_chars(
+            code_text.data(), code_text.data() + code_text.size(), error);
         if (parsed.ec != std::errc()) {
           error = 0;
         }
@@ -1296,8 +1301,8 @@ REGISTER_COMMAND(
     return 1;
   }
 
-  if (!replace_str.empty() || max_lines > 0 ||
-      has_long_delimiter || has_short_delimiter) {
+  if (!replace_str.empty() || max_lines > 0 || has_long_delimiter ||
+      has_short_delimiter) {
     exit_if_exceeded = true;
   }
 
@@ -1338,11 +1343,11 @@ REGISTER_COMMAND(
   std::istringstream parsed_input(raw_input_text);
 
   std::vector<std::vector<std::string>> input_groups;
-  bool use_line_groups = max_lines > 0 && !use_null &&
-                         !has_long_delimiter && !has_short_delimiter &&
-                         replace_str.empty();
+  bool use_line_groups = max_lines > 0 && !use_null && !has_long_delimiter &&
+                         !has_short_delimiter && replace_str.empty();
   if (use_line_groups) {
-    auto parsed_groups = parse_line_groups(parsed_input, max_lines, logical_eof);
+    auto parsed_groups =
+        parse_line_groups(parsed_input, max_lines, logical_eof);
     if (!parsed_groups) {
       cp::report_error(parsed_groups, L"xargs");
       return 1;
@@ -1505,7 +1510,8 @@ REGISTER_COMMAND(
 
   // Execute command with arguments - convert SmallVector to std::vector for
   // compatibility
-  std::vector<std::string> base_args_vec = expand_command_template_args(base_args);
+  std::vector<std::string> base_args_vec =
+      expand_command_template_args(base_args);
   max_chars = clamp_max_chars_floor(max_chars, command, base_args_vec);
   if (show_limits) print_show_limits(max_chars);
   int exit_code = 0;

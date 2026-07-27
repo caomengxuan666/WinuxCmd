@@ -23,8 +23,9 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
-#include "framework/winuxtest.h"
 #include <AclAPI.h>
+
+#include "framework/winuxtest.h"
 
 namespace {
 
@@ -55,11 +56,10 @@ bool create_directory_junction(const std::filesystem::path& link,
 bool set_last_write_time(const std::filesystem::path& path, WORD year,
                          WORD month, WORD day, WORD hour, WORD minute,
                          WORD second) {
-  HANDLE handle = CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE |
-                                  FILE_SHARE_DELETE,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-                              nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -96,11 +96,10 @@ bool set_file_times(const std::filesystem::path& path, WORD creation_year,
                     WORD access_hour, WORD access_minute, WORD access_second,
                     WORD write_year, WORD write_month, WORD write_day,
                     WORD write_hour, WORD write_minute, WORD write_second) {
-  HANDLE handle = CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE |
-                                  FILE_SHARE_DELETE,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-                              nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -131,8 +130,8 @@ bool set_file_times(const std::filesystem::path& path, WORD creation_year,
                    creation_minute, creation_second, creation_time) &&
       to_file_time(access_year, access_month, access_day, access_hour,
                    access_minute, access_second, access_time) &&
-      to_file_time(write_year, write_month, write_day, write_hour,
-                   write_minute, write_second, write_time) &&
+      to_file_time(write_year, write_month, write_day, write_hour, write_minute,
+                   write_second, write_time) &&
       SetFileTime(handle, &creation_time, &access_time, &write_time) != FALSE;
   CloseHandle(handle);
   return ok;
@@ -144,12 +143,13 @@ unsigned long long allocation_size_bytes(const std::filesystem::path& path) {
 
   DWORD flags = 0;
   if (attrs & FILE_ATTRIBUTE_DIRECTORY) flags |= FILE_FLAG_BACKUP_SEMANTICS;
-  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-  HANDLE handle = CreateFileW(
-      path.wstring().c_str(), FILE_READ_ATTRIBUTES,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-      OPEN_EXISTING, flags, nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) return 0;
 
   FILE_STANDARD_INFO info{};
@@ -164,7 +164,8 @@ unsigned long long allocation_size_bytes(const std::filesystem::path& path) {
 
 unsigned long long expected_find_blocks(const std::filesystem::path& path,
                                         unsigned long long unit) {
-  const auto logical = static_cast<unsigned long long>(std::filesystem::file_size(path));
+  const auto logical =
+      static_cast<unsigned long long>(std::filesystem::file_size(path));
   const auto allocated = allocation_size_bytes(path);
   unsigned long long blocks = (allocated + unit - 1) / unit;
   if (logical > 0) {
@@ -175,7 +176,8 @@ unsigned long long expected_find_blocks(const std::filesystem::path& path,
 }
 
 std::string expected_find_sparseness(const std::filesystem::path& path) {
-  const auto logical = static_cast<unsigned long long>(std::filesystem::file_size(path));
+  const auto logical =
+      static_cast<unsigned long long>(std::filesystem::file_size(path));
   if (logical == 0) return "1";
 
   const auto allocated = allocation_size_bytes(path);
@@ -190,12 +192,13 @@ std::string volume_serial_number(const std::filesystem::path& path) {
 
   DWORD flags = 0;
   if (attrs & FILE_ATTRIBUTE_DIRECTORY) flags |= FILE_FLAG_BACKUP_SEMANTICS;
-  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-  HANDLE handle = CreateFileW(
-      path.wstring().c_str(), FILE_READ_ATTRIBUTES,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-      OPEN_EXISTING, flags, nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) return {};
 
   BY_HANDLE_FILE_INFORMATION info{};
@@ -209,7 +212,8 @@ std::string volume_serial_number(const std::filesystem::path& path) {
 }
 
 std::string filesystem_type_name(const std::filesystem::path& path) {
-  auto dir = path.has_parent_path() ? path.parent_path() : std::filesystem::path(".");
+  auto dir =
+      path.has_parent_path() ? path.parent_path() : std::filesystem::path(".");
   std::error_code ec;
   auto absolute = std::filesystem::absolute(dir, ec);
   auto wdir = ec ? dir.wstring() : absolute.wstring();
@@ -237,7 +241,8 @@ std::string filesystem_type_name(const std::filesystem::path& path) {
 }
 
 unsigned long long io_block_size(const std::filesystem::path& path) {
-  auto dir = path.has_parent_path() ? path.parent_path() : std::filesystem::path(".");
+  auto dir =
+      path.has_parent_path() ? path.parent_path() : std::filesystem::path(".");
   std::error_code ec;
   auto absolute = std::filesystem::absolute(dir, ec);
   auto wdir = ec ? dir.wstring() : absolute.wstring();
@@ -333,17 +338,19 @@ std::string creation_time_seconds(const std::filesystem::path& path) {
 
   DWORD flags = 0;
   if (attrs & FILE_ATTRIBUTE_DIRECTORY) flags |= FILE_FLAG_BACKUP_SEMANTICS;
-  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-  HANDLE handle = CreateFileW(
-      path.wstring().c_str(), FILE_READ_ATTRIBUTES,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-      OPEN_EXISTING, flags, nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) return "0.000000000";
 
   FILE_BASIC_INFO info{};
   std::string out = "0.000000000";
-  if (GetFileInformationByHandleEx(handle, FileBasicInfo, &info, sizeof(info))) {
+  if (GetFileInformationByHandleEx(handle, FileBasicInfo, &info,
+                                   sizeof(info))) {
     const long long ticks = info.CreationTime.QuadPart;
     long long seconds = ticks / 10000000LL - 11644473600LL;
     long long nanos = (ticks % 10000000LL) * 100LL;
@@ -366,17 +373,19 @@ std::string access_time_seconds(const std::filesystem::path& path) {
 
   DWORD flags = 0;
   if (attrs & FILE_ATTRIBUTE_DIRECTORY) flags |= FILE_FLAG_BACKUP_SEMANTICS;
-  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
 
-  HANDLE handle = CreateFileW(
-      path.wstring().c_str(), FILE_READ_ATTRIBUTES,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-      OPEN_EXISTING, flags, nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) return "0.000000000";
 
   FILE_BASIC_INFO info{};
   std::string out = "0.000000000";
-  if (GetFileInformationByHandleEx(handle, FileBasicInfo, &info, sizeof(info))) {
+  if (GetFileInformationByHandleEx(handle, FileBasicInfo, &info,
+                                   sizeof(info))) {
     const long long ticks = info.LastAccessTime.QuadPart;
     long long seconds = ticks / 10000000LL - 11644473600LL;
     long long nanos = (ticks % 10000000LL) * 100LL;
@@ -861,9 +870,8 @@ TEST(find, find_expression_comma_runs_both_sides_in_order) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe",
-        {L".", L"-name", L"a.txt", L"-printf", L"first:%f\\n", L",", L"-name",
-         L"a.txt", L"-printf", L"second:%f\\n"});
+  p.add(L"find.exe", {L".", L"-name", L"a.txt", L"-printf", L"first:%f\\n",
+                      L",", L"-name", L"a.txt", L"-printf", L"second:%f\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
@@ -878,8 +886,7 @@ TEST(find, find_expression_comma_returns_right_side_truth_value) {
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"find.exe",
-        {L".", L"-name", L"a.txt", L",", L"-false", L"-o", L"-name",
-         L"b.txt"});
+        {L".", L"-name", L"a.txt", L",", L"-false", L"-o", L"-name", L"b.txt"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
@@ -1007,8 +1014,8 @@ TEST(find, find_printf_supports_start_point_and_path_below_root_fields) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("tree||tree\n") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("tree|inner|inner\n") != std::string::npos);
-  EXPECT_TRUE(
-      r.stdout_text.find("tree|inner/file.txt|file.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("tree|inner/file.txt|file.txt\n") !=
+              std::string::npos);
 }
 
 TEST(find, find_printf_supports_link_target_field_for_directory_junction) {
@@ -1016,7 +1023,8 @@ TEST(find, find_printf_supports_link_target_field_for_directory_junction) {
   std::filesystem::create_directories(tmp.path / "tree" / "targetdir");
 
   std::filesystem::path link = tmp.path / "tree" / "dirjunc";
-  bool created = create_directory_junction(link, tmp.path / "tree" / "targetdir");
+  bool created =
+      create_directory_junction(link, tmp.path / "tree" / "targetdir");
   EXPECT_TRUE(created);
   if (!created) return;
 
@@ -1110,9 +1118,8 @@ TEST(find, find_printf_supports_allocated_block_fields_for_regular_files) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe",
-        {L"f0.bin", L"f1.bin", L"f600.bin", L"f1024.bin", L"f1025.bin",
-         L"-printf", L"%f|%b|%k\\n"});
+  p.add(L"find.exe", {L"f0.bin", L"f1.bin", L"f600.bin", L"f1024.bin",
+                      L"f1025.bin", L"-printf", L"%f|%b|%k\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
@@ -1123,11 +1130,10 @@ TEST(find, find_printf_supports_allocated_block_fields_for_regular_files) {
            std::to_string(expected_find_blocks(path, 1024)) + "\n";
   };
 
-  EXPECT_EQ_TEXT(
-      r.stdout_text,
-      expected_line("f0.bin") + expected_line("f1.bin") +
-          expected_line("f600.bin") + expected_line("f1024.bin") +
-          expected_line("f1025.bin"));
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 expected_line("f0.bin") + expected_line("f1.bin") +
+                     expected_line("f600.bin") + expected_line("f1024.bin") +
+                     expected_line("f1025.bin"));
 }
 
 TEST(find, find_printf_supports_device_field_for_regular_file) {
@@ -1168,9 +1174,9 @@ TEST(find, find_printf_supports_io_block_size_field_for_regular_file) {
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text,
-                 "a.txt|" + std::to_string(io_block_size(tmp.path / "a.txt")) +
-                     "\n");
+  EXPECT_EQ_TEXT(
+      r.stdout_text,
+      "a.txt|" + std::to_string(io_block_size(tmp.path / "a.txt")) + "\n");
 }
 
 TEST(find, find_printf_supports_sparseness_field_for_regular_file) {
@@ -1184,10 +1190,10 @@ TEST(find, find_printf_supports_sparseness_field_for_regular_file) {
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stdout_text,
-      "a.txt|" + expected_find_sparseness(tmp.path / "a.txt") + "\n" +
-          "abc.bin|" + expected_find_sparseness(tmp.path / "abc.bin") + "\n");
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "a.txt|" + expected_find_sparseness(tmp.path / "a.txt") +
+                     "\n" + "abc.bin|" +
+                     expected_find_sparseness(tmp.path / "abc.bin") + "\n");
 }
 
 TEST(find, find_printf_supports_ownership_fields_for_regular_file) {
@@ -1202,10 +1208,10 @@ TEST(find, find_printf_supports_ownership_fields_for_regular_file) {
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text,
-                 "a.txt|" + ownership.owner_name + "|" + ownership.owner_id +
-                     "|" + ownership.group_name + "|" + ownership.group_id +
-                     "\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "a.txt|" + ownership.owner_name + "|" +
+                                    ownership.owner_id + "|" +
+                                    ownership.group_name + "|" +
+                                    ownership.group_id + "\n");
 }
 
 TEST(find, find_printf_supports_creation_time_field_for_regular_file) {
@@ -1254,50 +1260,46 @@ TEST(find, find_printf_supports_modification_time_components_for_regular_file) {
   TempDir tmp;
   tmp.write("a.txt", "x");
 
-  const bool set = set_last_write_time(tmp.path / "a.txt", 2024, 3, 5, 9, 7, 11);
+  const bool set =
+      set_last_write_time(tmp.path / "a.txt", 2024, 3, 5, 9, 7, 11);
   EXPECT_TRUE(set);
   if (!set) return;
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe",
-        {L"a.txt", L"-printf", L"%f|%TY|%Tm|%Td|%TH|%TM\\n"});
+  p.add(L"find.exe", {L"a.txt", L"-printf", L"%f|%TY|%Tm|%Td|%TH|%TM\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "a.txt|2024|03|05|09|07\n");
 }
 
-TEST(find, find_printf_supports_access_birth_change_and_modification_components) {
+TEST(find,
+     find_printf_supports_access_birth_change_and_modification_components) {
   TempDir tmp;
   tmp.write("a.txt", "x");
 
-  const bool set = set_file_times(tmp.path / "a.txt",
-                                  2021, 2, 3, 4, 5, 6,
-                                  2022, 3, 4, 5, 6, 7,
-                                  2024, 3, 5, 9, 7, 11);
+  const bool set = set_file_times(tmp.path / "a.txt", 2021, 2, 3, 4, 5, 6, 2022,
+                                  3, 4, 5, 6, 7, 2024, 3, 5, 9, 7, 11);
   EXPECT_TRUE(set);
   if (!set) return;
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe",
-        {L"a.txt",
-         L"-printf",
-         L"%f|"
-         L"%AY|%Am|%Ad|%AH|%AM|%AS|%Aj|"
-         L"%BY|%Bm|%Bd|%BH|%BM|%BS|%Bj|"
-         L"%CY|%Cm|%Cd|%CH|%CM|%CS|%Cj|"
-         L"%TY|%Tm|%Td|%TH|%TM|%TS|%Tj\\n"});
+  p.add(L"find.exe", {L"a.txt", L"-printf",
+                      L"%f|"
+                      L"%AY|%Am|%Ad|%AH|%AM|%AS|%Aj|"
+                      L"%BY|%Bm|%Bd|%BH|%BM|%BS|%Bj|"
+                      L"%CY|%Cm|%Cd|%CH|%CM|%CS|%Cj|"
+                      L"%TY|%Tm|%Td|%TH|%TM|%TS|%Tj\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stdout_text,
-      "a.txt|2022|03|04|05|06|07|063|"
-      "2021|02|03|04|05|06|034|"
-      "2021|02|03|04|05|06|034|"
-      "2024|03|05|09|07|11|065\n");
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "a.txt|2022|03|04|05|06|07|063|"
+                 "2021|02|03|04|05|06|034|"
+                 "2021|02|03|04|05|06|034|"
+                 "2024|03|05|09|07|11|065\n");
 }
 
 TEST(find, find_printf_supports_symbolic_mode_field_for_regular_file) {
@@ -1318,7 +1320,8 @@ TEST(find, find_printf_supports_target_type_field_for_directory_junction) {
   std::filesystem::create_directories(tmp.path / "tree" / "targetdir");
 
   std::filesystem::path link = tmp.path / "tree" / "dirjunc";
-  bool created = create_directory_junction(link, tmp.path / "tree" / "targetdir");
+  bool created =
+      create_directory_junction(link, tmp.path / "tree" / "targetdir");
   EXPECT_TRUE(created);
   if (!created) return;
 
@@ -1336,13 +1339,15 @@ TEST(find, find_printf_reports_directory_junction_as_link_type) {
   std::filesystem::create_directories(tmp.path / "tree" / "targetdir");
 
   std::filesystem::path link = tmp.path / "tree" / "dirjunc";
-  bool created = create_directory_junction(link, tmp.path / "tree" / "targetdir");
+  bool created =
+      create_directory_junction(link, tmp.path / "tree" / "targetdir");
   EXPECT_TRUE(created);
   if (!created) return;
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe", {L"tree", L"-name", L"dirjunc", L"-printf", L"%f|%y|%Y\\n"});
+  p.add(L"find.exe",
+        {L"tree", L"-name", L"dirjunc", L"-printf", L"%f|%y|%Y\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
@@ -1354,7 +1359,8 @@ TEST(find, find_type_l_matches_directory_junction_but_type_d_does_not) {
   std::filesystem::create_directories(tmp.path / "tree" / "targetdir");
 
   std::filesystem::path link = tmp.path / "tree" / "dirjunc";
-  bool created = create_directory_junction(link, tmp.path / "tree" / "targetdir");
+  bool created =
+      create_directory_junction(link, tmp.path / "tree" / "targetdir");
   EXPECT_TRUE(created);
   if (!created) return;
 
@@ -1381,25 +1387,30 @@ TEST(find, find_printf_supports_symbolic_mode_field_for_directory_junction) {
   std::filesystem::create_directories(tmp.path / "tree" / "targetdir");
 
   std::filesystem::path link = tmp.path / "tree" / "dirjunc";
-  bool created = create_directory_junction(link, tmp.path / "tree" / "targetdir");
+  bool created =
+      create_directory_junction(link, tmp.path / "tree" / "targetdir");
   EXPECT_TRUE(created);
   if (!created) return;
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe", {L"tree", L"-name", L"dirjunc", L"-printf", L"%f|%M|%Y\\n"});
+  p.add(L"find.exe",
+        {L"tree", L"-name", L"dirjunc", L"-printf", L"%f|%M|%Y\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "dirjunc|lrwxrwxrwx|d\n");
 }
 
-TEST(find, find_printf_reports_link_text_length_in_size_field_for_directory_junction) {
+TEST(
+    find,
+    find_printf_reports_link_text_length_in_size_field_for_directory_junction) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "tree" / "targetdir");
 
   std::filesystem::path link = tmp.path / "tree" / "dirjunc";
-  bool created = create_directory_junction(link, tmp.path / "tree" / "targetdir");
+  bool created =
+      create_directory_junction(link, tmp.path / "tree" / "targetdir");
   EXPECT_TRUE(created);
   if (!created) return;
 
@@ -1407,13 +1418,14 @@ TEST(find, find_printf_reports_link_text_length_in_size_field_for_directory_junc
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe", {L"tree", L"-name", L"dirjunc", L"-printf", L"%f|%s|%l\\n"});
+  p.add(L"find.exe",
+        {L"tree", L"-name", L"dirjunc", L"-printf", L"%f|%s|%l\\n"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stdout_text,
-      "dirjunc|" + std::to_string(target_text.size()) + "|" + target_text + "\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "dirjunc|" +
+                                    std::to_string(target_text.size()) + "|" +
+                                    target_text + "\n");
 }
 
 TEST(find, find_depth_printf_keeps_original_start_point_for_H_and_P) {
@@ -1708,8 +1720,8 @@ TEST(find, find_delete_and_prune_without_explicit_depth_returns_gnu_error) {
           "The -delete action automatically turns on -depth, but -prune "
           "does nothing when -depth is in effect.") != std::string::npos);
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "tree"));
-  EXPECT_TRUE(std::filesystem::exists(tmp.path / "tree" / "nested" /
-                                      "keep.txt"));
+  EXPECT_TRUE(
+      std::filesystem::exists(tmp.path / "tree" / "nested" / "keep.txt"));
 }
 
 TEST(find, find_delete_and_prune_with_explicit_depth_continues) {
@@ -1813,8 +1825,8 @@ TEST(find, find_ok_plus_prompts_once_and_runs_aggregate_batch) {
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.set_stdin("y\n");
-  p.add(L"find.exe", {L".", L"-type", L"f", L"-ok", L"cmd.exe", L"/C",
-                      L"echo", L"files", L"{}", L"+"});
+  p.add(L"find.exe", {L".", L"-type", L"f", L"-ok", L"cmd.exe", L"/C", L"echo",
+                      L"files", L"{}", L"+"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
@@ -1839,8 +1851,8 @@ TEST(find, find_ok_plus_decline_skips_aggregate_batch) {
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.set_stdin("n\n");
-  p.add(L"find.exe", {L".", L"-type", L"f", L"-ok", L"cmd.exe", L"/C",
-                      L"echo", L"files", L"{}", L"+"});
+  p.add(L"find.exe", {L".", L"-type", L"f", L"-ok", L"cmd.exe", L"/C", L"echo",
+                      L"files", L"{}", L"+"});
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
@@ -1871,8 +1883,7 @@ TEST(find, find_missing_root_diagnostic_uses_generic_slashes) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find(
-          "find: 'missing/child': No such file or directory") !=
+      r.stderr_text.find("find: 'missing/child': No such file or directory") !=
       std::string::npos);
 }
 
@@ -1887,8 +1898,7 @@ TEST(find, find_delete_missing_root_diagnostic_uses_generic_slashes) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find(
-          "find: 'missing/child': No such file or directory") !=
+      r.stderr_text.find("find: 'missing/child': No such file or directory") !=
       std::string::npos);
 }
 
@@ -2001,8 +2011,9 @@ TEST(find, find_H_does_not_follow_nested_directory_symlink_if_available) {
               std::string::npos);
 }
 
-TEST(find,
-     find_last_symlink_mode_option_wins_for_command_line_directory_symlink_if_available) {
+TEST(
+    find,
+    find_last_symlink_mode_option_wins_for_command_line_directory_symlink_if_available) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "target" / "nested");
   tmp.write("target/nested/through-link.txt", "");
@@ -2023,8 +2034,9 @@ TEST(find,
               std::string::npos);
 }
 
-TEST(find,
-     find_last_symlink_mode_option_wins_for_nested_directory_symlink_if_available) {
+TEST(
+    find,
+    find_last_symlink_mode_option_wins_for_nested_directory_symlink_if_available) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "target" / "inside");
   std::filesystem::create_directories(tmp.path / "target" / "real");
@@ -2061,8 +2073,8 @@ TEST(find,
   std::filesystem::create_directories(tmp.path / "target" / "nested");
   tmp.write("target/nested/through-link.txt", "");
 
-  bool created = create_directory_junction(tmp.path / "linked",
-                                           tmp.path / "target");
+  bool created =
+      create_directory_junction(tmp.path / "linked", tmp.path / "target");
   EXPECT_TRUE(created);
   if (!created) return;
 
@@ -2077,23 +2089,20 @@ TEST(find,
               std::string::npos);
 }
 
-TEST(find,
-     find_last_symlink_mode_option_wins_for_nested_directory_junction) {
+TEST(find, find_last_symlink_mode_option_wins_for_nested_directory_junction) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "target" / "inside");
   std::filesystem::create_directories(tmp.path / "target" / "real");
   tmp.write("target/inside/through-root.txt", "");
   tmp.write("target/real/visible.txt", "");
 
-  bool root_created = create_directory_junction(tmp.path / "linked",
-                                                tmp.path / "target");
+  bool root_created =
+      create_directory_junction(tmp.path / "linked", tmp.path / "target");
   EXPECT_TRUE(root_created);
   if (!root_created) return;
 
-  bool nested_created = create_directory_junction(tmp.path / "target" /
-                                                      "nested-link",
-                                                  tmp.path / "target" /
-                                                      "inside");
+  bool nested_created = create_directory_junction(
+      tmp.path / "target" / "nested-link", tmp.path / "target" / "inside");
   EXPECT_TRUE(nested_created);
   if (!nested_created) return;
 

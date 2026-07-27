@@ -25,7 +25,9 @@
  */
 #include "framework/winuxtest.h"
 
-static std::wstring fmt_exe() { return ProjectPaths::exe(L"fmt.exe").wstring(); }
+static std::wstring fmt_exe() {
+  return ProjectPaths::exe(L"fmt.exe").wstring();
+}
 
 TEST(fmt, fmt_basic) {
   TempDir tmp;
@@ -164,12 +166,11 @@ TEST(fmt, fmt_preserve_headers_detects_and_reflows_header_lines) {
 }
 
 TEST(fmt, fmt_preserve_headers_merges_continuation_lines) {
-  auto r = run_command(
-      fmt_exe(), {L"-m", L"-w", L"20"},
-      "From: alpha beta gamma delta\n"
-      "Subject: one two three four five six\n"
-      "\tcontinued words here again\n"
-      "Body words here keep wrapping maybe\n");
+  auto r = run_command(fmt_exe(), {L"-m", L"-w", L"20"},
+                       "From: alpha beta gamma delta\n"
+                       "Subject: one two three four five six\n"
+                       "\tcontinued words here again\n"
+                       "Body words here keep wrapping maybe\n");
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text,
@@ -268,7 +269,7 @@ TEST(fmt, fmt_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("fmt: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "fmt: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }

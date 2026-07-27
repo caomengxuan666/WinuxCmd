@@ -351,8 +351,7 @@ auto backup_existing_destination(const std::wstring& dest_path,
 
 auto move_single_path(const std::string& src_path, const std::string& dest_path,
                       const CommandContext<MV_OPTIONS.size()>& ctx,
-                      OverwriteMode overwrite_mode)
-    -> cp::Result<bool> {
+                      OverwriteMode overwrite_mode) -> cp::Result<bool> {
   std::wstring wsrc_path = utf8_to_wstring(src_path);
   std::wstring wdest_path = utf8_to_wstring(dest_path);
 
@@ -431,8 +430,7 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
 auto process_single_source(const std::string& src_path,
                            const MoveContext& move_ctx, bool dest_is_dir,
                            const CommandContext<MV_OPTIONS.size()>& ctx,
-                           OverwriteMode overwrite_mode)
-    -> cp::Result<bool> {
+                           OverwriteMode overwrite_mode) -> cp::Result<bool> {
   auto src_exists = check_path_exists(src_path);
   if (!src_exists) {
     return std::unexpected(src_exists.error());
@@ -477,7 +475,8 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
           return std::unexpected("target is not a directory");
         }
 
-        // -I / --interactive=once: prompt once before removing more than three files
+        // -I / --interactive=once: prompt once before removing more than three
+        // files
         if (*overwrite_mode == OverwriteMode::interactive_once &&
             move_ctx.source_paths.size() > 3) {
           safeErrorPrint("mv: remove ");
@@ -492,9 +491,8 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
 
         bool success = true;
         for (const auto& src_path : move_ctx.source_paths) {
-          auto result =
-              process_single_source(src_path, move_ctx, dest_is_dir, ctx,
-                                    *overwrite_mode);
+          auto result = process_single_source(src_path, move_ctx, dest_is_dir,
+                                              ctx, *overwrite_mode);
           if (!result) {
             return std::unexpected(result.error());
           }

@@ -42,16 +42,15 @@ import container;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
-auto constexpr UNEXPAND_OPTIONS =
-    std::array{OPTION("-t", "--tabs", "specify tab stop positions (default: 8)",
-                      STRING_TYPE),
-               OPTION("-a", "--all",
-                      "convert all spaces, not just leading ones", BOOL_TYPE),
-               OPTION("-f", "--first-only",
-                      "convert only leading sequences of blanks", BOOL_TYPE),
-               OPTION("-U", "--no-utf8",
-                      "interpret input file as 8-bit ASCII rather than UTF-8",
-                      BOOL_TYPE)};
+auto constexpr UNEXPAND_OPTIONS = std::array{
+    OPTION("-t", "--tabs", "specify tab stop positions (default: 8)",
+           STRING_TYPE),
+    OPTION("-a", "--all", "convert all spaces, not just leading ones",
+           BOOL_TYPE),
+    OPTION("-f", "--first-only", "convert only leading sequences of blanks",
+           BOOL_TYPE),
+    OPTION("-U", "--no-utf8",
+           "interpret input file as 8-bit ASCII rather than UTF-8", BOOL_TYPE)};
 
 namespace unexpand_pipeline {
 namespace cp = core::pipeline;
@@ -173,8 +172,7 @@ auto build_config(const CommandContext<UNEXPAND_OPTIONS.size()>& ctx)
   cfg.all_spaces = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
   cfg.first_only =
       ctx.get<bool>("--first-only", false) || ctx.get<bool>("-f", false);
-  cfg.no_utf8 =
-      ctx.get<bool>("--no-utf8", false) || ctx.get<bool>("-U", false);
+  cfg.no_utf8 = ctx.get<bool>("--no-utf8", false) || ctx.get<bool>("-U", false);
 
   auto tabs_opt = ctx.get<std::string>("--tabs", "");
   if (tabs_opt.empty()) {

@@ -191,10 +191,9 @@ TEST(basename, basename_missing_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "basename: missing operand\nTry 'basename --help' for more "
-      "information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "basename: missing operand\nTry 'basename --help' for more "
+                 "information.\n");
 }
 
 TEST(basename, basename_extra_operand_is_rejected_without_multiple_mode) {
@@ -205,8 +204,7 @@ TEST(basename, basename_extra_operand_is_rejected_without_multiple_mode) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "basename: extra operand 'c'\nTry 'basename --help' for more "
-      "information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "basename: extra operand 'c'\nTry 'basename --help' for more "
+                 "information.\n");
 }

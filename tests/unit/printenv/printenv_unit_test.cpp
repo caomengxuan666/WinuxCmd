@@ -81,8 +81,9 @@ TEST(printenv, printenv_equal_sign_variable_name_is_silently_ignored) {
   EXPECT_TRUE(r.stderr_text.empty());
 }
 
-TEST(printenv,
-     printenv_equal_sign_variable_name_keeps_other_found_output_and_returns_one) {
+TEST(
+    printenv,
+    printenv_equal_sign_variable_name_keeps_other_found_output_and_returns_one) {
   Pipeline p;
   p.set_env(L"WINUXCMD_PRINTENV_KEY", L"VALUE");
   p.set_env(L"a=b", L"c");
@@ -103,8 +104,7 @@ TEST(printenv, printenv_invalid_option_returns_two_with_gnu_style_error) {
 
   EXPECT_EQ(r.exit_code, 2);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "printenv: unrecognized option '-/'\n"
-      "Try 'printenv --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "printenv: unrecognized option '-/'\n"
+                 "Try 'printenv --help' for more information.\n");
 }

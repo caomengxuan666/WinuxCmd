@@ -48,7 +48,8 @@ TEST(sha384sum, sha384sum_directory_input_reports_is_a_directory) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find("sha384sum: cannot open 'indir' for reading: Is a directory") !=
+      r.stderr_text.find(
+          "sha384sum: cannot open 'indir' for reading: Is a directory") !=
       std::string::npos);
 }
 
@@ -131,10 +132,9 @@ TEST(sha384sum, sha384sum_check) {
 TEST(sha384sum, sha384sum_check_invalid) {
   TempDir tmp;
   tmp.write("test.txt", "hello");
-  tmp.write(
-      "check.sha384",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "000000000000000000000000000000  test.txt");
+  tmp.write("check.sha384",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "000000000000000000000000000000  test.txt");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -167,10 +167,9 @@ TEST(sha384sum, sha384sum_check_status_suppresses_output) {
   EXPECT_EQ_TEXT(good_result.stdout_text, "");
   EXPECT_EQ_TEXT(good_result.stderr_text, "");
 
-  tmp.write(
-      "check.sha384",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "000000000000000000000000000000  check.txt");
+  tmp.write("check.sha384",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "000000000000000000000000000000  check.txt");
 
   Pipeline bad;
   bad.set_cwd(tmp.wpath());
@@ -204,10 +203,9 @@ TEST(sha384sum, sha384sum_check_quiet_suppresses_ok_lines_only) {
   EXPECT_EQ_TEXT(good_result.stdout_text, "");
   EXPECT_EQ_TEXT(good_result.stderr_text, "");
 
-  tmp.write(
-      "check.sha384",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "000000000000000000000000000000  check.txt");
+  tmp.write("check.sha384",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "000000000000000000000000000000  check.txt");
 
   Pipeline bad;
   bad.set_cwd(tmp.wpath());
@@ -230,17 +228,17 @@ TEST(sha384sum, sha384sum_check_directory_input_reports_is_a_directory) {
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 1);
-  EXPECT_TRUE(result.stderr_text.find(
-                  "sha384sum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find(
+          "sha384sum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
 TEST(sha384sum, sha384sum_check_reports_unreadable_listed_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha384",
-      "000000000000000000000000000000000000000000000000000000000000000000"
-      "000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha384",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "000000000000000000000000000000  missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
@@ -249,8 +247,9 @@ TEST(sha384sum, sha384sum_check_reports_unreadable_listed_files) {
 
   EXPECT_NE(result.exit_code, 0);
   EXPECT_EQ_TEXT(result.stdout_text, "");
-  EXPECT_TRUE(result.stderr_text.find("cannot open 'missing.txt' for reading") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find("cannot open 'missing.txt' for reading") !=
+      std::string::npos);
   EXPECT_TRUE(result.stderr_text.find(
                   "sha384sum: WARNING: 1 listed file could not be read") !=
               std::string::npos);
@@ -258,14 +257,13 @@ TEST(sha384sum, sha384sum_check_reports_unreadable_listed_files) {
 
 TEST(sha384sum, sha384sum_check_ignore_missing_skips_missing_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha384",
-      "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha384",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "000000000000000000000000000000  missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
-  check.add(L"sha384sum.exe",
-            {L"--ignore-missing", L"-c", L"check.sha384"});
+  check.add(L"sha384sum.exe", {L"--ignore-missing", L"-c", L"check.sha384"});
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 0);
@@ -315,7 +313,8 @@ TEST(sha384sum, sha384sum_check_warn_reports_malformed_line_locations) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(
-      r.stderr_text.find("sha384sum: check.sha384: 1: improperly formatted checksum line") !=
+      r.stderr_text.find(
+          "sha384sum: check.sha384: 1: improperly formatted checksum line") !=
       std::string::npos);
   EXPECT_TRUE(r.stderr_text.find(
                   "sha384sum: WARNING: 1 line is improperly formatted") !=
@@ -334,9 +333,9 @@ TEST(sha384sum, sha384sum_check_without_valid_lines_reports_error) {
 
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
-  EXPECT_TRUE(
-      r.stderr_text.find("sha384sum: check.sha384: no properly formatted checksum lines found") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("sha384sum: check.sha384: no properly "
+                                 "formatted checksum lines found") !=
+              std::string::npos);
 }
 
 TEST(sha384sum, sha384sum_check_strict_rejects_malformed_lines) {
@@ -389,8 +388,7 @@ TEST(sha384sum, sha384sum_short_zero_alias_uses_nul_terminator) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(
       r.stdout_text,
-      std::string(
-          "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2"
-          "dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da  test.txt\0",
-          107));
+      std::string("9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2"
+                  "dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da  test.txt\0",
+                  107));
 }

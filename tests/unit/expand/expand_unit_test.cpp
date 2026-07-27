@@ -169,7 +169,8 @@ TEST(expand, expand_directory_input_reports_is_a_directory) {
 
 TEST(expand, expand_newline_mode_trims_trailing_cr_from_crlf_records) {
   TempDir tmp;
-  tmp.write_bytes("crlf.txt", {'a', '\t', 'b', '\r', '\n', 'c', '\t', 'd', '\r', '\n'});
+  tmp.write_bytes("crlf.txt",
+                  {'a', '\t', 'b', '\r', '\n', 'c', '\t', 'd', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

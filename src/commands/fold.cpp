@@ -121,9 +121,7 @@ auto decode_utf8_unit(std::string_view text, size_t offset) -> FoldUnit {
   unsigned char lead = static_cast<unsigned char>(text[offset]);
   size_t remaining = text.size() - offset;
 
-  auto single_byte = [&]() {
-    return FoldUnit{1, static_cast<char32_t>(lead)};
-  };
+  auto single_byte = [&]() { return FoldUnit{1, static_cast<char32_t>(lead)}; };
 
   if (lead < 0x80) {
     return single_byte();
@@ -157,8 +155,7 @@ auto decode_utf8_unit(std::string_view text, size_t offset) -> FoldUnit {
     unsigned char b1 = static_cast<unsigned char>(text[offset + 1]);
     unsigned char b2 = static_cast<unsigned char>(text[offset + 2]);
     unsigned char b3 = static_cast<unsigned char>(text[offset + 3]);
-    if ((b1 & 0xC0) != 0x80 || (b2 & 0xC0) != 0x80 ||
-        (b3 & 0xC0) != 0x80) {
+    if ((b1 & 0xC0) != 0x80 || (b2 & 0xC0) != 0x80 || (b3 & 0xC0) != 0x80) {
       return single_byte();
     }
     if ((lead == 0xF0 && b1 < 0x90) || (lead == 0xF4 && b1 >= 0x90)) {
@@ -207,9 +204,9 @@ auto display_column(std::string_view text, bool count_bytes,
                     bool count_characters) -> size_t {
   size_t column = 0;
   for (size_t i = 0; i < text.size();) {
-    FoldUnit unit =
-        count_bytes ? FoldUnit{1, static_cast<unsigned char>(text[i])}
-                    : decode_utf8_unit(text, i);
+    FoldUnit unit = count_bytes
+                        ? FoldUnit{1, static_cast<unsigned char>(text[i])}
+                        : decode_utf8_unit(text, i);
     column = next_column(unit, column, count_bytes, count_characters);
     i += unit.byte_count;
   }
@@ -248,9 +245,9 @@ auto fold_content(const std::string& content, int width, bool count_bytes,
       continue;
     }
 
-    FoldUnit unit =
-        count_bytes ? FoldUnit{1, static_cast<unsigned char>(content[i])}
-                    : decode_utf8_unit(content, i);
+    FoldUnit unit = count_bytes
+                        ? FoldUnit{1, static_cast<unsigned char>(content[i])}
+                        : decode_utf8_unit(content, i);
     std::string_view bytes(content.data() + i, unit.byte_count);
     size_t next = next_column(unit, column, count_bytes, count_characters);
     while (!current.empty() && next > static_cast<size_t>(width)) {

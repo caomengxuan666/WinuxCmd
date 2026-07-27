@@ -164,10 +164,9 @@ TEST(base64, base64_rejects_extra_file_operand) {
   auto r = p.run();
 
   EXPECT_NE(r.exit_code, 0);
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "base64: extra operand 'two.txt'\n"
-      "Try 'base64 --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "base64: extra operand 'two.txt'\n"
+                 "Try 'base64 --help' for more information.\n");
 }
 
 TEST(base64, base64_missing_input_reports_no_such_file) {
@@ -196,7 +195,7 @@ TEST(base64, base64_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("base64: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "base64: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }

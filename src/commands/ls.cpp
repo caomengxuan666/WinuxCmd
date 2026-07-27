@@ -176,34 +176,28 @@ auto constexpr LS_OPTIONS = std::array{
            "colorize the output; WHEN can be 'always', 'auto', or 'never'",
            STRING_TYPE),
     OPTION("-1", "", "list one file per line"),
-    OPTION("-D", "--dired",
-           "generate output designed for Emacs dired mode"),
-    OPTION("-G", "--no-group",
-           "in a long listing, don't print group names"),
-    OPTION("", "--group-directories-first",
-           "group directories before files"),
-    OPTION("", "--author",
-           "show author in long format"),
+    OPTION("-D", "--dired", "generate output designed for Emacs dired mode"),
+    OPTION("-G", "--no-group", "in a long listing, don't print group names"),
+    OPTION("", "--group-directories-first", "group directories before files"),
+    OPTION("", "--author", "show author in long format"),
     OPTION("-H", "--dereference-command-line",
            "follow symlinks listed on the command line"),
     OPTION("", "--dereference-command-line-symlink-to-dir",
            "follow each command-line symlink to a directory"),
     OPTION("", "--dereference-command-line-symlinks-to-dir",
            "follow each command-line symlink to a directory"),
-    OPTION("", "--hide",
-           "do not list implied entries matching PATTERN", STRING_TYPE),
+    OPTION("", "--hide", "do not list implied entries matching PATTERN",
+           STRING_TYPE),
     OPTION("", "--hyperlink",
            "hyperlink file names when outputting to a terminal",
            OPTIONAL_STRING_TYPE),
-    OPTION("", "--si",
-           "like -h, but use powers of 1000 not 1024"),
-    OPTION("", "--full-time",
-           "like -l --time-style=full-iso"),
+    OPTION("", "--si", "like -h, but use powers of 1000 not 1024"),
+    OPTION("", "--full-time", "like -l --time-style=full-iso"),
     OPTION("", "--time-style",
-           "time/date format with -l (e.g. full-iso, long-iso, iso, locale, +FORMAT)",
+           "time/date format with -l (e.g. full-iso, long-iso, iso, locale, "
+           "+FORMAT)",
            STRING_TYPE),
-    OPTION("", "--zero",
-           "end each output line with NUL instead of newline")};
+    OPTION("", "--zero", "end each output line with NUL instead of newline")};
 
 // ======================================================
 // Constants
@@ -255,18 +249,13 @@ enum class QuotingMode {
   ShellEscapeAlways
 };
 
-enum class DereferenceMode {
-  None,
-  CommandLine,
-  CommandLineDirectories,
-  All
-};
+enum class DereferenceMode { None, CommandLine, CommandLineDirectories, All };
 
 auto resolve_dereference_mode(const CommandContext<LS_OPTIONS.size()> &ctx)
     -> DereferenceMode;
-auto should_dereference_entry_metadata(
-    DereferenceMode mode, const WIN32_FIND_DATAW &find_data,
-    bool command_line_operand) -> bool;
+auto should_dereference_entry_metadata(DereferenceMode mode,
+                                       const WIN32_FIND_DATAW &find_data,
+                                       bool command_line_operand) -> bool;
 
 struct SizeConfig {
   SizeMode file_mode = SizeMode::Bytes;
@@ -746,18 +735,17 @@ auto apply_quoting_mode(const std::wstring &value, QuotingMode quoting)
   return rendered;
 }
 
-auto should_dereference_metadata(
-    const WIN32_FIND_DATAW &find_data,
-    const CommandContext<LS_OPTIONS.size()> &ctx, bool command_line_operand)
-    -> bool {
+auto should_dereference_metadata(const WIN32_FIND_DATAW &find_data,
+                                 const CommandContext<LS_OPTIONS.size()> &ctx,
+                                 bool command_line_operand) -> bool {
   return should_dereference_entry_metadata(resolve_dereference_mode(ctx),
                                            find_data, command_line_operand);
 }
 
-auto read_symlink_display_target(
-    const std::wstring &full_path, const WIN32_FIND_DATAW &find_data,
-    const CommandContext<LS_OPTIONS.size()> &ctx,
-    bool command_line_operand = false)
+auto read_symlink_display_target(const std::wstring &full_path,
+                                 const WIN32_FIND_DATAW &find_data,
+                                 const CommandContext<LS_OPTIONS.size()> &ctx,
+                                 bool command_line_operand = false)
     -> std::optional<SymlinkDisplayTarget> {
   if (!long_format_requested(ctx)) {
     return std::nullopt;
@@ -769,8 +757,8 @@ auto read_symlink_display_target(
   }
 
   std::error_code ec;
-  std::filesystem::path target = std::filesystem::read_symlink(
-      std::filesystem::path(full_path), ec);
+  std::filesystem::path target =
+      std::filesystem::read_symlink(std::filesystem::path(full_path), ec);
   if (ec) {
     return std::nullopt;
   }
@@ -802,8 +790,10 @@ auto read_symlink_display_target(
       return value;
     };
 
-    std::wstring parent_native =
-        std::filesystem::path(full_path).parent_path().lexically_normal().native();
+    std::wstring parent_native = std::filesystem::path(full_path)
+                                     .parent_path()
+                                     .lexically_normal()
+                                     .native();
     std::wstring resolved_native = resolved_target.native();
     std::wstring normalized_parent = normalize_windows_path(parent_native);
     std::wstring normalized_resolved = normalize_windows_path(resolved_native);
@@ -821,17 +811,18 @@ auto read_symlink_display_target(
                               std::move(resolved_target)};
 }
 
-auto build_display_name_parts(
-    const std::wstring &name, const std::wstring &full_path,
-    const WIN32_FIND_DATAW &find_data,
-    const CommandContext<LS_OPTIONS.size()> &ctx,
-    bool command_line_operand = false) -> DisplayNameParts {
+auto build_display_name_parts(const std::wstring &name,
+                              const std::wstring &full_path,
+                              const WIN32_FIND_DATAW &find_data,
+                              const CommandContext<LS_OPTIONS.size()> &ctx,
+                              bool command_line_operand = false)
+    -> DisplayNameParts {
   auto quoting_result = resolve_quoting_mode(ctx);
   QuotingMode quoting = quoting_result ? *quoting_result : QuotingMode::Literal;
   std::wstring rendered = apply_quoting_mode(name, quoting);
 
-  auto target =
-      read_symlink_display_target(full_path, find_data, ctx, command_line_operand);
+  auto target = read_symlink_display_target(full_path, find_data, ctx,
+                                            command_line_operand);
   if (target) {
     target->display = apply_quoting_mode(target->display, quoting);
   }
@@ -846,13 +837,13 @@ auto build_display_name_parts(
   return {std::move(rendered), std::move(target)};
 }
 
-auto render_display_name(const std::wstring &name, const std::wstring &full_path,
+auto render_display_name(const std::wstring &name,
+                         const std::wstring &full_path,
                          const WIN32_FIND_DATAW &find_data,
                          const CommandContext<LS_OPTIONS.size()> &ctx,
-                         bool command_line_operand = false)
-    -> std::wstring {
-  auto parts =
-      build_display_name_parts(name, full_path, find_data, ctx, command_line_operand);
+                         bool command_line_operand = false) -> std::wstring {
+  auto parts = build_display_name_parts(name, full_path, find_data, ctx,
+                                        command_line_operand);
   if (parts.target) {
     parts.rendered_name += L" -> ";
     parts.rendered_name += parts.target->display;
@@ -885,10 +876,10 @@ auto get_target_color_sequence(const std::filesystem::path &resolved_target)
 auto print_display_name(const std::wstring &name, const std::wstring &full_path,
                         const WIN32_FIND_DATAW &find_data,
                         const CommandContext<LS_OPTIONS.size()> &ctx,
-                        bool color_enabled,
-                        bool command_line_operand = false) -> void {
-  auto parts =
-      build_display_name_parts(name, full_path, find_data, ctx, command_line_operand);
+                        bool color_enabled, bool command_line_operand = false)
+    -> void {
+  auto parts = build_display_name_parts(name, full_path, find_data, ctx,
+                                        command_line_operand);
 
   if (!color_enabled) {
     safePrint(wstring_to_utf8(parts.rendered_name));
@@ -917,8 +908,8 @@ auto print_display_name(const std::wstring &name, const std::wstring &full_path,
   }
 }
 
-auto resolve_display_entry(
-    const EntryInfo &entry, const CommandContext<LS_OPTIONS.size()> &ctx)
+auto resolve_display_entry(const EntryInfo &entry,
+                           const CommandContext<LS_OPTIONS.size()> &ctx)
     -> std::pair<WIN32_FIND_DATAW, std::wstring> {
   WIN32_FIND_DATAW display_find_data = entry.find_data;
   std::wstring metadata_name = entry.name;
@@ -943,7 +934,8 @@ auto resolve_display_entry(
     metadata_name = dereferenced->second;
     wcsncpy_s(display_find_data.cFileName, metadata_name.c_str(), _TRUNCATE);
   }
-  if (entry.name == L"." && resolve_dereference_mode(ctx) == DereferenceMode::All &&
+  if (entry.name == L"." &&
+      resolve_dereference_mode(ctx) == DereferenceMode::All &&
       (display_find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
     // In a dereferenced directory-symlink view, Microsoft Coreutils reports the
     // synthetic "." entry as the target directory rather than as a link.
@@ -1205,9 +1197,9 @@ auto resolve_dereference_mode(const CommandContext<LS_OPTIONS.size()> &ctx)
   return mode;
 }
 
-auto should_dereference_entry_metadata(
-    DereferenceMode mode, const WIN32_FIND_DATAW &find_data,
-    bool command_line_operand) -> bool {
+auto should_dereference_entry_metadata(DereferenceMode mode,
+                                       const WIN32_FIND_DATAW &find_data,
+                                       bool command_line_operand) -> bool {
   if (!is_reparse_link(find_data)) {
     return false;
   }
@@ -1285,8 +1277,8 @@ auto long_format_requested(const CommandContext<LS_OPTIONS.size()> &ctx)
   return format_mode && *format_mode == FormatMode::Long;
 }
 
-auto apply_default_output_format(
-    FormatMode mode, const CommandContext<LS_OPTIONS.size()> &ctx)
+auto apply_default_output_format(FormatMode mode,
+                                 const CommandContext<LS_OPTIONS.size()> &ctx)
     -> FormatMode {
   if (mode != FormatMode::Columns) {
     return mode;
@@ -1327,7 +1319,8 @@ auto resolve_time_style(const CommandContext<LS_OPTIONS.size()> &ctx)
     }
 
     auto parsed = parse_time_style(*value);
-    if (!parsed) return std::unexpected(build_invalid_time_style_message(*value));
+    if (!parsed)
+      return std::unexpected(build_invalid_time_style_message(*value));
     selection.style = *parsed;
   }
   return selection;
@@ -1447,9 +1440,8 @@ auto get_timezone_offset_string(const FILETIME &utc_time,
   local_value.LowPart = local_time.dwLowDateTime;
   local_value.HighPart = local_time.dwHighDateTime;
 
-  int64_t delta_ticks =
-      static_cast<int64_t>(local_value.QuadPart) -
-      static_cast<int64_t>(utc_value.QuadPart);
+  int64_t delta_ticks = static_cast<int64_t>(local_value.QuadPart) -
+                        static_cast<int64_t>(utc_value.QuadPart);
   int total_minutes = static_cast<int>(delta_ticks / (10'000'000LL * 60LL));
   char sign = '+';
   if (total_minutes < 0) {
@@ -1481,7 +1473,8 @@ auto format_strftime_like(const SYSTEMTIME &st, const FILETIME &file_time,
       ULARGE_INTEGER value{};
       value.LowPart = file_time.dwLowDateTime;
       value.HighPart = file_time.dwHighDateTime;
-      translated += std::to_string(value.QuadPart / 10'000'000ULL - 11644473600ULL);
+      translated +=
+          std::to_string(value.QuadPart / 10'000'000ULL - 11644473600ULL);
       ++i;
       continue;
     }
@@ -1528,15 +1521,14 @@ auto get_time_string(const WIN32_FIND_DATAW &find_data, TimeMode mode,
     value.HighPart = file_time.dwHighDateTime;
     uint64_t nanos = (value.QuadPart % 10'000'000ULL) * 100ULL;
     auto offset = get_timezone_offset_string(file_time, local_ft);
-    snprintf(buf, sizeof(buf),
-             "%04d-%02d-%02d %02d:%02d:%02d.%09llu %s", st.wYear, st.wMonth,
-             st.wDay, st.wHour, st.wMinute, st.wSecond,
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d.%09llu %s",
+             st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
              static_cast<unsigned long long>(nanos), offset.c_str());
     return std::string(buf);
   }
   if (selection.style == TimeStyle::LongIso) {
-    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear,
-             st.wMonth, st.wDay, st.wHour, st.wMinute);
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear, st.wMonth,
+             st.wDay, st.wHour, st.wMinute);
     return std::string(buf);
   }
   if (selection.style == TimeStyle::Iso) {
@@ -1560,9 +1552,8 @@ auto get_time_string(const WIN32_FIND_DATAW &find_data, TimeMode mode,
     return std::string(buf);
   }
   if (selection.style == TimeStyle::CustomFormat) {
-    return format_strftime_like(st, file_time,
-                                resolve_custom_time_format(file_time,
-                                                           selection.format));
+    return format_strftime_like(
+        st, file_time, resolve_custom_time_format(file_time, selection.format));
   }
   snprintf(buf, sizeof(buf), "%s %2d %02d:%02d", month_abbrs[st.wMonth],
            st.wDay, st.wHour, st.wMinute);
@@ -1605,9 +1596,9 @@ auto render_inline_entry(const EntryInfo &entry,
                          const CommandContext<LS_OPTIONS.size()> &ctx,
                          bool color_enabled) -> RenderedEntry {
   auto [display_find_data, metadata_name] = resolve_display_entry(entry, ctx);
-  std::wstring display_name = render_display_name(
-      entry.name, entry.full_path, display_find_data, ctx,
-      entry.command_line_operand);
+  std::wstring display_name =
+      render_display_name(entry.name, entry.full_path, display_find_data, ctx,
+                          entry.command_line_operand);
   std::string prefix =
       build_listing_prefix(entry.full_path, display_find_data, ctx);
   std::string text = prefix;
@@ -1751,9 +1742,9 @@ auto print_grid(const std::vector<EntryInfo> &entries,
       current_column += rendered[index].visible_width;
       bool has_later_entry_in_row = false;
       for (int next_col = col + 1; next_col < cols; ++next_col) {
-        size_t next_index =
-            across_layout ? static_cast<size_t>(row * cols + next_col)
-                          : static_cast<size_t>(row + next_col * rows);
+        size_t next_index = across_layout
+                                ? static_cast<size_t>(row * cols + next_col)
+                                : static_cast<size_t>(row + next_col * rows);
         if (next_index < rendered.size()) {
           has_later_entry_in_row = true;
           break;
@@ -2050,9 +2041,8 @@ auto query_directory_standard_size_bytes(const std::wstring &path,
   }
 
   FILE_STANDARD_INFO info{};
-  const bool ok =
-      GetFileInformationByHandleEx(handle, FileStandardInfo, &info, sizeof(info)) !=
-      FALSE;
+  const bool ok = GetFileInformationByHandleEx(handle, FileStandardInfo, &info,
+                                               sizeof(info)) != FALSE;
   CloseHandle(handle);
   if (!ok) {
     return std::nullopt;
@@ -2109,8 +2099,7 @@ auto get_file_size_string(const std::wstring &path,
 auto get_file_index_string(const std::wstring &path,
                            const WIN32_FIND_DATAW &find_data,
                            const CommandContext<LS_OPTIONS.size()> &ctx,
-                           bool command_line_operand = false)
-    -> std::string {
+                           bool command_line_operand = false) -> std::string {
   DWORD flags = 0;
   if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
     flags |= FILE_FLAG_BACKUP_SEMANTICS;
@@ -2144,8 +2133,7 @@ auto get_file_index_string(const std::wstring &path,
 
 auto get_link_count(const std::wstring &path, const WIN32_FIND_DATAW &find_data,
                     const CommandContext<LS_OPTIONS.size()> &ctx,
-                    bool command_line_operand = false)
-    -> unsigned long {
+                    bool command_line_operand = false) -> unsigned long {
   DWORD flags = 0;
   if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
     flags |= FILE_FLAG_BACKUP_SEMANTICS;
@@ -2222,7 +2210,8 @@ auto print_directory_total_line(const std::vector<EntryInfo> &entries,
   uint64_t total_allocated_bytes = 0;
 
   for (const auto &entry : entries) {
-    auto [display_find_data, _metadata_name] = resolve_display_entry(entry, ctx);
+    auto [display_find_data, _metadata_name] =
+        resolve_display_entry(entry, ctx);
     total_blocks +=
         get_allocated_block_count(entry.full_path, display_find_data, size_cfg);
     total_allocated_bytes +=
@@ -2442,9 +2431,9 @@ auto print_columns(const std::vector<EntryInfo> &entries,
     auto [display_find_data, metadata_name] = resolve_display_entry(entry, ctx);
     prefixes.push_back(
         build_listing_prefix(entry.full_path, display_find_data, ctx));
-    display_names.push_back(render_display_name(
-        entry.name, entry.full_path, display_find_data, ctx,
-        entry.command_line_operand));
+    display_names.push_back(render_display_name(entry.name, entry.full_path,
+                                                display_find_data, ctx,
+                                                entry.command_line_operand));
   }
 
   // Check if color is enabled based on --color option
@@ -2610,7 +2599,8 @@ auto list_directory(const std::string &path,
   auto time_selection = resolve_time_mode(ctx);
   if (!time_selection) return std::unexpected(time_selection.error());
   auto time_style_selection = resolve_time_style(ctx);
-  if (!time_style_selection) return std::unexpected(time_style_selection.error());
+  if (!time_style_selection)
+    return std::unexpected(time_style_selection.error());
   auto sort_selection = resolve_sort_mode(ctx);
   if (!sort_selection) return std::unexpected(sort_selection.error());
   auto quoting_mode = resolve_quoting_mode(ctx);
@@ -2618,7 +2608,8 @@ auto list_directory(const std::string &path,
 
   auto format_mode_result = resolve_format_mode(ctx);
   if (!format_mode_result) return std::unexpected(format_mode_result.error());
-  FormatMode format_mode = apply_default_output_format(*format_mode_result, ctx);
+  FormatMode format_mode =
+      apply_default_output_format(*format_mode_result, ctx);
   if (use_zero_terminated_output(ctx) && format_mode != FormatMode::Long) {
     format_mode = FormatMode::OnePerLine;
   }
@@ -2689,9 +2680,9 @@ auto list_directory(const std::string &path,
   bool use_numeric =
       ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric-uid-gid", false);
   const bool show_owner = !ctx.get<bool>("-g", false);
-  const bool show_group =
-      !ctx.get<bool>("-o", false) && !ctx.get<bool>("-G", false) &&
-      !ctx.get<bool>("--no-group", false);
+  const bool show_group = !ctx.get<bool>("-o", false) &&
+                          !ctx.get<bool>("-G", false) &&
+                          !ctx.get<bool>("--no-group", false);
   const bool show_author = ctx.get<bool>("--author", false);
   const bool show_blocks =
       ctx.get<bool>("-s", false) || ctx.get<bool>("--size", false);
@@ -2719,7 +2710,8 @@ auto list_directory(const std::string &path,
     std::vector<FileInfo> files;
     for (const auto &entry : entries) {
       FileInfo info;
-      auto [display_find_data, _metadata_name] = resolve_display_entry(entry, ctx);
+      auto [display_find_data, _metadata_name] =
+          resolve_display_entry(entry, ctx);
       info.name = entry.name;
       info.find_data = display_find_data;
       info.full_path = entry.full_path;
@@ -2732,8 +2724,8 @@ auto list_directory(const std::string &path,
         info.blocks = get_allocated_blocks_string(entry.full_path,
                                                   display_find_data, size_cfg);
       }
-      info.link_count =
-          std::to_string(get_link_count(entry.full_path, display_find_data, ctx));
+      info.link_count = std::to_string(
+          get_link_count(entry.full_path, display_find_data, ctx));
       info.size = get_file_size_string(entry.full_path, display_find_data,
                                        entry.find_data, ctx, size_cfg,
                                        entry.command_line_operand);
@@ -2871,8 +2863,8 @@ auto list_directory(const std::string &path,
       safePrint(" ");
 
       bool color_enabled = resolve_color_enabled(ctx);
-      print_display_name(file_info.name, file_info.full_path, file_info.find_data,
-                         ctx, color_enabled);
+      print_display_name(file_info.name, file_info.full_path,
+                         file_info.find_data, ctx, color_enabled);
       print_record_terminator(ctx);
     }
   } else if (format_mode == FormatMode::Commas) {
@@ -2955,13 +2947,15 @@ auto list_file(const std::string &path,
   auto time_selection = resolve_time_mode(ctx);
   if (!time_selection) return std::unexpected(time_selection.error());
   auto time_style_selection = resolve_time_style(ctx);
-  if (!time_style_selection) return std::unexpected(time_style_selection.error());
+  if (!time_style_selection)
+    return std::unexpected(time_style_selection.error());
   auto quoting_mode = resolve_quoting_mode(ctx);
   if (!quoting_mode) return std::unexpected(quoting_mode.error());
 
   auto format_mode_result = resolve_format_mode(ctx);
   if (!format_mode_result) return std::unexpected(format_mode_result.error());
-  FormatMode format_mode = apply_default_output_format(*format_mode_result, ctx);
+  FormatMode format_mode =
+      apply_default_output_format(*format_mode_result, ctx);
   if (use_zero_terminated_output(ctx) && format_mode != FormatMode::Long) {
     format_mode = FormatMode::OnePerLine;
   }
@@ -2972,9 +2966,9 @@ auto list_file(const std::string &path,
   bool use_numeric =
       ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric-uid-gid", false);
   const bool show_owner = !ctx.get<bool>("-g", false);
-  const bool show_group =
-      !ctx.get<bool>("-o", false) && !ctx.get<bool>("-G", false) &&
-      !ctx.get<bool>("--no-group", false);
+  const bool show_group = !ctx.get<bool>("-o", false) &&
+                          !ctx.get<bool>("-G", false) &&
+                          !ctx.get<bool>("--no-group", false);
   const bool show_author = ctx.get<bool>("--author", false);
   bool show_inode =
       ctx.get<bool>("-i", false) || ctx.get<bool>("--inode", false);
@@ -2987,15 +2981,13 @@ auto list_file(const std::string &path,
     auto inode = show_inode
                      ? get_file_index_string(lookup_wpath, find_data, ctx, true)
                      : "";
-    auto blocks = show_blocks
-                      ? get_allocated_blocks_string(lookup_wpath, display_find_data,
-                                                    size_cfg)
-                      : "";
+    auto blocks = show_blocks ? get_allocated_blocks_string(
+                                    lookup_wpath, display_find_data, size_cfg)
+                              : "";
     auto link_count =
         std::to_string(get_link_count(lookup_wpath, find_data, ctx, true));
-    auto size =
-        get_file_size_string(lookup_wpath, display_find_data, find_data, ctx,
-                             size_cfg, true);
+    auto size = get_file_size_string(lookup_wpath, display_find_data, find_data,
+                                     ctx, size_cfg, true);
     auto mtime =
         get_time_string(display_find_data, time_mode, *time_style_selection);
     auto [owner, group] = get_file_owner_and_group(use_numeric);
@@ -3047,14 +3039,13 @@ auto list_file(const std::string &path,
     safePrint(" ");
 
     bool color_enabled = resolve_color_enabled(ctx);
-    print_display_name(operand_display_name, lookup_wpath, display_find_data, ctx,
-                       color_enabled, true);
+    print_display_name(operand_display_name, lookup_wpath, display_find_data,
+                       ctx, color_enabled, true);
     print_record_terminator(ctx);
   } else {
-    auto rendered =
-        render_inline_entry(
-            {operand_display_name, lookup_wpath, find_data, true}, ctx,
-                            resolve_color_enabled(ctx));
+    auto rendered = render_inline_entry(
+        {operand_display_name, lookup_wpath, find_data, true}, ctx,
+        resolve_color_enabled(ctx));
     safePrint(rendered.text);
     print_record_terminator(ctx);
   }
@@ -3240,9 +3231,11 @@ auto process_paths(const std::vector<std::string> &paths,
       continue;
     }
 
-    const DWORD effective_attributes =
-        probe.attributes_valid ? probe.attributes : probe.find_data.dwFileAttributes;
-    const bool is_directory = (effective_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    const DWORD effective_attributes = probe.attributes_valid
+                                           ? probe.attributes
+                                           : probe.find_data.dwFileAttributes;
+    const bool is_directory =
+        (effective_attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
     const bool is_reparse_point =
         (effective_attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
     const bool is_directory_symlink = is_directory && is_reparse_point;
@@ -3250,7 +3243,8 @@ auto process_paths(const std::vector<std::string> &paths,
         probe.attributes_valid && is_directory_symlink &&
         should_follow_command_line_directory_symlink(ctx);
     const bool treat_as_directory =
-        probe.attributes_valid && is_directory && !directory_only_requested(ctx) &&
+        probe.attributes_valid && is_directory &&
+        !directory_only_requested(ctx) &&
         (!is_directory_symlink || follow_command_line_directory_symlink);
 
     if (treat_as_directory) {

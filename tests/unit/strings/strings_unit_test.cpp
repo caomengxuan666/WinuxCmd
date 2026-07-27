@@ -7,7 +7,7 @@ TEST(strings, strings_basic) {
   TempDir tmp;
   // Create a file with some binary and text content
   std::vector<uint8_t> data = {0x00, 0x01, 0x02, 'h', 'e', 'l', 'l', 'o',
-                                0x00, 0x00, 'w', 'o', 'r', 'l', 'd', 0x00};
+                               0x00, 0x00, 'w',  'o', 'r', 'l', 'd', 0x00};
   std::ofstream(tmp.path / "binary.bin", std::ios::binary)
       .write(reinterpret_cast<const char*>(data.data()), data.size());
 

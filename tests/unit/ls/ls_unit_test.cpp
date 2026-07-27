@@ -63,11 +63,10 @@ bool create_directory_junction(const std::filesystem::path& link,
 bool set_last_write_time(const std::filesystem::path& path, WORD year,
                          WORD month, WORD day, WORD hour, WORD minute,
                          WORD second) {
-  HANDLE handle = CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE |
-                                  FILE_SHARE_DELETE,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-                              nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -219,7 +218,8 @@ TEST(ls, ls_long_format_reports_hardlink_count) {
       std::regex_search(r.stdout_text, std::regex(R"([dl-][rwx-]{9}\s+2\s+)")));
 }
 
-TEST(ls, ls_long_format_uses_windows_writable_permission_shape_for_regular_file) {
+TEST(ls,
+     ls_long_format_uses_windows_writable_permission_shape_for_regular_file) {
   TempDir tmp;
   tmp.write("plain.txt", "content");
 
@@ -229,16 +229,16 @@ TEST(ls, ls_long_format_uses_windows_writable_permission_shape_for_regular_file)
   auto writable_result = writable.run();
 
   EXPECT_EQ(writable_result.exit_code, 0);
-  EXPECT_TRUE(std::regex_search(
-      writable_result.stdout_text,
-      std::regex(R"(^-rwxrwxrwx\s+\d+\s+.*plain\.txt\n?$)")));
+  EXPECT_TRUE(
+      std::regex_search(writable_result.stdout_text,
+                        std::regex(R"(^-rwxrwxrwx\s+\d+\s+.*plain\.txt\n?$)")));
 
   DWORD attrs = GetFileAttributesW((tmp.path / "plain.txt").wstring().c_str());
   EXPECT_NE(attrs, INVALID_FILE_ATTRIBUTES);
   if (attrs == INVALID_FILE_ATTRIBUTES) return;
-  bool readonly_set = SetFileAttributesW(
-                          (tmp.path / "plain.txt").wstring().c_str(),
-                          attrs | FILE_ATTRIBUTE_READONLY) != FALSE;
+  bool readonly_set =
+      SetFileAttributesW((tmp.path / "plain.txt").wstring().c_str(),
+                         attrs | FILE_ATTRIBUTE_READONLY) != FALSE;
   EXPECT_TRUE(readonly_set);
   if (!readonly_set) return;
 
@@ -248,9 +248,9 @@ TEST(ls, ls_long_format_uses_windows_writable_permission_shape_for_regular_file)
   auto readonly_result = readonly.run();
 
   EXPECT_EQ(readonly_result.exit_code, 0);
-  EXPECT_TRUE(std::regex_search(
-      readonly_result.stdout_text,
-      std::regex(R"(^-r-xr-xr-x\s+\d+\s+.*plain\.txt\n?$)")));
+  EXPECT_TRUE(
+      std::regex_search(readonly_result.stdout_text,
+                        std::regex(R"(^-r-xr-xr-x\s+\d+\s+.*plain\.txt\n?$)")));
 }
 
 TEST(ls, ls_long_format_uses_windows_writable_permission_shape_for_directory) {
@@ -263,16 +263,16 @@ TEST(ls, ls_long_format_uses_windows_writable_permission_shape_for_directory) {
   auto writable_result = writable.run();
 
   EXPECT_EQ(writable_result.exit_code, 0);
-  EXPECT_TRUE(std::regex_search(
-      writable_result.stdout_text,
-      std::regex(R"(^drwxrwxrwx\s+\d+\s+.*dir\n?$)")));
+  EXPECT_TRUE(
+      std::regex_search(writable_result.stdout_text,
+                        std::regex(R"(^drwxrwxrwx\s+\d+\s+.*dir\n?$)")));
 
   DWORD attrs = GetFileAttributesW((tmp.path / "dir").wstring().c_str());
   EXPECT_NE(attrs, INVALID_FILE_ATTRIBUTES);
   if (attrs == INVALID_FILE_ATTRIBUTES) return;
-  bool readonly_set = SetFileAttributesW(
-                          (tmp.path / "dir").wstring().c_str(),
-                          attrs | FILE_ATTRIBUTE_READONLY) != FALSE;
+  bool readonly_set =
+      SetFileAttributesW((tmp.path / "dir").wstring().c_str(),
+                         attrs | FILE_ATTRIBUTE_READONLY) != FALSE;
   EXPECT_TRUE(readonly_set);
   if (!readonly_set) return;
 
@@ -282,9 +282,9 @@ TEST(ls, ls_long_format_uses_windows_writable_permission_shape_for_directory) {
   auto readonly_result = readonly.run();
 
   EXPECT_EQ(readonly_result.exit_code, 0);
-  EXPECT_TRUE(std::regex_search(
-      readonly_result.stdout_text,
-      std::regex(R"(^dr-xr-xr-x\s+\d+\s+.*dir\n?$)")));
+  EXPECT_TRUE(
+      std::regex_search(readonly_result.stdout_text,
+                        std::regex(R"(^dr-xr-xr-x\s+\d+\s+.*dir\n?$)")));
 }
 
 TEST(ls, ls_long_format_shows_symlink_target) {
@@ -303,8 +303,9 @@ TEST(ls, ls_long_format_shows_symlink_target) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(
-      std::regex_search(r.stdout_text, std::regex(R"(lrwxrwxrwx\s+\d+\s+.*link\.txt -> target\.txt)")));
+  EXPECT_TRUE(std::regex_search(
+      r.stdout_text,
+      std::regex(R"(lrwxrwxrwx\s+\d+\s+.*link\.txt -> target\.txt)")));
 }
 
 TEST(ls, ls_long_format_command_line_dangling_symlink_operand_is_listed) {
@@ -397,7 +398,8 @@ TEST(ls, ls_long_format_reports_directory_junction_size_as_zero) {
   EXPECT_TRUE(r.stdout_text.find("\\??\\") == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("\\\\?\\") == std::string::npos);
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text, std::regex(R"(lrwxrwxrwx\s+\d+\s+.*\s0\s+.*dirlink -> )")));
+      r.stdout_text,
+      std::regex(R"(lrwxrwxrwx\s+\d+\s+.*\s0\s+.*dirlink -> )")));
 }
 
 TEST(ls, ls_directory_listing_reports_directory_junction_size_as_zero) {
@@ -437,7 +439,8 @@ TEST(ls, ls_long_format_command_line_symlink_dereference_option_shows_target) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("link.txt -> target.txt") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("link.txt -> target.txt") ==
+              std::string::npos);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
       std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*\s7\s+.*link\.txt\n?$)")));
@@ -459,14 +462,16 @@ TEST(ls, ls_long_format_dereference_option_shows_target_for_symlink_operand) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("link.txt -> target.txt") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("link.txt -> target.txt") ==
+              std::string::npos);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
       std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*\s7\s+.*link\.txt\n?$)")));
 }
 
-TEST(ls,
-     ls_long_format_dirs_only_dereference_last_keeps_file_symlink_operand_as_link) {
+TEST(
+    ls,
+    ls_long_format_dirs_only_dereference_last_keeps_file_symlink_operand_as_link) {
   TempDir tmp;
   tmp.write("target.txt", "content");
 
@@ -477,14 +482,14 @@ TEST(ls,
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"ls.exe",
-        {L"-l", L"-H", L"--dereference-command-line-symlinks-to-dir",
-         L"link.txt"});
+  p.add(L"ls.exe", {L"-l", L"-H", L"--dereference-command-line-symlinks-to-dir",
+                    L"link.txt"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("link.txt -> target.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("link.txt -> target.txt") !=
+              std::string::npos);
 }
 
 TEST(ls, ls_long_format_H_keeps_directory_entry_symlink_as_link) {
@@ -524,13 +529,13 @@ TEST(ls, ls_long_format_L_dereferences_directory_entry_symlink) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("dirlink -> targetdir") == std::string::npos);
-  EXPECT_TRUE(std::regex_search(
-      r.stdout_text,
-      std::regex(R"(^d[rwx-]{9}\s+\d+\s+.*dirlink$)",
-                 std::regex_constants::multiline)));
+  EXPECT_TRUE(std::regex_search(r.stdout_text,
+                                std::regex(R"(^d[rwx-]{9}\s+\d+\s+.*dirlink$)",
+                                           std::regex_constants::multiline)));
 }
 
-TEST(ls, ls_long_format_last_dereference_option_wins_for_directory_entry_symlink) {
+TEST(ls,
+     ls_long_format_last_dereference_option_wins_for_directory_entry_symlink) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "targetdir");
 
@@ -596,7 +601,9 @@ TEST(ls, ls_recursive_dereference_follows_directory_symlinks) {
   EXPECT_TRUE(r.stdout_text.find("nested.txt") != std::string::npos);
 }
 
-TEST(ls, ls_recursive_last_dereference_option_wins_to_stop_following_directory_symlinks) {
+TEST(
+    ls,
+    ls_recursive_last_dereference_option_wins_to_stop_following_directory_symlinks) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "targetdir");
   tmp.write("targetdir\\nested.txt", "content");
@@ -662,8 +669,9 @@ TEST(ls, ls_recursive_dereference_follows_directory_junctions) {
   EXPECT_TRUE(r.stdout_text.find("nested.txt") != std::string::npos);
 }
 
-TEST(ls,
-     ls_recursive_last_dereference_option_wins_to_stop_following_directory_junctions) {
+TEST(
+    ls,
+    ls_recursive_last_dereference_option_wins_to_stop_following_directory_junctions) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "targetdir");
   tmp.write("targetdir\\nested.txt", "content");
@@ -730,7 +738,8 @@ TEST(ls, ls_long_format_command_line_directory_symlink_shows_link_by_default) {
   EXPECT_TRUE(r.stdout_text.find("inside.txt") == std::string::npos);
 }
 
-TEST(ls, ls_dereference_command_line_symlink_to_dir_option_follows_in_long_mode) {
+TEST(ls,
+     ls_dereference_command_line_symlink_to_dir_option_follows_in_long_mode) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "targetdir");
   tmp.write("targetdir\\inside.txt", "content");
@@ -753,7 +762,9 @@ TEST(ls, ls_dereference_command_line_symlink_to_dir_option_follows_in_long_mode)
   EXPECT_TRUE(r.stdout_text.find("dirlink -> targetdir") == std::string::npos);
 }
 
-TEST(ls, ls_dereference_command_line_symlink_to_dir_singular_alias_follows_in_long_mode) {
+TEST(
+    ls,
+    ls_dereference_command_line_symlink_to_dir_singular_alias_follows_in_long_mode) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "targetdir");
   tmp.write("targetdir\\inside.txt", "content");
@@ -788,7 +799,8 @@ TEST(ls, ls_missing_operand_reports_cannot_access_on_stderr) {
   EXPECT_EQ(r.exit_code, 2);
   EXPECT_EQ(r.stdout_text, "");
   EXPECT_TRUE(
-      r.stderr_text.find("ls: cannot access 'missing.txt': No such file or directory") !=
+      r.stderr_text.find(
+          "ls: cannot access 'missing.txt': No such file or directory") !=
       std::string::npos);
 }
 
@@ -809,9 +821,9 @@ TEST(ls, ls_missing_operand_keeps_directory_junction_header_for_other_operand) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 2);
-  EXPECT_TRUE(
-      r.stderr_text.find("ls: cannot access 'missing': No such file or directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "ls: cannot access 'missing': No such file or directory") !=
+              std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("dirjunc:\n") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("inside.txt") != std::string::npos);
 }
@@ -993,10 +1005,9 @@ TEST(ls, ls_long_format_dotdot_uses_parent_directory_metadata) {
   const auto expected_parent_size = match[1].str();
 
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text,
-      std::regex("^drwx[rwx-]*\\s+\\d+\\s+\\S+\\s+\\S+\\s+" +
-                     expected_parent_size + "\\s+.*\\.\\.$",
-                 std::regex::multiline)));
+      r.stdout_text, std::regex("^drwx[rwx-]*\\s+\\d+\\s+\\S+\\s+\\S+\\s+" +
+                                    expected_parent_size + "\\s+.*\\.\\.$",
+                                std::regex::multiline)));
   if (expected_parent_size != "0") {
     EXPECT_TRUE(r.stdout_text.find("total 0\n") == std::string::npos);
   }
@@ -1679,8 +1690,7 @@ TEST(ls, ls_horizontal_layout_tabsize_last_occurrence_wins_across_aliases) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"ls.exe",
-        {L"-x", L"-w", L"20", L"--tabsize", L"8", L"-T", L"3"});
+  p.add(L"ls.exe", {L"-x", L"-w", L"20", L"--tabsize", L"8", L"-T", L"3"});
 
   auto r = p.run();
 
@@ -1698,8 +1708,7 @@ TEST(ls, ls_column_layout_tabsize_last_occurrence_wins_across_aliases) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"ls.exe",
-        {L"-C", L"-w", L"20", L"-T", L"3", L"--tabsize", L"5"});
+  p.add(L"ls.exe", {L"-C", L"-w", L"20", L"-T", L"3", L"--tabsize", L"5"});
 
   auto r = p.run();
 
@@ -1773,8 +1782,9 @@ TEST(ls, ls_explicit_columns_override_non_tty_default) {
   EXPECT_EQ_TEXT(r.stdout_text, "a.txt  b.txt\n");
 }
 
-TEST(ls,
-     ls_format_single_column_overrides_long_for_command_line_directory_symlink) {
+TEST(
+    ls,
+    ls_format_single_column_overrides_long_for_command_line_directory_symlink) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "targetdir");
   tmp.write("targetdir\\inside.txt", "content");
@@ -1820,8 +1830,7 @@ TEST(ls, ls_format_verbose_alias_matches_long) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*file1\.txt\n?$)")));
+      r.stdout_text, std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*file1\.txt\n?$)")));
 }
 
 TEST(ls, ls_g_implies_long_format_without_owner) {
@@ -1837,10 +1846,12 @@ TEST(ls, ls_g_implies_long_format_without_owner) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
+      std::regex(
+          R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
   EXPECT_FALSE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
+      std::regex(
+          R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
 }
 
 TEST(ls, ls_o_implies_long_format_without_group) {
@@ -1856,10 +1867,12 @@ TEST(ls, ls_o_implies_long_format_without_group) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
+      std::regex(
+          R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
   EXPECT_FALSE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
+      std::regex(
+          R"(^-[rwx-]{9}\s+\d+\s+\d+\s+\d+\s+\d+\s+[A-Z][a-z]{2}\s+.*file1\.txt\n?$)")));
 }
 
 TEST(ls, ls_n_implies_long_format_with_numeric_owner_group) {
@@ -2231,8 +2244,7 @@ TEST(ls, ls_size_directory_zero_uses_nul_for_total_and_entries) {
 TEST(ls, ls_time_style_full_iso_formats_long_output) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2243,14 +2255,14 @@ TEST(ls, ls_time_style_full_iso_formats_long_output) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4} a\.txt)")));
+      std::regex(
+          R"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4} a\.txt)")));
 }
 
 TEST(ls, ls_time_style_long_iso_formats_long_output) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2266,8 +2278,7 @@ TEST(ls, ls_time_style_long_iso_formats_long_output) {
 TEST(ls, ls_full_time_implies_long_full_iso_output) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2278,7 +2289,8 @@ TEST(ls, ls_full_time_implies_long_full_iso_output) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4} a\.txt\n?$)")));
+      std::regex(
+          R"(^-[rwx-]{9}\s+\d+\s+.*\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{9} [+-]\d{4} a\.txt\n?$)")));
 }
 
 TEST(ls, ls_long_alias_implies_long_format) {
@@ -2293,15 +2305,13 @@ TEST(ls, ls_long_alias_implies_long_format) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text,
-      std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*a\.txt\n?$)")));
+      r.stdout_text, std::regex(R"(^-[rwx-]{9}\s+\d+\s+.*a\.txt\n?$)")));
 }
 
 TEST(ls, ls_time_style_last_occurrence_overrides_full_time) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2025, 1, 2, 13, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2320,8 +2330,7 @@ TEST(ls, ls_time_style_last_occurrence_overrides_full_time) {
 TEST(ls, ls_time_style_iso_uses_year_for_old_timestamps) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2344,17 +2353,15 @@ TEST(ls, ls_invalid_time_style_fails) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 2);
-  EXPECT_TRUE(
-      r.stderr_text.find("invalid --time-style argument 'bogus'") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("invalid --time-style argument 'bogus'") !=
+              std::string::npos);
   EXPECT_TRUE(r.stderr_text.find("[posix-]full-iso") != std::string::npos);
 }
 
 TEST(ls, ls_time_style_locale_uses_default_gnu_shape) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2369,8 +2376,7 @@ TEST(ls, ls_time_style_locale_uses_default_gnu_shape) {
 TEST(ls, ls_time_style_custom_format_supports_strftime_tokens) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2379,15 +2385,14 @@ TEST(ls, ls_time_style_custom_format_supports_strftime_tokens) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(
-      r.stdout_text.find("2023/01/02-03:04 a.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("2023/01/02-03:04 a.txt") !=
+              std::string::npos);
 }
 
 TEST(ls, ls_time_style_custom_format_supports_epoch_seconds) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2402,13 +2407,11 @@ TEST(ls, ls_time_style_custom_format_supports_epoch_seconds) {
 TEST(ls, ls_time_style_custom_format_uses_old_format_before_newline) {
   TempDir tmp;
   tmp.write("a.txt", "a");
-  EXPECT_TRUE(
-      set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
+  EXPECT_TRUE(set_last_write_time(tmp.path / "a.txt", 2023, 1, 2, 3, 4, 5));
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"ls.exe",
-        {L"-l", L"--time-style=+OLD-%Y\nRECENT-%H:%M", L"a.txt"});
+  p.add(L"ls.exe", {L"-l", L"--time-style=+OLD-%Y\nRECENT-%H:%M", L"a.txt"});
 
   auto r = p.run();
 
@@ -2423,8 +2426,7 @@ TEST(ls, ls_time_style_custom_format_uses_recent_format_after_newline) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"ls.exe",
-        {L"-l", L"--time-style=+OLD-%Y\nRECENT-%H:%M", L"a.txt"});
+  p.add(L"ls.exe", {L"-l", L"--time-style=+OLD-%Y\nRECENT-%H:%M", L"a.txt"});
 
   auto r = p.run();
 
@@ -2535,12 +2537,11 @@ TEST(ls, ls_long_format_colorizes_symlink_target_separately) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stderr_text.empty());
-  EXPECT_TRUE(
-      r.stdout_text.find("\x1b[01;36mjunc/\x1b[0m -> \x1b[01;34m") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\x1b[01;36mjunc/\x1b[0m -> \x1b[01;34m") !=
+              std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("targetdir\x1b[0m") != std::string::npos);
-  EXPECT_TRUE(
-      r.stdout_text.find("\x1b[01;36mjunc/ -> C:\\") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\x1b[01;36mjunc/ -> C:\\") ==
+              std::string::npos);
 }
 
 TEST(ls, ls_quoting_style_aliases) {
@@ -2782,9 +2783,13 @@ TEST(ls, ls_block_size_does_not_rescale_s_or_total_on_windows) {
   EXPECT_TRUE(r.stdout_text.find("1000 -rwxrwxrwx") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("2049 -rwxrwxrwx") != std::string::npos);
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text, std::regex(R"(\s1\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f1000\.bin)")));
+      r.stdout_text,
+      std::regex(
+          R"(\s1\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f1000\.bin)")));
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text, std::regex(R"(\s3\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f2049\.bin)")));
+      r.stdout_text,
+      std::regex(
+          R"(\s3\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f2049\.bin)")));
 }
 
 TEST(ls, ls_k_option_does_not_rescale_s_or_total_on_windows) {
@@ -2802,9 +2807,13 @@ TEST(ls, ls_k_option_does_not_rescale_s_or_total_on_windows) {
   EXPECT_TRUE(r.stdout_text.find("1000 -rwxrwxrwx") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("2049 -rwxrwxrwx") != std::string::npos);
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text, std::regex(R"(\s1\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f1000\.bin)")));
+      r.stdout_text,
+      std::regex(
+          R"(\s1\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f1000\.bin)")));
   EXPECT_TRUE(std::regex_search(
-      r.stdout_text, std::regex(R"(\s3\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f2049\.bin)")));
+      r.stdout_text,
+      std::regex(
+          R"(\s3\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f2049\.bin)")));
 }
 
 TEST(ls, ls_block_size_humanizes_blocks_and_total) {

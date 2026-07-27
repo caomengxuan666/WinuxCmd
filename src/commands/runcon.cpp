@@ -36,8 +36,8 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
 
   cfg.has_custom_context =
       ctx.has("-c") || ctx.has("--compute") || ctx.has("-u") ||
-      ctx.has("--user") || ctx.has("-r") || ctx.has("--role") || ctx.has("-t") ||
-      ctx.has("--type") || ctx.has("-l") || ctx.has("--range");
+      ctx.has("--user") || ctx.has("-r") || ctx.has("--role") ||
+      ctx.has("-t") || ctx.has("--type") || ctx.has("-l") || ctx.has("--range");
 
   if (cfg.has_custom_context) {
     if (!ctx.positionals.empty()) {
@@ -72,12 +72,15 @@ auto run(const Config&) -> int {
 REGISTER_COMMAND(
     runcon, "runcon",
     "runcon CONTEXT COMMAND [ARG]...\n"
-    "  or:  runcon [-c] [-u USER] [-r ROLE] [-t TYPE] [-l RANGE] [COMMAND [ARG]...]",
+    "  or:  runcon [-c] [-u USER] [-r ROLE] [-t TYPE] [-l RANGE] [COMMAND "
+    "[ARG]...]",
     "Run a program in a different SELinux security context.\n"
     "\n"
     "WinuxCmd accepts the GNU-compatible command line surface for runcon, but\n"
-    "Windows does not provide SELinux process contexts. This command therefore\n"
-    "acts as a compatibility placeholder and reports that the operation is not\n"
+    "Windows does not provide SELinux process contexts. This command "
+    "therefore\n"
+    "acts as a compatibility placeholder and reports that the operation is "
+    "not\n"
     "supported on Windows.",
     "  runcon system_u:system_r:httpd_t:s0 cmd.exe /c echo hi\n"
     "  runcon -t httpd_t cmd.exe /c echo hi\n"
