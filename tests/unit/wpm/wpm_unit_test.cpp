@@ -186,6 +186,17 @@ TEST(wpm, wpm_standard_version_uses_wpm_version) {
   EXPECT_EQ_TEXT(r.stdout_text, "wpm 0.2.0\n");
 }
 
+TEST(wpm, wpm_install_without_package_shows_usage) {
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"install"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("wpm: usage: wpm install <package>") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("unknown command") == std::string::npos);
+}
+
 TEST(wpm, wpm_links_list_includes_internal_tool) {
   Pipeline p;
   p.add(L"winuxcmd.exe", {L"wpm", L"links", L"list"});
@@ -500,6 +511,28 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
               std::string::npos);
   EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
   EXPECT_FALSE(same_file(root_exe, legacy_jq));
+}
+
+TEST(wpm, wpm_install_existing_package_skips_download) {
+  TempDir tmp;
+  const auto missing_artifact_path = tmp.path / L"source" / L"jq.exe";
+  tmp.write(".wpm/indexes/official.json",
+            install_fixture_index_json(missing_artifact_path));
+  tmp.write("jq.exe", "already here\n");
+
+  Pipeline install;
+  install.add(L"winuxcmd.exe",
+              {L"wpm", L"install", L"jq", L"--root", tmp.wpath()});
+  auto install_result = install.run();
+
+  EXPECT_EQ(install_result.exit_code, 0);
+  EXPECT_TRUE(install_result.stdout_text.find("already installed jq") !=
+              std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("downloading jq") ==
+              std::string::npos);
+  EXPECT_TRUE(install_result.stderr_text.find("destination exists") ==
+              std::string::npos);
+  EXPECT_EQ(tmp.read("jq.exe"), "already here\n");
 }
 
 TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
