@@ -1241,8 +1241,8 @@ auto download_artifact(const fs::path& root, const std::string& package,
 }
 
 auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
-                         const nlohmann::json& artifact, bool force,
-                         bool dry_run) -> bool {
+                          const nlohmann::json& artifact, bool force,
+                          bool dry_run) -> bool {
   if (!artifact.contains("files") || !artifact["files"].is_array()) {
     safeErrorPrintLn("wpm: artifact has no files mapping");
     return false;
@@ -1306,6 +1306,78 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
   return true;
 }
 
+auto artifact_destination_paths(const fs::path& root,
+                                const nlohmann::json& artifact)
+    -> std::optional<std::vector<fs::path>> {
+  if (!artifact.contains("files") || !artifact["files"].is_array()) {
+    safeErrorPrintLn("wpm: artifact has no files mapping");
+    return std::nullopt;
+  }
+
+  std::vector<fs::path> destinations;
+  for (const auto& mapping : artifact["files"]) {
+    std::string from = mapping.value("from", "");
+    std::string to = mapping.contains("to") && mapping["to"].is_string()
+                         ? mapping["to"].get<std::string>()
+                         : fs::path(from).filename().string();
+    if (from.empty() || to.empty()) {
+      safeErrorPrintLn("wpm: invalid file mapping in artifact");
+      return std::nullopt;
+    }
+    destinations.push_back(root / to);
+  }
+  return destinations;
+}
+
+auto preflight_install_destinations(const fs::path& root,
+                                    const nlohmann::json& artifact,
+                                    std::string_view package, bool force)
+    -> std::optional<int> {
+  auto destinations = artifact_destination_paths(root, artifact);
+  if (!destinations) return 1;
+  if (force) return std::nullopt;
+
+  size_t already_present = 0;
+  for (const auto& dest : *destinations) {
+    std::error_code ec;
+    bool dest_exists = fs::exists(dest, ec);
+    if (!dest_exists) continue;
+
+    bool dest_is_winux_link = same_file(root / "winuxcmd.exe", dest) &&
+                              !same_path_name(root / "winuxcmd.exe", dest);
+    bool dest_is_legacy_link = is_legacy_link_name(dest.filename().string());
+    if (dest_is_winux_link && dest_is_legacy_link) continue;
+
+    if (dest_is_winux_link) {
+      safeErrorPrintLn(
+          "wpm: destination is a WinuxCmd hardlink; use --force: " +
+          dest.string());
+      return 1;
+    }
+
+    ++already_present;
+  }
+
+  if (already_present == destinations->size() && !destinations->empty()) {
+    safePrintLn("wpm: already installed " + std::string(package) +
+                "; use --force to reinstall");
+    return 0;
+  }
+
+  if (already_present > 0) {
+    for (const auto& dest : *destinations) {
+      std::error_code ec;
+      if (fs::exists(dest, ec)) {
+        safeErrorPrintLn("wpm: destination exists; use --force: " +
+                         dest.string());
+        return 1;
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
 auto update_index(const Options& opts) -> int;
 
 auto refresh_index_once(const Options& opts, std::string_view reason) -> bool {
@@ -1357,6 +1429,13 @@ auto install_package(const Options& opts, std::string_view package_name)
 
   auto artifact = artifact_for_current_arch(*pkg);
   if (!artifact) return 1;
+  auto preflight =
+      preflight_install_destinations(opts.root, *artifact,
+                                     pkg->value("name",
+                                                std::string(package_name)),
+                                     opts.force);
+  if (preflight) return *preflight;
+
   auto downloaded = download_artifact(opts.root, pkg->value("name", ""),
                                       *artifact, opts.verbose);
   if (!downloaded) return 1;
@@ -1836,12 +1915,23 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
   if (args[0] == "list") return list_packages(opts);
   if (args[0] == "search")
     return list_packages(opts, args.size() >= 2 ? args[1] : std::string_view{});
-  if (args[0] == "info" && args.size() >= 2) return show_info(opts, args[1]);
-  if (args[0] == "install" && args.size() >= 2)
-    return install_package(opts, args[1]);
-  if ((args[0] == "update" || args[0] == "upgrade") && args.size() >= 2 &&
-      (args[1] == "winuxcmd" || args[1] == "coreutils")) {
-    return update_winuxcmd(opts);
+  if (args[0] == "info") {
+    if (args.size() >= 2) return show_info(opts, args[1]);
+    safeErrorPrintLn("wpm: usage: wpm info <package>");
+    return 1;
+  }
+  if (args[0] == "install") {
+    if (args.size() >= 2) return install_package(opts, args[1]);
+    safeErrorPrintLn("wpm: usage: wpm install <package>");
+    return 1;
+  }
+  if (args[0] == "update" || args[0] == "upgrade") {
+    if (args.size() >= 2 &&
+        (args[1] == "winuxcmd" || args[1] == "coreutils")) {
+      return update_winuxcmd(opts);
+    }
+    safeErrorPrintLn("wpm: usage: wpm update winuxcmd");
+    return 1;
   }
   if (args[0] == "version") {
     safePrintLn("wpm " + std::string(kVersion));
