@@ -56,11 +56,11 @@ std::string format_open_error(const std::string& path, DWORD error) {
 
 }  // namespace
 
-auto constexpr SYNC_OPTIONS = std::array{
-    OPTION("-d", "--data",
-           "sync only file data, no unneeded metadata", BOOL_TYPE),
-    OPTION("-f", "--file-system", "sync the file systems that contain files",
-           BOOL_TYPE)};
+auto constexpr SYNC_OPTIONS =
+    std::array{OPTION("-d", "--data",
+                      "sync only file data, no unneeded metadata", BOOL_TYPE),
+               OPTION("-f", "--file-system",
+                      "sync the file systems that contain files", BOOL_TYPE)};
 
 REGISTER_COMMAND(
     sync,

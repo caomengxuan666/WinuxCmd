@@ -5,8 +5,8 @@
 
 TEST(hexdump, hexdump_canonical) {
   TempDir tmp;
-  std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f,
-                                0x72, 0x6c, 0x64, 0x0a};
+  std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,
+                               0x57, 0x6f, 0x72, 0x6c, 0x64, 0x0a};
   std::ofstream(tmp.path / "test.bin", std::ios::binary)
       .write(reinterpret_cast<const char*>(data.data()), data.size());
 
@@ -66,8 +66,8 @@ TEST(hexdump, hexdump_char) {
 
 TEST(hexdump, hexdump_length) {
   TempDir tmp;
-  std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f,
-                                0x72, 0x6c, 0x64};
+  std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,
+                               0x57, 0x6f, 0x72, 0x6c, 0x64};
   std::ofstream(tmp.path / "test.bin", std::ios::binary)
       .write(reinterpret_cast<const char*>(data.data()), data.size());
 
@@ -82,8 +82,8 @@ TEST(hexdump, hexdump_length) {
 
 TEST(hexdump, hexdump_skip) {
   TempDir tmp;
-  std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f,
-                                0x72, 0x6c, 0x64};
+  std::vector<uint8_t> data = {0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,
+                               0x57, 0x6f, 0x72, 0x6c, 0x64};
   std::ofstream(tmp.path / "test.bin", std::ios::binary)
       .write(reinterpret_cast<const char*>(data.data()), data.size());
 

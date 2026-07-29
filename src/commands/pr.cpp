@@ -63,26 +63,24 @@ auto constexpr PR_OPTIONS = std::array{
            BOOL_TYPE),
     OPTION("-w", "--width", "set page width", STRING_TYPE),
     OPTION("-W", "--page-width", "set page width (default 72)", STRING_TYPE),
-    OPTION("-b", "--balance-columns",
-           "balance columns on the last page", BOOL_TYPE),
+    OPTION("-b", "--balance-columns", "balance columns on the last page",
+           BOOL_TYPE),
     OPTION("-c", "--show-control-chars",
            "use hat notation (^G) and octal backslash notation", BOOL_TYPE),
-    OPTION("-D", "--date-format",
-           "use FORMAT for the date in the header", STRING_TYPE),
-    OPTION("-F", "-f",
-           "use form feeds instead of newlines (same as -f)", BOOL_TYPE),
-    OPTION("-i", "--output-tabs",
-           "replace spaces with TABs where possible", STRING_TYPE),
-    OPTION("-J", "--join-lines",
-           "merge full lines (ignore --column warnings)", BOOL_TYPE),
-    OPTION("-m", "--merge",
-           "print all files in parallel, one in each column", BOOL_TYPE),
+    OPTION("-D", "--date-format", "use FORMAT for the date in the header",
+           STRING_TYPE),
+    OPTION("-F", "-f", "use form feeds instead of newlines (same as -f)",
+           BOOL_TYPE),
+    OPTION("-i", "--output-tabs", "replace spaces with TABs where possible",
+           STRING_TYPE),
+    OPTION("-J", "--join-lines", "merge full lines (ignore --column warnings)",
+           BOOL_TYPE),
+    OPTION("-m", "--merge", "print all files in parallel, one in each column",
+           BOOL_TYPE),
     OPTION("-N", "--first-line-number",
-           "start counting with NUMBER at line 1 of first page",
-           STRING_TYPE),
+           "start counting with NUMBER at line 1 of first page", STRING_TYPE),
     OPTION("-S", "--sep-string",
-           "separate columns by STRING (default single space)",
-           STRING_TYPE),
+           "separate columns by STRING (default single space)", STRING_TYPE),
     OPTION("-v", "--show-nonprinting",
            "use octal backslash notation for non-printing characters",
            BOOL_TYPE)};
@@ -229,8 +227,8 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
   // New options
   cfg.balance_columns =
       ctx.get<bool>("--balance-columns", false) || ctx.get<bool>("-b", false);
-  cfg.show_control_chars =
-      ctx.get<bool>("--show-control-chars", false) || ctx.get<bool>("-c", false);
+  cfg.show_control_chars = ctx.get<bool>("--show-control-chars", false) ||
+                           ctx.get<bool>("-c", false);
   cfg.join_lines =
       ctx.get<bool>("--join-lines", false) || ctx.get<bool>("-J", false);
   cfg.merge = ctx.get<bool>("--merge", false) || ctx.get<bool>("-m", false);
@@ -410,9 +408,8 @@ auto format_date_header(const std::string& date_format) -> std::string {
     const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
                             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     char buf[64];
-    snprintf(buf, sizeof(buf), "%s %02d %02d:%02d %04d",
-             months[st.wMonth - 1], st.wDay, st.wHour, st.wMinute,
-             st.wYear);
+    snprintf(buf, sizeof(buf), "%s %02d %02d:%02d %04d", months[st.wMonth - 1],
+             st.wDay, st.wHour, st.wMinute, st.wYear);
     return buf;
   }
   // Custom format not fully implemented, return default
@@ -431,7 +428,8 @@ auto get_separator(const Config& cfg) -> std::string {
 }
 
 // Print page header
-auto print_page_header(const Config& cfg, int page_num, const std::string& filename) -> void {
+auto print_page_header(const Config& cfg, int page_num,
+                       const std::string& filename) -> void {
   if (cfg.omit_header || cfg.omit_pagination) return;
 
   std::string date_str = format_date_header(cfg.date_format);
@@ -536,7 +534,8 @@ auto run(const Config& cfg) -> int {
   }
 
   // Apply start_page: skip lines before the start page
-  int lines_per_page = cfg.page_length - 10;  // Reserve lines for header/trailer
+  int lines_per_page =
+      cfg.page_length - 10;  // Reserve lines for header/trailer
   if (cfg.omit_header || cfg.omit_pagination) {
     lines_per_page = cfg.page_length;
   }
@@ -544,7 +543,8 @@ auto run(const Config& cfg) -> int {
   // Process lines with all options
   std::string indent_str(cfg.indent, ' ');
   std::string sep = get_separator(cfg);
-  int line_num = cfg.first_line_number.empty() ? 1 : std::stoi(cfg.first_line_number);
+  int line_num =
+      cfg.first_line_number.empty() ? 1 : std::stoi(cfg.first_line_number);
   int page_num = 1;
   int lines_on_page = 0;
   bool in_page = false;

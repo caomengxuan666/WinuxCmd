@@ -68,7 +68,8 @@ TEST(sha256sum, sha256sum_directory_input_reports_is_a_directory) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find("sha256sum: cannot open 'indir' for reading: Is a directory") !=
+      r.stderr_text.find(
+          "sha256sum: cannot open 'indir' for reading: Is a directory") !=
       std::string::npos);
 }
 
@@ -127,10 +128,9 @@ TEST(sha256sum, sha256sum_check_valid) {
 TEST(sha256sum, sha256sum_check_invalid) {
   TempDir tmp;
   tmp.write("check.txt", "hello\n");
-  tmp.write(
-      "check.sha256",
-      "0000000000000000000000000000000000000000000000000000000000000000  "
-      "check.txt");
+  tmp.write("check.sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000  "
+            "check.txt");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -163,10 +163,9 @@ TEST(sha256sum, sha256sum_check_status_suppresses_output) {
   EXPECT_EQ_TEXT(good_result.stdout_text, "");
   EXPECT_EQ_TEXT(good_result.stderr_text, "");
 
-  tmp.write(
-      "check.sha256",
-      "0000000000000000000000000000000000000000000000000000000000000000  "
-      "check.txt");
+  tmp.write("check.sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000  "
+            "check.txt");
 
   Pipeline bad;
   bad.set_cwd(tmp.wpath());
@@ -200,10 +199,9 @@ TEST(sha256sum, sha256sum_check_quiet_suppresses_ok_lines_only) {
   EXPECT_EQ_TEXT(good_result.stdout_text, "");
   EXPECT_EQ_TEXT(good_result.stderr_text, "");
 
-  tmp.write(
-      "check.sha256",
-      "0000000000000000000000000000000000000000000000000000000000000000  "
-      "check.txt");
+  tmp.write("check.sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000  "
+            "check.txt");
 
   Pipeline bad;
   bad.set_cwd(tmp.wpath());
@@ -226,17 +224,17 @@ TEST(sha256sum, sha256sum_check_directory_input_reports_is_a_directory) {
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 1);
-  EXPECT_TRUE(result.stderr_text.find(
-                  "sha256sum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find(
+          "sha256sum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
 TEST(sha256sum, sha256sum_check_reports_unreadable_listed_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha256",
-      "0000000000000000000000000000000000000000000000000000000000000000  "
-      "missing.txt\n");
+  tmp.write("check.sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
@@ -245,8 +243,9 @@ TEST(sha256sum, sha256sum_check_reports_unreadable_listed_files) {
 
   EXPECT_NE(result.exit_code, 0);
   EXPECT_EQ_TEXT(result.stdout_text, "");
-  EXPECT_TRUE(result.stderr_text.find("cannot open 'missing.txt' for reading") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find("cannot open 'missing.txt' for reading") !=
+      std::string::npos);
   EXPECT_TRUE(result.stderr_text.find(
                   "sha256sum: WARNING: 1 listed file could not be read") !=
               std::string::npos);
@@ -254,14 +253,13 @@ TEST(sha256sum, sha256sum_check_reports_unreadable_listed_files) {
 
 TEST(sha256sum, sha256sum_check_ignore_missing_skips_missing_files) {
   TempDir tmp;
-  tmp.write(
-      "check.sha256",
-      "0000000000000000000000000000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.sha256",
+            "0000000000000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
-  check.add(L"sha256sum.exe",
-            {L"--ignore-missing", L"-c", L"check.sha256"});
+  check.add(L"sha256sum.exe", {L"--ignore-missing", L"-c", L"check.sha256"});
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 0);
@@ -272,10 +270,9 @@ TEST(sha256sum, sha256sum_check_ignore_missing_skips_missing_files) {
 TEST(sha256sum, sha256sum_check_accepts_binary_marker_lines) {
   TempDir tmp;
   tmp.write("check.txt", "hello\n");
-  tmp.write(
-      "check.sha256",
-      "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03 "
-      "*check.txt");
+  tmp.write("check.sha256",
+            "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03 "
+            "*check.txt");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -289,11 +286,10 @@ TEST(sha256sum, sha256sum_check_accepts_binary_marker_lines) {
 TEST(sha256sum, sha256sum_check_warn_reports_malformed_line_locations) {
   TempDir tmp;
   tmp.write("check.txt", "hello\n");
-  tmp.write(
-      "check.sha256",
-      "not-a-checksum\n"
-      "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03  "
-      "check.txt\n");
+  tmp.write("check.sha256",
+            "not-a-checksum\n"
+            "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03  "
+            "check.txt\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -302,7 +298,8 @@ TEST(sha256sum, sha256sum_check_warn_reports_malformed_line_locations) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(
-      r.stderr_text.find("sha256sum: check.sha256: 1: improperly formatted checksum line") !=
+      r.stderr_text.find(
+          "sha256sum: check.sha256: 1: improperly formatted checksum line") !=
       std::string::npos);
   EXPECT_TRUE(r.stderr_text.find(
                   "sha256sum: WARNING: 1 line is improperly formatted") !=
@@ -321,19 +318,18 @@ TEST(sha256sum, sha256sum_check_without_valid_lines_reports_error) {
 
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
-  EXPECT_TRUE(
-      r.stderr_text.find("sha256sum: check.sha256: no properly formatted checksum lines found") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("sha256sum: check.sha256: no properly "
+                                 "formatted checksum lines found") !=
+              std::string::npos);
 }
 
 TEST(sha256sum, sha256sum_check_strict_rejects_malformed_lines) {
   TempDir tmp;
   tmp.write("check.txt", "hello\n");
-  tmp.write(
-      "check.sha256",
-      "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03  "
-      "check.txt\n"
-      "bad-line\n");
+  tmp.write("check.sha256",
+            "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03  "
+            "check.txt\n"
+            "bad-line\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

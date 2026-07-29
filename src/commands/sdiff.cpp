@@ -44,16 +44,15 @@ using cmd::meta::OptionType;
 // Options (constexpr)
 // ======================================================
 
-auto constexpr SDIFF_OPTIONS =
-    std::array{OPTION("-o", "", "output file", STRING_TYPE),
-               OPTION("-w", "", "set output width", STRING_TYPE),
-               OPTION("-l", "", "print only the left column when lines are common"),
-               OPTION("-s", "--suppress-common-lines",
-                      "do not print common lines"),
-               OPTION("-B", "", "ignore changes whose lines are all blank"),
-               OPTION("-E", "", "ignore tab expansion"),
-               OPTION("-b", "", "ignore changes in amount of white space"),
-               OPTION("-W", "", "ignore all white space")};
+auto constexpr SDIFF_OPTIONS = std::array{
+    OPTION("-o", "", "output file", STRING_TYPE),
+    OPTION("-w", "", "set output width", STRING_TYPE),
+    OPTION("-l", "", "print only the left column when lines are common"),
+    OPTION("-s", "--suppress-common-lines", "do not print common lines"),
+    OPTION("-B", "", "ignore changes whose lines are all blank"),
+    OPTION("-E", "", "ignore tab expansion"),
+    OPTION("-b", "", "ignore changes in amount of white space"),
+    OPTION("-W", "", "ignore all white space")};
 
 // ======================================================
 // Helper functions

@@ -421,7 +421,8 @@ auto build_config(const CommandContext<READLINK_OPTIONS.size()>& ctx)
       continue;
     }
 
-    if (meta.long_name == "--canonicalize-existing" || meta.short_name == "-e") {
+    if (meta.long_name == "--canonicalize-existing" ||
+        meta.short_name == "-e") {
       cfg.mode = Mode::canonicalize_existing;
       continue;
     }

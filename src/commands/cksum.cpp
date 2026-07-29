@@ -55,7 +55,8 @@ auto constexpr CKSUM_OPTIONS = std::array{
            "don't fail or report status for missing files"),
     OPTION("-q", "--quiet",
            "don't print OK for each successfully verified file"),
-    OPTION("-s", "--status", "don't output anything, status code shows success"),
+    OPTION("-s", "--status",
+           "don't output anything, status code shows success"),
     OPTION("-w", "--warn", "warn about improperly formatted checksum lines"),
     OPTION("", "--strict",
            "exit non-zero for improperly formatted checksum lines"),
@@ -66,10 +67,8 @@ auto constexpr CKSUM_OPTIONS = std::array{
     OPTION("-z", "--zero",
            "end each output line with NUL, not newline, and disable file name "
            "escaping"),
-    OPTION("", "--raw",
-           "print a raw binary digest, not hexadecimal"),
-    OPTION("", "--base64",
-           "print a base64-encoded digest"),
+    OPTION("", "--raw", "print a raw binary digest, not hexadecimal"),
+    OPTION("", "--base64", "print a base64-encoded digest"),
     OPTION("-l", "--length",
            "digest length in bits; must not exceed the maximum for the blake2 "
            "algorithm and must be a multiple of 8",
@@ -571,8 +570,8 @@ auto run_check_mode(const Config& cfg) -> int {
   if (mismatches > 0) {
     int computed = checked - unreadable;
     if (!cfg.status) {
-      safeErrorPrint("cksum: WARNING: " + std::to_string(mismatches) +
-                     " of " + std::to_string(computed) +
+      safeErrorPrint("cksum: WARNING: " + std::to_string(mismatches) + " of " +
+                     std::to_string(computed) +
                      " computed checksums did NOT match\n");
     }
     return 1;
@@ -606,9 +605,15 @@ auto run(const Config& cfg) -> int {
     if (cfg.debug) {
       safeErrorPrint("cksum: algorithm: ");
       switch (cfg.algorithm) {
-        case Algorithm::CRC: safeErrorPrint("crc"); break;
-        case Algorithm::SYSV: safeErrorPrint("sysv"); break;
-        case Algorithm::BSD: safeErrorPrint("bsd"); break;
+        case Algorithm::CRC:
+          safeErrorPrint("crc");
+          break;
+        case Algorithm::SYSV:
+          safeErrorPrint("sysv");
+          break;
+        case Algorithm::BSD:
+          safeErrorPrint("bsd");
+          break;
       }
       safeErrorPrint("\n");
       safeErrorPrint("cksum: file: " + file + "\n");
@@ -692,8 +697,8 @@ REGISTER_COMMAND(
     "  cksum --tag file.txt\n"
     "  cksum -c checksums.txt\n"
     "  echo \"test\" | cksum",
-    "md5sum(1), sha1sum(1)", "WinuxCmd",
-    "Copyright © 2026 WinuxCmd", CKSUM_OPTIONS) {
+    "md5sum(1), sha1sum(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
+    CKSUM_OPTIONS) {
   using namespace cksum_pipeline;
 
   auto cfg_result = build_config(ctx);

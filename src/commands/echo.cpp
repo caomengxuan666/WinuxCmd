@@ -262,8 +262,8 @@ auto process_escapes(std::string text, bool enabled)
           // Octal escape \0nnn and GNU old-style \nnn
           int value = 0;
           size_t j = i;
-          for (; j < i + 3 && j < text.size() && text[j] >= '0' &&
-                 text[j] <= '7';
+          for (;
+               j < i + 3 && j < text.size() && text[j] >= '0' && text[j] <= '7';
                ++j) {
             value = value * 8 + (text[j] - '0');
           }
@@ -305,8 +305,8 @@ auto process_escapes(std::string text, bool enabled)
               break;
             }
             char hex = static_cast<char>(std::tolower(ch));
-            value = value * 16 + (hex >= '0' && hex <= '9' ? hex - '0'
-                                                            : hex - 'a' + 10);
+            value = value * 16 +
+                    (hex >= '0' && hex <= '9' ? hex - '0' : hex - 'a' + 10);
           }
 
           if (j == i + 1) {
@@ -400,8 +400,7 @@ auto process_command(const CommandContext<N>& ctx)
       .and_then([&](EscapeResult escaped) {
         return validate_repeat(ctx.get<int>("--repeat", 1))
             .transform([&](int repeat) {
-              bool no_newline =
-                  option_no_newline || escaped.suppress_newline;
+              bool no_newline = option_no_newline || escaped.suppress_newline;
               return std::tuple{std::move(escaped.text), repeat, no_newline};
             });
       });

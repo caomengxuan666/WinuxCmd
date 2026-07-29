@@ -418,12 +418,12 @@ auto rewrite_chmod_gnu_negative_mode_args(std::string_view cmdName,
   }
 
   rewritten.push_back(std::move(merged_mode));
-  for (const auto& arg : pre_double_hyphen_args) {
+  for (const auto &arg : pre_double_hyphen_args) {
     rewritten.push_back(arg);
   }
   if (seen_double_hyphen) {
     rewritten.push_back("--");
-    for (const auto& arg : post_double_hyphen_args) {
+    for (const auto &arg : post_double_hyphen_args) {
       rewritten.push_back(arg);
     }
   }
@@ -576,7 +576,7 @@ auto echo_posixly_correct_literal_mode(std::string_view cmdName,
     return false;
   }
 
-  const char* value = std::getenv("POSIXLY_CORRECT");
+  const char *value = std::getenv("POSIXLY_CORRECT");
   if (value == nullptr || value[0] == '\0') {
     return false;
   }
@@ -584,10 +584,9 @@ auto echo_posixly_correct_literal_mode(std::string_view cmdName,
   return args.empty() || args[0] != "-n";
 }
 
-auto command_declares_option(
-    std::span<const cmd::meta::OptionMeta> options,
-    std::string_view name) -> bool {
-  return std::ranges::any_of(options, [name](const auto& option) {
+auto command_declares_option(std::span<const cmd::meta::OptionMeta> options,
+                             std::string_view name) -> bool {
+  return std::ranges::any_of(options, [name](const auto &option) {
     return option.short_name == name || option.long_name == name;
   });
 }
@@ -600,7 +599,7 @@ auto wants_standard_version(std::string_view cmdName,
     return false;
   }
 
-  for (const auto& arg : args) {
+  for (const auto &arg : args) {
     if (arg == "--") {
       break;
     }
@@ -631,7 +630,7 @@ class RegistryImpl {
   std::unordered_map<std::string_view, CommandEntryErased> registry_;
 
   static auto is_posixly_correct() -> bool {
-    const char* value = std::getenv("POSIXLY_CORRECT");
+    const char *value = std::getenv("POSIXLY_CORRECT");
     return value != nullptr && value[0] != '\0';
   }
 
@@ -655,8 +654,8 @@ class RegistryImpl {
     cmd::meta::Registry::register_command(name, meta);
 
     // type erase
-    auto lambda = [meta, handler, name](std::span<std::string_view> args)
-        -> int {
+    auto lambda = [meta, handler,
+                   name](std::span<std::string_view> args) -> int {
       bool ok = true;
       auto ctx = make_context<N>(args, meta.options(), ok);
       if (!ok) {
@@ -734,7 +733,8 @@ class RegistryImpl {
       effective_args = std::span<std::string_view>(rewritten_views);
     }
 
-    if (auto rewritten = rewrite_pr_legacy_column_args(cmdName, effective_args)) {
+    if (auto rewritten =
+            rewrite_pr_legacy_column_args(cmdName, effective_args)) {
       rewritten_storage = std::move(*rewritten);
       rewritten_views.clear();
       rewritten_views.reserve(rewritten_storage.size());
@@ -748,7 +748,7 @@ class RegistryImpl {
       rewritten_storage = std::move(*rewritten);
       rewritten_views.clear();
       rewritten_views.reserve(rewritten_storage.size());
-      for (const auto& arg : rewritten_storage) {
+      for (const auto &arg : rewritten_storage) {
         rewritten_views.emplace_back(arg);
       }
       effective_args = std::span<std::string_view>(rewritten_views);

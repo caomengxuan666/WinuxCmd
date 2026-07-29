@@ -150,8 +150,7 @@ int main(int argc, char *argv[]) noexcept {
     }
 
     if (!CommandRegistry::hasCommand(cmd_name)) {
-      safeErrorPrintLn("winuxcmd: command not found: " +
-                       std::string(cmd_name));
+      safeErrorPrintLn("winuxcmd: command not found: " + std::string(cmd_name));
       return 127;
     }
 

@@ -87,10 +87,10 @@ auto set_file_times(const std::filesystem::path& path,
                     const std::optional<FILETIME>& creation,
                     const std::optional<FILETIME>& access,
                     const std::optional<FILETIME>& write) -> bool {
-  HANDLE handle = CreateFileW(
-      path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_WRITE_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -116,7 +116,8 @@ auto line_for_suffix(const std::string& text, const std::string& suffix)
 }
 
 auto path_selected_time_string(const std::filesystem::path& path,
-                               const std::string& word) -> std::optional<std::string> {
+                               const std::string& word)
+    -> std::optional<std::string> {
   WIN32_FILE_ATTRIBUTE_DATA data{};
   if (!GetFileAttributesExW(path.wstring().c_str(), GetFileExInfoStandard,
                             &data)) {
@@ -433,8 +434,7 @@ TEST(du, du_exclude_from_file_skips_matching_entries) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"du.exe",
-        {L"-b", L"--exclude-from=exclude.txt", L"root"});
+  p.add(L"du.exe", {L"-b", L"--exclude-from=exclude.txt", L"root"});
 
   auto r = p.run();
 
@@ -730,9 +730,8 @@ TEST(du, du_time) {
                              std::nullopt, older));
   EXPECT_TRUE(set_file_times(tmp.path / "root" / "subdir" / "newer.txt",
                              std::nullopt, std::nullopt, newer));
-  auto expected_time =
-      path_selected_time_string(tmp.path / "root" / "subdir" / "newer.txt",
-                                "mtime");
+  auto expected_time = path_selected_time_string(
+      tmp.path / "root" / "subdir" / "newer.txt", "mtime");
   EXPECT_TRUE(expected_time.has_value());
   if (!expected_time.has_value()) return;
 

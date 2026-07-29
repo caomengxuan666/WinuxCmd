@@ -122,7 +122,7 @@ TEST(tee, tee_invalid_output_error_mode_is_rejected) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ_TEXT(r.stdout_text, "");
-  EXPECT_TRUE(
-      r.stderr_text.find("tee: invalid argument 'bogus' for '--output-error'") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "tee: invalid argument 'bogus' for '--output-error'") !=
+              std::string::npos);
 }

@@ -137,8 +137,8 @@ TEST(shuf, shuf_zero_terminated_reads_and_writes_nul_records) {
 TEST(shuf, shuf_trims_cr_from_crlf_records_in_newline_mode) {
   TempDir tmp;
   tmp.write_bytes("crlf.txt",
-                  {'l', 'i', 'n', 'e', '1', '\r', '\n', 'l', 'i', 'n', 'e',
-                   '2', '\r', '\n', 'l', 'i', 'n', 'e', '3', '\r', '\n'});
+                  {'l', 'i',  'n',  'e', '1', '\r', '\n', 'l', 'i',  'n', 'e',
+                   '2', '\r', '\n', 'l', 'i', 'n',  'e',  '3', '\r', '\n'});
   tmp.write_bytes("random.bin", {'s', 'e', 'e', 'd', '1', '2', '3', '4'});
 
   Pipeline p;
@@ -309,8 +309,7 @@ TEST(shuf, shuf_repeated_short_head_count_uses_lowest_value) {
 
 TEST(shuf, shuf_repeated_long_head_count_uses_lowest_value) {
   Pipeline p;
-  p.add(L"shuf.exe",
-        {L"--head-count=2", L"--head-count=5", L"-i", L"1-10"});
+  p.add(L"shuf.exe", {L"--head-count=2", L"--head-count=5", L"-i", L"1-10"});
 
   auto r = p.run();
 

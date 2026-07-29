@@ -144,10 +144,9 @@ TEST(seq, seq_missing_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "seq: missing operand\n"
-      "Try 'seq --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "seq: missing operand\n"
+                 "Try 'seq --help' for more information.\n");
 }
 
 TEST(seq, seq_rejects_extra_operand_with_help_hint) {
@@ -163,10 +162,9 @@ TEST(seq, seq_rejects_extra_operand_with_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "seq: extra operand '4'\n"
-      "Try 'seq --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "seq: extra operand '4'\n"
+                 "Try 'seq --help' for more information.\n");
 }
 
 TEST(seq, seq_rejects_zero_increment) {

@@ -208,8 +208,8 @@ auto validate_path_components(const std::string& path, bool allow_missing_leaf)
   return {true, {}, {}};
 }
 
-auto resolve_relative_option(const std::string& path,
-                             CanonicalizationMode mode) -> PathResult {
+auto resolve_relative_option(const std::string& path, CanonicalizationMode mode)
+    -> PathResult {
   switch (mode) {
     case CanonicalizationMode::permissive: {
       auto valid = validate_path_components(path, true);
@@ -310,8 +310,7 @@ auto build_config(const CommandContext<REALPATH_OPTIONS.size()>& ctx)
     } else if (meta.long_name == "--canonicalize-existing" ||
                meta.short_name == "-e") {
       cfg.mode = CanonicalizationMode::existing;
-    } else if (meta.long_name == "--canonicalize" ||
-               meta.short_name == "-E") {
+    } else if (meta.long_name == "--canonicalize" || meta.short_name == "-E") {
       cfg.mode = CanonicalizationMode::permissive;
     }
   }

@@ -133,9 +133,10 @@ TEST(mktemp, mktemp_suffix_rejects_directory_separator) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ(r.stdout_text, "");
-  EXPECT_TRUE(r.stderr_text.find(
-                  "mktemp: invalid suffix 'dir\\bad', contains directory separator") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find(
+          "mktemp: invalid suffix 'dir\\bad', contains directory separator") !=
+      std::string::npos);
 }
 
 TEST(mktemp, mktemp_tmpdir_prints_path_not_just_basename) {
@@ -155,7 +156,8 @@ TEST(mktemp, mktemp_tmpdir_prints_path_not_just_basename) {
     created.pop_back();
   }
   EXPECT_TRUE(created.starts_with("out\\") || created.starts_with("out/"));
-  EXPECT_TRUE(std::filesystem::exists(tmp.path / std::filesystem::u8path(created)));
+  EXPECT_TRUE(
+      std::filesystem::exists(tmp.path / std::filesystem::u8path(created)));
 }
 
 TEST(mktemp, mktemp_template_with_directory_prints_relative_path) {
@@ -174,6 +176,8 @@ TEST(mktemp, mktemp_template_with_directory_prints_relative_path) {
   if (!created.empty() && created.back() == '\n') {
     created.pop_back();
   }
-  EXPECT_TRUE(created.starts_with("nested\\") || created.starts_with("nested/"));
-  EXPECT_TRUE(std::filesystem::exists(tmp.path / std::filesystem::u8path(created)));
+  EXPECT_TRUE(created.starts_with("nested\\") ||
+              created.starts_with("nested/"));
+  EXPECT_TRUE(
+      std::filesystem::exists(tmp.path / std::filesystem::u8path(created)));
 }

@@ -94,9 +94,8 @@ TEST(head, head_obsolete_count_after_options_reports_invalid_context) {
 
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
-  EXPECT_NE(
-      r.stderr_text.find("head: option used in invalid context -- 5"),
-      std::wstring::npos);
+  EXPECT_NE(r.stderr_text.find("head: option used in invalid context -- 5"),
+            std::wstring::npos);
   EXPECT_EQ(r.stderr_text.find("unrecognized option"), std::wstring::npos);
 }
 
@@ -243,11 +242,34 @@ TEST(head, head_strips_utf8_bom_in_line_mode) {
 
 TEST(head, head_decodes_utf16le_input) {
   TempDir tmp;
-  tmp.write_bytes("a.txt",
-                  {static_cast<char>(0xFF), static_cast<char>(0xFE),
-                   'h', '\0', 'e', '\0', 'l', '\0', 'l', '\0', 'o',
-                   '\0', '\n', '\0', 's', '\0', 'e', '\0', 'c', '\0',
-                   'o', '\0', 'n', '\0', 'd', '\0', '\n', '\0'});
+  tmp.write_bytes("a.txt", {static_cast<char>(0xFF),
+                            static_cast<char>(0xFE),
+                            'h',
+                            '\0',
+                            'e',
+                            '\0',
+                            'l',
+                            '\0',
+                            'l',
+                            '\0',
+                            'o',
+                            '\0',
+                            '\n',
+                            '\0',
+                            's',
+                            '\0',
+                            'e',
+                            '\0',
+                            'c',
+                            '\0',
+                            'o',
+                            '\0',
+                            'n',
+                            '\0',
+                            'd',
+                            '\0',
+                            '\n',
+                            '\0'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -381,9 +403,9 @@ TEST(head, head_missing_file_reports_gnu_shaped_open_error) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("head: cannot open 'missing.txt' for reading: No such file or directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("head: cannot open 'missing.txt' for reading: "
+                                 "No such file or directory") !=
+              std::string::npos);
 }
 
 TEST(head, head_multi_file_skips_header_for_missing_file) {
@@ -396,9 +418,9 @@ TEST(head, head_multi_file_skips_header_for_missing_file) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("head: cannot open 'missing.txt' for reading: No such file or directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("head: cannot open 'missing.txt' for reading: "
+                                 "No such file or directory") !=
+              std::string::npos);
   EXPECT_EQ(r.stdout_text.find("==> missing.txt <=="), std::string::npos);
   EXPECT_EQ_TEXT(r.stdout_text, "==> a.txt <==\nA1\n");
 }
@@ -414,9 +436,8 @@ TEST(head, head_directory_operand_reports_gnu_shaped_read_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_TRUE(
-      r.stderr_text.find("head: error reading 'dir': Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("head: error reading 'dir': Is a directory") !=
+              std::string::npos);
 }
 
 TEST(head, head_wildcard) {

@@ -47,9 +47,9 @@ TEST(b2sum, b2sum_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("b2sum: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "b2sum: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }
 
 TEST(b2sum, b2sum_stdin) {
@@ -100,11 +100,11 @@ TEST(b2sum, b2sum_short_zero_alias_uses_nul_terminator) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(
-      r.stdout_text,
-      std::string(
-          "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043  test.txt\0",
-          139));
+  EXPECT_EQ(r.stdout_text,
+            std::string("9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff7"
+                        "2519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e"
+                        "5c3adef46f73bcdec043  test.txt\0",
+                        139));
 }
 
 TEST(b2sum, b2sum_quiet) {
@@ -141,8 +141,7 @@ TEST(b2sum, b2sum_length_accepts_nonstandard_multiple_of_8) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(
-      r.stdout_text.starts_with("9b71d224bd62f3785d96d46ad3ea3d7331"));
+  EXPECT_TRUE(r.stdout_text.starts_with("9b71d224bd62f3785d96d46ad3ea3d7331"));
   EXPECT_EQ(r.stdout_text.size(), 34 + 2 + 8 + 1);
 }
 
@@ -285,9 +284,10 @@ TEST(b2sum, b2sum_check_directory_input_reports_is_a_directory) {
   auto result = check.run();
 
   EXPECT_EQ(result.exit_code, 1);
-  EXPECT_TRUE(result.stderr_text.find(
-                  "b2sum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find(
+          "b2sum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
 TEST(b2sum, b2sum_check_reports_unreadable_listed_files) {
@@ -304,8 +304,9 @@ TEST(b2sum, b2sum_check_reports_unreadable_listed_files) {
 
   EXPECT_NE(result.exit_code, 0);
   EXPECT_EQ_TEXT(result.stdout_text, "");
-  EXPECT_TRUE(result.stderr_text.find("cannot open 'missing.txt' for reading") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      result.stderr_text.find("cannot open 'missing.txt' for reading") !=
+      std::string::npos);
   EXPECT_TRUE(result.stderr_text.find(
                   "b2sum: WARNING: 1 listed file could not be read") !=
               std::string::npos);
@@ -313,9 +314,10 @@ TEST(b2sum, b2sum_check_reports_unreadable_listed_files) {
 
 TEST(b2sum, b2sum_check_ignore_missing_skips_missing_files) {
   TempDir tmp;
-  tmp.write(
-      "check.b2",
-      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000  missing.txt\n");
+  tmp.write("check.b2",
+            "000000000000000000000000000000000000000000000000000000000000000000"
+            "00000000000000000000000000000000000000000000000000000000000000  "
+            "missing.txt\n");
 
   Pipeline check;
   check.set_cwd(tmp.wpath());
@@ -379,7 +381,8 @@ TEST(b2sum, b2sum_check_without_valid_lines_reports_error) {
   EXPECT_NE(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
   EXPECT_TRUE(
-      r.stderr_text.find("b2sum: check.b2: no properly formatted checksum lines found") !=
+      r.stderr_text.find(
+          "b2sum: check.b2: no properly formatted checksum lines found") !=
       std::string::npos);
 }
 

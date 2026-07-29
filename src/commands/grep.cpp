@@ -63,8 +63,7 @@ static auto grep_is_terminal(FILE* stream) -> bool {
     return false;
   }
 
-  std::wstring name(info->FileName,
-                    info->FileNameLength / sizeof(wchar_t));
+  std::wstring name(info->FileName, info->FileNameLength / sizeof(wchar_t));
   std::ranges::transform(name, name.begin(), [](wchar_t ch) {
     return static_cast<wchar_t>(std::towlower(ch));
   });
@@ -921,8 +920,7 @@ auto append_prefix(std::string& out, const Config& cfg, bool show_filename,
 
 auto append_line_with_color(std::string& out, std::string_view line,
                             const std::vector<MatchPiece>& matches,
-                            const Config& cfg)
-    -> void {
+                            const Config& cfg) -> void {
   if (!cfg.color || matches.empty()) {
     out.append(line);
     return;
@@ -1207,15 +1205,13 @@ auto read_file_text(const std::string& path) -> cp::Result<std::string> {
 }
 
 auto has_text_bom(std::string_view bytes) -> bool {
-  return (bytes.size() >= 3 &&
-          static_cast<std::uint8_t>(bytes[0]) == 0xEF &&
+  return (bytes.size() >= 3 && static_cast<std::uint8_t>(bytes[0]) == 0xEF &&
           static_cast<std::uint8_t>(bytes[1]) == 0xBB &&
           static_cast<std::uint8_t>(bytes[2]) == 0xBF) ||
-         (bytes.size() >= 2 &&
-          ((static_cast<std::uint8_t>(bytes[0]) == 0xFF &&
-            static_cast<std::uint8_t>(bytes[1]) == 0xFE) ||
-           (static_cast<std::uint8_t>(bytes[0]) == 0xFE &&
-            static_cast<std::uint8_t>(bytes[1]) == 0xFF)));
+         (bytes.size() >= 2 && ((static_cast<std::uint8_t>(bytes[0]) == 0xFF &&
+                                 static_cast<std::uint8_t>(bytes[1]) == 0xFE) ||
+                                (static_cast<std::uint8_t>(bytes[0]) == 0xFE &&
+                                 static_cast<std::uint8_t>(bytes[1]) == 0xFF)));
 }
 
 auto decode_text_bytes(const std::string& bytes) -> std::string {
@@ -1435,9 +1431,8 @@ auto process(Config& cfg) -> int {
                                   show_filename, cfg);
         }
       } else {
-        scan_result =
-            scan_text(read_text_stream(std::cin), display_name, show_filename,
-                      cfg);
+        scan_result = scan_text(read_text_stream(std::cin), display_name,
+                                show_filename, cfg);
       }
     } else if (cfg.binary_mode == BinaryMode::WithoutMatch) {
       auto content = read_file_binary(input);

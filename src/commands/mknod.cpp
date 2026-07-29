@@ -36,8 +36,8 @@ auto is_plausible_mode(std::string_view mode) -> bool {
   if (octal) return true;
 
   for (char ch : mode) {
-    if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '+' || ch == '-' ||
-        ch == '=' || ch == ',' || ch == 'X') {
+    if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '+' ||
+        ch == '-' || ch == '=' || ch == ',' || ch == 'X') {
       continue;
     }
     return false;
@@ -108,13 +108,15 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
 
   if (cfg.type == NodeType::Fifo) {
     if (ctx.positionals.size() > 2) {
-      return std::unexpected("fifo type does not accept major and minor device numbers");
+      return std::unexpected(
+          "fifo type does not accept major and minor device numbers");
     }
     return cfg;
   }
 
   if (ctx.positionals.size() < 4) {
-    return std::unexpected("special file type requires major and minor device numbers");
+    return std::unexpected(
+        "special file type requires major and minor device numbers");
   }
 
   auto major_result = parse_uint_arg(ctx.positionals[2], "major");

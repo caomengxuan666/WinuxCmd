@@ -329,7 +329,7 @@ TEST(split, split_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("split: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "split: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }

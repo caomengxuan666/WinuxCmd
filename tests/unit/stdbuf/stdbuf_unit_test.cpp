@@ -38,10 +38,9 @@ TEST(stdbuf, stdbuf_missing_command_reports_help_hint_on_stderr) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "stdbuf: missing command\n"
-      "Try 'stdbuf --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "stdbuf: missing command\n"
+                 "Try 'stdbuf --help' for more information.\n");
 }
 
 TEST(stdbuf, stdbuf_invalid_option_returns_125) {
@@ -52,10 +51,9 @@ TEST(stdbuf, stdbuf_invalid_option_returns_125) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "stdbuf: unrecognized option '--invalid'\n"
-      "Try 'stdbuf --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "stdbuf: unrecognized option '--invalid'\n"
+                 "Try 'stdbuf --help' for more information.\n");
 }
 
 TEST(stdbuf, stdbuf_attached_output_mode) {

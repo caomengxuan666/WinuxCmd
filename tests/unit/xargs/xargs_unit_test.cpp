@@ -474,7 +474,8 @@ TEST(xargs, xargs_command_template_args_expand_parent_segment_star_wildcards) {
   EXPECT_TRUE(r.stdout_text.find("dir*\\*.txt") == std::string::npos);
 }
 
-TEST(xargs, xargs_command_template_args_expand_parent_segment_question_wildcards) {
+TEST(xargs,
+     xargs_command_template_args_expand_parent_segment_question_wildcards) {
   TempDir tmp;
   tmp.write("dir1\\one.txt", "1\n");
   tmp.write("dir2\\two.txt", "2\n");
@@ -493,7 +494,8 @@ TEST(xargs, xargs_command_template_args_expand_parent_segment_question_wildcards
   EXPECT_TRUE(r.stdout_text.find("dir?\\*.txt") == std::string::npos);
 }
 
-TEST(xargs, xargs_command_template_args_keep_literal_when_wildcard_has_no_match) {
+TEST(xargs,
+     xargs_command_template_args_keep_literal_when_wildcard_has_no_match) {
   TempDir tmp;
   tmp.write("one.txt", "1\n");
 
@@ -530,8 +532,7 @@ TEST(xargs, xargs_rejects_empty_short_delimiter) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"xargs.exe",
-        {L"-d", L"", L"-n", L"1", L"cmd.exe", L"/C", L"echo"});
+  p.add(L"xargs.exe", {L"-d", L"", L"-n", L"1", L"cmd.exe", L"/C", L"echo"});
   p.set_stdin("alpha,beta");
 
   auto r = p.run();
@@ -562,8 +563,7 @@ TEST(xargs, xargs_rejects_incomplete_hex_delimiter_escape) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"xargs.exe",
-        {L"-d", L"\\x", L"-n", L"1", L"cmd.exe", L"/C", L"echo"});
+  p.add(L"xargs.exe", {L"-d", L"\\x", L"-n", L"1", L"cmd.exe", L"/C", L"echo"});
   p.set_stdin("alpha");
 
   auto r = p.run();
@@ -578,8 +578,7 @@ TEST(xargs, xargs_rejects_unknown_named_delimiter_escape) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"xargs.exe",
-        {L"-d", L"\\q", L"-n", L"1", L"cmd.exe", L"/C", L"echo"});
+  p.add(L"xargs.exe", {L"-d", L"\\q", L"-n", L"1", L"cmd.exe", L"/C", L"echo"});
   p.set_stdin("alpha");
 
   auto r = p.run();
@@ -661,8 +660,7 @@ TEST(xargs, xargs_logical_eof_is_ignored_in_null_mode) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"xargs.exe",
-        {L"-0", L"-E", L"STOP", L"cmd.exe", L"/C", L"echo"});
+  p.add(L"xargs.exe", {L"-0", L"-E", L"STOP", L"cmd.exe", L"/C", L"echo"});
   p.set_stdin(std::string("alpha\0STOP\0beta\0", 16));
 
   auto r = p.run();
@@ -726,8 +724,8 @@ TEST(xargs, xargs_max_procs_reuses_any_completed_slot_instead_of_fifo_waiting) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"xargs.exe", {L"-P", L"2", L"-n", L"1", L"cmd.exe", L"/C",
-                       L"runner.cmd"});
+  p.add(L"xargs.exe",
+        {L"-P", L"2", L"-n", L"1", L"cmd.exe", L"/C", L"runner.cmd"});
   p.set_stdin("slow\nfast\nthird\n");
 
   auto r = p.run();
@@ -972,9 +970,9 @@ TEST(xargs, xargs_max_chars_above_windows_limit_is_clamped_with_warning) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stderr_text.find("value for -s option is too large") !=
               std::string::npos);
-  EXPECT_TRUE(
-      r.stderr_text.find("Size of command buffer we are actually using: 32767") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "Size of command buffer we are actually using: 32767") !=
+              std::string::npos);
 }
 
 TEST(xargs, xargs_eof_stops_reading_at_marker_line) {
@@ -1194,7 +1192,8 @@ TEST(xargs, xargs_default_echo_max_chars_splits_batches) {
   EXPECT_EQ_TEXT(r.stdout_text, "one\ntwo\nthree\n");
 }
 
-TEST(xargs, xargs_default_echo_exit_if_exceeded_rejects_oversized_command_line) {
+TEST(xargs,
+     xargs_default_echo_exit_if_exceeded_rejects_oversized_command_line) {
   TempDir tmp;
 
   Pipeline p;

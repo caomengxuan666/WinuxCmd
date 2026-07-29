@@ -91,9 +91,10 @@ auto has_path_separator(std::string_view s) -> bool {
          s.find('\\') != std::string_view::npos;
 }
 
-auto exists_regular(const fs::path& p) -> bool {
-  std::error_code ec;
-  return fs::exists(p, ec) && fs::is_regular_file(p, ec);
+auto exists_command_candidate(const fs::path& p) -> bool {
+  DWORD attrs = GetFileAttributesW(p.wstring().c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
 
 auto with_extensions(const fs::path& base, const std::vector<std::string>& exts)
@@ -125,7 +126,7 @@ auto find_one(std::string_view name, bool all) -> std::vector<std::string> {
   if (has_path_separator(name)) {
     fs::path base = std::string(name);
     for (const auto& candidate : with_extensions(base, pathext)) {
-      if (exists_regular(candidate)) {
+      if (exists_command_candidate(candidate)) {
         append_hit(candidate);
         if (!all) return std::vector<std::string>(hits.begin(), hits.end());
       }
@@ -137,7 +138,7 @@ auto find_one(std::string_view name, bool all) -> std::vector<std::string> {
     if (dir.empty()) continue;
     fs::path base = fs::path(dir) / std::string(name);
     for (const auto& candidate : with_extensions(base, pathext)) {
-      if (exists_regular(candidate)) {
+      if (exists_command_candidate(candidate)) {
         append_hit(candidate);
         if (!all) return std::vector<std::string>(hits.begin(), hits.end());
       }

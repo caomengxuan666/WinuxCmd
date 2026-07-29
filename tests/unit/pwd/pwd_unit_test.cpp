@@ -219,7 +219,8 @@ TEST(pwd, pwd_logical_ignores_relative_pwd_environment) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find(tmp.path.string()) != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("relative\\logical-view") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("relative\\logical-view") ==
+              std::string::npos);
 }
 
 TEST(pwd, pwd_logical_ignores_nonexistent_absolute_pwd_environment) {

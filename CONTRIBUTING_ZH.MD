@@ -102,7 +102,7 @@ WinuxCmd 遵循 Google C++ 风格指南并进行了一些修改：
 使用提供的格式化脚本来确保一致的格式：
 
 ```bash
-python scripts/format.py
+winuxsh scripts/format.sh
 ```
 
 ### 代码检查

@@ -157,9 +157,9 @@ TEST(cksum, cksum_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("cksum: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "cksum: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }
 
 TEST(cksum, cksum_check_reports_no_valid_lines_found) {
@@ -173,9 +173,10 @@ TEST(cksum, cksum_check_reports_no_valid_lines_found) {
   auto r = p.run();
 
   EXPECT_NE(r.exit_code, 0);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "cksum: check.txt: no properly formatted checksum lines found") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find(
+          "cksum: check.txt: no properly formatted checksum lines found") !=
+      std::string::npos);
 }
 
 TEST(cksum, cksum_check_directory_input_reports_is_a_directory) {
@@ -189,12 +190,14 @@ TEST(cksum, cksum_check_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "cksum: cannot open 'checkdir' for reading: Is a directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find(
+          "cksum: cannot open 'checkdir' for reading: Is a directory") !=
+      std::string::npos);
 }
 
-TEST(cksum, cksum_check_ignores_malformed_lines_by_default_when_valid_records_exist) {
+TEST(cksum,
+     cksum_check_ignores_malformed_lines_by_default_when_valid_records_exist) {
   TempDir tmp;
   tmp.write("good.txt", "hello");
   tmp.write("check.txt",
@@ -230,9 +233,9 @@ TEST(cksum, cksum_check_warn_reports_malformed_line_location_and_summary) {
   EXPECT_TRUE(r.stderr_text.find(
                   "cksum: check.txt: 1: improperly formatted checksum line") !=
               std::string::npos);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "cksum: WARNING: 1 line is improperly formatted") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find("cksum: WARNING: 1 line is improperly formatted") !=
+      std::string::npos);
 }
 
 TEST(cksum, cksum_check_strict_fails_when_any_line_is_malformed) {
@@ -266,11 +269,11 @@ TEST(cksum, cksum_check_reports_unreadable_listed_files) {
   EXPECT_NE(r.exit_code, 0);
   EXPECT_TRUE(r.stderr_text.find("cannot open 'missing.txt' for reading") !=
               std::string::npos);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "cksum: WARNING: 1 listed file could not be read") !=
-              std::string::npos);
   EXPECT_TRUE(
-      r.stderr_text.find("computed checksums did NOT match") == std::string::npos);
+      r.stderr_text.find("cksum: WARNING: 1 listed file could not be read") !=
+      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("computed checksums did NOT match") ==
+              std::string::npos);
 }
 
 TEST(cksum, cksum_check_ignore_missing_skips_missing_files) {
@@ -302,9 +305,9 @@ TEST(cksum, cksum_check_mismatch_summary_counts_only_computed_records) {
   auto r = p.run();
 
   EXPECT_NE(r.exit_code, 0);
-  EXPECT_TRUE(r.stderr_text.find(
-                  "cksum: WARNING: 1 listed file could not be read") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find("cksum: WARNING: 1 listed file could not be read") !=
+      std::string::npos);
   EXPECT_TRUE(r.stderr_text.find(
                   "cksum: WARNING: 1 of 1 computed checksums did NOT match") !=
               std::string::npos);

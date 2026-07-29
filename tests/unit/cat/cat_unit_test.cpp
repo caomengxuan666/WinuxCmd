@@ -218,6 +218,7 @@ TEST(cat, cat_missing_input_reports_gnu_shaped_diagnostic) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_TRUE(r.stderr_text.find("cat: missing.txt: No such file or directory") !=
-              std::string::npos);
+  EXPECT_TRUE(
+      r.stderr_text.find("cat: missing.txt: No such file or directory") !=
+      std::string::npos);
 }

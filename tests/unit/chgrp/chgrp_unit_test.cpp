@@ -1,9 +1,9 @@
 /*
  *  Copyright © 2026 [caomengxuan666]
  */
-#include "framework/winuxtest.h"
-
 #include <aclapi.h>
+
+#include "framework/winuxtest.h"
 
 namespace {
 
@@ -64,10 +64,10 @@ auto get_group_name_for_path(const std::filesystem::path& path) -> std::string {
   PSECURITY_DESCRIPTOR security_desc = nullptr;
   PSID group_sid = nullptr;
 
-  const DWORD status = GetNamedSecurityInfoW(
-      const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
-      GROUP_SECURITY_INFORMATION, nullptr, &group_sid, nullptr, nullptr,
-      &security_desc);
+  const DWORD status =
+      GetNamedSecurityInfoW(const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
+                            GROUP_SECURITY_INFORMATION, nullptr, &group_sid,
+                            nullptr, nullptr, &security_desc);
   if (status != ERROR_SUCCESS) {
     if (security_desc != nullptr) {
       LocalFree(security_desc);
@@ -87,10 +87,10 @@ auto get_group_id_for_path(const std::filesystem::path& path) -> std::string {
   PSECURITY_DESCRIPTOR security_desc = nullptr;
   PSID group_sid = nullptr;
 
-  const DWORD status = GetNamedSecurityInfoW(
-      const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
-      GROUP_SECURITY_INFORMATION, nullptr, &group_sid, nullptr, nullptr,
-      &security_desc);
+  const DWORD status =
+      GetNamedSecurityInfoW(const_cast<wchar_t*>(wpath.c_str()), SE_FILE_OBJECT,
+                            GROUP_SECURITY_INFORMATION, nullptr, &group_sid,
+                            nullptr, nullptr, &security_desc);
   if (status != ERROR_SUCCESS) {
     if (security_desc != nullptr) {
       LocalFree(security_desc);
@@ -178,7 +178,8 @@ TEST(chgrp, chgrp_nonexistent_file) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ_TEXT(r.stderr_text,
-                 "chgrp: cannot access 'nonexistent_file_xyz': No such file or directory\n");
+                 "chgrp: cannot access 'nonexistent_file_xyz': No such file or "
+                 "directory\n");
 }
 
 TEST(chgrp, chgrp_nonexistent_group) {
@@ -252,8 +253,7 @@ TEST(chgrp, chgrp_invalid_from_group_fails) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chgrp.exe",
-        {L"--from=nonexistent_group_xyz", L"Users", L"test.txt"});
+  p.add(L"chgrp.exe", {L"--from=nonexistent_group_xyz", L"Users", L"test.txt"});
 
   auto r = p.run();
 
@@ -291,9 +291,8 @@ TEST(chgrp, chgrp_from_matching_group_allows_reference_processing) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chgrp.exe",
-        {utf8_to_wstring("--from=" + current_group), L"-v",
-         L"--reference=reference.txt", L"target.txt"});
+  p.add(L"chgrp.exe", {utf8_to_wstring("--from=" + current_group), L"-v",
+                       L"--reference=reference.txt", L"target.txt"});
 
   auto r = p.run();
 
@@ -324,9 +323,8 @@ TEST(chgrp, chgrp_from_mismatching_group_skips_reference_processing) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chgrp.exe",
-        {utf8_to_wstring("--from=" + mismatch_group), L"-v",
-         L"--reference=reference.txt", L"target.txt"});
+  p.add(L"chgrp.exe", {utf8_to_wstring("--from=" + mismatch_group), L"-v",
+                       L"--reference=reference.txt", L"target.txt"});
 
   auto r = p.run();
 
@@ -349,9 +347,8 @@ TEST(chgrp, chgrp_from_numeric_group_allows_reference_processing) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chgrp.exe",
-        {utf8_to_wstring("--from=" + current_group_id), L"-v",
-         L"--reference=reference.txt", L"target.txt"});
+  p.add(L"chgrp.exe", {utf8_to_wstring("--from=" + current_group_id), L"-v",
+                       L"--reference=reference.txt", L"target.txt"});
 
   auto r = p.run();
 
@@ -375,9 +372,8 @@ TEST(chgrp, chgrp_from_colon_numeric_group_allows_reference_processing) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chgrp.exe",
-        {utf8_to_wstring("--from=:" + current_group_id), L"-v",
-         L"--reference=reference.txt", L"target.txt"});
+  p.add(L"chgrp.exe", {utf8_to_wstring("--from=:" + current_group_id), L"-v",
+                       L"--reference=reference.txt", L"target.txt"});
 
   auto r = p.run();
 
@@ -394,20 +390,19 @@ TEST(chgrp, chgrp_preserve_root_recursive_root_failsafe) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "chgrp: it is dangerous to operate recursively on '/'\n"
-      "chgrp: use --no-preserve-root to override this failsafe\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "chgrp: it is dangerous to operate recursively on '/'\n"
+                 "chgrp: use --no-preserve-root to override this failsafe\n");
 }
 
-TEST(chgrp, chgrp_preserve_root_without_recursive_does_not_block_reference_mode) {
+TEST(chgrp,
+     chgrp_preserve_root_without_recursive_does_not_block_reference_mode) {
   TempDir tmp;
   tmp.write("reference.txt", "ref");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"chgrp.exe",
-        {L"--preserve-root", L"--reference=reference.txt", L"/"});
+  p.add(L"chgrp.exe", {L"--preserve-root", L"--reference=reference.txt", L"/"});
 
   auto r = p.run();
 

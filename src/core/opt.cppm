@@ -416,8 +416,7 @@ ParseResult<N> parse_command(
                 std::from_chars(str.data(), str.data() + str.size(), v);
             if (ec != std::errc() || ptr != str.data() + str.size()) {
               std::array<char, 3> short_name = {'-', ch, '\0'};
-              set_invalid_argument(std::string_view(short_name.data(), 2),
-                                   str);
+              set_invalid_argument(std::string_view(short_name.data(), 2), str);
               return result;
             }
 

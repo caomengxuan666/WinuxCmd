@@ -124,10 +124,9 @@ TEST(rmdir, rmdir_missing_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "rmdir: missing operand\n"
-      "Try 'rmdir --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "rmdir: missing operand\n"
+                 "Try 'rmdir --help' for more information.\n");
 }
 
 TEST(rmdir, rmdir_verbose_single_uses_gnu_style_message) {

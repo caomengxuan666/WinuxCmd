@@ -107,8 +107,8 @@ auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  auto find_template_run = [](std::string_view templ)
-      -> std::optional<std::pair<size_t, size_t>> {
+  auto find_template_run =
+      [](std::string_view templ) -> std::optional<std::pair<size_t, size_t>> {
     auto last_sep = templ.find_last_of("/\\");
     size_t component_start =
         last_sep == std::string_view::npos ? 0 : last_sep + 1;
@@ -146,7 +146,8 @@ auto run(const Config& cfg) -> int {
     template_component =
         std::filesystem::path(cfg.template_str).filename().string();
   } else {
-    std::filesystem::path template_path = std::filesystem::path(cfg.template_str);
+    std::filesystem::path template_path =
+        std::filesystem::path(cfg.template_str);
     base_dir = template_path.parent_path();
     template_component = template_path.filename().string();
   }

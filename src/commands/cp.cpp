@@ -122,20 +122,17 @@ auto constexpr CP_OPTIONS = std::array{
     OPTION("-x", "--one-file-system", "stay on this file system"),
     OPTION("-Z", "",
            "set SELinux security context of destination file to default type"),
-    OPTION("", "--remove-destination",
-           "remove each existing destination file before attempting to open it"),
+    OPTION(
+        "", "--remove-destination",
+        "remove each existing destination file before attempting to open it"),
     OPTION("", "--attributes-only",
            "don't copy the file data, just the attributes"),
-    OPTION("", "--parents",
-           "use full source file name under DIRECTORY"),
-    OPTION("", "--sparse",
-           "control creation of sparse files", STRING_TYPE),
-    OPTION("", "--reflink",
-           "control clone/CoW copies", OPTIONAL_STRING_TYPE),
-    OPTION("", "--preserve",
-           "preserve the specified attributes", STRING_TYPE),
-    OPTION("", "--no-preserve",
-           "don't preserve the specified attributes", STRING_TYPE),
+    OPTION("", "--parents", "use full source file name under DIRECTORY"),
+    OPTION("", "--sparse", "control creation of sparse files", STRING_TYPE),
+    OPTION("", "--reflink", "control clone/CoW copies", OPTIONAL_STRING_TYPE),
+    OPTION("", "--preserve", "preserve the specified attributes", STRING_TYPE),
+    OPTION("", "--no-preserve", "don't preserve the specified attributes",
+           STRING_TYPE),
     OPTION("", "--copy-contents",
            "copy contents of special files when recursive"),
     OPTION("-c", "--context",
@@ -193,8 +190,7 @@ auto validate_arguments(const CommandContext<CP_OPTIONS.size()>& ctx)
     }
 
     DWORD attr = GetFileAttributesW(utf8_to_wstring(target_dir).c_str());
-    if (attr == INVALID_FILE_ATTRIBUTES ||
-        !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+    if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
       return std::unexpected("target is not a directory");
     }
 
@@ -771,7 +767,8 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
   bool no_clobber =
       ctx.get<bool>("--no-clobber", false) || ctx.get<bool>("-n", false);
   if (no_clobber && backup_enabled(ctx)) {
-    return std::unexpected("options --backup and --no-clobber are mutually exclusive");
+    return std::unexpected(
+        "options --backup and --no-clobber are mutually exclusive");
   }
 
   bool no_target_directory = ctx.get<bool>("-T", false) ||

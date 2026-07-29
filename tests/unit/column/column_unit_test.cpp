@@ -147,8 +147,8 @@ TEST(column, column_fill_columns) {
 TEST(column, column_table_mode_trims_trailing_cr_from_crlf_records) {
   TempDir tmp;
   tmp.write_bytes("crlf.txt",
-                  {'n', 'a', 'm', 'e', '\t', 'a', 'g', 'e', '\r', '\n',
-                   'A', 'l', 'i', 'c', 'e', '\t', '3', '0', '\r', '\n'});
+                  {'n', 'a', 'm', 'e', '\t', 'a',  'g', 'e', '\r', '\n',
+                   'A', 'l', 'i', 'c', 'e',  '\t', '3', '0', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

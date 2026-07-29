@@ -34,8 +34,8 @@ auto is_plausible_mode(std::string_view mode) -> bool {
   if (octal) return true;
 
   for (char ch : mode) {
-    if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '+' || ch == '-' ||
-        ch == '=' || ch == ',' || ch == 'X') {
+    if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '+' ||
+        ch == '-' || ch == '=' || ch == ',' || ch == 'X') {
       continue;
     }
     return false;
@@ -47,7 +47,8 @@ struct Config {
   std::vector<std::string> fifos;
 };
 
-auto add_fifo_args(Config& cfg, std::span<const std::string_view> args) -> void {
+auto add_fifo_args(Config& cfg, std::span<const std::string_view> args)
+    -> void {
   for (auto arg : args) {
     cfg.fifos.emplace_back(arg);
   }
@@ -72,9 +73,8 @@ auto build_config(const CommandContext<MKFIFO_OPTIONS.size()>& ctx)
     return std::unexpected("missing operand");
   }
 
-  add_fifo_args(
-      cfg, std::span<const std::string_view>(ctx.positionals.data(),
-                                             ctx.positionals.size()));
+  add_fifo_args(cfg, std::span<const std::string_view>(ctx.positionals.data(),
+                                                       ctx.positionals.size()));
 
   return cfg;
 }

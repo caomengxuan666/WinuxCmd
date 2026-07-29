@@ -106,10 +106,9 @@ TEST(nohup, nohup_invalid_option_default_returns_125) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "nohup: unrecognized option '--invalid'\n"
-      "Try 'nohup --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "nohup: unrecognized option '--invalid'\n"
+                 "Try 'nohup --help' for more information.\n");
 }
 
 TEST(nohup, nohup_invalid_option_posixly_correct_returns_127) {
@@ -124,10 +123,9 @@ TEST(nohup, nohup_invalid_option_posixly_correct_returns_127) {
 
   EXPECT_EQ(r.exit_code, 127);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "nohup: unrecognized option '--invalid'\n"
-      "Try 'nohup --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "nohup: unrecognized option '--invalid'\n"
+                 "Try 'nohup --help' for more information.\n");
 }
 
 TEST(nohup, nohup_missing_command_reports_gnu_style_error_and_127) {

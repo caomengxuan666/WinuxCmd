@@ -72,15 +72,15 @@ auto constexpr DF_OPTIONS = std::array{
     OPTION("-k", "", "like --block-size=1K"),
     OPTION("-l", "--local", "limit listing to local file systems"),
     OPTION("-T", "--print-type", "print file system type"),
-    OPTION("-t", "--type",
-           "limit listing to file systems of type TYPE", STRING_TYPE),
+    OPTION("-t", "--type", "limit listing to file systems of type TYPE",
+           STRING_TYPE),
     OPTION("-x", "--exclude-type",
            "limit listing to file systems not of type TYPE", STRING_TYPE),
     OPTION("", "--total", "produce a grand total"),
     OPTION("", "--sync", "invoke sync before getting usage info"),
     OPTION("", "--no-sync", "do not invoke sync before getting usage info"),
-    OPTION("", "--output",
-           "use the output format defined by FIELD_LIST", STRING_TYPE),
+    OPTION("", "--output", "use the output format defined by FIELD_LIST",
+           STRING_TYPE),
     OPTION("-P", "--portability", "use the POSIX output format")};
 
 // ======================================================
@@ -484,7 +484,8 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
       ctx.get<bool>("--print-type", false) || ctx.get<bool>("-T", false);
   bool inodes = ctx.get<bool>("--inodes", false) || ctx.get<bool>("-i", false);
   bool total = ctx.get<bool>("--total", false);
-  bool local_only = ctx.get<bool>("--local", false) || ctx.get<bool>("-l", false);
+  bool local_only =
+      ctx.get<bool>("--local", false) || ctx.get<bool>("-l", false);
   std::string include_type = ctx.get<std::string>("--type", "");
   if (include_type.empty()) include_type = ctx.get<std::string>("-t", "");
   std::string exclude_type = ctx.get<std::string>("--exclude-type", "");
@@ -535,7 +536,8 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
 
     // Filter out network drives if --local
     if (local_only) {
-      UINT drive_type = GetDriveTypeW(utf8_to_wstring(info.mount_point).c_str());
+      UINT drive_type =
+          GetDriveTypeW(utf8_to_wstring(info.mount_point).c_str());
       if (drive_type == DRIVE_REMOTE) continue;
     }
 

@@ -163,10 +163,9 @@ TEST(nice, nice_invalid_adjustment_reports_usage_error) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "nice: invalid adjustment '-2+4'\n"
-      "Try 'nice --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "nice: invalid adjustment '-2+4'\n"
+                 "Try 'nice --help' for more information.\n");
 }
 
 TEST(nice, nice_invalid_option_returns_125) {
@@ -180,10 +179,9 @@ TEST(nice, nice_invalid_option_returns_125) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "nice: unrecognized option '--invalid'\n"
-      "Try 'nice --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "nice: unrecognized option '--invalid'\n"
+                 "Try 'nice --help' for more information.\n");
 }
 
 TEST(nice, nice_explicit_adjustment_without_command_reports_usage_error) {
@@ -197,10 +195,9 @@ TEST(nice, nice_explicit_adjustment_without_command_reports_usage_error) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "nice: A command must be given with an adjustment.\n"
-      "Try 'nice --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "nice: A command must be given with an adjustment.\n"
+                 "Try 'nice --help' for more information.\n");
 }
 
 TEST(nice, nice_long_adjustment_without_command_reports_usage_error) {
@@ -214,10 +211,9 @@ TEST(nice, nice_long_adjustment_without_command_reports_usage_error) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "nice: A command must be given with an adjustment.\n"
-      "Try 'nice --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "nice: A command must be given with an adjustment.\n"
+                 "Try 'nice --help' for more information.\n");
 }
 
 TEST(nice, nice_missing_command_reports_gnu_style_error_and_127) {

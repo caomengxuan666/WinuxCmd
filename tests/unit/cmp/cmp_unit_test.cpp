@@ -228,10 +228,9 @@ TEST(cmp, cmp_single_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "cmp: missing operand after 'a'\nTry 'cmp --help' for more "
-      "information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "cmp: missing operand after 'a'\nTry 'cmp --help' for more "
+                 "information.\n");
 }
 
 TEST(cmp, cmp_extra_operand_reports_help_hint) {

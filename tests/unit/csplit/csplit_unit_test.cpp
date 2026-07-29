@@ -182,8 +182,7 @@ TEST(csplit, csplit_line_numbers_suppress_matched_keeps_final_empty_split) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"csplit.exe",
-        {L"--suppress-matched", L"input.txt", L"2", L"4", L"6"});
+  p.add(L"csplit.exe", {L"--suppress-matched", L"input.txt", L"2", L"4", L"6"});
 
   auto r = p.run();
 

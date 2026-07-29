@@ -120,9 +120,8 @@ TEST(timeout, timeout_verbose_reports_signal_name) {
 
   EXPECT_EQ(r.exit_code, 124);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "timeout: sending signal TERM to command 'sleep.exe'\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "timeout: sending signal TERM to command 'sleep.exe'\n");
 }
 
 TEST(timeout, timeout_foreground_signal0_kill_after_returns_kill_status) {
@@ -146,10 +145,9 @@ TEST(timeout, timeout_verbose_signal0_kill_after_reports_probe_then_kill) {
 
   EXPECT_EQ(r.exit_code, 137);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "timeout: sending signal 0 to command 'sleep.exe'\n"
-      "timeout: sending signal KILL to command 'sleep.exe'\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "timeout: sending signal 0 to command 'sleep.exe'\n"
+                 "timeout: sending signal KILL to command 'sleep.exe'\n");
 }
 
 TEST(timeout, timeout_duration_minutes) {
@@ -175,10 +173,9 @@ TEST(timeout, timeout_missing_command) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "timeout: missing command\n"
-      "Try 'timeout --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "timeout: missing command\n"
+                 "Try 'timeout --help' for more information.\n");
 }
 
 TEST(timeout, timeout_missing_operand_reports_help_hint) {
@@ -188,10 +185,9 @@ TEST(timeout, timeout_missing_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "timeout: missing operand\n"
-      "Try 'timeout --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "timeout: missing operand\n"
+                 "Try 'timeout --help' for more information.\n");
 }
 
 TEST(timeout, timeout_invalid_duration) {
@@ -231,8 +227,7 @@ TEST(timeout, timeout_invalid_option_returns_125_with_help_hint) {
 
   EXPECT_EQ(r.exit_code, 125);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "timeout: unrecognized option '--definitely-invalid'\n"
-      "Try 'timeout --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "timeout: unrecognized option '--definitely-invalid'\n"
+                 "Try 'timeout --help' for more information.\n");
 }

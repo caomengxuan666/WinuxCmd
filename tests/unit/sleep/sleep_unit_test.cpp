@@ -61,10 +61,9 @@ TEST(sleep, sleep_missing_operand_reports_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sleep: missing operand\n"
-      "Try 'sleep --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sleep: missing operand\n"
+                 "Try 'sleep --help' for more information.\n");
 }
 
 TEST(sleep, sleep_invalid_interval_reports_gnu_style_error) {
@@ -75,10 +74,9 @@ TEST(sleep, sleep_invalid_interval_reports_gnu_style_error) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sleep: invalid time interval 'abc'\n"
-      "Try 'sleep --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sleep: invalid time interval 'abc'\n"
+                 "Try 'sleep --help' for more information.\n");
 }
 
 TEST(sleep, sleep_negative_interval_is_rejected) {
@@ -89,10 +87,9 @@ TEST(sleep, sleep_negative_interval_is_rejected) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sleep: invalid time interval '-1'\n"
-      "Try 'sleep --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sleep: invalid time interval '-1'\n"
+                 "Try 'sleep --help' for more information.\n");
 }
 
 TEST(sleep, sleep_leading_whitespace_is_accepted) {
@@ -114,10 +111,9 @@ TEST(sleep, sleep_trailing_whitespace_is_rejected) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sleep: invalid time interval '0 '\n"
-      "Try 'sleep --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sleep: invalid time interval '0 '\n"
+                 "Try 'sleep --help' for more information.\n");
 }
 
 TEST(sleep, sleep_reports_all_invalid_intervals_before_help_hint) {
@@ -128,10 +124,9 @@ TEST(sleep, sleep_reports_all_invalid_intervals_before_help_hint) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
-  EXPECT_EQ_TEXT(
-      r.stderr_text,
-      "sleep: invalid time interval 'abc'\n"
-      "sleep: invalid time interval '1years'\n"
-      "sleep: invalid time interval ' '\n"
-      "Try 'sleep --help' for more information.\n");
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "sleep: invalid time interval 'abc'\n"
+                 "sleep: invalid time interval '1years'\n"
+                 "sleep: invalid time interval ' '\n"
+                 "Try 'sleep --help' for more information.\n");
 }

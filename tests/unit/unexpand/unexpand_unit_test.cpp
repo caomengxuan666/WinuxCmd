@@ -159,16 +159,16 @@ TEST(unexpand, unexpand_directory_input_reports_is_a_directory) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(
-      r.stderr_text.find("unexpand: cannot open 'indir' for reading: Is a directory") !=
+      r.stderr_text.find(
+          "unexpand: cannot open 'indir' for reading: Is a directory") !=
       std::string::npos);
 }
 
 TEST(unexpand, unexpand_no_utf8_preserves_utf8_bom_bytes) {
   TempDir tmp;
   tmp.write_bytes("bom.txt", {static_cast<char>(0xEF), static_cast<char>(0xBB),
-                              static_cast<char>(0xBF), ' ', ' ', ' ', ' ',
-                              ' ', ' ', ' ', ' ',
-                              'x', '\n'});
+                              static_cast<char>(0xBF), ' ', ' ', ' ', ' ', ' ',
+                              ' ', ' ', ' ', 'x', '\n'});
 
   Pipeline default_mode;
   default_mode.set_cwd(tmp.wpath());
@@ -184,6 +184,5 @@ TEST(unexpand, unexpand_no_utf8_preserves_utf8_bom_bytes) {
   auto ascii_result = ascii_mode.run();
 
   EXPECT_EQ(ascii_result.exit_code, 0);
-  EXPECT_EQ(ascii_result.stdout_text,
-            std::string("\xEF\xBB\xBF\t   x\n", 9));
+  EXPECT_EQ(ascii_result.stdout_text, std::string("\xEF\xBB\xBF\t   x\n", 9));
 }

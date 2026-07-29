@@ -342,14 +342,15 @@ TEST(cut, cut_directory_input_reports_is_a_directory) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(
-      r.stderr_text.find("cut: cannot open 'indir' for reading: Is a directory") !=
-      std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "cut: cannot open 'indir' for reading: Is a directory") !=
+              std::string::npos);
 }
 
 TEST(cut, cut_newline_mode_trims_trailing_cr_from_crlf_records) {
   TempDir tmp;
-  tmp.write_bytes("a.txt", {'a', ':', 'b', '\r', '\n', 'c', ':', 'd', '\r', '\n'});
+  tmp.write_bytes("a.txt",
+                  {'a', ':', 'b', '\r', '\n', 'c', ':', 'd', '\r', '\n'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
