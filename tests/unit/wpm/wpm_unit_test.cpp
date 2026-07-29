@@ -38,6 +38,90 @@ auto file_url(std::filesystem::path path) -> std::string {
   return "file://" + text;
 }
 
+auto install_fixture_index_json(const std::filesystem::path& artifact_path)
+    -> std::string {
+  return "{\n"
+         "  \"schema\": 1,\n"
+         "  \"name\": \"fixture\",\n"
+         "  \"version\": \"fixture-install\",\n"
+         "  \"packages\": [\n"
+         "    {\n"
+         "      \"name\": \"jq\",\n"
+         "      \"version\": \"1.0.0\",\n"
+         "      \"description\": \"Local fixture executable\",\n"
+         "      \"kind\": \"external\",\n"
+         "      \"artifacts\": {\n"
+         "        \"" +
+         current_arch_key() +
+         "\": {\n"
+         "          \"type\": \"exe\",\n"
+         "          \"sha256\": "
+         "\"5140f4f6bf8b5691b7bccc1c4f00a2027dae00b2110d38a1e090af291226f322\","
+         "\n"
+         "          \"urls\": [\"" +
+         file_url(artifact_path) +
+         "\"],\n"
+         "          \"files\": [{\"from\":\"bin/jq.exe\"}]\n"
+         "        }\n"
+         "      }\n"
+         "    }\n"
+         "  ]\n"
+         "}\n";
+}
+
+auto catalog_fixture_index_json() -> std::string {
+  return "{\n"
+         "  \"schema\": 1,\n"
+         "  \"name\": \"fixture\",\n"
+         "  \"version\": \"fixture-catalog\",\n"
+         "  \"packages\": [\n"
+         "    {\"name\":\"winuxcmd\",\"version\":\"0.13.1\","
+         "\"description\":\"WinuxCmd core command set\",\"kind\":\"core\","
+         "\"commands\":[\"winuxcmd\",\"wpm\"],\"artifacts\":{\"" +
+         current_arch_key() +
+         "\":{\"type\":\"zip\",\"sha256\":\"present\","
+         "\"urls\":[\"https://example.invalid/winuxcmd.zip\"],"
+         "\"files\":[{\"from\":\"winuxcmd.exe\"}]}}},\n"
+         "    {\"name\":\"gawk\",\"version\":\"\","
+         "\"description\":\"GNU awk placeholder\",\"kind\":\"external\","
+         "\"category\":\"text\",\"commands\":[\"gawk\",\"awk\"],"
+         "\"artifacts\":{}},\n"
+         "    {\"name\":\"jq\",\"version\":\"1.8.2\","
+         "\"description\":\"Command-line JSON processor.\","
+         "\"kind\":\"external\",\"category\":\"data\","
+         "\"commands\":[\"jq\"],\"artifacts\":{\"" +
+         current_arch_key() +
+         "\":{\"type\":\"exe\",\"sha256\":\"present\","
+         "\"urls\":[\"https://example.invalid/jq.exe\"],"
+         "\"files\":[{\"from\":\"jq.exe\"}]}}},\n"
+         "    {\"name\":\"ripgrep\",\"version\":\"15.2.0\","
+         "\"description\":\"Fast recursive search tool.\","
+         "\"kind\":\"external\",\"category\":\"search\","
+         "\"commands\":[\"rg\"],\"artifacts\":{\"" +
+         current_arch_key() +
+         "\":{\"type\":\"zip\",\"sha256\":\"present\","
+         "\"urls\":[\"https://example.invalid/rg.zip\"],"
+         "\"files\":[{\"from\":\"rg.exe\"}]}}},\n"
+         "    {\"name\":\"fd\",\"version\":\"10.4.2\","
+         "\"description\":\"Fast user-friendly file finder.\","
+         "\"kind\":\"external\",\"category\":\"search\","
+         "\"commands\":[\"fd\"],\"artifacts\":{\"" +
+         current_arch_key() +
+         "\":{\"type\":\"zip\",\"sha256\":\"present\","
+         "\"urls\":[\"https://example.invalid/fd.zip\"],"
+         "\"files\":[{\"from\":\"fd.exe\"}]}}},\n"
+         "    {\"name\":\"sd\",\"version\":\"1.1.0\","
+         "\"description\":\"Intuitive find-and-replace command.\","
+         "\"kind\":\"external\",\"category\":\"text\","
+         "\"commands\":[\"sd\"],\"artifacts\":{\"" +
+         current_arch_key() +
+         "\":{\"type\":\"zip\",\"sha256\":\"present\","
+         "\"urls\":[\"https://example.invalid/sd.zip\"],"
+         "\"files\":[{\"from\":\"sd.exe\"}]}}}\n"
+         "  ]\n"
+         "}\n";
+}
+
 auto same_file(const std::filesystem::path& a, const std::filesystem::path& b)
     -> bool {
   HANDLE ha =
@@ -73,6 +157,33 @@ TEST(wpm, wpm_hardlink_entrypoint_reports_version) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("wpm 0.2.0") != std::string::npos);
+}
+
+TEST(wpm, wpm_help_matches_plain_usage) {
+  Pipeline plain;
+  plain.add(L"wpm.exe", {});
+  auto plain_result = plain.run();
+
+  Pipeline help;
+  help.add(L"wpm.exe", {L"--help"});
+  auto help_result = help.run();
+
+  EXPECT_EQ(plain_result.exit_code, 0);
+  EXPECT_EQ(help_result.exit_code, 0);
+  EXPECT_EQ_TEXT(help_result.stdout_text, plain_result.stdout_text);
+  EXPECT_TRUE(help_result.stdout_text.find("Usage: wpm <command> [args] "
+                                           "[options]") != std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("Commands:") != std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("Options:") != std::string::npos);
+}
+
+TEST(wpm, wpm_standard_version_uses_wpm_version) {
+  Pipeline p;
+  p.add(L"wpm.exe", {L"--version"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "wpm 0.2.0\n");
 }
 
 TEST(wpm, wpm_links_list_includes_internal_tool) {
@@ -133,47 +244,136 @@ TEST(wpm, wpm_sources_prefer_builtin_urls_over_stale_local_index) {
               std::string::npos);
 }
 
-TEST(wpm, wpm_list_shows_builtin_external_package_slots) {
+TEST(wpm, wpm_list_without_local_index_prompts_update) {
   TempDir tmp;
   Pipeline p;
   p.add(L"winuxcmd.exe", {L"wpm", L"list", L"--root", tmp.wpath()});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("no packages in the local index") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("wpm index update") != std::string::npos);
+}
+
+TEST(wpm, wpm_list_marks_source_packages_ready) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"list", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
   if (current_arch_key() == "windows-x64") {
-    EXPECT_TRUE(r.stdout_text.find("[ready] awk 1.31.0 [awk]") !=
+    EXPECT_TRUE(r.stdout_text.find("[ready] winuxcmd 0.13.1 [winuxcmd, wpm]") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("[ready] jq 1.8.2 [jq]") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("[ready] ripgrep 15.2.0 [rg]") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("[ready] fd 10.4.2 [fd]") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("[ready] sd 1.1.0 [sd]") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("[index-only] ripgrep [rg]") ==
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("[index-only] gawk [gawk, awk]") ==
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("use --all to show placeholders") !=
                 std::string::npos);
   }
-  EXPECT_TRUE(r.stdout_text.find("[index-only] ripgrep [rg]") !=
+}
+
+TEST(wpm, wpm_list_all_shows_index_only_placeholders) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"list", L"--all", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("[index-only] gawk [gawk, awk]") !=
               std::string::npos);
 }
 
-TEST(wpm, wpm_info_marks_awk_installable_on_windows_x64) {
+TEST(wpm, wpm_info_marks_common_packages_installable_on_windows_x64) {
   if (current_arch_key() != "windows-x64") return;
 
   TempDir tmp;
-  Pipeline p;
-  p.add(L"winuxcmd.exe", {L"wpm", L"info", L"awk", L"--root", tmp.wpath()});
-  auto r = p.run();
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  struct PackageCase {
+    const wchar_t* arg;
+    const char* name;
+    const char* version;
+  };
+  const PackageCase packages[] = {{L"jq", "jq", "1.8.2"},
+                                  {L"ripgrep", "ripgrep", "15.2.0"},
+                                  {L"fd", "fd", "10.4.2"},
+                                  {L"sd", "sd", "1.1.0"}};
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("Name: awk") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Version: 1.31.0") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Install state: ready") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Artifact: windows-x64") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("SHA256: present") != std::string::npos);
+  for (const auto& package : packages) {
+    Pipeline p;
+    p.add(L"winuxcmd.exe",
+          {L"wpm", L"info", package.arg, L"--root", tmp.wpath()});
+    auto r = p.run();
+
+    EXPECT_EQ(r.exit_code, 0);
+    EXPECT_TRUE(r.stdout_text.find("Name: " + std::string(package.name)) !=
+                std::string::npos);
+    EXPECT_TRUE(
+        r.stdout_text.find("Version: " + std::string(package.version)) !=
+        std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("Install state: ready") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("Artifact: windows-x64") !=
+                std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("SHA256: present") != std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("URLs: 0") == std::string::npos);
+    EXPECT_TRUE(r.stdout_text.find("Files: 0") == std::string::npos);
+  }
 }
 
-TEST(wpm, wpm_search_filters_builtin_packages) {
+TEST(wpm, wpm_info_refreshes_index_when_package_missing) {
   TempDir tmp;
+  const auto index_path = tmp.path / L"fixture-catalog-index.json";
+  tmp.write("fixture-catalog-index.json", catalog_fixture_index_json());
+
+  Pipeline add;
+  add.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"add", L"fixture",
+           widen_ascii(file_url(index_path)), L"--root", tmp.wpath()});
+  EXPECT_EQ(add.run().exit_code, 0);
+
+  Pipeline use;
+  use.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"use", L"fixture", L"--root", tmp.wpath()});
+  EXPECT_EQ(use.run().exit_code, 0);
+
+  Pipeline info;
+  info.add(L"winuxcmd.exe", {L"wpm", L"info", L"jq", L"--root", tmp.wpath()});
+  auto r = info.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("updating index from configured sources") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Name: jq") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("Version: 1.8.2") != std::string::npos);
+}
+
+TEST(wpm, wpm_search_filters_source_packages) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+
   Pipeline p;
   p.add(L"winuxcmd.exe",
-        {L"wpm", L"search", L"kubernetes", L"--root", tmp.wpath()});
+        {L"wpm", L"search", L"search", L"--root", tmp.wpath()});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("kubectl") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("helm") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("ripgrep") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("fd 10.4.2 [fd]") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("jq [jq]") == std::string::npos);
 }
 
@@ -274,34 +474,49 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
   if (!linked) return;
   tmp.write("source/jq.exe", "external exe\n");
 
-  std::string index_json =
-      "{\n"
-      "  \"schema\": 1,\n"
-      "  \"name\": \"fixture\",\n"
-      "  \"version\": \"fixture-install\",\n"
-      "  \"packages\": [\n"
-      "    {\n"
-      "      \"name\": \"jq\",\n"
-      "      \"version\": \"1.0.0\",\n"
-      "      \"description\": \"Local fixture executable\",\n"
-      "      \"kind\": \"external\",\n"
-      "      \"artifacts\": {\n"
-      "        \"" +
-      current_arch_key() +
-      "\": {\n"
-      "          \"type\": \"exe\",\n"
-      "          \"sha256\": "
-      "\"5140f4f6bf8b5691b7bccc1c4f00a2027dae00b2110d38a1e090af291226f322\",\n"
-      "          \"urls\": [\"" +
-      file_url(artifact_path) +
-      "\"],\n"
-      "          \"files\": [{\"from\":\"bin/jq.exe\"}]\n"
-      "        }\n"
-      "      }\n"
-      "    }\n"
-      "  ]\n"
-      "}\n";
-  tmp.write("fixture-install-index.json", index_json);
+  tmp.write("fixture-install-index.json",
+            install_fixture_index_json(artifact_path));
+
+  Pipeline add;
+  add.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"add", L"fixture",
+           widen_ascii(file_url(index_path)), L"--root", tmp.wpath()});
+  EXPECT_EQ(add.run().exit_code, 0);
+
+  Pipeline use;
+  use.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"use", L"fixture", L"--root", tmp.wpath()});
+  EXPECT_EQ(use.run().exit_code, 0);
+
+  Pipeline install;
+  install.add(L"winuxcmd.exe",
+              {L"wpm", L"install", L"jq", L"--root", tmp.wpath()});
+  auto install_result = install.run();
+  EXPECT_EQ(install_result.exit_code, 0);
+  if (install_result.exit_code != 0) return;
+  EXPECT_TRUE(install_result.stdout_text.find("updating index from configured "
+                                              "sources") != std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("installed jq") !=
+              std::string::npos);
+  EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
+  EXPECT_FALSE(same_file(root_exe, legacy_jq));
+}
+
+TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
+  TempDir tmp;
+  const auto artifact_path = tmp.path / L"source" / L"jq.exe";
+  const auto index_path = tmp.path / L"fixture-install-index.json";
+  const auto root_exe = tmp.path / L"winuxcmd.exe";
+  const auto legacy_jq = tmp.path / L"jq.exe";
+  std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
+                             std::filesystem::copy_options::overwrite_existing);
+  bool linked = CreateHardLinkW(legacy_jq.wstring().c_str(),
+                                root_exe.wstring().c_str(), nullptr) != 0;
+  EXPECT_TRUE(linked);
+  if (!linked) return;
+  tmp.write("source/jq.exe", "external exe\n");
+  tmp.write("fixture-install-index.json",
+            install_fixture_index_json(artifact_path));
 
   Pipeline add;
   add.add(L"winuxcmd.exe",
@@ -320,13 +535,16 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
   EXPECT_EQ(update.run().exit_code, 0);
 
   Pipeline install;
-  install.add(L"winuxcmd.exe",
-              {L"wpm", L"install", L"jq", L"--root", tmp.wpath()});
+  install.add(L"winuxcmd.exe", {L"wpm", L"install", L"jq", L"--dry-run",
+                                L"--root", tmp.wpath()});
   auto install_result = install.run();
+
   EXPECT_EQ(install_result.exit_code, 0);
-  if (install_result.exit_code != 0) return;
-  EXPECT_TRUE(install_result.stdout_text.find("installed jq") !=
+  EXPECT_TRUE(install_result.stdout_text.find("would copy") !=
               std::string::npos);
-  EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
-  EXPECT_FALSE(same_file(root_exe, legacy_jq));
+  EXPECT_TRUE(install_result.stdout_text.find("would install jq") !=
+              std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("installed jq") ==
+              std::string::npos);
+  EXPECT_TRUE(same_file(root_exe, legacy_jq));
 }

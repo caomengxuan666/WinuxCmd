@@ -758,6 +758,18 @@ class RegistryImpl {
     const auto &meta = it->second.meta;
     auto options = meta.options();  // std::span<const OptionMeta>
 
+    if (cmdName == "wpm") {
+      for (const auto &arg : effective_args) {
+        if (arg == "--help" || arg == "-h") {
+          return it->second.handler(std::span<std::string_view>{});
+        }
+        if (arg == "--version" || arg == "-V") {
+          std::array<std::string_view, 1> version_args{"version"};
+          return it->second.handler(version_args);
+        }
+      }
+    }
+
     // Check if it contains help
     bool wants_help = false;
     if (!echo_posixly_correct_literal_mode(cmdName, args)) {

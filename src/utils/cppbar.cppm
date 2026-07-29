@@ -42,6 +42,8 @@ module;
 
 export module utils:cppbar;
 
+import :console;
+
 namespace cppbar {
 
 // ======================================================
@@ -546,9 +548,11 @@ export class ProgressBar {
   }
 
   void finish() {
-    current_ = total_;
-    display();
-    std::cout << std::endl;
+    if (current_ != total_) {
+      current_ = total_;
+      display();
+    }
+    safePrint("\n");
   }
 
   void set_style(const style::StyleConfig& style) { style_ = style; }
@@ -590,7 +594,7 @@ export class ProgressBar {
     result += std::to_string(static_cast<int>(percentage)) + "%";
     result += "\033[0m";
 
-    std::cout << result << std::flush;
+    safePrint(result);
   }
 };
 
@@ -629,15 +633,14 @@ export class Spinner {
 
   void stop() {
     active_ = false;
-    std::cout << "\r" << message_ << " "
-              << std::string(message_.length() + 1, ' ') << "\r" << std::flush;
+    safePrint("\r" + message_ + " " + std::string(message_.length() + 1, ' ') +
+              "\r");
   }
 
  private:
   void display() {
     if (active_) {
-      std::cout << "\r" << message_ << " " << frames_[frame_] << "\033[?25l"
-                << std::flush;
+      safePrint("\r" + message_ + " " + frames_[frame_] + "\033[?25l");
     }
   }
 };
