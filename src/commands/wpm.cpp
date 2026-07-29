@@ -565,6 +565,22 @@ auto allow_progress_bar_output() -> bool {
          GetEnvironmentVariableA("WINUXSH_WPM_PROGRESS", nullptr, 0) > 0;
 }
 
+auto human_size(unsigned long long bytes) -> std::string;
+
+auto make_wpm_progress_bar(std::string_view label,
+                           std::optional<unsigned long long> total_bytes)
+    -> std::unique_ptr<ProgressBar> {
+  std::string message(label);
+  if (total_bytes && *total_bytes > 0) {
+    message += " (" + human_size(*total_bytes) + ")";
+  }
+
+  auto progress = std::make_unique<ProgressBar>(100, message, 40);
+  progress->set_style(PresetStyles::modern());
+  progress->set_foreground_color(Color(56, 189, 248));
+  return progress;
+}
+
 class UrlmonProgressCallback : public IBindStatusCallback {
  public:
   UrlmonProgressCallback(std::string label, bool allow_progress_bar)
@@ -606,7 +622,7 @@ class UrlmonProgressCallback : public IBindStatusCallback {
 
     if (allow_progress_bar_ && progress_max > 0) {
       if (!progress_) {
-        progress_ = std::make_unique<ProgressBar>(100, label_, 36);
+        progress_ = make_wpm_progress_bar(label_, progress_max);
       }
       int percent = static_cast<int>(
           std::min<ULONG>(100, (progress * 100) / progress_max));
@@ -614,7 +630,7 @@ class UrlmonProgressCallback : public IBindStatusCallback {
         progress_->update(percent);
         last_percent_ = percent;
       }
-    } else if (!announced_) {
+    } else if (!allow_progress_bar_ && !announced_) {
       safePrintLn(label_);
       announced_ = true;
     }
@@ -911,10 +927,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
   std::unique_ptr<ProgressBar> progress;
   int last_percent = -1;
   if (show_progress) {
-    progress = std::make_unique<ProgressBar>(
-        100, std::string(progress_label) + " (" +
-                 human_size(static_cast<long long>(*expected_bytes)) + ")",
-        36);
+    progress = make_wpm_progress_bar(progress_label, *expected_bytes);
     progress->update(0);
     last_percent = 0;
   } else if (!progress_label.empty()) {
