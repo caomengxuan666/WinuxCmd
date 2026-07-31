@@ -84,7 +84,11 @@ unsigned long long hex_to_ull(const char* str, size_t len) {
 
 // Convert number to hex string
 void ull_to_hex(unsigned long long value, char* buffer, size_t len) {
-  sprintf_s(buffer, len + 1, "%08llx", value);
+  static constexpr char kDigits[] = "0123456789abcdef";
+  for (size_t i = 0; i < len; ++i) {
+    buffer[len - 1 - i] = kDigits[value & 0x0fULL];
+    value >>= 4;
+  }
 }
 
 // Read file content
@@ -296,24 +300,20 @@ auto run(const Config& cfg) -> int {
     }
 
     // Add end marker
+    static constexpr std::string_view kTrailerName = "TRAILER!!!";
     CpioHeader end_header;
     memcpy(end_header.magic, "070701", 6);
     memset(reinterpret_cast<char*>(&end_header) + 6, 0, sizeof(CpioHeader) - 6);
     ull_to_hex(0, end_header.inode, 8);
     ull_to_hex(0, end_header.mode, 8);
-    ull_to_hex(0, end_header.namesize, 8);
-    ull_to_hex(1, end_header.filesize, 8);  // One null byte for name
+    ull_to_hex(1, end_header.nlink, 8);
+    ull_to_hex(0, end_header.filesize, 8);
+    ull_to_hex(kTrailerName.size() + 1, end_header.namesize, 8);
+    ull_to_hex(0, end_header.check, 8);
 
     archive.insert(archive.end(), reinterpret_cast<char*>(&end_header),
                    reinterpret_cast<char*>(&end_header) + sizeof(CpioHeader));
-    archive.push_back('T');
-    archive.push_back('R');
-    archive.push_back('A');
-    archive.push_back('I');
-    archive.push_back('L');
-    archive.push_back('E');
-    archive.push_back('R');
-    archive.push_back('!');
+    archive.insert(archive.end(), kTrailerName.begin(), kTrailerName.end());
     archive.push_back('\0');
     while (archive.size() % 4 != 0) {
       archive.push_back(0);
