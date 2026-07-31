@@ -96,6 +96,45 @@ auto normalize_win_shell_path(std::string_view text) -> std::string {
   return std::string(text);
 }
 
+auto getenv_path(std::wstring_view name) -> std::optional<std::string> {
+  std::wstring key(name);
+  DWORD needed = GetEnvironmentVariableW(key.c_str(), nullptr, 0);
+  if (needed == 0) return std::nullopt;
+
+  std::wstring value(needed, wchar_t{});
+  DWORD written = GetEnvironmentVariableW(key.c_str(), value.data(), needed);
+  if (written == 0) return std::nullopt;
+
+  value.resize(written);
+  if (value.empty()) return std::nullopt;
+  return normalize_win_shell_path(wstring_to_utf8(value));
+}
+
+auto default_temporary_directory() -> cp::Result<std::string> {
+  if (auto tmpdir = getenv_path(L"TMPDIR")) {
+    return *tmpdir;
+  }
+
+  std::wstring buffer(MAX_PATH, wchar_t{});
+  DWORD length = GetTempPathW(static_cast<DWORD>(buffer.size()), buffer.data());
+  if (length == 0) {
+    return std::unexpected("failed to get temporary directory");
+  }
+  if (length >= buffer.size()) {
+    buffer.assign(static_cast<size_t>(length) + 1, wchar_t{});
+    length = GetTempPathW(static_cast<DWORD>(buffer.size()), buffer.data());
+    if (length == 0 || length >= buffer.size()) {
+      return std::unexpected("failed to get temporary directory");
+    }
+  }
+
+  buffer.resize(length);
+  if (buffer.empty()) {
+    return std::unexpected("failed to get temporary directory");
+  }
+  return wstring_to_utf8(buffer);
+}
+
 auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
@@ -126,8 +165,14 @@ auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
   if (!ctx.positionals.empty()) {
     cfg.template_str = std::string(ctx.positionals[0]);
   } else {
-    // Default template
-    cfg.template_str = "tmp.XXXXXX";
+    cfg.template_str = "tmp.XXXXXXXXXX";
+    if (cfg.tmpdir.empty()) {
+      auto default_tmpdir = default_temporary_directory();
+      if (!default_tmpdir) {
+        return std::unexpected(default_tmpdir.error());
+      }
+      cfg.tmpdir = *default_tmpdir;
+    }
   }
 
   return cfg;

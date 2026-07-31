@@ -421,6 +421,7 @@ PROBES = [
     Probe("true", "successful no-op", [], "text"),
     Probe("false", "failing no-op", [], "text", expected_exit=1),
     Probe("env", "empty environment assignments", ["-i", "BAR=2", "FOO=1"], "text"),
+    Probe("env", "split string reparsed assignments", ["-S", "-i BAR=2 FOO=1"], "text"),
     Probe("expr", "arithmetic precedence", ["2", "+", "3", "*", "4"], "text"),
     Probe("factor", "medium composite factors", ["1234567890"], "text"),
     Probe("numfmt", "from iec stdin", ["--from=iec"], "textops", stdin_file="numfmt-iec.txt"),

@@ -432,6 +432,171 @@ auto split_string_args(const std::string& s)
   return args;
 }
 
+auto split_option_value(const std::vector<std::string>& args, size_t& index,
+                        std::string_view attached, std::string_view option_name)
+    -> cp::Result<std::string> {
+  if (!attached.empty()) return std::string(attached);
+  if (index + 1 >= args.size()) {
+    return std::unexpected("option " + std::string(option_name) +
+                           " requires an argument");
+  }
+  ++index;
+  return args[index];
+}
+
+auto apply_split_arguments(Config& cfg, std::vector<std::string> split_args)
+    -> cp::Result<void> {
+  bool in_command = !cfg.command.empty();
+  for (size_t i = 0; i < split_args.size(); ++i) {
+    std::string arg = std::move(split_args[i]);
+    if (in_command) {
+      cfg.command.emplace_back(std::move(arg));
+      continue;
+    }
+
+    if (arg == "--") {
+      in_command = true;
+      continue;
+    }
+    if (arg == "-") {
+      cfg.ignore_environment = true;
+      continue;
+    }
+    if (arg == "--ignore-environment") {
+      cfg.ignore_environment = true;
+      continue;
+    }
+    if (arg == "--null") {
+      cfg.null_terminated = true;
+      continue;
+    }
+    if (arg == "--debug") {
+      ++cfg.debug_level;
+      cfg.debug = true;
+      continue;
+    }
+
+    auto handle_long_value = [&](std::string_view prefix,
+                                 std::string_view option_name)
+        -> cp::Result<std::optional<std::string>> {
+      if (arg == option_name) {
+        auto value = split_option_value(split_args, i, {}, option_name);
+        if (!value) return std::unexpected(value.error());
+        return std::optional<std::string>(*value);
+      }
+      if (arg.starts_with(prefix)) {
+        return std::optional<std::string>(arg.substr(prefix.size()));
+      }
+      return std::optional<std::string>{};
+    };
+
+    auto unset_value = handle_long_value("--unset=", "--unset");
+    if (!unset_value) return std::unexpected(unset_value.error());
+    if (unset_value->has_value()) {
+      cfg.unset_names.push_back(**unset_value);
+      continue;
+    }
+    auto chdir_value = handle_long_value("--chdir=", "--chdir");
+    if (!chdir_value) return std::unexpected(chdir_value.error());
+    if (chdir_value->has_value()) {
+      cfg.chdir = **chdir_value;
+      continue;
+    }
+    auto argv0_value = handle_long_value("--argv0=", "--argv0");
+    if (!argv0_value) return std::unexpected(argv0_value.error());
+    if (argv0_value->has_value()) {
+      cfg.argv0 = **argv0_value;
+      continue;
+    }
+    auto file_value = handle_long_value("--file=", "--file");
+    if (!file_value) return std::unexpected(file_value.error());
+    if (file_value->has_value()) {
+      cfg.env_file = **file_value;
+      continue;
+    }
+    auto split_value = handle_long_value("--split-string=", "--split-string");
+    if (!split_value) return std::unexpected(split_value.error());
+    if (split_value->has_value()) {
+      auto nested = split_string_args(**split_value);
+      if (!nested) return std::unexpected(nested.error());
+      split_args.insert(split_args.begin() + static_cast<std::ptrdiff_t>(i + 1),
+                        std::make_move_iterator(nested->begin()),
+                        std::make_move_iterator(nested->end()));
+      continue;
+    }
+
+    if (arg.size() >= 2 && arg[0] == 45 && arg[1] != 45) {
+      for (size_t pos = 1; pos < arg.size(); ++pos) {
+        char opt = arg[pos];
+        if (opt == 105) {
+          cfg.ignore_environment = true;
+          continue;
+        }
+        if (opt == 48) {
+          cfg.null_terminated = true;
+          continue;
+        }
+        if (opt == 118) {
+          ++cfg.debug_level;
+          cfg.debug = true;
+          continue;
+        }
+
+        std::string_view attached;
+        if (pos + 1 < arg.size()) {
+          attached = std::string_view(arg).substr(pos + 1);
+          pos = arg.size();
+        }
+        if (opt == 117) {
+          auto value = split_option_value(split_args, i, attached, "-u");
+          if (!value) return std::unexpected(value.error());
+          cfg.unset_names.push_back(*value);
+          break;
+        }
+        if (opt == 67) {
+          auto value = split_option_value(split_args, i, attached, "-C");
+          if (!value) return std::unexpected(value.error());
+          cfg.chdir = *value;
+          break;
+        }
+        if (opt == 97) {
+          auto value = split_option_value(split_args, i, attached, "-a");
+          if (!value) return std::unexpected(value.error());
+          cfg.argv0 = *value;
+          break;
+        }
+        if (opt == 102) {
+          auto value = split_option_value(split_args, i, attached, "-f");
+          if (!value) return std::unexpected(value.error());
+          cfg.env_file = *value;
+          break;
+        }
+        if (opt == 83) {
+          auto value = split_option_value(split_args, i, attached, "-S");
+          if (!value) return std::unexpected(value.error());
+          auto nested = split_string_args(*value);
+          if (!nested) return std::unexpected(nested.error());
+          split_args.insert(
+              split_args.begin() + static_cast<std::ptrdiff_t>(i + 1),
+              std::make_move_iterator(nested->begin()),
+              std::make_move_iterator(nested->end()));
+          break;
+        }
+        return std::unexpected("invalid option in -S string: " + arg);
+      }
+      continue;
+    }
+
+    auto assign = parse_assignment(arg);
+    if (assign.has_value()) {
+      cfg.assignments[assign->first] = assign->second;
+      continue;
+    }
+    in_command = true;
+    cfg.command.emplace_back(std::move(arg));
+  }
+  return {};
+}
 auto build_config(const CommandContext<ENV_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
@@ -481,6 +646,13 @@ auto build_config(const CommandContext<ENV_OPTIONS.size()>& ctx)
     for (auto arg : ctx.raw_args) cfg.raw_args.emplace_back(arg);
   }
 
+  if (!cfg.split_string.empty()) {
+    auto split_args = split_string_args(cfg.split_string);
+    if (!split_args) return std::unexpected(split_args.error());
+    auto split_result = apply_split_arguments(cfg, std::move(*split_args));
+    if (!split_result) return std::unexpected(split_result.error());
+  }
+
   if (!cfg.env_file.empty()) {
     auto file_vars = read_env_file(cfg.env_file);
     if (!file_vars) {
@@ -489,28 +661,6 @@ auto build_config(const CommandContext<ENV_OPTIONS.size()>& ctx)
       cfg.file_assignments = std::move(*file_vars);
     }
   }
-
-  // If -S is provided, split it into arguments
-  if (!cfg.split_string.empty()) {
-    auto split_args = split_string_args(cfg.split_string);
-    if (!split_args) return std::unexpected(split_args.error());
-    bool first = true;
-    for (auto& arg : *split_args) {
-      if (first) {
-        // First part could be NAME=VALUE or command
-        auto assign = parse_assignment(arg);
-        if (assign.has_value()) {
-          cfg.assignments[assign->first] = assign->second;
-        } else {
-          cfg.command.emplace_back(std::move(arg));
-          first = false;
-        }
-      } else {
-        cfg.command.emplace_back(std::move(arg));
-      }
-    }
-  }
-
   bool in_command = !cfg.command.empty();
   for (auto p : ctx.positionals) {
     if (in_command) {
