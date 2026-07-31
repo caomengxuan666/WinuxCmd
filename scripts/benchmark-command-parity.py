@@ -729,6 +729,15 @@ PROBES = [
         isolated=True,
         time_paths=["touch-dir"],
     ),
+    Probe(
+        "touch",
+        "reference relative date timestamp",
+        ["-r", "touch-ref.txt", "-d", "+1 day", "touch-relative-target.txt"],
+        "fileops",
+        compare_stdout=False,
+        isolated=True,
+        time_paths=["touch-relative-target.txt"],
+    ),
     Probe("ln", "hard link file", ["link-src.txt", "link-dst.txt"], "fileops", isolated=True),
     Probe("ln", "verbose hard link", ["-v", "link-src.txt", "link-verbose.txt"], "fileops", isolated=True),
     Probe("ln", "backup custom suffix", ["-b", "-S", ".bak", "link-src.txt", "link-existing.txt"], "fileops", isolated=True),
@@ -1437,6 +1446,8 @@ def write_fileops_fixture(root: Path) -> None:
     marker = template / ".fixture-complete"
     required_paths = [
         template / "touch-dir",
+        template / "touch-ref.txt",
+        template / "touch-relative-target.txt",
         template / "copy-existing.txt",
         template / "copy-new.txt",
         template / "copy-old-src.txt",
@@ -1529,6 +1540,15 @@ def write_fileops_fixture(root: Path) -> None:
     )
     (template / "du-file.txt").write_bytes(b"x" * 16384)
     (template / "touch-dir").mkdir(parents=True, exist_ok=True)
+    (template / "touch-ref.txt").write_text(
+        "reference touch time\n", encoding="utf-8", newline="\n"
+    )
+    (template / "touch-relative-target.txt").write_text(
+        "relative target\n", encoding="utf-8", newline="\n"
+    )
+    ref_ts = 1_704_251_045
+    os.utime(template / "touch-ref.txt", (ref_ts, ref_ts))
+    os.utime(template / "touch-relative-target.txt", (old_ts, old_ts))
     marker.write_text("ok\n", encoding="utf-8", newline="\n")
 
 
