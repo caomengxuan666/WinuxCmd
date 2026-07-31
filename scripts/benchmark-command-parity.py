@@ -115,6 +115,7 @@ PROBES = [
     Probe("grep", "fixed literal search", ["-F", "needle_999", "big.txt"], "text"),
     Probe("grep", "fixed pattern file many literals", ["-F", "-f", "grep-many-patterns.txt", "big.txt"], "text"),
     Probe("grep", "extended regex alternation", ["-E", "needle_(123|999)", "big.txt"], "text"),
+    Probe("grep", "recursive extended size alternation", ["-REIn", "28x12|12x10|16x12", "grep-recursive"], "text"),
     Probe("sed", "global literal substitution", ["s/needle/NEEDLE/g", "big.txt"], "text"),
     Probe("sed", "zero address regex range", ["0,/foo/s/foo/XX/", "sed-zero-range.txt"], "text"),
     Probe("sed", "filename command", ["-n", "F", "sed-file-a.txt", "sed-file-b.txt"], "text"),
@@ -1057,6 +1058,17 @@ def write_text_fixture(root: Path) -> None:
         if not target.is_file() or target.read_text(encoding="utf-8") != content:
             target.write_text(content, encoding="utf-8", newline="\n")
 
+    grep_recursive = root / "grep-recursive"
+    grep_recursive_files: dict[str, str] = {
+        "root.txt": "hero 30x20\nplain 24x24\n",
+        "keep/a.txt": "sprite 28x12\ntile 16x12\n",
+        "keep/b.txt": "button 12x10\nlarge 40x40\n",
+    }
+    for name, content in grep_recursive_files.items():
+        target = grep_recursive / name
+        if not target.is_file() or target.read_text(encoding="utf-8") != content:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
 
 def write_table_fixture(root: Path) -> None:
     path = root / "table.csv"
