@@ -41,7 +41,7 @@ using cmd::meta::OptionType;
 
 auto constexpr NPROC_OPTIONS =
     std::array{OPTION("", "--all", "print number of all installed processors"),
-               OPTION("", "--ignore", "ignore N processors", STRING_TYPE),
+               OPTION("", "--ignore", "ignore N processors", INT_TYPE),
                OPTION("", "", "print number of processing units", STRING_TYPE)};
 
 REGISTER_COMMAND(
@@ -61,6 +61,13 @@ REGISTER_COMMAND(
 
     /* see also */
     "sysconf(3)", "WinuxCmd", "Copyright © 2026 WinuxCmd", NPROC_OPTIONS) {
+  if (!ctx.positionals.empty()) {
+    safeErrorPrintLn("nproc: extra operand " +
+                     std::string(ctx.positionals.front()));
+    safeErrorPrintLn("Try 'nproc --help' for more information.");
+    return 1;
+  }
+
   SYSTEM_INFO sysInfo;
   GetSystemInfo(&sysInfo);
 

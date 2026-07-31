@@ -27,14 +27,82 @@
 
 namespace {
 
+auto wide_to_utf8_for_readlink_test(const std::wstring& text) -> std::string {
+  if (text.empty()) return {};
+  int needed = WideCharToMultiByte(CP_UTF8, 0, text.data(),
+                                   static_cast<int>(text.size()), nullptr, 0,
+                                   nullptr, nullptr);
+  if (needed <= 0) return {};
+  std::string out(static_cast<size_t>(needed), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                      out.data(), needed, nullptr, nullptr);
+  return out;
+}
+
+auto utf8_to_wide_for_readlink_test(const std::string& text) -> std::wstring {
+  if (text.empty()) return {};
+  int needed = MultiByteToWideChar(CP_UTF8, 0, text.data(),
+                                   static_cast<int>(text.size()), nullptr, 0);
+  if (needed <= 0) return {};
+  std::wstring out(static_cast<size_t>(needed), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                      out.data(), needed);
+  return out;
+}
+
+auto long_existing_prefix_path(std::filesystem::path path)
+    -> std::filesystem::path {
+  std::vector<std::filesystem::path> suffix;
+  std::error_code ec;
+  while (!path.empty() && !std::filesystem::exists(path, ec)) {
+    suffix.push_back(path.filename());
+    auto parent = path.parent_path();
+    if (parent == path) break;
+    path = parent;
+    ec.clear();
+  }
+
+  std::wstring base = path.wstring();
+  DWORD needed = GetLongPathNameW(base.c_str(), nullptr, 0);
+  if (needed > 0) {
+    std::wstring buffer(needed, L'\0');
+    DWORD written = GetLongPathNameW(base.c_str(), buffer.data(), needed);
+    if (written > 0 && written < needed) {
+      buffer.resize(written);
+      path = buffer;
+    }
+  }
+
+  for (auto it = suffix.rbegin(); it != suffix.rend(); ++it) {
+    path /= *it;
+  }
+  return path;
+}
+
 auto normalize_path_text(std::string text) -> std::string {
+  std::string terminator;
+  while (!text.empty() && (text.back() == '\n' || text.back() == '\0')) {
+    terminator.insert(terminator.begin(), text.back());
+    text.pop_back();
+  }
+
   std::replace(text.begin(), text.end(), '/', '\\');
   if (text.rfind("\\\\?\\UNC\\", 0) == 0) {
     text = "\\\\" + text.substr(8);
   } else if (text.rfind("\\\\?\\", 0) == 0 || text.rfind("\\??\\", 0) == 0) {
     text.erase(0, 4);
   }
-  return text;
+
+  auto wide = utf8_to_wide_for_readlink_test(text);
+  if (!wide.empty()) {
+    auto normalized = long_existing_prefix_path(std::filesystem::path(wide));
+    auto utf8 = wide_to_utf8_for_readlink_test(normalized.wstring());
+    if (!utf8.empty()) {
+      text = utf8;
+    }
+  }
+
+  return text + terminator;
 }
 
 bool create_symlink_or_skip(const std::filesystem::path& link,
@@ -274,7 +342,8 @@ TEST(readlink, readlink_zero_terminated_uses_nul) {
   EXPECT_EQ(r.exit_code, 0);
 
   auto expected = normalize_path_text((tmp.path / "present.txt").string());
-  EXPECT_BYTES(r.stdout_text, expected + std::string(1, '\0'));
+  EXPECT_BYTES(normalize_path_text(r.stdout_text),
+               expected + std::string(1, '\0'));
 }
 
 TEST(readlink, readlink_no_newline_multiple_operands_warns_and_uses_newlines) {

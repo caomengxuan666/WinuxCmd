@@ -62,8 +62,8 @@ constexpr std::string_view kBuiltinIndex = R"json(
 {
   "schema": 1,
   "name": "official",
-  "version": "builtin-2026.07.27",
-  "updated": "2026-07-27",
+  "version": "builtin-2026.07.31",
+  "updated": "2026-07-31",
   "sources": [
     {
       "name": "official-github-raw",
@@ -129,24 +129,6 @@ struct FileId {
   DWORD high = 0;
   DWORD low = 0;
 };
-
-auto lower_ascii(std::string s) -> std::string {
-  std::ranges::transform(s, s.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
-  return s;
-}
-
-auto starts_with_ci(std::string_view text, std::string_view prefix) -> bool {
-  if (text.size() < prefix.size()) return false;
-  for (size_t i = 0; i < prefix.size(); ++i) {
-    if (std::tolower(static_cast<unsigned char>(text[i])) !=
-        std::tolower(static_cast<unsigned char>(prefix[i]))) {
-      return false;
-    }
-  }
-  return true;
-}
 
 auto exe_suffix(std::string_view name) -> std::string {
   std::string out(name);
@@ -295,9 +277,9 @@ auto package_array(const nlohmann::json& index) -> std::vector<nlohmann::json> {
 
 auto find_package(const nlohmann::json& index, std::string_view name)
     -> std::optional<nlohmann::json> {
-  auto wanted = lower_ascii(std::string(name));
+  auto wanted = ascii_lower_copy(name);
   for (const auto& pkg : package_array(index)) {
-    if (lower_ascii(pkg.value("name", "")) == wanted) return pkg;
+    if (ascii_lower_copy(pkg.value("name", "")) == wanted) return pkg;
   }
   return std::nullopt;
 }
@@ -359,24 +341,6 @@ auto same_path_name(const fs::path& a, const fs::path& b) -> bool {
   return normalized_path_key(a) == normalized_path_key(b);
 }
 
-auto win32_error_text(DWORD error) -> std::string {
-  LPWSTR buffer = nullptr;
-  DWORD size = FormatMessageW(
-      FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-          FORMAT_MESSAGE_IGNORE_INSERTS,
-      nullptr, error, 0, reinterpret_cast<LPWSTR>(&buffer), 0, nullptr);
-  if (size == 0 || buffer == nullptr) {
-    return std::system_category().message(static_cast<int>(error));
-  }
-  std::wstring text(buffer, size);
-  LocalFree(buffer);
-  while (!text.empty() && (text.back() == L'\r' || text.back() == L'\n' ||
-                           text.back() == L' ' || text.back() == L'\t')) {
-    text.pop_back();
-  }
-  return wstring_to_utf8(text);
-}
-
 auto command_names() -> std::vector<std::string> {
   std::vector<std::string> names;
   for (const auto& [name, desc] : CommandRegistry::getAllCommands()) {
@@ -399,9 +363,9 @@ auto legacy_link_names() -> std::vector<std::string> {
 
 auto is_legacy_link_name(std::string_view name) -> bool {
   std::string wanted = exe_suffix(name);
-  wanted = lower_ascii(wanted);
+  wanted = ascii_lower_copy(wanted);
   for (const auto& legacy : legacy_link_names()) {
-    if (wanted == lower_ascii(exe_suffix(legacy))) return true;
+    if (wanted == ascii_lower_copy(exe_suffix(legacy))) return true;
   }
   return false;
 }
@@ -431,7 +395,7 @@ auto remove_link_if_safe(const fs::path& source, const fs::path& target,
   }
   if (!DeleteFileW(target.wstring().c_str())) {
     safeErrorPrintLn("wpm: failed to remove '" + target.string() +
-                     "': " + win32_error_text(GetLastError()));
+                     "': " + win32_system_error_text(GetLastError()));
     return false;
   }
   return true;
@@ -462,7 +426,7 @@ auto remove_stale_legacy_links(const fs::path& root, const fs::path& source,
       if (verbose) safePrintLn("removed legacy link " + target.string());
     } else {
       safeErrorPrintLn("wpm: failed to remove legacy link '" + target.string() +
-                       "': " + win32_error_text(GetLastError()));
+                       "': " + win32_system_error_text(GetLastError()));
       ++failed;
     }
   }
@@ -515,7 +479,7 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
         continue;
       }
       safeErrorPrintLn("wpm: failed to create hard link '" + target.string() +
-                       "': " + win32_error_text(err));
+                       "': " + win32_system_error_text(err));
       ++failed;
     }
   }
@@ -549,7 +513,7 @@ auto remove_links(const fs::path& root, bool dry_run) -> int {
       ++removed;
     } else {
       safeErrorPrintLn("wpm: failed to remove '" + target.string() +
-                       "': " + win32_error_text(GetLastError()));
+                       "': " + win32_system_error_text(GetLastError()));
       ++failed;
     }
   }
@@ -561,7 +525,8 @@ auto remove_links(const fs::path& root, bool dry_run) -> int {
 
 auto allow_progress_bar_output() -> bool {
   auto terminal = get_terminal_info();
-  return terminal.is_tty || GetEnvironmentVariableA("WT_SESSION", nullptr, 0) > 0 ||
+  return terminal.is_tty ||
+         GetEnvironmentVariableA("WT_SESSION", nullptr, 0) > 0 ||
          GetEnvironmentVariableA("WINUXSH_WPM_PROGRESS", nullptr, 0) > 0;
 }
 
@@ -743,8 +708,7 @@ auto response_header(HINTERNET request, DWORD query)
   DWORD size = 0;
   SetLastError(ERROR_SUCCESS);
   WinHttpQueryHeaders(request, query, WINHTTP_HEADER_NAME_BY_INDEX,
-                      WINHTTP_NO_OUTPUT_BUFFER, &size,
-                      WINHTTP_NO_HEADER_INDEX);
+                      WINHTTP_NO_OUTPUT_BUFFER, &size, WINHTTP_NO_HEADER_INDEX);
   if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || size == 0) {
     return std::nullopt;
   }
@@ -759,11 +723,11 @@ auto response_header(HINTERNET request, DWORD query)
   return value;
 }
 
-auto redirect_url(std::wstring_view location, bool https, std::wstring_view host,
-                  INTERNET_PORT port) -> std::string {
+auto redirect_url(std::wstring_view location, bool https,
+                  std::wstring_view host, INTERNET_PORT port) -> std::string {
   auto location_utf8 = wstring_to_utf8(location);
-  if (starts_with_ci(location_utf8, "http://") ||
-      starts_with_ci(location_utf8, "https://")) {
+  if (ascii_starts_with_ci(location_utf8, "http://") ||
+      ascii_starts_with_ci(location_utf8, "https://")) {
     return location_utf8;
   }
 
@@ -773,9 +737,8 @@ auto redirect_url(std::wstring_view location, bool https, std::wstring_view host
   } else {
     absolute += L"//";
     absolute += host;
-    bool default_port =
-        (https && port == INTERNET_DEFAULT_HTTPS_PORT) ||
-        (!https && port == INTERNET_DEFAULT_HTTP_PORT);
+    bool default_port = (https && port == INTERNET_DEFAULT_HTTPS_PORT) ||
+                        (!https && port == INTERNET_DEFAULT_HTTP_PORT);
     if (!default_port) absolute += L":" + std::to_wstring(port);
     if (!location.empty() && location.front() != L'/') absolute += L"/";
     absolute += std::wstring(location);
@@ -787,7 +750,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
               int redirects_remaining = 5) -> HttpResult {
   HttpResult result;
 
-  if (starts_with_ci(url, "file://")) {
+  if (ascii_starts_with_ci(url, "file://")) {
     std::string raw(url.substr(7));
     if (raw.size() >= 3 && raw[0] == '/' && raw[2] == ':')
       raw.erase(raw.begin());
@@ -871,7 +834,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
   if (!WinHttpSendRequest(request, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
                           WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
       !WinHttpReceiveResponse(request, nullptr)) {
-    result.error = "request failed: " + win32_error_text(GetLastError());
+    result.error = "request failed: " + win32_system_error_text(GetLastError());
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
@@ -947,17 +910,15 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     DWORD read = 0;
     if (!WinHttpReadData(request, result.data.data() + old_size, available,
                          &read)) {
-      result.error = "read failed: " + win32_error_text(GetLastError());
+      result.error = "read failed: " + win32_system_error_text(GetLastError());
       result.data.clear();
       break;
     }
     result.data.resize(old_size + read);
     if (progress && expected_bytes) {
-      auto percent = static_cast<int>(
-          std::min<unsigned long long>(
-              100, (static_cast<unsigned long long>(result.data.size()) *
-                    100) /
-                       *expected_bytes));
+      auto percent = static_cast<int>(std::min<unsigned long long>(
+          100, (static_cast<unsigned long long>(result.data.size()) * 100) /
+                   *expected_bytes));
       if (percent != last_percent) {
         progress->update(percent);
         last_percent = percent;
@@ -1049,7 +1010,7 @@ auto verify_sha256(const fs::path& file, std::string expected) -> bool {
     safeErrorPrintLn("wpm: refusing remote artifact without sha256");
     return false;
   }
-  expected = lower_ascii(expected);
+  expected = ascii_lower_copy(expected);
   auto actual = sha256_file(file);
   if (!actual) {
     safeErrorPrintLn("wpm: failed to calculate sha256 for " + file.string());
@@ -1112,8 +1073,8 @@ auto find_file_recursive(const fs::path& root, std::string_view filename)
   for (const auto& entry : fs::recursive_directory_iterator(root, ec)) {
     if (ec) break;
     if (!entry.is_regular_file(ec)) continue;
-    if (lower_ascii(entry.path().filename().string()) ==
-        lower_ascii(std::string(filename))) {
+    if (ascii_lower_copy(entry.path().filename().string()) ==
+        ascii_lower_copy(filename)) {
       return entry.path();
     }
   }
@@ -1188,20 +1149,14 @@ auto package_state_label(const nlohmann::json& pkg) -> std::string {
   return artifact_install_state(pkg) == "ready" ? "ready" : "index-only";
 }
 
-auto contains_ci(std::string_view text, std::string_view needle) -> bool {
-  if (needle.empty()) return true;
-  return lower_ascii(std::string(text))
-             .find(lower_ascii(std::string(needle))) != std::string::npos;
-}
-
 auto package_matches_query(const nlohmann::json& pkg, std::string_view query)
     -> bool {
   if (query.empty()) return true;
-  if (contains_ci(pkg.value("name", ""), query)) return true;
-  if (contains_ci(pkg.value("description", ""), query)) return true;
-  if (contains_ci(pkg.value("category", ""), query)) return true;
-  if (contains_ci(pkg.value("license", ""), query)) return true;
-  return contains_ci(join_json_string_array(pkg, "commands"), query);
+  if (ascii_contains_ci(pkg.value("name", ""), query)) return true;
+  if (ascii_contains_ci(pkg.value("description", ""), query)) return true;
+  if (ascii_contains_ci(pkg.value("category", ""), query)) return true;
+  if (ascii_contains_ci(pkg.value("license", ""), query)) return true;
+  return ascii_contains_ci(join_json_string_array(pkg, "commands"), query);
 }
 
 auto download_artifact(const fs::path& root, const std::string& package,
@@ -1241,8 +1196,8 @@ auto download_artifact(const fs::path& root, const std::string& package,
 }
 
 auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
-                          const nlohmann::json& artifact, bool force,
-                          bool dry_run) -> bool {
+                         const nlohmann::json& artifact, bool force,
+                         bool dry_run) -> bool {
   if (!artifact.contains("files") || !artifact["files"].is_array()) {
     safeErrorPrintLn("wpm: artifact has no files mapping");
     return false;
@@ -1292,7 +1247,7 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
       if (!DeleteFileW(dest.wstring().c_str())) {
         safeErrorPrintLn("wpm: failed to break WinuxCmd hardlink '" +
                          dest.string() +
-                         "': " + win32_error_text(GetLastError()));
+                         "': " + win32_system_error_text(GetLastError()));
         return false;
       }
     }
@@ -1429,11 +1384,9 @@ auto install_package(const Options& opts, std::string_view package_name)
 
   auto artifact = artifact_for_current_arch(*pkg);
   if (!artifact) return 1;
-  auto preflight =
-      preflight_install_destinations(opts.root, *artifact,
-                                     pkg->value("name",
-                                                std::string(package_name)),
-                                     opts.force);
+  auto preflight = preflight_install_destinations(
+      opts.root, *artifact, pkg->value("name", std::string(package_name)),
+      opts.force);
   if (preflight) return *preflight;
 
   auto downloaded = download_artifact(opts.root, pkg->value("name", ""),
@@ -1487,7 +1440,7 @@ auto launch_apply_update(const fs::path& staged_exe, const fs::path& root,
                            root.wstring().c_str(), &si, &pi);
   if (!ok) {
     safeErrorPrintLn("wpm: failed to launch update helper: " +
-                     win32_error_text(GetLastError()));
+                     win32_system_error_text(GetLastError()));
     return false;
   }
   CloseHandle(pi.hThread);
@@ -1926,8 +1879,7 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return 1;
   }
   if (args[0] == "update" || args[0] == "upgrade") {
-    if (args.size() >= 2 &&
-        (args[1] == "winuxcmd" || args[1] == "coreutils")) {
+    if (args.size() >= 2 && (args[1] == "winuxcmd" || args[1] == "coreutils")) {
       return update_winuxcmd(opts);
     }
     safeErrorPrintLn("wpm: usage: wpm update winuxcmd");

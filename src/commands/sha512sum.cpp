@@ -407,7 +407,7 @@ auto run(const Config& cfg) -> int {
     if (cfg.tag) {
       output = "SHA512 (" + file + ") = " + *hash_result;
     } else {
-      output = *hash_result + "  " + file;
+      output = *hash_result + (cfg.text_mode ? "  " : " *") + file;
     }
     output.push_back(cfg.zero ? '\0' : '\n');
     safePrint(output);

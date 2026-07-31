@@ -39,7 +39,7 @@ using cmd::meta::OptionType;
 // Constants
 // ======================================================
 namespace wc_constants {
-// Add constants here
+constexpr size_t READ_BUFFER_SIZE = 64 * 1024;
 }
 
 // ======================================================
@@ -119,6 +119,22 @@ struct Files0ReadResult {
 struct DecodedChar {
   char32_t codepoint = 0;
   size_t bytes = 1;
+};
+
+struct CountRequest {
+  bool lines = false;
+  bool words = false;
+  bool chars = false;
+  bool bytes = false;
+  bool max_line_length = false;
+
+  [[nodiscard]] auto only_bytes() const -> bool {
+    return bytes && !lines && !words && !chars && !max_line_length;
+  }
+
+  [[nodiscard]] auto lines_and_optional_bytes_only() const -> bool {
+    return lines && !words && !chars && !max_line_length;
+  }
 };
 
 // ----------------------------------------------
@@ -247,71 +263,186 @@ auto display_width(char32_t cp) -> std::uintmax_t {
   return is_wide_codepoint(cp) ? 2 : 1;
 }
 
+auto utf8_expected_bytes(unsigned char first) -> size_t {
+  if (first < 0x80) return 1;
+  if ((first & 0xE0) == 0xC0) return 2;
+  if ((first & 0xF0) == 0xE0) return 3;
+  if ((first & 0xF8) == 0xF0) return 4;
+  return 1;
+}
+
 /**
  * @brief Count lines, words, chars, bytes, and max line length in a file
-
- * *
- * This function reads a file and counts the number of lines, words,
- * characters, bytes, and the maximum line length.
  *
- * @param path Path to the file to count
- * @return A Result containing the count result
+ * Hot paths mirror GNU wc.c: byte-only and line-only shapes avoid UTF-8
+ * decoding, word-state tracking, and display-width work.
  */
-auto count_stream(std::istream& input, std::string filename,
-                  bool display_filename) -> cp::Result<CountResult> {
+auto make_empty_result(std::string filename, bool display_filename)
+    -> CountResult {
   CountResult result;
   result.filename = std::move(filename);
   result.display_filename = display_filename;
+  return result;
+}
 
-  std::string data((std::istreambuf_iterator<char>(input)),
-                   std::istreambuf_iterator<char>());
-  result.bytes = data.size();
+auto count_bytes_stream(std::istream& input, std::string filename,
+                        bool display_filename) -> cp::Result<CountResult> {
+  CountResult result = make_empty_result(std::move(filename), display_filename);
+  std::array<char, wc_constants::READ_BUFFER_SIZE> buffer{};
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize bytes_read = input.gcount();
+    if (bytes_read <= 0) break;
+    result.bytes += static_cast<std::uintmax_t>(bytes_read);
+  }
+  return result;
+}
 
-  std::uintmax_t current_line_length = 0;
-  bool in_word = false;
-
-  for (size_t i = 0; i < data.size();) {
-    DecodedChar decoded = decode_utf8_char(data, i);
-    i += decoded.bytes;
-    result.chars++;
-    char32_t cp = decoded.codepoint;
-
-    if (cp == U'\n') {
-      result.lines++;
-      if (current_line_length > result.max_line_length) {
-        result.max_line_length = current_line_length;
-      }
-      current_line_length = 0;
-      in_word = false;
-    } else if (cp == U'\t') {
-      current_line_length += 8 - (current_line_length % 8);
-      in_word = false;
-    } else if (is_ascii_space(cp)) {
-      current_line_length += display_width(cp);
-      in_word = false;
-    } else {
-      current_line_length += display_width(cp);
-      if (!in_word) {
-        result.words++;
-        in_word = true;
-      }
+auto count_lines_bytes_stream(std::istream& input, std::string filename,
+                              bool display_filename)
+    -> cp::Result<CountResult> {
+  CountResult result = make_empty_result(std::move(filename), display_filename);
+  std::array<char, wc_constants::READ_BUFFER_SIZE> buffer{};
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize bytes_read = input.gcount();
+    if (bytes_read <= 0) break;
+    result.bytes += static_cast<std::uintmax_t>(bytes_read);
+    const char* cur = buffer.data();
+    const char* end_ptr = cur + bytes_read;
+    while (cur < end_ptr) {
+      const void* found =
+          std::memchr(cur, '\n', static_cast<size_t>(end_ptr - cur));
+      if (found == nullptr) break;
+      ++result.lines;
+      cur = static_cast<const char*>(found) + 1;
     }
   }
+  return result;
+}
 
-  if (current_line_length > result.max_line_length) {
-    result.max_line_length = current_line_length;
+auto count_stream(std::istream& input, std::string filename,
+                  bool display_filename, const CountRequest& request)
+    -> cp::Result<CountResult> {
+  if (request.only_bytes()) {
+    return count_bytes_stream(input, std::move(filename), display_filename);
   }
+  if (request.lines_and_optional_bytes_only()) {
+    return count_lines_bytes_stream(input, std::move(filename),
+                                    display_filename);
+  }
+
+  CountResult result = make_empty_result(std::move(filename), display_filename);
+  std::uintmax_t current_line_length = 0;
+  bool in_word = false;
+  std::array<char, wc_constants::READ_BUFFER_SIZE> buffer{};
+  std::string carry;
+  std::string combined;
+  auto reset_word = [&]() {
+    if (request.words) in_word = false;
+  };
+  auto finish_display_line = [&]() {
+    if (!request.max_line_length) return;
+    if (current_line_length > result.max_line_length) {
+      result.max_line_length = current_line_length;
+    }
+    current_line_length = 0;
+  };
+  auto consume_codepoint = [&](char32_t cp) {
+    if (request.chars) ++result.chars;
+    switch (cp) {
+      case U'\n':
+        if (request.lines) ++result.lines;
+        finish_display_line();
+        reset_word();
+        break;
+      case U'\r':
+      case U'\f':
+        finish_display_line();
+        reset_word();
+        break;
+      case U'\t':
+        if (request.max_line_length) {
+          current_line_length += 8 - (current_line_length % 8);
+        }
+        reset_word();
+        break;
+      case U' ':
+        if (request.max_line_length) ++current_line_length;
+        reset_word();
+        break;
+      case U'\v':
+        reset_word();
+        break;
+      default:
+        if (is_ascii_space(cp)) {
+          if (request.max_line_length) current_line_length += display_width(cp);
+          reset_word();
+          break;
+        }
+        if (request.max_line_length) current_line_length += display_width(cp);
+        if (request.words && !in_word) {
+          ++result.words;
+          in_word = true;
+        }
+        break;
+    }
+  };
+  auto process_buffer = [&](std::string_view data, bool final_chunk) {
+    size_t i = 0;
+    while (i < data.size()) {
+      const unsigned char first = static_cast<unsigned char>(data[i]);
+      if (first < 0x80) {
+        consume_codepoint(first);
+        ++i;
+        continue;
+      }
+      const size_t expected = utf8_expected_bytes(first);
+      if (!final_chunk && expected > data.size() - i) {
+        carry.assign(data.substr(i));
+        return;
+      }
+      DecodedChar decoded = decode_utf8_char(data, i);
+      consume_codepoint(decoded.codepoint);
+      i += decoded.bytes;
+    }
+    carry.clear();
+  };
+  while (input) {
+    input.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize bytes_read = input.gcount();
+    if (bytes_read <= 0) break;
+    result.bytes += static_cast<std::uintmax_t>(bytes_read);
+    const std::string_view chunk(buffer.data(),
+                                 static_cast<size_t>(bytes_read));
+    if (carry.empty()) {
+      process_buffer(chunk, false);
+    } else {
+      combined.assign(carry);
+      combined.append(chunk);
+      carry.clear();
+      process_buffer(combined, false);
+    }
+  }
+  if (!carry.empty()) {
+    combined.assign(carry);
+    carry.clear();
+    process_buffer(combined, true);
+  }
+  finish_display_line();
 
   return result;
 }
 
-auto count_stdin(bool explicit_stdin) -> cp::Result<CountResult> {
-  return count_stream(std::cin, "-", explicit_stdin);
+auto count_stdin(bool explicit_stdin, const CountRequest& request)
+    -> cp::Result<CountResult> {
+  return count_stream(std::cin, "-", explicit_stdin, request);
 }
 
-auto count_file(const std::string& path) -> cp::Result<CountResult> {
+auto count_file(const std::string& path, const CountRequest& request)
+    -> cp::Result<CountResult> {
   if (path == "-") {
-    return count_stdin(true);
+    return count_stdin(true, request);
   }
 
   std::ifstream file(path, std::ios::binary);
@@ -319,7 +450,89 @@ auto count_file(const std::string& path) -> cp::Result<CountResult> {
     return std::unexpected(wc_input_open_error(path));
   }
 
-  return count_stream(file, path, true);
+  if (request.only_bytes()) {
+    std::error_code ec;
+    const auto size =
+        std::filesystem::file_size(std::filesystem::u8path(path), ec);
+    if (!ec) {
+      CountResult result = make_empty_result(path, true);
+      result.bytes = static_cast<std::uintmax_t>(size);
+      return result;
+    }
+  }
+
+  return count_stream(file, path, true, request);
+}
+
+auto decimal_digits(std::uintmax_t value) -> size_t {
+  size_t digits = 1;
+  while (value >= 10) {
+    value /= 10;
+    ++digits;
+  }
+  return digits;
+}
+
+auto decimal_string(std::uintmax_t value) -> std::string {
+  std::array<char, 64> buf{};
+  auto [end, ec] = std::to_chars(buf.data(), buf.data() + buf.size(), value);
+  if (ec != std::errc{}) return std::to_string(value);
+  return std::string(buf.data(), end);
+}
+
+auto compute_number_width(const CountBatch& batch,
+                          const std::vector<CountResult>& results,
+                          size_t selected_count, bool total_only) -> size_t {
+  if (total_only || batch.requested_input_count == 0 ||
+      (batch.requested_input_count == 1 && selected_count == 1) ||
+      results.empty()) {
+    return 1;
+  }
+
+  std::uintmax_t regular_total = 0;
+  bool saw_non_regular = false;
+
+  for (const auto& result : results) {
+    if (!result.display_filename || result.filename == "-") {
+      saw_non_regular = true;
+      continue;
+    }
+
+    const auto path = std::filesystem::u8path(result.filename);
+    std::error_code ec;
+    const auto status = std::filesystem::status(path, ec);
+    if (ec || !std::filesystem::is_regular_file(status)) {
+      saw_non_regular = true;
+      continue;
+    }
+
+    const auto size = std::filesystem::file_size(path, ec);
+    if (ec) {
+      saw_non_regular = true;
+      continue;
+    }
+
+    const auto remaining =
+        std::numeric_limits<std::uintmax_t>::max() - regular_total;
+    if (size > remaining) {
+      regular_total = std::numeric_limits<std::uintmax_t>::max();
+    } else {
+      regular_total += size;
+    }
+  }
+
+  size_t width = decimal_digits(regular_total);
+  if (saw_non_regular) width = std::max<size_t>(width, 7);
+  return width;
+}
+
+void append_aligned_count(std::string& line, std::uintmax_t value, size_t width,
+                          bool& first_field) {
+  const auto text = decimal_string(value);
+  if (!first_field) line.push_back(' ');
+  if (text.size() < width) line.append(width - text.size(), ' ');
+  line.append(text);
+  first_field = false;
 }
 
 // ----------------------------------------------
@@ -348,7 +561,8 @@ auto count_file(const std::string& path) -> cp::Result<CountResult> {
  * @return A Result containing the list of count results
  */
 template <size_t N>
-auto process_command(const CommandContext<N>& ctx) -> cp::Result<CountBatch> {
+auto process_command(const CommandContext<N>& ctx, const CountRequest& request)
+    -> cp::Result<CountBatch> {
   std::vector<std::string> paths;
   bool files0_from_stdin = false;
   const std::string files0_from =
@@ -370,7 +584,7 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<CountBatch> {
 
   CountBatch batch;
   if (paths.empty() && files0_from.empty()) {
-    auto stdin_result = count_stdin(false);
+    auto stdin_result = count_stdin(false, request);
     if (!stdin_result) return std::unexpected(stdin_result.error());
     batch.results.push_back(*stdin_result);
     batch.requested_input_count = 1;
@@ -384,7 +598,7 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<CountBatch> {
 
   batch.requested_input_count = paths.size();
   for (const auto& path : paths) {
-    auto file_result = count_file(path);
+    auto file_result = count_file(path, request);
     if (!file_result) {
       safeErrorPrint("wc: ");
       safeErrorPrint(file_result.error());
@@ -459,20 +673,6 @@ REGISTER_COMMAND(
     WC_OPTIONS) {
   using namespace wc_pipeline;
 
-  auto result = process_command(ctx);
-  if (!result) {
-    cp::report_error(result, L"wc");
-    return 1;
-  }
-
-  auto batch = *result;
-  auto count_results = batch.results;
-
-  if (ctx.get<bool>("--debug", false)) {
-    safeErrorPrint(
-        "wc: debug: line count implementation: portable byte scan\n");
-  }
-
   // Determine which counts to print
   bool print_lines =
       ctx.get<bool>("--lines", false) || ctx.get<bool>("-l", false);
@@ -491,6 +691,28 @@ REGISTER_COMMAND(
     print_lines = true;
     print_words = true;
     print_bytes = true;
+  }
+
+  CountRequest request{print_lines, print_words, print_chars, print_bytes,
+                       print_max_line_length};
+
+  auto result = process_command(ctx, request);
+  if (!result) {
+    cp::report_error(result, L"wc");
+    return 1;
+  }
+
+  auto batch = *result;
+  auto count_results = batch.results;
+
+  if (ctx.get<bool>("--debug", false)) {
+    const char* path = request.only_bytes() ? "byte-count fast path"
+                       : request.lines_and_optional_bytes_only()
+                           ? "line-count byte scan"
+                           : "multicolumn utf-8 scanner";
+    safeErrorPrint("wc: debug: line count implementation: ");
+    safeErrorPrint(path);
+    safeErrorPrint("\n");
   }
 
   // Determine when to print total
@@ -526,59 +748,41 @@ REGISTER_COMMAND(
     }
   }
 
+  const size_t selected_count =
+      static_cast<size_t>(print_lines) + static_cast<size_t>(print_words) +
+      static_cast<size_t>(print_chars) + static_cast<size_t>(print_bytes) +
+      static_cast<size_t>(print_max_line_length);
+  const size_t number_width = compute_number_width(
+      batch, count_results, selected_count, total_when == "only");
+
   // Print results
   auto print_result = [&](const CountResult& result, bool show_filename) {
-    // OPTIMIZED: Use snprintf instead of to_wstring and avoid wstring
-    // concatenation
-    char buf[256];
-    int offset = 0;
+    std::string line;
+    bool first_field = true;
 
     if (print_lines) {
-      int len =
-          snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.lines);
-      offset += len;
+      append_aligned_count(line, result.lines, number_width, first_field);
     }
     if (print_words) {
-      int len =
-          snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.words);
-      offset += len;
+      append_aligned_count(line, result.words, number_width, first_field);
     }
     if (print_chars) {
-      int len =
-          snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.chars);
-      offset += len;
+      append_aligned_count(line, result.chars, number_width, first_field);
     }
     if (print_bytes) {
-      int len =
-          snprintf(buf + offset, sizeof(buf) - offset, "%ju ", result.bytes);
-      offset += len;
+      append_aligned_count(line, result.bytes, number_width, first_field);
     }
     if (print_max_line_length) {
-      int len = snprintf(buf + offset, sizeof(buf) - offset, "%ju ",
-                         result.max_line_length);
-      offset += len;
-    }
-
-    // Remove trailing space
-    if (offset > 0 && buf[offset - 1] == ' ') {
-      buf[offset - 1] = '\0';
-      offset--;
+      append_aligned_count(line, result.max_line_length, number_width,
+                           first_field);
     }
 
     if (show_filename) {
-      if (offset > 0) {
-        buf[offset++] = ' ';
-      }
-      // Copy filename (assuming it fits in remaining buffer)
-      size_t filename_len = result.filename.length();
-      if (offset + filename_len < sizeof(buf)) {
-        memcpy(buf + offset, result.filename.c_str(), filename_len);
-        offset += filename_len;
-      }
-      buf[offset] = '\0';
+      if (!line.empty()) line.push_back(' ');
+      line.append(result.filename);
     }
 
-    safePrintLn(std::string_view(buf, offset));
+    safePrintLn(line);
   };
 
   if (total_when == "only") {

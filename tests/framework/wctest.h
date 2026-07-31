@@ -27,6 +27,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #ifdef _WIN32
@@ -271,6 +272,23 @@ inline void expect_eq_impl(const A &a, const B &b, const char *file, int line,
   }
 }
 
+inline void expect_contains_impl(std::string_view haystack,
+                                 std::string_view needle, const char *file,
+                                 int line, const char *exprA, const char *exprB,
+                                 bool negate) {
+  bool found = haystack.find(needle) != std::string_view::npos;
+  if (found == negate) {
+    std::ostringstream oss;
+    oss << (negate ? "EXPECT_NOT_CONTAINS" : "EXPECT_CONTAINS") << "(" << exprA
+        << ", " << exprB << ") failed\n"
+        << "      haystack (visible): [" << to_visible(std::string(haystack))
+        << "]\n"
+        << "      needle (visible): [" << to_visible(std::string(needle))
+        << "]";
+    fail(file, line, oss.str());
+  }
+}
+
 /**
  * @brief Normalize line endings in text
  *
@@ -315,6 +333,14 @@ inline std::string normalize_newlines(std::string s) {
       wctest::fail(__FILE__, __LINE__, "EXPECT_NE(" #a ", " #b ") failed"); \
     }                                                                       \
   } while (0)
+
+#define EXPECT_CONTAINS(haystack, needle)                                \
+  wctest::expect_contains_impl((haystack), (needle), __FILE__, __LINE__, \
+                               #haystack, #needle, false)
+
+#define EXPECT_NOT_CONTAINS(haystack, needle)                            \
+  wctest::expect_contains_impl((haystack), (needle), __FILE__, __LINE__, \
+                               #haystack, #needle, true)
 
 /**
  * @brief Assert that first value is less than second
@@ -552,33 +578,36 @@ inline std::string normalize_newlines(std::string s) {
  * @param group Test group/category name
  * @param test_name Individual test name
  */
-#define TEST(group, test_name)                                                   \
-  static void test_fn_##group##_##test_name();                                   \
-  /** \                                                                          \
-   * @brief Test runner function with hook integration \                         \
-   *                                                                           \ \
-   * Executes before hooks, runs the test function, executes after hooks, \      \
-   * and reports pass/fail status with colored output. \                         \
-   */                                                                            \
-  static void test_runner_##group##_##test_name() {                              \
-    for (auto h : wctest::before_hooks()) h(#group, #test_name);                 \
-    wctest::current_test_failed = 0;                                             \
-    test_fn_##group##_##test_name();                                             \
-    for (auto h : wctest::after_hooks()) h(#group, #test_name);                  \
-    if (!wctest::current_test_failed) {                                          \
-      wctest::set_color(wctest::Color::Green);                                   \
-      std::cout << "  PASSED\n";                                                 \
-      wctest::reset_color();                                                     \
-    }                                                                            \
-  }                                                                              \
-  /** \                                                                          \
-   * @brief Automatic test registration \                                        \
-   *                                                                           \ \
-   * Registers the test with the global registry during static initialization.   \
-   * \                                                                           \
-   */                                                                            \
-  static wctest::Registrar reg_##group##_##test_name(                            \
-      #group, #test_name, (void (*)()) & test_runner_##group##_##test_name);     \
+#define TEST(group, test_name)                                                     \
+  static void test_fn_##group##_##test_name();                                     \
+  /** \                                                                          \ \
+   * @brief Test runner function with hook integration \ \                         \
+   *                                                                           \   \
+   * \                                                                             \
+   * Executes before hooks, runs the test function, executes after hooks, \ \      \
+   * and reports pass/fail status with colored output. \ \                         \
+   */                                                                              \
+  static void test_runner_##group##_##test_name() {                                \
+    for (auto h : wctest::before_hooks()) h(#group, #test_name);                   \
+    wctest::current_test_failed = 0;                                               \
+    test_fn_##group##_##test_name();                                               \
+    for (auto h : wctest::after_hooks()) h(#group, #test_name);                    \
+    if (!wctest::current_test_failed) {                                            \
+      wctest::set_color(wctest::Color::Green);                                     \
+      std::cout << "  PASSED\n";                                                   \
+      wctest::reset_color();                                                       \
+    }                                                                              \
+  }                                                                                \
+  /** \                                                                          \ \
+   * @brief Automatic test registration \ \                                        \
+   *                                                                           \   \
+   * \                                                                             \
+   * Registers the test with the global registry during static initialization.     \
+   * \                                                                             \
+   * \ \                                                                           \
+   */                                                                              \
+  static wctest::Registrar reg_##group##_##test_name(                              \
+      #group, #test_name, (void (*)()) & test_runner_##group##_##test_name);       \
   static void test_fn_##group##_##test_name()
 
 // ============================
@@ -758,16 +787,47 @@ inline bool test_matches_filter(const TestCase &test, const char *filter) {
   return pattern_matches(filter, full_name.c_str());
 }
 
+inline std::vector<std::string> split_filter_patterns(const char *filter) {
+  std::vector<std::string> patterns;
+  if (filter == nullptr || filter[0] == '\0') return patterns;
+
+  const char *start = filter;
+  for (const char *p = filter;; ++p) {
+    if (*p == ':' || *p == '\0') {
+      if (p != start) patterns.emplace_back(start, p - start);
+      if (*p == '\0') break;
+      start = p + 1;
+    }
+  }
+  return patterns;
+}
+
+inline bool test_matches_any_filter(const TestCase &test,
+                                    const std::vector<std::string> &filters) {
+  if (filters.empty()) return false;
+  for (const auto &filter : filters) {
+    if (test_matches_filter(test, filter.c_str())) return true;
+  }
+  return false;
+}
+
+inline bool test_matches_positive_filter(
+    const TestCase &test, const std::vector<std::string> &filters) {
+  if (filters.empty()) return true;
+  return test_matches_any_filter(test, filters);
+}
+
 inline int run_with_filter(const char *filter) {
   int total = 0;
   int failed_before = failures;
+  auto positive_filters = split_filter_patterns(filter);
 
   set_color(Color::Cyan);
   std::cout << "[==========] Running tests with filter: " << filter << "\n";
   reset_color();
 
   for (auto &t : registry()) {
-    if (test_matches_filter(t, filter)) {
+    if (test_matches_positive_filter(t, positive_filters)) {
       total++;
       set_color(Color::Cyan);
       std::cout << "[ RUN      ] " << t.group << "." << t.name << "\n";
@@ -800,16 +860,18 @@ inline int run_with_posneg_filter(const char *filter) {
   }
   const char *minus_pos = strchr(filter, '-');
 
-  if (minus_pos == nullptr || minus_pos == filter) {
+  if (minus_pos == nullptr) {
     return run_with_filter(filter);
   }
 
   std::string positive(filter, minus_pos - filter);
   const char *negative = minus_pos + 1;
+  auto positive_filters = split_filter_patterns(positive.c_str());
+  auto negative_filters = split_filter_patterns(negative);
 
   std::vector<const TestCase *> matched_tests;
   for (auto &t : registry()) {
-    if (test_matches_filter(t, positive.c_str())) {
+    if (test_matches_positive_filter(t, positive_filters)) {
       matched_tests.push_back(&t);
     }
   }
@@ -830,7 +892,7 @@ inline int run_with_posneg_filter(const char *filter) {
   reset_color();
 
   for (const TestCase *t : matched_tests) {
-    if (!test_matches_filter(*t, negative)) {
+    if (!test_matches_any_filter(*t, negative_filters)) {
       total++;
       set_color(Color::Cyan);
       std::cout << "[ RUN      ] " << t->group << "." << t->name << "\n";

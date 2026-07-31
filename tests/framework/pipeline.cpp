@@ -178,9 +178,8 @@ CommandResult Pipeline::run() {
     if (!CreatePipe(&stdin_r, &stdin_w, &sa, 0))
       throw std::runtime_error("CreatePipe(stdin) failed");
 
-    // Make read end inheritable by child processes
-    SetHandleInformation(stdin_r, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT);
-    // Parent writes, children read - make write end non-inheritable
+    // Parent controls inheritance per child process.
+    SetHandleInformation(stdin_r, HANDLE_FLAG_INHERIT, 0);
     SetHandleInformation(stdin_w, HANDLE_FLAG_INHERIT, 0);
   }
 
@@ -197,7 +196,8 @@ CommandResult Pipeline::run() {
     if (!CreatePipe(&read_pipes[i], &write_pipes[i], &sa, 0))
       throw std::runtime_error("CreatePipe(mid) failed");
 
-    // SetHandleInformation(read_pipes[i], HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(read_pipes[i], HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(write_pipes[i], HANDLE_FLAG_INHERIT, 0);
   }
 
   // ----- final stdout / stderr -----
@@ -211,7 +211,9 @@ CommandResult Pipeline::run() {
     throw std::runtime_error("CreatePipe(stderr) failed");
 
   SetHandleInformation(final_out_r, HANDLE_FLAG_INHERIT, 0);
+  SetHandleInformation(final_out_w, HANDLE_FLAG_INHERIT, 0);
   SetHandleInformation(final_err_r, HANDLE_FLAG_INHERIT, 0);
+  SetHandleInformation(final_err_w, HANDLE_FLAG_INHERIT, 0);
 
   // ----- spawn processes -----
   for (size_t i = 0; i < n; ++i) {
@@ -291,8 +293,27 @@ CommandResult Pipeline::run() {
       creation_flags |= CREATE_UNICODE_ENVIRONMENT;
     }
 
-    if (!CreateProcessW(nullptr, cmdline.data(), nullptr, nullptr, TRUE,
-                        creation_flags, env_ptr, cwd, &si, &procs[i])) {
+    auto set_child_inherit = [](HANDLE h, bool inherit) {
+      if (h && h != INVALID_HANDLE_VALUE) {
+        SetHandleInformation(h, HANDLE_FLAG_INHERIT,
+                             inherit ? HANDLE_FLAG_INHERIT : 0);
+      }
+    };
+
+    HANDLE std_input = GetStdHandle(STD_INPUT_HANDLE);
+    if (si.hStdInput != std_input) set_child_inherit(si.hStdInput, true);
+    set_child_inherit(si.hStdOutput, true);
+    set_child_inherit(si.hStdError, true);
+
+    BOOL created =
+        CreateProcessW(nullptr, cmdline.data(), nullptr, nullptr, TRUE,
+                       creation_flags, env_ptr, cwd, &si, &procs[i]);
+
+    if (si.hStdInput != std_input) set_child_inherit(si.hStdInput, false);
+    set_child_inherit(si.hStdOutput, false);
+    set_child_inherit(si.hStdError, false);
+
+    if (!created) {
       DWORD err = GetLastError();
       throw std::runtime_error("CreateProcessW failed: " + std::to_string(err));
     }
@@ -330,8 +351,16 @@ CommandResult Pipeline::run() {
   std::thread t_out([&] { out = read_all(final_out_r); });
   std::thread t_err([&] { err = read_all(final_err_r); });
 
-  // ----- Wait for all processes to complete -----
-  for (auto &p : procs) WaitForSingleObject(p.hProcess, INFINITE);
+  // ----- Wait for processes to complete -----
+  // Match shell-like pipeline behavior for infinite producers such as yes.
+  WaitForSingleObject(procs.back().hProcess, INFINITE);
+  for (size_t i = 0; i + 1 < procs.size(); ++i) {
+    DWORD wait = WaitForSingleObject(procs[i].hProcess, 1000);
+    if (wait == WAIT_TIMEOUT) {
+      TerminateProcess(procs[i].hProcess, 1);
+      WaitForSingleObject(procs[i].hProcess, INFINITE);
+    }
+  }
 
   // Get exit code from the last process in pipeline
   DWORD exit_code = 0;

@@ -58,10 +58,18 @@ auto constexpr HEXDUMP_OPTIONS = std::array{
 namespace hexdump_pipeline {
 namespace cp = core::pipeline;
 
-enum class DisplayMode { Octal1, Char, Canonical, Decimal2, Octal2, Hex2 };
+enum class DisplayMode {
+  Octal1,
+  Char,
+  Canonical,
+  Decimal2,
+  Octal2,
+  DefaultHex2,
+  Hex2
+};
 
 struct Config {
-  DisplayMode mode = DisplayMode::Canonical;
+  DisplayMode mode = DisplayMode::DefaultHex2;
   size_t length = 0;  // 0 = all
   size_t skip = 0;
   bool no_squeeze = false;
@@ -117,12 +125,11 @@ auto build_config(const CommandContext<HEXDUMP_OPTIONS.size()>& ctx)
   return cfg;
 }
 
-auto print_canonical(const std::vector<uint8_t>& data) -> void {
+auto print_canonical(const std::vector<uint8_t>& data, size_t base_offset)
+    -> void {
   for (size_t i = 0; i < data.size(); i += 16) {
-    // Offset
-    safePrint(std::format("{:07x}  ", i));
+    safePrint(std::format("{:08x}  ", base_offset + i));
 
-    // Hex bytes
     for (size_t j = 0; j < 16; ++j) {
       if (i + j < data.size()) {
         safePrint(std::format("{:02x}", data[i + j]));
@@ -133,7 +140,6 @@ auto print_canonical(const std::vector<uint8_t>& data) -> void {
       if (j < 15) safePrint(" ");
     }
 
-    // ASCII representation
     safePrint("  |");
     for (size_t j = 0; j < 16 && i + j < data.size(); ++j) {
       unsigned char ch = data[i + j];
@@ -145,81 +151,117 @@ auto print_canonical(const std::vector<uint8_t>& data) -> void {
     }
     safePrintLn("|");
   }
+
+  if (!data.empty()) {
+    safePrintLn(std::format("{:08x}", base_offset + data.size()));
+  }
 }
 
-auto print_hex2(const std::vector<uint8_t>& data) -> void {
+auto print_hex2(const std::vector<uint8_t>& data, size_t base_offset,
+                bool padded_words) -> void {
   for (size_t i = 0; i < data.size(); i += 16) {
-    safePrint(std::format("{:07x}  ", i));
+    safePrint(std::format("{:07x} ", base_offset + i));
     for (size_t j = 0; j < 16 && i + j + 1 < data.size(); j += 2) {
       uint16_t val = static_cast<uint16_t>(data[i + j]) |
                      (static_cast<uint16_t>(data[i + j + 1]) << 8);
-      safePrint(std::format("{:04x} ", val));
+      if (padded_words) {
+        safePrint(std::format("   {:04x} ", val));
+      } else {
+        if (j > 0) safePrint(" ");
+        safePrint(std::format("{:04x}", val));
+      }
     }
     safePrintLn("");
   }
+  if (!data.empty()) {
+    safePrintLn(std::format("{:07x}", base_offset + data.size()));
+  }
 }
 
-auto print_octal2(const std::vector<uint8_t>& data) -> void {
+auto print_octal2(const std::vector<uint8_t>& data, size_t base_offset)
+    -> void {
   for (size_t i = 0; i < data.size(); i += 16) {
-    safePrint(std::format("{:07o}  ", i));
+    safePrint(std::format("{:07x} ", base_offset + i));
     for (size_t j = 0; j < 16 && i + j + 1 < data.size(); j += 2) {
       uint16_t val = static_cast<uint16_t>(data[i + j]) |
                      (static_cast<uint16_t>(data[i + j + 1]) << 8);
-      safePrint(std::format("{:06o} ", val));
+      safePrint(std::format("  {:06o} ", val));
     }
     safePrintLn("");
   }
+  if (!data.empty()) {
+    safePrintLn(std::format("{:07x}", base_offset + data.size()));
+  }
 }
 
-auto print_decimal2(const std::vector<uint8_t>& data) -> void {
+auto print_decimal2(const std::vector<uint8_t>& data, size_t base_offset)
+    -> void {
   for (size_t i = 0; i < data.size(); i += 16) {
-    safePrint(std::format("{:07d}  ", i));
+    safePrint(std::format("{:07x} ", base_offset + i));
     for (size_t j = 0; j < 16 && i + j + 1 < data.size(); j += 2) {
       uint16_t val = static_cast<uint16_t>(data[i + j]) |
                      (static_cast<uint16_t>(data[i + j + 1]) << 8);
-      safePrint(std::format("{:05d} ", val));
+      safePrint(std::format("  {:05d} ", val));
     }
     safePrintLn("");
   }
-}
-
-auto print_octal1(const std::vector<uint8_t>& data) -> void {
-  for (size_t i = 0; i < data.size(); i += 16) {
-    safePrint(std::format("{:07o}  ", i));
-    for (size_t j = 0; j < 16 && i + j < data.size(); ++j) {
-      safePrint(std::format("{:03o} ", data[i + j]));
-    }
-    safePrintLn("");
+  if (!data.empty()) {
+    safePrintLn(std::format("{:07x}", base_offset + data.size()));
   }
 }
 
-auto print_char(const std::vector<uint8_t>& data) -> void {
+auto print_octal1(const std::vector<uint8_t>& data, size_t base_offset)
+    -> void {
   for (size_t i = 0; i < data.size(); i += 16) {
-    safePrint(std::format("{:07o}  ", i));
-    for (size_t j = 0; j < 16 && i + j < data.size(); ++j) {
+    safePrint(std::format("{:07x} ", base_offset + i));
+    for (size_t j = 0; j < 16; ++j) {
+      if (i + j < data.size()) {
+        safePrint(std::format("{:03o} ", data[i + j]));
+      } else {
+        safePrint("    ");
+      }
+    }
+    safePrintLn("");
+  }
+  if (!data.empty()) {
+    safePrintLn(std::format("{:07x}", base_offset + data.size()));
+  }
+}
+
+auto print_char(const std::vector<uint8_t>& data, size_t base_offset) -> void {
+  for (size_t i = 0; i < data.size(); i += 16) {
+    safePrint(std::format("{:07x} ", base_offset + i));
+    for (size_t j = 0; j < 16; ++j) {
+      if (i + j >= data.size()) {
+        safePrint("    ");
+        continue;
+      }
       unsigned char ch = data[i + j];
       if (ch == 0)
-        safePrint("  \\0");
+        safePrint(" \\0 ");
       else if (ch == 7)
-        safePrint("  \\a");
+        safePrint(" \\a ");
       else if (ch == 8)
-        safePrint("  \\b");
+        safePrint(" \\b ");
       else if (ch == 9)
-        safePrint("  \\t");
+        safePrint(" \\t ");
       else if (ch == 10)
-        safePrint("  \\n");
+        safePrint(" \\n ");
       else if (ch == 11)
-        safePrint("  \\v");
+        safePrint(" \\v ");
       else if (ch == 12)
-        safePrint("  \\f");
+        safePrint(" \\f ");
       else if (ch == 13)
-        safePrint("  \\r");
+        safePrint(" \\r ");
       else if (ch >= 32 && ch <= 126)
-        safePrint(std::format("   {}", static_cast<char>(ch)));
+        safePrint(std::format("  {} ", static_cast<char>(ch)));
       else
-        safePrint(std::format("  {:03o}", ch));
+        safePrint(std::format("{:03o} ", ch));
     }
     safePrintLn("");
+  }
+  if (!data.empty()) {
+    safePrintLn(std::format("{:07x}", base_offset + data.size()));
   }
 }
 
@@ -246,36 +288,40 @@ auto dump_file(const std::string& filename, const Config& cfg) -> int {
                 std::istreambuf_iterator<char>());
   }
 
-  // Apply skip
+  size_t base_offset = 0;
   if (cfg.skip > 0 && cfg.skip < data.size()) {
-    data.erase(data.begin(), data.begin() + cfg.skip);
+    base_offset = cfg.skip;
+    data.erase(data.begin(),
+               data.begin() + static_cast<std::ptrdiff_t>(cfg.skip));
   } else if (cfg.skip >= data.size()) {
     return 0;
   }
 
-  // Apply length
   if (cfg.length > 0 && cfg.length < data.size()) {
     data.resize(cfg.length);
   }
 
   switch (cfg.mode) {
     case DisplayMode::Canonical:
-      print_canonical(data);
+      print_canonical(data, base_offset);
+      break;
+    case DisplayMode::DefaultHex2:
+      print_hex2(data, base_offset, false);
       break;
     case DisplayMode::Hex2:
-      print_hex2(data);
+      print_hex2(data, base_offset, true);
       break;
     case DisplayMode::Octal2:
-      print_octal2(data);
+      print_octal2(data, base_offset);
       break;
     case DisplayMode::Decimal2:
-      print_decimal2(data);
+      print_decimal2(data, base_offset);
       break;
     case DisplayMode::Octal1:
-      print_octal1(data);
+      print_octal1(data, base_offset);
       break;
     case DisplayMode::Char:
-      print_char(data);
+      print_char(data, base_offset);
       break;
   }
 
@@ -309,7 +355,7 @@ REGISTER_COMMAND(
     "\n"
     "  -b               one-byte octal display\n"
     "  -c               one-byte character display\n"
-    "  -C               canonical hex+ASCII display (default)\n"
+    "  -C               canonical hex+ASCII display\n"
     "  -d               two-byte decimal display\n"
     "  -e FORMAT        format string\n"
     "  -f FORMAT_FILE   format file\n"

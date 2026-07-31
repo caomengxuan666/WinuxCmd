@@ -19,3 +19,12 @@ TEST(test_bracket, test_bracket_file_exists) {
 
   EXPECT_EQ(r.exit_code, 0);
 }
+
+TEST(test_bracket, test_bracket_numeric_false_expression) {
+  Pipeline p;
+  p.add(L"[.exe", {L"12", L"-eq", L"13", L"]"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+}

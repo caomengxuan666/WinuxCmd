@@ -40,3 +40,4 @@ powershell-profile.ps1
 .git/hooks/pre-restore
 README-GIT-PROTECTION.md
 
+/tmp

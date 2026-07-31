@@ -41,6 +41,7 @@ import core;
 import utils;
 import container;
 
+using cmd::meta::option_matches;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
@@ -170,13 +171,6 @@ struct BatchOptions {
   bool max_args_present = false;
   bool max_lines_present = false;
 };
-
-auto option_matches(const cmd::meta::OptionMeta &meta,
-                    std::string_view short_name, std::string_view long_name)
-    -> bool {
-  return (!short_name.empty() && meta.short_name == short_name) ||
-         (!long_name.empty() && meta.long_name == long_name);
-}
 
 auto batch_option_family_name(BatchOptionFamily family) -> std::string_view {
   switch (family) {
@@ -709,42 +703,11 @@ auto expand_command_template_args(const SmallVector<std::string, 32> &base_args)
   return std::vector<std::string>(expanded_args.begin(), expanded_args.end());
 }
 
-auto quote_arg(const std::wstring &arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
-
 auto build_command_line(const std::string &command,
                         const std::vector<std::string> &args) -> std::wstring {
-  std::wstring cmd_line = quote_arg(utf8_to_wstring(command));
+  std::wstring cmd_line = quote_windows_command_arg(utf8_to_wstring(command));
   auto is_cmd_shell = [](std::string_view value) {
-    std::string lowered;
-    lowered.reserve(value.size());
-    for (unsigned char ch : value) {
-      lowered.push_back(static_cast<char>(std::tolower(ch)));
-    }
-    return lowered == "cmd" || lowered == "cmd.exe";
+    return ascii_iequals(value, "cmd") || ascii_iequals(value, "cmd.exe");
   };
   auto is_cmd_c = [](std::string_view value) {
     return value == "/C" || value == "/c";
@@ -780,7 +743,7 @@ auto build_command_line(const std::string &command,
     if (cmd_c_tail) {
       cmd_line += utf8_to_wstring(cmd_escape_arg(arg));
     } else {
-      cmd_line += quote_arg(utf8_to_wstring(arg));
+      cmd_line += quote_windows_command_arg(utf8_to_wstring(arg));
       if (is_cmd_shell(command) && is_cmd_c(arg)) {
         cmd_c_tail = true;
       }
@@ -888,16 +851,9 @@ auto xargs_command_status_from_create_error(DWORD error) -> int {
 }
 
 auto xargs_windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return "No such file or directory";
-    case ERROR_ACCESS_DENIED:
-    case ERROR_BAD_EXE_FORMAT:
-      return "Permission denied";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
+  Win32ErrorTextOptions options;
+  options.bad_exe_format_as_permission = true;
+  return win32_posix_error_text(error, options);
 }
 
 auto report_xargs_input_file_open_error(std::string_view path) -> void {

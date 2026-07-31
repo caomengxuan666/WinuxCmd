@@ -101,9 +101,9 @@ TEST(b2sum, b2sum_short_zero_alias_uses_nul_terminator) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(r.stdout_text,
-            std::string("9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff7"
-                        "2519673ca72323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e"
-                        "5c3adef46f73bcdec043  test.txt\0",
+            std::string("e4cfa39a3d37be31c59609e807970799caa68a19bfaa15135f"
+                        "165085e01d41a65ba1e1b146aeb6bd0092b49eac214c103ccfa3"
+                        "a365954bbbe52f74a2b3620c94 *test.txt\0",
                         139));
 }
 
@@ -127,8 +127,8 @@ TEST(b2sum, b2sum_length) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.starts_with("9b71d224bd62f3785d96d46ad3ea3d73"));
-  EXPECT_TRUE(r.stdout_text.find("  -\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.starts_with("46fb7408d4f285228f4af516ea25851b"));
+  EXPECT_TRUE(r.stdout_text.find(" *-\n") != std::string::npos);
 }
 
 TEST(b2sum, b2sum_length_accepts_nonstandard_multiple_of_8) {
@@ -141,7 +141,7 @@ TEST(b2sum, b2sum_length_accepts_nonstandard_multiple_of_8) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.starts_with("9b71d224bd62f3785d96d46ad3ea3d7331"));
+  EXPECT_TRUE(r.stdout_text.starts_with("2300d4d2a22feac80ac0bdc302611b69ba"));
   EXPECT_EQ(r.stdout_text.size(), 34 + 2 + 8 + 1);
 }
 
@@ -333,8 +333,8 @@ TEST(b2sum, b2sum_check_accepts_binary_marker_lines) {
   TempDir tmp;
   tmp.write("test.txt", "hello");
   tmp.write("check.b2",
-            "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7"
-            "2323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
+            "e4cfa39a3d37be31c59609e807970799caa68a19bfaa15135f165085e01d41a"
+            "65ba1e1b146aeb6bd0092b49eac214c103ccfa3a365954bbbe52f74a2b3620c94"
             " *test.txt");
 
   Pipeline p;
@@ -351,8 +351,8 @@ TEST(b2sum, b2sum_check_warn_reports_malformed_line_locations) {
   tmp.write("test.txt", "hello");
   tmp.write("check.b2",
             "not-a-checksum\n"
-            "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7"
-            "2323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
+            "e4cfa39a3d37be31c59609e807970799caa68a19bfaa15135f165085e01d41a"
+            "65ba1e1b146aeb6bd0092b49eac214c103ccfa3a365954bbbe52f74a2b3620c94"
             "  test.txt\n");
 
   Pipeline p;
@@ -390,8 +390,8 @@ TEST(b2sum, b2sum_check_strict_rejects_malformed_lines) {
   TempDir tmp;
   tmp.write("test.txt", "hello");
   tmp.write("check.b2",
-            "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7"
-            "2323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
+            "e4cfa39a3d37be31c59609e807970799caa68a19bfaa15135f165085e01d41a"
+            "65ba1e1b146aeb6bd0092b49eac214c103ccfa3a365954bbbe52f74a2b3620c94"
             "  test.txt\n"
             "bad-line\n");
 

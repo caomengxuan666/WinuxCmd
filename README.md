@@ -14,7 +14,7 @@ WinuxCmd gives Windows terminals a compact GNU-style command layer: `ls`,
 `cat`, `grep`, `find`, `xargs`, `sed`, `sort`, `uniq`, `cp`, `mv`, `rm`,
 and more.
 
-The 0.13 line also introduces a clearer WPM model: WinuxCmd ships the core
+The 0.14 line also introduces a clearer WPM model: WinuxCmd ships the core
 commands, while WPM manages portable sidecar binaries such as `awk`, `jq`, `rg`,
 `fd`, `fzf`, `bat`, `yq`, `7z`, and `ffmpeg` from a separate package index.
 

@@ -123,7 +123,7 @@ TEST(nl, nl_join_blank_lines_numbers_only_group_boundary) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(r.stdout_text, "1:line1\n:\n2:\n:\n3:line2\n");
+  EXPECT_EQ(r.stdout_text, "1:line1\n  \n2:\n  \n3:line2\n");
 }
 
 TEST(nl, nl_pattern_body_numbering) {
@@ -137,7 +137,21 @@ TEST(nl, nl_pattern_body_numbering) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(r.stdout_text, "1:ERR first\n:ok\n2:ERR second\n");
+  EXPECT_EQ(r.stdout_text, "1:ERR first\n  ok\n2:ERR second\n");
+}
+
+TEST(nl, nl_unnumbered_lines_use_blank_number_field_not_separator) {
+  TempDir tmp;
+  tmp.write("test.txt", "line\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"nl.exe", {L"-b", L"n", L"-w", L"3", L"-s", L"::", L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "     line\n");
 }
 
 TEST(nl, nl_empty_number_separator) {

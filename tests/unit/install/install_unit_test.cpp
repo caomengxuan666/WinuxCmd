@@ -25,6 +25,26 @@
  */
 #include "framework/winuxtest.h"
 
+auto install_is_readonly(const std::filesystem::path& path) -> bool {
+  DWORD attrs = GetFileAttributesW(path.wstring().c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_READONLY) != 0;
+}
+
+auto install_set_readonly(const std::filesystem::path& path, bool readonly)
+    -> bool {
+  DWORD attrs = GetFileAttributesW(path.wstring().c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+  if (readonly) {
+    attrs |= FILE_ATTRIBUTE_READONLY;
+  } else {
+    attrs &= ~FILE_ATTRIBUTE_READONLY;
+  }
+  return SetFileAttributesW(path.wstring().c_str(), attrs) != 0;
+}
+
 TEST(install, install_basic) {
   TempDir tmp;
   tmp.write("source.txt", "hello\n");
@@ -82,6 +102,80 @@ TEST(install, install_target_directory_requires_existing_directory) {
 
   EXPECT_NE(r.exit_code, 0);
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "missing_dir"));
+}
+
+TEST(install, install_default_mode_clears_source_readonly_like_gnu_755) {
+  TempDir tmp;
+  tmp.write("source.txt", "hello\n");
+  EXPECT_TRUE(install_set_readonly(tmp.path / "source.txt", true));
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"install.exe", {L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(install_is_readonly(tmp.path / "dest.txt"));
+}
+
+TEST(install, install_mode_numeric_644_keeps_owner_writable) {
+  TempDir tmp;
+  tmp.write("source.txt", "hello\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"install.exe", {L"-m", L"644", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(install_is_readonly(tmp.path / "dest.txt"));
+}
+
+TEST(install, install_mode_numeric_444_sets_readonly) {
+  TempDir tmp;
+  tmp.write("source.txt", "hello\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"install.exe", {L"-m", L"444", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(install_is_readonly(tmp.path / "dest.txt"));
+}
+
+TEST(install, install_mode_symbolic_owner_write_clears_readonly) {
+  TempDir tmp;
+  tmp.write("source.txt", "hello\n");
+  EXPECT_TRUE(install_set_readonly(tmp.path / "source.txt", true));
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"install.exe", {L"-m", L"u+w", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(install_is_readonly(tmp.path / "dest.txt"));
+}
+
+TEST(install, install_compare_reapplies_mode_when_content_matches) {
+  TempDir tmp;
+  tmp.write("source.txt", "same\n");
+  tmp.write("dest.txt", "same\n");
+  EXPECT_TRUE(install_set_readonly(tmp.path / "dest.txt", false));
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"install.exe", {L"-C", L"-m", L"444", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(install_is_readonly(tmp.path / "dest.txt"));
 }
 
 TEST(install, install_target_directory_and_no_target_directory_conflict) {

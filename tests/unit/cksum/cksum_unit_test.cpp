@@ -53,7 +53,7 @@ TEST(cksum, cksum_default_output_is_untagged_gnu_shape) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "907060870 5 test.txt\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "3287646509 5 test.txt\n");
 }
 
 TEST(cksum, cksum_tag_opt_in_keeps_bsd_style_format) {
@@ -67,7 +67,7 @@ TEST(cksum, cksum_tag_opt_in_keeps_bsd_style_format) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "CRC32 (test.txt) = 3610a686\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "CRC32 (test.txt) = c3f5812d\n");
 }
 
 TEST(cksum, cksum_stdin) {
@@ -202,7 +202,7 @@ TEST(cksum,
   tmp.write("good.txt", "hello");
   tmp.write("check.txt",
             "bad-line\n"
-            "907060870 5 good.txt\n");
+            "3287646509 5 good.txt\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -220,7 +220,7 @@ TEST(cksum, cksum_check_warn_reports_malformed_line_location_and_summary) {
   tmp.write("good.txt", "hello");
   tmp.write("check.txt",
             "bad-line\n"
-            "907060870 5 good.txt\n");
+            "3287646509 5 good.txt\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -243,7 +243,7 @@ TEST(cksum, cksum_check_strict_fails_when_any_line_is_malformed) {
   tmp.write("good.txt", "hello");
   tmp.write("check.txt",
             "bad-line\n"
-            "907060870 5 good.txt\n");
+            "3287646509 5 good.txt\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -316,7 +316,7 @@ TEST(cksum, cksum_check_mismatch_summary_counts_only_computed_records) {
 TEST(cksum, cksum_check_validates_size_field_in_untagged_records) {
   TempDir tmp;
   tmp.write("good.txt", "hello");
-  tmp.write("check.txt", "907060870 4 good.txt\n");
+  tmp.write("check.txt", "3287646509 4 good.txt\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -334,7 +334,7 @@ TEST(cksum, cksum_check_validates_size_field_in_untagged_records) {
 TEST(cksum, cksum_check_status_suppresses_output) {
   TempDir tmp;
   tmp.write("good.txt", "hello");
-  tmp.write("check.txt", "907060870 5 good.txt\n");
+  tmp.write("check.txt", "3287646509 5 good.txt\n");
 
   Pipeline good;
   good.set_cwd(tmp.wpath());
@@ -360,7 +360,7 @@ TEST(cksum, cksum_check_status_suppresses_output) {
 TEST(cksum, cksum_check_quiet_suppresses_ok_lines_only) {
   TempDir tmp;
   tmp.write("good.txt", "hello");
-  tmp.write("check.txt", "907060870 5 good.txt\n");
+  tmp.write("check.txt", "3287646509 5 good.txt\n");
 
   Pipeline good;
   good.set_cwd(tmp.wpath());

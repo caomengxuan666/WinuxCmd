@@ -111,6 +111,40 @@ TEST(uniq, uniq_all_repeated) {
   EXPECT_EQ_TEXT(r.stdout_text, "a\na\nc\nc\n");
 }
 
+TEST(uniq, uniq_combines_duplicate_unique_output_flags_like_gnu) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\na\nb\nc\nc\n");
+
+  Pipeline p1;
+  p1.set_cwd(tmp.wpath());
+  p1.add(L"uniq.exe", {L"-d", L"-u", L"a.txt"});
+  auto r1 = p1.run();
+  EXPECT_EQ(r1.exit_code, 0);
+  EXPECT_TRUE(r1.stdout_text.empty());
+
+  Pipeline p2;
+  p2.set_cwd(tmp.wpath());
+  p2.add(L"uniq.exe", {L"-D", L"-u", L"a.txt"});
+  auto r2 = p2.run();
+  EXPECT_EQ(r2.exit_code, 0);
+  EXPECT_EQ_TEXT(r2.stdout_text, "a\nc\n");
+}
+
+TEST(uniq, uniq_rejects_count_with_all_repeated_like_gnu) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\na\nb\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"uniq.exe", {L"-c", L"-D", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(
+      r.stderr_text.find("printing all duplicated lines and repeat counts") !=
+      std::string::npos);
+}
 TEST(uniq, uniq_group_default_keeps_input_operand) {
   TempDir tmp;
   tmp.write("a.txt", "a\na\nb\nc\nc\n");
@@ -137,7 +171,7 @@ TEST(uniq, uniq_group_prepend_method) {
   EXPECT_EQ_TEXT(r.stdout_text, "\na\na\n\nb\n");
 }
 
-TEST(uniq, uniq_all_repeated_append_method) {
+TEST(uniq, uniq_all_repeated_rejects_group_only_methods) {
   TempDir tmp;
   tmp.write("a.txt", "a\na\nb\nc\nc\n");
 
@@ -146,8 +180,27 @@ TEST(uniq, uniq_all_repeated_append_method) {
   p.add(L"uniq.exe", {L"--all-repeated=append", L"a.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "a\na\n\nc\nc\n\n");
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(
+      r.stderr_text.find("invalid argument append for --all-repeated") !=
+      std::string::npos);
+}
+
+TEST(uniq, uniq_group_is_mutually_exclusive_with_output_options) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\na\nb\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"uniq.exe", {L"--group", L"-c", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(
+      r.stderr_text.find("--group is mutually exclusive with -c/-d/-D/-u") !=
+      std::string::npos);
 }
 
 TEST(uniq, uniq_group_rejects_invalid_method) {

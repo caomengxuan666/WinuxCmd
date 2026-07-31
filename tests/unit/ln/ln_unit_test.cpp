@@ -213,7 +213,27 @@ TEST(ln, ln_verbose) {
   TEST_LOG("ln verbose output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_FALSE(r.stdout_text.empty());
+  EXPECT_EQ_TEXT(r.stdout_text, "'link.txt' => 'original.txt'\n");
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(ln, ln_verbose_multiple_links_has_no_summary_line) {
+  TempDir tmp;
+  tmp.write("a.txt", "A\n");
+  tmp.write("b.txt", "B\n");
+  std::filesystem::create_directory(tmp.path / "dest");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ln.exe", {L"-v", L"a.txt", L"b.txt", L"dest"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "'dest\\a.txt' => 'a.txt'\n"
+                 "'dest\\b.txt' => 'b.txt'\n");
+  EXPECT_TRUE(r.stderr_text.empty());
 }
 
 TEST(ln, ln_single_operand_creates_link_in_current_directory) {

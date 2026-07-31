@@ -82,7 +82,7 @@ bool write_file_lines(const std::string& filename,
 
   std::string content;
   for (const auto& line : lines) {
-    content += line + "\r\n";
+    content += line + "\n";
   }
 
   DWORD bytesWritten;

@@ -65,6 +65,60 @@ TEST(cut, cut_whitespace_delimited_only_delimited_skips_undelimited_lines) {
   EXPECT_EQ_TEXT(r.stdout_text, "b\nx\n");
 }
 
+TEST(cut, cut_short_F_implies_whitespace_and_space_output) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha   beta\tgamma\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cut.exe", {L"-F", L"1,3", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "alpha gamma\n");
+}
+
+TEST(cut, cut_short_F_uses_explicit_delimiter_but_space_output) {
+  TempDir tmp;
+  tmp.write("a.txt", "a:b:c\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cut.exe", {L"-F", L"1,3", L"-d", L":", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a c\n");
+}
+
+TEST(cut, cut_whitespace_delimited_trimmed_ignores_outer_blanks) {
+  TempDir tmp;
+  tmp.write("a.txt", "  alpha  beta  \n  solo  \n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cut.exe",
+        {L"--whitespace-delimited=trimmed", L"-f", L"1,2", L"-s", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "alpha\tbeta\n");
+}
+
+TEST(cut, cut_output_delimiter_empty_writes_nul) {
+  TempDir tmp;
+  tmp.write("a.txt", "a:b:c\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cut.exe",
+        {L"-d", L":", L"-f", L"1,3", L"--output-delimiter=", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, std::string("a\0c\n", 4));
+}
+
 TEST(cut, cut_rejects_combining_w_and_delimiter) {
   TempDir tmp;
 

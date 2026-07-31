@@ -882,11 +882,6 @@ auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
     return true;  // Should exit
   }
 
-  if (ctx.get<bool>("--version", false) || ctx.get<bool>("-v", false)) {
-    safePrint("top (WinuxCmd) 0.1.0\n");
-    return true;  // Should exit
-  }
-
   return false;  // Continue
 }
 

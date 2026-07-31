@@ -64,6 +64,21 @@ TEST(chmod, chmod_numeric_644) {
   TEST_LOG("chmod output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(is_readonly(tmp.path / "test.txt"));
+}
+
+TEST(chmod, chmod_numeric_444_sets_readonly_like_msys) {
+  TempDir tmp;
+  tmp.write("test.txt", "hello\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"chmod.exe", {L"444", L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(is_readonly(tmp.path / "test.txt"));
 }
 
 TEST(chmod, chmod_numeric_755) {
@@ -118,6 +133,35 @@ TEST(chmod, chmod_symbolic_remove) {
   TEST_LOG("chmod output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(is_readonly(tmp.path / "test.txt"));
+}
+
+TEST(chmod, chmod_symbolic_owner_remove_sets_readonly_like_msys) {
+  TempDir tmp;
+  tmp.write("test.txt", "hello\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"chmod.exe", {L"u-w", L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(is_readonly(tmp.path / "test.txt"));
+}
+
+TEST(chmod, chmod_symbolic_assign_without_owner_write_sets_readonly) {
+  TempDir tmp;
+  tmp.write("test.txt", "hello\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"chmod.exe", {L"a=rx", L"test.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(is_readonly(tmp.path / "test.txt"));
 }
 
 TEST(chmod, chmod_verbose) {

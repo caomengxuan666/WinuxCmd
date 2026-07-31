@@ -47,18 +47,9 @@ auto constexpr UNLINK_OPTIONS =
 namespace {
 
 auto windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-    case ERROR_INVALID_NAME:
-      return "No such file or directory";
-    case ERROR_ACCESS_DENIED:
-      return "Permission denied";
-    case ERROR_INVALID_PARAMETER:
-      return "Invalid argument";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
+  Win32ErrorTextOptions options;
+  options.invalid_name_as_missing = true;
+  return win32_posix_error_text(error, options);
 }
 
 auto describe_unlink_failure(const std::wstring& path, DWORD error)

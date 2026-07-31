@@ -59,11 +59,13 @@ auto constexpr COMM_OPTIONS = std::array{
 namespace comm_pipeline {
 namespace cp = core::pipeline;
 
+enum class OrderCheckMode { Default, Enabled, Disabled };
+
 struct Config {
   bool suppress_col1 = false;
   bool suppress_col2 = false;
   bool suppress_col3 = false;
-  bool check_order = false;
+  OrderCheckMode order_check = OrderCheckMode::Default;
   bool total = false;
   bool zero_terminated = false;
   std::string output_delimiter = "\t";
@@ -86,6 +88,17 @@ void add_file_arg(Config& cfg, const std::string& file_arg) {
 auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
+  bool output_delimiter_seen = false;
+  auto set_output_delimiter = [&](std::string value) -> cp::Result<void> {
+    std::string normalized =
+        value.empty() ? std::string(1, static_cast<char>(0)) : std::move(value);
+    if (output_delimiter_seen && cfg.output_delimiter != normalized) {
+      return std::unexpected("multiple output delimiters specified");
+    }
+    cfg.output_delimiter = std::move(normalized);
+    output_delimiter_seen = true;
+    return {};
+  };
 
   bool end_of_options = false;
   for (size_t i = 0; i < ctx.raw_args.size(); ++i) {
@@ -98,27 +111,29 @@ auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
 
     if (!end_of_options && arg.starts_with("--output-delimiter=")) {
       std::string value = arg.substr(std::string("--output-delimiter=").size());
-      cfg.output_delimiter = value.empty() ? std::string(1, '\0') : value;
+      auto delimiter_result = set_output_delimiter(std::move(value));
+      if (!delimiter_result) return std::unexpected(delimiter_result.error());
       continue;
     }
 
     if (!end_of_options && arg == "--output-delimiter") {
       if (i + 1 >= ctx.raw_args.size()) {
         return std::unexpected(
-            "option '--output-delimiter' requires an argument");
+            "option --output-delimiter requires an argument");
       }
-      std::string value(ctx.raw_args[++i]);
-      cfg.output_delimiter = value.empty() ? std::string(1, '\0') : value;
+      auto delimiter_result =
+          set_output_delimiter(std::string(ctx.raw_args[++i]));
+      if (!delimiter_result) return std::unexpected(delimiter_result.error());
       continue;
     }
 
     if (!end_of_options && arg.starts_with("--")) {
       if (arg == "--check-order") {
-        cfg.check_order = true;
+        cfg.order_check = OrderCheckMode::Enabled;
         continue;
       }
       if (arg == "--nocheck-order") {
-        cfg.check_order = false;
+        cfg.order_check = OrderCheckMode::Disabled;
         continue;
       }
       if (arg == "--total") {
@@ -270,6 +285,18 @@ auto check_sorted(const SmallVector<std::string, 1024>& lines)
   return {};
 }
 
+auto has_disorder(const SmallVector<std::string, 1024>& lines) -> bool {
+  for (size_t i = 1; i < lines.size(); ++i) {
+    if (lines[i - 1] > lines[i]) return true;
+  }
+  return false;
+}
+
+void report_disorder(int file_number) {
+  safeErrorPrint("comm: file " + std::to_string(file_number) +
+                 " is not in sorted order\n");
+}
+
 void print_record(const std::string& text, char delimiter) {
   safePrint(text);
   safePrint(std::string_view(&delimiter, 1));
@@ -304,21 +331,17 @@ auto run(const Config& cfg) -> int {
   const auto& lines1 = *lines1_result;
   const auto& lines2 = *lines2_result;
 
-  if (cfg.check_order) {
-    auto sorted1 = check_sorted(lines1);
-    if (!sorted1) {
-      cp::report_error(sorted1, L"comm");
-      return 1;
-    }
-    auto sorted2 = check_sorted(lines2);
-    if (!sorted2) {
-      cp::report_error(sorted2, L"comm");
-      return 1;
-    }
+  const bool disorder1 = has_disorder(lines1);
+  const bool disorder2 = has_disorder(lines2);
+  if (cfg.order_check == OrderCheckMode::Enabled && (disorder1 || disorder2)) {
+    if (disorder1) report_disorder(1);
+    if (disorder2) report_disorder(2);
+    return 1;
   }
 
   // Merge and compare
   size_t i = 0, j = 0;
+  bool seen_unpairable = false;
   size_t count_col1 = 0, count_col2 = 0, count_col3 = 0;
   while (i < lines1.size() || j < lines2.size()) {
     int cmp_result = 0;
@@ -338,6 +361,7 @@ auto run(const Config& cfg) -> int {
         print_record(lines1[i], record_delim);
       }
       i++;
+      seen_unpairable = true;
     } else if (cmp_result > 0) {
       // Line only in file2
       ++count_col2;
@@ -348,6 +372,7 @@ auto run(const Config& cfg) -> int {
         print_record(output, record_delim);
       }
       j++;
+      seen_unpairable = true;
     } else {
       // Line in both files
       ++count_col3;
@@ -371,6 +396,14 @@ auto run(const Config& cfg) -> int {
     output += cfg.output_delimiter;
     output += "total";
     print_record(output, record_delim);
+  }
+
+  if (cfg.order_check == OrderCheckMode::Default && seen_unpairable &&
+      (disorder1 || disorder2)) {
+    if (disorder1) report_disorder(1);
+    if (disorder2) report_disorder(2);
+    safeErrorPrintLn("comm: input is not in sorted order");
+    return 1;
   }
 
   return 0;

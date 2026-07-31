@@ -9,78 +9,128 @@ import utils;
 import container;
 
 auto constexpr PINKY_OPTIONS = std::array{
-    OPTION("-l", "", "long format", BOOL_TYPE),
-    OPTION("-b", "", "omit host and user info", BOOL_TYPE),
-    OPTION("-f", "", "omit the line header column", BOOL_TYPE),
-    OPTION("-w", "", "omit the user's full name", BOOL_TYPE),
-    OPTION("-i", "", "omit the user's idle time", BOOL_TYPE),
-    OPTION("-p", "", "omit the user's login time", BOOL_TYPE),
-    OPTION("-s", "", "short format (default)", BOOL_TYPE),
-    OPTION("-q", "", "omit the user's home directory and shell", BOOL_TYPE)};
+    OPTION("-l", "", "produce long format output", BOOL_TYPE),
+    OPTION("-b", "", "omit the user home directory and shell in long format",
+           BOOL_TYPE),
+    OPTION("-f", "", "omit the line of column headings in short format",
+           BOOL_TYPE),
+    OPTION("-w", "", "omit the user full name in short format", BOOL_TYPE),
+    OPTION("-i", "", "omit the user full name and remote host in short format",
+           BOOL_TYPE),
+    OPTION("-q", "", "omit the user full name, remote host, and idle time",
+           BOOL_TYPE),
+    OPTION("-h", "", "omit the user project file in long format", BOOL_TYPE),
+    OPTION("-p", "", "omit the user plan file in long format", BOOL_TYPE),
+    OPTION("-s", "", "do short format output", BOOL_TYPE),
+    OPTION("", "--lookup", "attempt to canonicalize hostnames", BOOL_TYPE)};
 
-REGISTER_COMMAND(pinky,
-                 /* cmd_name */ "pinky",
-                 /* cmd_synopsis */ "pinky [OPTION] [USER]...",
-                 /* cmd_desc */ "A lightweight 'finger' client.",
-                 /* examples */ "pinky\npinky -s john\npinky -l john",
-                 /* see_also */ "finger",
-                 /* author */ "WinuxCmd",
-                 /* copyright */ "Copyright © 2026 WinuxCmd",
-                 /* options */ PINKY_OPTIONS) {
-  bool long_format = ctx.get<bool>("-l", false);
-  bool omit_bsh = ctx.get<bool>("-b", false);
-  bool omit_header = ctx.get<bool>("-f", false);
-  bool omit_name = ctx.get<bool>("-w", false);
-  bool omit_idle = ctx.get<bool>("-i", false);
-  bool omit_login = ctx.get<bool>("-p", false);
-  bool short_format = ctx.get<bool>("-s", false);
-  bool omit_dir_shell = ctx.get<bool>("-q", false);
+namespace {
+auto current_user_name() -> std::string {
+  wchar_t username[UNLEN + 1];
+  DWORD size = UNLEN + 1;
+  if (GetUserNameW(username, &size)) return wstring_to_utf8(username);
+  return "";
+}
 
-  // Get current time
-  SYSTEMTIME st;
-  GetLocalTime(&st);
-  char time_buf[32];
-  sprintf_s(time_buf, "%02d:%02d", st.wHour, st.wMinute);
+auto current_domain_name() -> std::string {
+  wchar_t buffer[256];
+  DWORD size = static_cast<DWORD>(std::size(buffer));
+  if (GetEnvironmentVariableW(L"USERDOMAIN", buffer, size) > 0) {
+    return wstring_to_utf8(buffer);
+  }
+  return "";
+}
 
-  auto get_user_info = [&](const std::string& user) {
-    if (long_format) {
-      safePrint("Login: " + user + "\t");
-      if (!omit_name) {
-        safePrint("Name: " + user + "\t");
-      }
-      if (!omit_bsh) {
-        safePrint("\nDirectory: C:\\Users\\" + user);
-        safePrint("\nShell: C:\\Windows\\System32\\cmd.exe");
-      }
-      safePrint("\n");
-    } else {
-      // Short format (default)
-      safePrint(user);
-      if (!omit_name) {
-        safePrint(" " + user);
-      }
-      safePrint(" pts/0");
-      if (!omit_login) {
-        safePrint(" " + std::string(time_buf));
-      }
-      if (!omit_idle) {
-        safePrint("  ");
-      }
-      safePrint("\n");
+auto append_padded(std::string& out, const std::string& text, size_t width)
+    -> void {
+  out += text;
+  if (text.size() < width) out += std::string(width - text.size(), " "[0]);
+}
+
+auto print_short_heading(bool include_heading, bool include_fullname,
+                         bool include_idle, bool include_where) -> void {
+  if (!include_heading) return;
+  std::string out;
+  append_padded(out, "Login", 8);
+  if (include_fullname) {
+    out += " ";
+    append_padded(out, "Name", 19);
+  }
+  out += " ";
+  append_padded(out, " TTY", 9);
+  if (include_idle) {
+    out += " ";
+    append_padded(out, "Idle", 6);
+  }
+  out += " ";
+  out += "When";
+  out += std::string(8, " "[0]);
+  if (include_where) out += " Where";
+  safePrintLn(out);
+}
+
+auto print_long_entry(const std::string& user, bool include_home_shell)
+    -> void {
+  safePrint("Login name: ");
+  safePrint(user);
+  if (user.size() < 28) safePrint(std::string(28 - user.size(), " "[0]));
+  safePrint("In real life: ");
+  std::string current = current_user_name();
+  if (!current.empty() && user == current) {
+    std::string domain = current_domain_name();
+    if (!domain.empty())
+      safePrint(" " + domain + "\\" + user);
+    else
+      safePrint(" " + user);
+    safePrintLn("");
+    if (include_home_shell) {
+      safePrint("Directory: ");
+      std::string dir = "C:/Users/" + user;
+      safePrint(dir);
+      if (dir.size() < 29) safePrint(std::string(29 - dir.size(), " "[0]));
+      safePrint("Shell:  /usr/bin/bash");
+      safePrintLn("");
     }
-  };
-
-  if (ctx.positionals.empty()) {
-    wchar_t username[UNLEN + 1];
-    DWORD size = UNLEN + 1;
-    if (GetUserNameW(username, &size)) {
-      get_user_info(wstring_to_utf8(username));
-    }
+    safePrintLn("");
   } else {
-    for (const auto& user : ctx.positionals) {
-      get_user_info(std::string(user));
+    safePrintLn(" ???");
+  }
+}
+}  // namespace
+
+REGISTER_COMMAND(pinky, "pinky", "pinky [OPTION]... [USER]...",
+                 "A lightweight finger-compatible user information tool.",
+                 "pinky\npinky -f\npinky -l USER", "finger, who, users",
+                 "WinuxCmd", "Copyright © 2026 WinuxCmd", PINKY_OPTIONS) {
+  bool long_format = ctx.get<bool>("-l", false);
+  bool include_heading = !ctx.get<bool>("-f", false);
+  bool include_fullname = !ctx.get<bool>("-w", false);
+  bool include_idle = true;
+  bool include_where = true;
+  if (ctx.get<bool>("-i", false)) {
+    include_fullname = false;
+    include_where = false;
+  }
+  if (ctx.get<bool>("-q", false)) {
+    include_fullname = false;
+    include_where = false;
+    include_idle = false;
+  }
+  bool include_home_shell = !ctx.get<bool>("-b", false);
+
+  if (long_format) {
+    if (ctx.positionals.empty()) {
+      safeErrorPrintLn(
+          "pinky: no username specified; at least one must be specified when "
+          "using -l");
+      return 1;
     }
+    for (auto arg : ctx.positionals)
+      print_long_entry(std::string(arg), include_home_shell);
+    return 0;
   }
 
+  print_short_heading(include_heading, include_fullname, include_idle,
+                      include_where);
   return 0;
 }

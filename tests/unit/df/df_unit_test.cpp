@@ -83,6 +83,25 @@ TEST(df, df_kilobytes) {
               r.stdout_text.length() > 0);
 }
 
+TEST(df, df_portability_uses_gnu_default_1024_blocks) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {L"-P"});
+
+  TEST_LOG_CMD_LIST("df.exe", L"-P");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("df.exe -P output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("1024-blocks"), std::string::npos);
+  EXPECT_EQ(r.stdout_text.find("512-blocks"), std::string::npos);
+}
+
 TEST(df, df_si) {
   TempDir tmp;
 
@@ -141,6 +160,96 @@ TEST(df, df_block_size_human_readable_alias) {
   EXPECT_NE(r.stdout_text.find("Size"), std::string::npos);
   EXPECT_NE(r.stdout_text.find("Available"), std::string::npos);
   EXPECT_NE(r.stdout_text.find("Capacity"), std::string::npos);
+}
+
+TEST(df, df_output_field_list) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {L"--output=source,size,used,avail,pcent,target"});
+
+  TEST_LOG_CMD_LIST("df.exe", L"--output=source,size,used,avail,pcent,target");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("df.exe --output field list output", r.stdout_text);
+  TEST_LOG("df.exe --output field list stderr", r.stderr_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("Filesystem"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("1K-blocks"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Used"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Avail"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Use%"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Mounted on"), std::string::npos);
+  EXPECT_EQ(r.stdout_text.find("Available"), std::string::npos);
+}
+
+TEST(df, df_output_without_field_list_prints_all_gnu_fields) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {L"--output"});
+
+  TEST_LOG_CMD_LIST("df.exe", L"--output");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("df.exe --output output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("Filesystem"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Type"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Inodes"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("IUsed"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("IFree"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("IUse%"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("1K-blocks"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("File"), std::string::npos);
+  EXPECT_NE(r.stdout_text.find("Mounted on"), std::string::npos);
+}
+
+TEST(df, df_output_rejects_mutually_exclusive_print_type) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {L"--output=source", L"-T"});
+
+  TEST_LOG_CMD_LIST("df.exe", L"--output=source", L"-T");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("df.exe --output -T stderr", r.stderr_text);
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("options -T and --output are mutually "
+                               "exclusive"),
+            std::string::npos);
+}
+
+TEST(df, df_output_rejects_empty_inline_field_list) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {L"--output="});
+
+  TEST_LOG_CMD_LIST("df.exe", L"--output=");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("df.exe --output= stderr", r.stderr_text);
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("option --output: field  unknown"),
+            std::string::npos);
 }
 
 TEST(df, df_total_row_shape) {

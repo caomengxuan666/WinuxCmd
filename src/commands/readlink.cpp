@@ -148,20 +148,6 @@ struct Handle {
   [[nodiscard]] HANDLE get() const { return value; }
 };
 
-auto windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return "No such file or directory";
-    case ERROR_ACCESS_DENIED:
-      return "Permission denied";
-    case ERROR_INVALID_PARAMETER:
-      return "Invalid argument";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
-}
-
 auto readlink_error(const std::string& file, std::string_view reason)
     -> std::string {
   return "readlink: " + file + ": " + std::string(reason);
@@ -188,14 +174,14 @@ auto get_full_path(const std::wstring& path)
     -> std::expected<std::wstring, std::string> {
   DWORD required = GetFullPathNameW(path.c_str(), 0, nullptr, nullptr);
   if (required == 0) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   std::wstring buffer(required, L'\0');
   DWORD written =
       GetFullPathNameW(path.c_str(), required, buffer.data(), nullptr);
   if (written == 0 || written >= required) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   buffer.resize(written);
@@ -219,14 +205,14 @@ auto path_from_handle(HANDLE handle)
   DWORD required = GetFinalPathNameByHandleW(
       handle, nullptr, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
   if (required == 0) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   std::wstring buffer(required, L'\0');
   DWORD written = GetFinalPathNameByHandleW(
       handle, buffer.data(), required, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
   if (written == 0 || written >= required) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   buffer.resize(written);
@@ -273,7 +259,7 @@ auto canonicalize_existing(const std::filesystem::path& absolute)
     -> std::expected<std::wstring, std::string> {
   Handle handle = open_path_handle(absolute.wstring(), true);
   if (!handle) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   return path_from_handle(handle.get());
@@ -348,7 +334,7 @@ auto read_link_target(const std::wstring& path)
     -> std::expected<std::wstring, std::string> {
   DWORD attrs = GetFileAttributesW(path.c_str());
   if (attrs == INVALID_FILE_ATTRIBUTES) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   if ((attrs & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
@@ -357,7 +343,7 @@ auto read_link_target(const std::wstring& path)
 
   Handle handle = open_path_handle(path, false);
   if (!handle) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   std::array<std::byte, MAXIMUM_REPARSE_DATA_BUFFER_SIZE> buffer{};
@@ -365,7 +351,7 @@ auto read_link_target(const std::wstring& path)
   if (!DeviceIoControl(handle.get(), FSCTL_GET_REPARSE_POINT, nullptr, 0,
                        buffer.data(), static_cast<DWORD>(buffer.size()),
                        &returned, nullptr)) {
-    return std::unexpected(windows_error_text(GetLastError()));
+    return std::unexpected(win32_posix_error_text(GetLastError()));
   }
 
   auto* reparse = reinterpret_cast<readlink_win32_compat::ReparseDataBuffer*>(

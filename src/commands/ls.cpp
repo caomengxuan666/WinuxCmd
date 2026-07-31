@@ -259,9 +259,9 @@ auto should_dereference_entry_metadata(DereferenceMode mode,
 
 struct SizeConfig {
   SizeMode file_mode = SizeMode::Bytes;
-  SizeMode block_mode = SizeMode::Bytes;
+  SizeMode block_mode = SizeMode::Blocks;
   uint64_t file_block_size = 1;
-  uint64_t block_size = 1;
+  uint64_t block_size = 1024;
 };
 
 auto get_terminal_width() -> int;
@@ -1953,6 +1953,8 @@ auto configure_sizes(const CommandContext<LS_OPTIONS.size()> &ctx)
     if (meta.short_name == "-k" || meta.long_name == "--kibibytes") {
       cfg.file_mode = SizeMode::Blocks;
       cfg.file_block_size = 1024;
+      cfg.block_mode = SizeMode::Blocks;
+      cfg.block_size = 1024;
       continue;
     }
 
@@ -1987,6 +1989,8 @@ auto configure_sizes(const CommandContext<LS_OPTIONS.size()> &ctx)
       if (!parsed) return std::unexpected("invalid block size");
       cfg.file_mode = SizeMode::Blocks;
       cfg.file_block_size = *parsed;
+      cfg.block_mode = SizeMode::Blocks;
+      cfg.block_size = *parsed;
     }
   }
   return cfg;
@@ -2188,18 +2192,57 @@ auto get_allocated_size_bytes(const std::wstring &path,
   return allocated.QuadPart;
 }
 
+auto round_allocated_size_to_block_bytes(uint64_t allocated_size,
+                                         uint64_t block_size) -> uint64_t {
+  uint64_t blocks = ceil_div(allocated_size, block_size);
+  if (blocks > std::numeric_limits<uint64_t>::max() / block_size) {
+    return std::numeric_limits<uint64_t>::max();
+  }
+  return blocks * block_size;
+}
+
+auto get_allocated_usage_bytes(const std::wstring &path,
+                               const WIN32_FIND_DATAW &find_data) -> uint64_t {
+  const uint64_t allocated_size = get_allocated_size_bytes(path, find_data);
+  if (allocated_size == 0) {
+    return 0;
+  }
+  return round_allocated_size_to_block_bytes(allocated_size, 1024);
+}
+
 auto get_allocated_block_count(const std::wstring &path,
                                const WIN32_FIND_DATAW &find_data,
                                const SizeConfig &size_cfg) -> uint64_t {
-  return ceil_div(get_allocated_size_bytes(path, find_data),
+  return ceil_div(get_allocated_usage_bytes(path, find_data),
                   size_cfg.block_size);
+}
+
+auto get_allocated_usage_value(const std::wstring &path,
+                               const WIN32_FIND_DATAW &find_data,
+                               const SizeConfig &size_cfg) -> uint64_t {
+  const uint64_t usage_bytes = get_allocated_usage_bytes(path, find_data);
+  switch (size_cfg.block_mode) {
+    case SizeMode::Bytes:
+      return usage_bytes;
+    case SizeMode::Blocks:
+      return ceil_div(usage_bytes, size_cfg.block_size);
+    case SizeMode::Human:
+    case SizeMode::SI:
+      return usage_bytes;
+  }
+  return usage_bytes;
 }
 
 auto get_allocated_blocks_string(const std::wstring &path,
                                  const WIN32_FIND_DATAW &find_data,
                                  const SizeConfig &size_cfg) -> std::string {
-  return format_scaled_size(get_allocated_size_bytes(path, find_data),
-                            size_cfg.block_mode, size_cfg.block_size);
+  const uint64_t usage_value =
+      get_allocated_usage_value(path, find_data, size_cfg);
+  if (size_cfg.block_mode == SizeMode::Blocks) {
+    return std::to_string(usage_value);
+  }
+  return format_scaled_size(usage_value, size_cfg.block_mode,
+                            size_cfg.block_size);
 }
 
 auto print_directory_total_line(const std::vector<EntryInfo> &entries,
@@ -2207,22 +2250,22 @@ auto print_directory_total_line(const std::vector<EntryInfo> &entries,
                                 const CommandContext<LS_OPTIONS.size()> &ctx)
     -> void {
   uint64_t total_blocks = 0;
-  uint64_t total_allocated_bytes = 0;
+  uint64_t total_usage_value = 0;
 
   for (const auto &entry : entries) {
     auto [display_find_data, _metadata_name] =
         resolve_display_entry(entry, ctx);
     total_blocks +=
         get_allocated_block_count(entry.full_path, display_find_data, size_cfg);
-    total_allocated_bytes +=
-        get_allocated_size_bytes(entry.full_path, display_find_data);
+    total_usage_value +=
+        get_allocated_usage_value(entry.full_path, display_find_data, size_cfg);
   }
 
   safePrint("total ");
   if (size_cfg.block_mode == SizeMode::Blocks) {
     safePrint(std::to_string(total_blocks));
   } else {
-    safePrint(format_scaled_size(total_allocated_bytes, size_cfg.block_mode,
+    safePrint(format_scaled_size(total_usage_value, size_cfg.block_mode,
                                  size_cfg.block_size));
   }
   print_record_terminator(ctx);
@@ -3062,9 +3105,11 @@ auto list_file(const std::string &path,
  */
 auto list_directory_recursive(const std::string &path,
                               const CommandContext<LS_OPTIONS.size()> &ctx,
-                              int depth = 0) -> cp::Result<bool> {
-  // Print header for subdirectories
-  if (depth > 0) {
+                              bool print_current_header = true)
+    -> cp::Result<bool> {
+  // GNU ls prints a directory header for every directory in recursive mode,
+  // including a single command-line directory operand.
+  if (print_current_header) {
     const std::string display_path = make_generic_display_path(path);
     safePrintLn(std::wstring(display_path.begin(), display_path.end()) + L":");
   }
@@ -3118,16 +3163,13 @@ auto list_directory_recursive(const std::string &path,
 
   FindClose(hFind);
 
-  // Recursively list subdirectories
+  // Recursively list subdirectories.  GNU ls separates each directory
+  // section with a blank line before the next header.
   for (const auto &subdir : subdirs) {
-    auto subdir_result = list_directory_recursive(subdir, ctx, depth + 1);
+    safePrintLn(L"");
+    auto subdir_result = list_directory_recursive(subdir, ctx, true);
     if (!subdir_result) {
       return subdir_result;
-    }
-
-    // Add newline between directories
-    if (&subdir != &subdirs.back()) {
-      safePrintLn(L"");
     }
   }
 
@@ -3253,8 +3295,7 @@ auto process_paths(const std::vector<std::string> &paths,
       }
 
       if (recursive_requested(ctx)) {
-        auto result =
-            list_directory_recursive(path, ctx, multiple_operands ? 1 : 0);
+        auto result = list_directory_recursive(path, ctx, true);
         if (!result) {
           print_ls_error(std::string(result.error()));
           success = false;

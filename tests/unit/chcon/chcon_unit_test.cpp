@@ -17,7 +17,7 @@ TEST(chcon, chcon_missing_file_after_context_fails) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("missing file operand"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find("missing operand after"), std::string::npos);
 }
 
 TEST(chcon, chcon_reference_requires_file_operand) {

@@ -200,30 +200,133 @@ void apply_sane(HANDLE hCon) {
   DWORD mode = ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT |
                ENABLE_ECHO_NEWLINE;
   SetConsoleMode(hCon, mode);
-  safePrintLn("stty: 'sane' applied");
 }
 
 void apply_raw(HANDLE hCon) {
   // Disable all processing
   DWORD mode = 0;
   SetConsoleMode(hCon, mode);
-  safePrintLn("stty: 'raw' applied");
 }
 
 void apply_cooked(HANDLE hCon) {
   // Enable standard processing
   DWORD mode = ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT;
   SetConsoleMode(hCon, mode);
-  safePrintLn("stty: 'cooked' applied");
 }
 
 void apply_cbreak(HANDLE hCon) {
   // Like -icanon with min=1
   DWORD mode = ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT;
   SetConsoleMode(hCon, mode);
-  safePrintLn("stty: 'cbreak' applied");
 }
 
+void print_try_help() {
+  safeErrorPrint("Try " + std::string(1, static_cast<char>(39)) +
+                 "stty --help" + std::string(1, static_cast<char>(39)) +
+                 " for more information.\n");
+}
+
+auto normalized_setting_name(const std::string& setting) -> std::string {
+  if (setting.starts_with("-") && setting != "-") {
+    return setting.substr(1);
+  }
+  return setting;
+}
+
+auto is_value_setting(const std::string& name) -> bool {
+  static const std::vector<std::string> names = {
+      "intr",    "quit",    "erase",  "kill",  "eof",   "eol",   "eol2",
+      "swtch",   "start",   "stop",   "susp",  "dsusp", "rprnt", "werase",
+      "lnext",   "discard", "status", "min",   "time",  "rows",  "cols",
+      "columns", "line",    "ispeed", "ospeed"};
+  for (const auto& candidate : names) {
+    if (name == candidate) return true;
+  }
+  return false;
+}
+
+auto is_decimal_token(const std::string& setting) -> bool {
+  if (setting.empty()) return false;
+  for (unsigned char ch : setting) {
+    if (!std::isdigit(ch)) return false;
+  }
+  return true;
+}
+
+auto is_known_noarg_setting(const std::string& name) -> bool {
+  static const std::vector<std::string> names = {
+      "sane",    "raw",     "cooked", "cbreak",  "ek",       "evenp",
+      "parity",  "oddp",    "nl",     "pass8",   "litout",   "decctlq",
+      "tabs",    "lcase",   "LCASE",  "crt",     "dec",      "speed",
+      "size",    "parenb",  "parodd", "cs5",     "cs6",      "cs7",
+      "cs8",     "hupcl",   "hup",    "cstopb",  "cread",    "clocal",
+      "crtscts", "ignbrk",  "brkint", "ignpar",  "parmrk",   "inpck",
+      "istrip",  "inlcr",   "igncr",  "icrnl",   "ixon",     "ixoff",
+      "tandem",  "iuclc",   "ixany",  "imaxbel", "iutf8",    "opost",
+      "olcuc",   "ocrnl",   "onlcr",  "onocr",   "onlret",   "ofill",
+      "ofdel",   "nl0",     "nl1",    "cr0",     "cr1",      "cr2",
+      "cr3",     "tab0",    "tab1",   "tab2",    "tab3",     "bs0",
+      "bs1",     "vt0",     "vt1",    "ff0",     "ff1",      "isig",
+      "icanon",  "iexten",  "echo",   "echoe",   "crterase", "echok",
+      "echonl",  "noflsh",  "xcase",  "tostop",  "echoprt",  "prterase",
+      "echoctl", "ctlecho", "echoke", "crtkill", "flusho",   "extproc",
+      "pendin"};
+  for (const auto& candidate : names) {
+    if (name == candidate) return true;
+  }
+  return false;
+}
+
+auto validate_settings(const SmallVector<std::string, 32>& settings) -> bool {
+  for (size_t i = 0; i < settings.size(); ++i) {
+    const auto& setting = settings[i];
+    const auto name = normalized_setting_name(setting);
+    if (is_value_setting(name)) {
+      if (i + 1 >= settings.size()) {
+        safeErrorPrint("stty: missing argument to " +
+                       std::string(1, static_cast<char>(39)));
+        safeErrorPrint(name);
+        safeErrorPrintLn(std::string(1, static_cast<char>(39)));
+        print_try_help();
+        return false;
+      }
+      ++i;
+      continue;
+    }
+    if (is_known_noarg_setting(name) || is_decimal_token(setting)) {
+      continue;
+    }
+    safeErrorPrint("stty: invalid argument " +
+                   std::string(1, static_cast<char>(39)));
+    safeErrorPrint(setting);
+    safeErrorPrintLn(std::string(1, static_cast<char>(39)));
+    print_try_help();
+    return false;
+  }
+  return true;
+}
+
+auto stdin_is_console(HANDLE hCon) -> bool {
+  DWORD mode = 0;
+  return GetConsoleMode(hCon, &mode) != 0;
+}
+
+auto report_inappropriate_ioctl(const Config& cfg) -> int {
+  safeErrorPrint("stty: " + std::string(1, static_cast<char>(39)));
+  if (cfg.device.empty()) {
+    safeErrorPrint("standard input");
+  } else {
+    safeErrorPrint(cfg.device);
+  }
+  safeErrorPrintLn(std::string(1, static_cast<char>(39)) +
+                   ": Inappropriate ioctl for device");
+  return 1;
+}
+
+auto report_missing_device(const std::string& device) -> int {
+  safeErrorPrint("stty: " + device + ": No such file or directory\n");
+  return 1;
+}
 bool apply_setting(HANDLE hCon, const std::string& setting) {
   DWORD mode = 0;
   GetConsoleMode(hCon, &mode);
@@ -310,20 +413,53 @@ bool apply_setting(HANDLE hCon, const std::string& setting) {
     return true;  // Accept but no-op on Windows
   }
 
-  return false;
+  return is_known_noarg_setting(name) || is_value_setting(name) ||
+         is_decimal_token(setting);
 }
 
 auto run(const Config& cfg) -> int {
+  if (cfg.all && cfg.save) {
+    safeErrorPrintLn(
+        "stty: the options for verbose and stty-readable output styles are");
+    safeErrorPrintLn("mutually exclusive");
+    return 1;
+  }
+  if ((cfg.all || cfg.save) && !cfg.settings.empty()) {
+    safeErrorPrintLn(
+        "stty: when specifying an output style, modes may not be set");
+    return 1;
+  }
+  if (!validate_settings(cfg.settings)) {
+    return 1;
+  }
+
+  if (!cfg.device.empty()) {
+    std::error_code ec;
+    if (!std::filesystem::exists(cfg.device, ec)) {
+      return report_missing_device(cfg.device);
+    }
+  }
+
   HANDLE hCon = GetStdHandle(STD_INPUT_HANDLE);
+  if (!stdin_is_console(hCon)) {
+    return report_inappropriate_ioctl(cfg);
+  }
 
   if (!cfg.settings.empty()) {
-    // Apply settings
     bool ok = true;
-    for (const auto& setting : cfg.settings) {
+    for (size_t i = 0; i < cfg.settings.size(); ++i) {
+      const auto& setting = cfg.settings[i];
+      const auto name = normalized_setting_name(setting);
+      if (is_value_setting(name)) {
+        ++i;
+        continue;
+      }
       if (!apply_setting(hCon, setting)) {
-        safeErrorPrint("stty: invalid argument '");
+        safeErrorPrint("stty: invalid argument " +
+                       std::string(1, static_cast<char>(39)));
         safeErrorPrint(setting);
-        safeErrorPrintLn("'");
+        safeErrorPrintLn(std::string(1, static_cast<char>(39)));
+        print_try_help();
         ok = false;
       }
     }
@@ -335,7 +471,6 @@ auto run(const Config& cfg) -> int {
     return 0;
   }
 
-  // Default: print all settings (same as -a)
   print_console_settings(hCon);
   return 0;
 }

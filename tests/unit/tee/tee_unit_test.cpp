@@ -38,7 +38,7 @@ TEST(tee, tee_output_operand_is_literal_not_glob) {
   EXPECT_EQ(tmp.read("out[abc].txt"), "new\n");
 }
 
-TEST(tee, tee_dash_operand_duplicates_stdout_like_gnu) {
+TEST(tee, tee_dash_operand_is_literal_file_like_gnu) {
   TempDir tmp;
 
   Pipeline p;
@@ -48,7 +48,8 @@ TEST(tee, tee_dash_operand_duplicates_stdout_like_gnu) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "hello\nhello\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "hello\n");
+  EXPECT_EQ(tmp.read("-"), "hello\n");
   EXPECT_EQ(tmp.read("output.txt"), "hello\n");
 }
 
@@ -125,4 +126,32 @@ TEST(tee, tee_invalid_output_error_mode_is_rejected) {
   EXPECT_TRUE(r.stderr_text.find(
                   "tee: invalid argument 'bogus' for '--output-error'") !=
               std::string::npos);
+}
+
+TEST(tee, tee_output_error_without_mode_does_not_consume_file_operand) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_stdin("hello\n");
+  p.add(L"tee.exe", {L"--output-error", L"output.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "hello\n");
+  EXPECT_EQ(tmp.read("output.txt"), "hello\n");
+}
+
+TEST(tee, tee_output_error_inline_mode_accepts_gnu_values) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_stdin("hello\n");
+  p.add(L"tee.exe", {L"--output-error=warn-nopipe", L"output.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "hello\n");
+  EXPECT_EQ(tmp.read("output.txt"), "hello\n");
 }

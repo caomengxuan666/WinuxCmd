@@ -76,7 +76,7 @@ auto run(const Config& cfg) -> int {
     }
 
     std::wstring ws(username);
-    user_str = std::string(ws.begin(), ws.end());
+    user_str = wstring_to_utf8(ws);
   } else {
     user_str = cfg.users[0];
   }

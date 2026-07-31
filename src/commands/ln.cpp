@@ -95,22 +95,10 @@ auto join_target_path(const std::string &directory, const std::string &source)
 }
 
 auto ln_windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return "No such file or directory";
-    case ERROR_FILE_EXISTS:
-    case ERROR_ALREADY_EXISTS:
-      return "File exists";
-    case ERROR_ACCESS_DENIED:
-      return "Permission denied";
-    case ERROR_PRIVILEGE_NOT_HELD:
-      return "Operation not permitted";
-    case ERROR_INVALID_PARAMETER:
-      return "Invalid argument";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
+  Win32ErrorTextOptions options;
+  options.file_exists = true;
+  options.privilege_not_held_as_not_permitted = true;
+  return win32_posix_error_text(error, options);
 }
 
 auto ln_creation_failure_prefix(bool symbolic, const std::string &target)
@@ -135,7 +123,7 @@ auto create_hardlink(const std::string &source, const std::string &target,
     if (verbose) {
       safePrint("'");
       safePrint(target);
-      safePrint("' -> '");
+      safePrint("' => '");
       safePrint(source);
       safePrint("'\n");
     }
@@ -173,7 +161,7 @@ auto create_symlink(const std::string &source, const std::string &target,
     if (verbose) {
       safePrint("'");
       safePrint(target);
-      safePrint("' -> '");
+      safePrint("' => '");
       safePrint(source);
       safePrint("'\n");
     }
@@ -341,10 +329,6 @@ REGISTER_COMMAND(
   size_t success_count = 0;
   size_t error_count = 0;
 
-  if (verbose && target_count > 1) {
-    safePrint("ln: creating " + std::to_string(target_count) + " links...\n");
-  }
-
   for (const auto &[source, target] : link_jobs) {
     // Check if target exists
     std::wstring wtarget = utf8_to_wstring(target);
@@ -419,11 +403,6 @@ REGISTER_COMMAND(
     } else {
       success_count++;
     }
-  }
-
-  if (verbose) {
-    safePrint("ln: " + std::to_string(success_count) + " links created, " +
-              std::to_string(error_count) + " errors\n");
   }
 
   return (error_count > 0) ? 1 : 0;

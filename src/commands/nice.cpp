@@ -85,15 +85,7 @@ auto nice_command_status_from_create_error(DWORD error) -> int {
 }
 
 auto nice_windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return "No such file or directory";
-    case ERROR_ACCESS_DENIED:
-      return "Permission denied";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
+  return win32_posix_error_text(error);
 }
 
 auto parse_adjustment_value(std::string_view raw) -> std::optional<int> {
@@ -114,42 +106,9 @@ auto parse_adjustment_value(std::string_view raw) -> std::optional<int> {
   return value;
 }
 
-auto quote_windows_arg(const std::wstring& arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
-
 auto build_command_line(std::span<const std::string_view> args)
     -> std::wstring {
-  std::wstring out;
-  bool first = true;
-  for (auto arg : args) {
-    if (!first) out.push_back(L' ');
-    first = false;
-    out += quote_windows_arg(utf8_to_wstring(std::string(arg)));
-  }
-  return out;
+  return build_windows_command_line(args);
 }
 }  // namespace
 

@@ -343,14 +343,13 @@ auto apply_pattern(const std::vector<std::string>& lines,
     return result;
   }
 
-  std::regex re;
-  try {
-    re = std::regex(pattern.regex_text);
-  } catch (const std::regex_error&) {
+  auto re = portable_regex::compile(portable_regex::Syntax::Basic,
+                                    pattern.regex_text);
+  if (!re) {
     return std::unexpected("invalid regular expression");
   }
   for (size_t i = current; i < lines.size(); ++i) {
-    if (!std::regex_search(line_for_regex(lines[i]), re)) continue;
+    if (re.pattern.find_all(line_for_regex(lines[i])).empty()) continue;
 
     int64_t boundary_signed =
         static_cast<int64_t>(i) + static_cast<int64_t>(pattern.offset);

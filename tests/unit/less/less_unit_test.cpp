@@ -79,3 +79,15 @@ TEST(less, less_quit_if_one_screen) {
 
   EXPECT_EQ(r.exit_code, 0);
 }
+
+TEST(less, less_numeric_window_option_is_accepted) {
+  TempDir tmp;
+  tmp.write("short.txt", "line1\nline2\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"less.exe", {L"-50", L"-F", L"short.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+}

@@ -65,16 +65,6 @@ using cmd::meta::OptionType;
  * - @a -v, @a --show-nonprinting: Use ^ and M- notation, except for LFD and TAB
  * [IMPLEMENTED]
  */
-#include "core/command_macros.h"
-#include "pch/pch.h"
-
-import std;
-import core;
-import utils;
-
-using cmd::meta::OptionMeta;
-using cmd::meta::OptionType;
-
 // clang-format off
 auto constexpr CAT_OPTIONS =
     std::array{OPTION("-A", "--show-all", "equivalent to -vET"),
@@ -154,112 +144,92 @@ REGISTER_COMMAND(cat, "cat",
       !ctx.get<bool>("-v", false) && !ctx.get<bool>("-e", false) &&
       !ctx.get<bool>("-t", false);
 
-  // ----------------------------------------------
-  // Empty line check (unchanged)
-  // ----------------------------------------------
-  auto is_empty_line = [](const std::string &line) -> bool {
-    return line.empty() ||
-           (line.size() == 1 && isspace(static_cast<unsigned char>(line[0])));
+  struct CatState {
+    size_t line_num = 1;
+    bool at_line_start = true;
+    bool previous_line_empty = false;
   };
 
-  // ----------------------------------------------
-  // Process character - FULLY OPTIMIZED, NO wstring!
-  // ----------------------------------------------
-  auto process_character = [&](unsigned char c,
-                               const CommandContext<CAT_OPTIONS.size()> &ctx) {
-    bool show_nonprinting = ctx.get<bool>("--show-nonprinting", false) ||
-                            ctx.get<bool>("--show-all", false) ||
-                            ctx.get<bool>("-e", false) ||
-                            ctx.get<bool>("-t", false);
-    bool show_ends = ctx.get<bool>("--show-ends", false) ||
-                     ctx.get<bool>("--show-all", false) ||
-                     ctx.get<bool>("-e", false);
-    bool show_tabs = ctx.get<bool>("--show-tabs", false) ||
-                     ctx.get<bool>("--show-all", false) ||
-                     ctx.get<bool>("-t", false);
+  struct CatFlags {
+    bool show_nonprinting = false;
+    bool show_tabs = false;
+    bool number_all = false;
+    bool number_nonblank = false;
+    bool show_ends = false;
+    bool squeeze_blank = false;
+  };
 
-    if (show_nonprinting) {
-      if (c < 0x20) {
-        // Control characters
-        if (c == '\n') {
-          safePrint("\n");
-        } else if (c == '\t') {
-          if (show_tabs)
-            safePrint("^I");
-          else
-            safePrint("\t");
-        } else if (c == '\f') {
-          safePrint("^L");
+  auto cat_flags = [&](const CommandContext<CAT_OPTIONS.size()> &ctx) {
+    CatFlags flags;
+    flags.number_nonblank =
+        ctx.get<bool>("--number-nonblank", false) || ctx.get<bool>("-b", false);
+    flags.number_all =
+        !flags.number_nonblank &&
+        (ctx.get<bool>("--number", false) || ctx.get<bool>("-n", false));
+    flags.show_ends =
+        ctx.get<bool>("--show-ends", false) || ctx.get<bool>("-E", false) ||
+        ctx.get<bool>("--show-all", false) || ctx.get<bool>("-e", false);
+    flags.show_tabs =
+        ctx.get<bool>("--show-tabs", false) || ctx.get<bool>("-T", false) ||
+        ctx.get<bool>("--show-all", false) || ctx.get<bool>("-t", false);
+    flags.show_nonprinting =
+        ctx.get<bool>("--show-nonprinting", false) ||
+        ctx.get<bool>("-v", false) || ctx.get<bool>("--show-all", false) ||
+        ctx.get<bool>("-e", false) || ctx.get<bool>("-t", false);
+    flags.squeeze_blank =
+        ctx.get<bool>("--squeeze-blank", false) || ctx.get<bool>("-s", false);
+    return flags;
+  };
+
+  auto print_line_number = [](size_t &line_num) {
+    char buf[32];
+    int len = snprintf(buf, sizeof(buf), "%6zu\t", line_num++);
+    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  };
+
+  auto print_visible_byte = [](unsigned char c, const CatFlags &flags,
+                               std::istream &stream) {
+    if (flags.show_nonprinting) {
+      if (c >= 0x20) {
+        if (c < 0x7F) {
+          safePrint(static_cast<char>(c));
+        } else if (c == 0x7F) {
+          safePrint("^?");
         } else {
-          // ^A, ^B, ..., ^Z - NO wstring!
-          safePrint('^');
-          safePrint(static_cast<char>(c + 0x40));
+          safePrint("M-");
+          unsigned char low = static_cast<unsigned char>(c - 0x80);
+          if (low >= 0x20) {
+            if (low < 0x7F) {
+              safePrint(static_cast<char>(low));
+            } else {
+              safePrint("^?");
+            }
+          } else {
+            safePrint('^');
+            safePrint(static_cast<char>(low + 0x40));
+          }
         }
-      } else if (c == 0x7F) {
-        // DEL
-        safePrint("^?");
-      } else if (c >= 0x80) {
-        // M-x notation - NO wstring!
-        safePrint('M');
-        safePrint('-');
-        safePrint(static_cast<char>(c - 0x80));
+      } else if (c == '\t' && !flags.show_tabs) {
+        safePrint('\t');
       } else {
-        // Printable ASCII
-        safePrint(static_cast<char>(c));
+        safePrint('^');
+        safePrint(static_cast<char>(c + 0x40));
       }
-    } else if (show_tabs && c == '\t') {
+      return;
+    }
+
+    if (c == '\t' && flags.show_tabs) {
       safePrint("^I");
+    } else if (c == '\r' && flags.show_ends && stream.peek() == '\n') {
+      safePrint("^M");
     } else {
-      // Normal output
       safePrint(static_cast<char>(c));
     }
   };
 
-  // ----------------------------------------------
-  // Process line - OPTIMIZED: snprintf instead of wostringstream
-  // ----------------------------------------------
-  auto process_line = [&](std::string &line,
-                          const CommandContext<CAT_OPTIONS.size()> &ctx,
-                          size_t &line_num) {
-    // Remove Windows line endings
-    if (!line.empty() && line.back() == '\r') {
-      line.pop_back();
-    }
-
-    bool empty = is_empty_line(line);
-
-    bool number_lines = ctx.get<bool>("--number", false);
-    bool number_nonblank = ctx.get<bool>("--number-nonblank", false);
-    bool show_ends = ctx.get<bool>("--show-ends", false) ||
-                     ctx.get<bool>("--show-all", false) ||
-                     ctx.get<bool>("-e", false);
-
-    // OPTIMIZED: snprintf instead of wostringstream
-    if (number_lines && !number_nonblank) {
-      char buf[32];
-      int len = snprintf(buf, sizeof(buf), "%6zu ", line_num++);
-      safePrint(std::string_view(buf, len));
-    } else if (number_nonblank && !empty) {
-      char buf[32];
-      int len = snprintf(buf, sizeof(buf), "%6zu ", line_num++);
-      safePrint(std::string_view(buf, len));
-    }
-
-    // Output content
-    for (char ch : line) {
-      process_character(static_cast<unsigned char>(ch), ctx);
-    }
-
-    if (show_ends) safePrint("$");
-    safePrint("\n");
-  };
-
-  // ----------------------------------------------
-  // Process stream (unchanged)
-  // ----------------------------------------------
   auto process_stream = [&](std::istream &stream,
                             const CommandContext<CAT_OPTIONS.size()> &ctx,
-                            size_t &line_num) {
+                            CatState &state) {
     if (fast_passthrough) {
       std::array<char, 8192> buffer{};
       while (stream.good()) {
@@ -272,22 +242,38 @@ REGISTER_COMMAND(cat, "cat",
       return;
     }
 
-    std::string line;
-    bool last_line_empty = false;
-    bool squeeze_blank = ctx.get<bool>("--squeeze-blank", false);
+    CatFlags flags = cat_flags(ctx);
+    char raw = 0;
+    while (stream.get(raw)) {
+      unsigned char c = static_cast<unsigned char>(raw);
 
-    while (std::getline(stream, line)) {
-      bool empty = is_empty_line(line);
-
-      if (squeeze_blank && empty && last_line_empty) {
+      if (state.at_line_start && c == '\n') {
+        if (flags.squeeze_blank && state.previous_line_empty) {
+          continue;
+        }
+        if (flags.number_all) print_line_number(state.line_num);
+        if (flags.show_ends) safePrint('$');
+        safePrint('\n');
+        state.previous_line_empty = true;
         continue;
       }
 
-      last_line_empty = empty;
-      process_line(line, ctx, line_num);
+      if (state.at_line_start) {
+        state.previous_line_empty = false;
+        if (flags.number_all || flags.number_nonblank) {
+          print_line_number(state.line_num);
+        }
+        state.at_line_start = false;
+      }
 
-      // Downstream (for example `head`) may close the pipe early.
-      // Stop reading immediately instead of scanning the rest of huge inputs.
+      if (c == '\n') {
+        if (flags.show_ends) safePrint('$');
+        safePrint('\n');
+        state.at_line_start = true;
+      } else {
+        print_visible_byte(c, flags, stream);
+      }
+
       if (is_stdout_pipe_closed()) {
         break;
       }
@@ -299,9 +285,9 @@ REGISTER_COMMAND(cat, "cat",
   // ----------------------------------------------
   auto process_file = [&](std::string_view path,
                           const CommandContext<CAT_OPTIONS.size()> &ctx,
-                          size_t &line_num) -> bool {
+                          CatState &state) -> bool {
     if (path == "-") {
-      process_stream(std::cin, ctx, line_num);
+      process_stream(std::cin, ctx, state);
       return true;
     }
 
@@ -326,7 +312,7 @@ REGISTER_COMMAND(cat, "cat",
       return false;
     }
 
-    process_stream(file, ctx, line_num);
+    process_stream(file, ctx, state);
 
     if (file.bad()) {
       safeErrorPrint("cat: error reading '");
@@ -347,14 +333,14 @@ REGISTER_COMMAND(cat, "cat",
   if (!result) return 1;
 
   int exit_code = 0;
-  size_t line_num = 1;
+  CatState state;
   clear_pipe_closed_flags();
 
   for (const auto &file : files) {
     if (is_stdout_pipe_closed()) {
       break;
     }
-    if (!process_file(file, ctx, line_num)) {
+    if (!process_file(file, ctx, state)) {
       exit_code = 1;
     }
   }

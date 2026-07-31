@@ -20,6 +20,12 @@ auto constexpr CHROOT_OPTIONS = std::array{
 namespace chroot_pipeline {
 namespace cp = core::pipeline;
 
+auto make_error(std::string message) -> cp::Error {
+  static thread_local std::string storage;
+  storage = std::move(message);
+  return storage;
+}
+
 struct Config {
   std::string newroot;
 };
@@ -42,8 +48,9 @@ auto build_config(const CommandContext<CHROOT_OPTIONS.size()>& ctx)
   std::error_code ec;
   bool exists = std::filesystem::exists(root_path, ec);
   if (ec || !exists || !std::filesystem::is_directory(root_path, ec)) {
-    return std::unexpected("cannot change root directory to '" + cfg.newroot +
-                           "': no such directory");
+    return std::unexpected(make_error("cannot change root directory to '" +
+                                      cfg.newroot +
+                                      "': No such file or directory"));
   }
 
   return cfg;
@@ -76,6 +83,9 @@ REGISTER_COMMAND(
     safeErrorPrint("chroot: ");
     safeErrorPrint(cfg_result.error());
     safeErrorPrint("\n");
+    if (cfg_result.error().starts_with("missing operand")) {
+      safeErrorPrint("Try 'chroot --help' for more information.\n");
+    }
     return 125;
   }
 

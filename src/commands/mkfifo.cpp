@@ -121,6 +121,9 @@ REGISTER_COMMAND(
     safeErrorPrint("mkfifo: ");
     safeErrorPrint(cfg_result.error());
     safeErrorPrint("\n");
+    if (cfg_result.error().starts_with("missing operand")) {
+      safeErrorPrint("Try 'mkfifo --help' for more information.\n");
+    }
     return 1;
   }
 

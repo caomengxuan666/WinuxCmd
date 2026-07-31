@@ -4,12 +4,12 @@
 
 ## 先读这些
 
-1. [GNU Coreutils 兼容性审计](zh/gnu_coreutils_parity.md)
-2. [命令实现状态](zh/commands_implementation.md)
-3. [工作区集成](zh/workspace_integration.md)
-4. [TODO](zh/TODO_zh.md)
-5. [WinuxCmd 与 Microsoft Coreutils 对照矩阵](generated/microsoft_coreutils_matrix.md)
-6. [WinuxCmd 与 Microsoft Coreutils 行为矩阵](generated/microsoft_coreutils_behavior_matrix.md)
+1. [命令兼容性矩阵](generated/command_compatibility_matrix.md)
+2. [命令性能基线](generated/command_performance_baseline.md)
+3. [命令兼容性审计](command_compatibility_audit.md)
+4. [GNU Coreutils 兼容性审计](zh/gnu_coreutils_parity.md)
+5. [命令实现状态](zh/commands_implementation.md)
+6. [工作区集成](zh/workspace_integration.md)
 
 ## 快速开始
 
@@ -35,14 +35,10 @@ release 包应同时附带 Windows binaries 和 `WinuxCmd-skill-v<version>.zip`�
 
 ## 当前重点
 
-- 继续补 `ls`、`grep`、`head`、`tail`、`sed`、`find`、`xargs`、
-  `install`、`timeout`、`stdbuf`、`chown`、`link`、`nice`、`nohup`、
-  `printenv`、`tty`、`unlink` 的 GNU 兼容差异。
-- GNU 兼容性审计要跟随批次更新；最近批次已覆盖 `sum`、`stat`、
-  `readlink`、`realpath`、`truncate`、`comm`、`join`、`paste`、`nl`、
-  `expand`、`unexpand`、`fold`、`fmt`。
-- 命令指导要短、明确、可直接执行。
-- 优先使用仓库内 skills，而不是临时环境改动。
+- 这个目录只保留长期证据：生成矩阵、性能基线和基于源码阅读的兼容性审计。
+- 后续实现计划放到 GitHub issue，不再维护单独的长期计划文档。
+- `cpio`、`free`、`lsof`、`man`、`top`、`tree`、`uptime`、`watch` 的下一小版本覆盖计划见 [issue #114](https://github.com/unixwin/WinuxCmd/issues/114)。
+- 每次 release PR 前用 `scripts/audit-command-compatibility.py` 和 `scripts/benchmark-command-parity.py` 刷新生成文档。
 
 ## 入口索引
 

@@ -40,9 +40,10 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
       ctx.has("-t") || ctx.has("--type") || ctx.has("-l") || ctx.has("--range");
 
   if (cfg.has_custom_context) {
-    if (!ctx.positionals.empty()) {
-      cfg.command = std::string(ctx.positionals[0]);
+    if (ctx.positionals.empty()) {
+      return std::unexpected("no command specified");
     }
+    cfg.command = std::string(ctx.positionals[0]);
     return cfg;
   }
 
@@ -54,14 +55,19 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
   cfg.context = std::string(ctx.positionals[0]);
 
   if (ctx.positionals.size() < 2) {
-    return std::unexpected("missing command after '" + cfg.context + "'");
+    return std::unexpected("no command specified");
   }
 
   cfg.command = std::string(ctx.positionals[1]);
   return cfg;
 }
 
-auto run(const Config&) -> int {
+auto run(const Config& cfg) -> int {
+  if (!cfg.has_plain_context && !cfg.has_custom_context) {
+    safeErrorPrint("runcon: failed to get current context: Not supported\n");
+    return 1;
+  }
+
   safeErrorPrint("runcon: SELinux process contexts are not supported on ");
   safeErrorPrint("Windows\n");
   return 1;
@@ -93,6 +99,9 @@ REGISTER_COMMAND(
     safeErrorPrint("runcon: ");
     safeErrorPrint(cfg_result.error());
     safeErrorPrint("\n");
+    if (cfg_result.error() == "no command specified") {
+      safeErrorPrint("Try 'runcon --help' for more information.\n");
+    }
     return 1;
   }
 

@@ -101,6 +101,171 @@ struct Config {
   SmallVector<std::string, 64> sources;
 };
 
+struct ModeState {
+  bool owner_write = true;
+  bool group_write = false;
+  bool other_write = false;
+};
+
+auto parse_install_mode(std::string_view mode_text) -> cp::Result<ModeState> {
+  ModeState state{};
+  if (mode_text.empty()) {
+    return state;
+  }
+
+  auto parse_numeric = [](std::string_view text) -> std::optional<unsigned> {
+    if (text.size() != 3 && text.size() != 4) {
+      return std::nullopt;
+    }
+    unsigned mode = 0;
+    for (char ch : text) {
+      if (ch < '0' || ch > '7') {
+        return std::nullopt;
+      }
+      mode = (mode << 3U) | static_cast<unsigned>(ch - '0');
+    }
+    return mode;
+  };
+
+  if (auto numeric = parse_numeric(mode_text)) {
+    return ModeState{(*numeric & 0200U) != 0, (*numeric & 0020U) != 0,
+                     (*numeric & 0002U) != 0};
+  }
+
+  state = ModeState{false, false, false};
+  std::string mode_string(mode_text);
+  size_t start = 0;
+  while (start <= mode_string.size()) {
+    size_t comma = mode_string.find(',', start);
+    std::string_view clause =
+        comma == std::string::npos
+            ? std::string_view(mode_string).substr(start)
+            : std::string_view(mode_string).substr(start, comma - start);
+    if (clause.empty()) {
+      return std::unexpected("invalid mode '" + mode_string + "'");
+    }
+
+    size_t i = 0;
+    bool target_user = false;
+    bool target_group = false;
+    bool target_other = false;
+    while (i < clause.size()) {
+      char ch = clause[i];
+      if (ch == 'u') {
+        target_user = true;
+      } else if (ch == 'g') {
+        target_group = true;
+      } else if (ch == 'o') {
+        target_other = true;
+      } else if (ch == 'a') {
+        target_user = target_group = target_other = true;
+      } else {
+        break;
+      }
+      ++i;
+    }
+    if (!target_user && !target_group && !target_other) {
+      target_user = target_group = target_other = true;
+    }
+
+    if (i >= clause.size() ||
+        (clause[i] != '+' && clause[i] != '-' && clause[i] != '=')) {
+      return std::unexpected("invalid mode '" + mode_string + "'");
+    }
+    char op = clause[i++];
+
+    bool perm_write = false;
+    bool saw_perm = false;
+    for (; i < clause.size(); ++i) {
+      char perm = clause[i];
+      switch (perm) {
+        case 'r':
+        case 'x':
+        case 'X':
+        case 's':
+        case 't':
+          saw_perm = true;
+          break;
+        case 'w':
+          saw_perm = true;
+          perm_write = true;
+          break;
+        case 'u':
+          saw_perm = true;
+          perm_write = perm_write || state.owner_write;
+          break;
+        case 'g':
+          saw_perm = true;
+          perm_write = perm_write || state.group_write;
+          break;
+        case 'o':
+          saw_perm = true;
+          perm_write = perm_write || state.other_write;
+          break;
+        default:
+          return std::unexpected("invalid mode '" + mode_string + "'");
+      }
+    }
+    if (!saw_perm) {
+      return std::unexpected("invalid mode '" + mode_string + "'");
+    }
+
+    auto apply_write = [op, perm_write](bool current) -> bool {
+      if (op == '+') {
+        return current || perm_write;
+      }
+      if (op == '-') {
+        return current && !perm_write;
+      }
+      return perm_write;
+    };
+
+    if (target_user) {
+      state.owner_write = apply_write(state.owner_write);
+    }
+    if (target_group) {
+      state.group_write = apply_write(state.group_write);
+    }
+    if (target_other) {
+      state.other_write = apply_write(state.other_write);
+    }
+
+    if (comma == std::string::npos) {
+      break;
+    }
+    start = comma + 1;
+  }
+
+  return state;
+}
+
+auto file_owner_writable(const std::string& path) -> std::optional<bool> {
+  DWORD attrs = GetFileAttributesA(path.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return std::nullopt;
+  }
+  return (attrs & FILE_ATTRIBUTE_READONLY) == 0;
+}
+
+auto apply_mode_state(const std::string& path, const ModeState& mode_state)
+    -> bool {
+  DWORD attrs = GetFileAttributesA(path.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    return false;
+  }
+
+  DWORD new_attrs = attrs;
+  if (mode_state.owner_write) {
+    new_attrs &= ~FILE_ATTRIBUTE_READONLY;
+  } else {
+    new_attrs |= FILE_ATTRIBUTE_READONLY;
+  }
+  if (new_attrs == attrs) {
+    return true;
+  }
+  return SetFileAttributesA(path.c_str(), new_attrs) != 0;
+}
+
 void append_source_operand(Config& cfg, const std::string& file_arg) {
   if (contains_wildcard(file_arg)) {
     auto glob_result = glob_expand(file_arg);
@@ -271,6 +436,14 @@ auto preserve_timestamps(const std::string& source, const std::string& dest)
 }
 
 auto run(const Config& cfg) -> int {
+  auto mode_result = parse_install_mode(cfg.mode);
+  if (!mode_result) {
+    safeErrorPrint("install: ");
+    safeErrorPrintLn(mode_result.error());
+    return 1;
+  }
+  const ModeState desired_mode = *mode_result;
+
   // Warn about unsupported features on Windows
   if (!cfg.group.empty()) {
     safeErrorPrint("install: warning: --group is not supported on Windows\n");
@@ -359,8 +532,12 @@ auto run(const Config& cfg) -> int {
       dest += filename;
     }
 
+    auto dest_owner_writable = file_owner_writable(dest);
+    bool dest_mode_matches =
+        dest_owner_writable.has_value() &&
+        dest_owner_writable.value() == desired_mode.owner_write;
     if (cfg.compare && std::filesystem::exists(dest) &&
-        files_match(source, dest)) {
+        files_match(source, dest) && dest_mode_matches) {
       if (cfg.verbose) {
         safePrint("install: skipping identical destination '");
         safePrint(dest);
@@ -415,29 +592,20 @@ auto run(const Config& cfg) -> int {
       return 1;
     }
 
-    // Set file mode (read-only attribute) if requested
-    if (!cfg.mode.empty()) {
-      DWORD dest_attrs = GetFileAttributesA(dest.c_str());
-      if (dest_attrs != INVALID_FILE_ATTRIBUTES) {
-        // Simple mode handling: if mode contains 'w', make writable; otherwise
-        // read-only
-        bool make_readonly = cfg.mode.find('w') == std::string::npos &&
-                             cfg.mode.find('W') == std::string::npos;
-        if (make_readonly) {
-          SetFileAttributesA(dest.c_str(),
-                             dest_attrs | FILE_ATTRIBUTE_READONLY);
-        } else {
-          SetFileAttributesA(dest.c_str(),
-                             dest_attrs & ~FILE_ATTRIBUTE_READONLY);
-        }
-        if (cfg.verbose) {
-          safePrint("install: set mode '");
-          safePrint(cfg.mode);
-          safePrint("' on '");
-          safePrint(dest);
-          safePrintLn("'");
-        }
-      }
+    // GNU install always applies the final mode after copying.  Windows has no
+    // group/other mode bits, so map the final owner-write bit to ReadOnly.
+    if (!apply_mode_state(dest, desired_mode)) {
+      safePrint("install: cannot change permissions of '");
+      safePrint(dest);
+      safePrintLn("'");
+      return 1;
+    }
+    if (cfg.verbose && !cfg.mode.empty()) {
+      safePrint("install: set mode '");
+      safePrint(cfg.mode);
+      safePrint("' on '");
+      safePrint(dest);
+      safePrintLn("'");
     }
 
     // Strip symbol tables if requested (Windows: call strip.exe if available)

@@ -174,32 +174,31 @@ auto split_literal_records(std::string_view content, std::string_view separator,
 auto split_regex_records(std::string_view content, const std::string& separator,
                          bool before) -> cp::Result<std::vector<std::string>> {
   std::vector<std::string> records;
-  try {
-    std::regex sep(separator);
-    std::string text(content);
-    size_t record_start = 0;
-    for (auto it = std::sregex_iterator(text.begin(), text.end(), sep);
-         it != std::sregex_iterator(); ++it) {
-      size_t pos = static_cast<size_t>(it->position());
-      size_t len = static_cast<size_t>(it->length());
-      if (len == 0)
-        return std::unexpected("separator regex matches empty string");
-      if (before) {
-        records.emplace_back(text.substr(record_start, pos - record_start));
-        record_start = pos;
-      } else {
-        size_t record_end = pos + len;
-        records.emplace_back(
-            text.substr(record_start, record_end - record_start));
-        record_start = record_end;
-      }
-    }
-    if (record_start < text.size())
-      records.emplace_back(text.substr(record_start));
-    return records;
-  } catch (const std::regex_error&) {
+  auto sep =
+      portable_regex::compile(portable_regex::Syntax::Extended, separator);
+  if (!sep) {
     return std::unexpected("invalid regular expression");
   }
+
+  size_t record_start = 0;
+  for (const auto& match : sep.pattern.find_all(content)) {
+    size_t pos = match.begin;
+    size_t len = match.end - match.begin;
+    if (len == 0)
+      return std::unexpected("separator regex matches empty string");
+    if (before) {
+      records.emplace_back(content.substr(record_start, pos - record_start));
+      record_start = pos;
+    } else {
+      size_t record_end = pos + len;
+      records.emplace_back(
+          content.substr(record_start, record_end - record_start));
+      record_start = record_end;
+    }
+  }
+  if (record_start < content.size())
+    records.emplace_back(content.substr(record_start));
+  return records;
 }
 
 auto output_reversed_records(const std::vector<std::string>& records) -> void {

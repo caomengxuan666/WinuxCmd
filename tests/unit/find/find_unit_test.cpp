@@ -46,6 +46,20 @@ bool create_directory_symlink_or_skip(const std::filesystem::path& link,
   return false;
 }
 
+bool create_file_symlink_or_skip(const std::filesystem::path& link,
+                                 const std::filesystem::path& target) {
+  DWORD flags = 0;
+#ifdef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
+  flags |= SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
+#endif
+  if (CreateSymbolicLinkW(link.wstring().c_str(), target.wstring().c_str(),
+                          flags)) {
+    return true;
+  }
+  std::cout << "  SKIPPED (CreateSymbolicLinkW failed with error "
+            << GetLastError() << ")\n";
+  return false;
+}
 bool create_directory_junction(const std::filesystem::path& link,
                                const std::filesystem::path& target) {
   std::wstring command = L"cmd /d /c mklink /j \"" + link.wstring() + L"\" \"" +
@@ -206,6 +220,33 @@ std::string volume_serial_number(const std::filesystem::path& path) {
   if (GetFileInformationByHandle(handle, &info)) {
     out = std::to_string(
         static_cast<unsigned long long>(info.dwVolumeSerialNumber));
+  }
+  CloseHandle(handle);
+  return out;
+}
+
+std::string file_index_number(const std::filesystem::path& path) {
+  DWORD attrs = GetFileAttributesW(path.wstring().c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) return {};
+
+  DWORD flags = 0;
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) flags |= FILE_FLAG_BACKUP_SEMANTICS;
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return {};
+
+  BY_HANDLE_FILE_INFORMATION info{};
+  std::string out;
+  if (GetFileInformationByHandle(handle, &info)) {
+    const auto index =
+        (static_cast<unsigned long long>(info.nFileIndexHigh) << 32) |
+        static_cast<unsigned long long>(info.nFileIndexLow);
+    out = std::to_string(index);
   }
   CloseHandle(handle);
   return out;
@@ -644,6 +685,129 @@ TEST(find, find_mmin_and_mtime_support_signed_ranges) {
   EXPECT_TRUE(day_result.stdout_text.find("recent.txt") == std::string::npos);
 }
 
+TEST(find, find_perm_and_access_primaries_match_winux_permissions) {
+  TempDir tmp;
+  tmp.write("plain.txt", "x");
+  tmp.write("run.cmd", "@echo off\n");
+
+  Pipeline exact_perm;
+  exact_perm.set_cwd(tmp.wpath());
+  exact_perm.add(L"find.exe", {L".", L"-type", L"f", L"-perm", L"0644"});
+  auto exact_result = exact_perm.run();
+
+  EXPECT_EQ(exact_result.exit_code, 0);
+  EXPECT_TRUE(exact_result.stdout_text.find("plain.txt") != std::string::npos);
+  EXPECT_TRUE(exact_result.stdout_text.find("run.cmd") == std::string::npos);
+
+  Pipeline executable_perm;
+  executable_perm.set_cwd(tmp.wpath());
+  executable_perm.add(L"find.exe", {L".", L"-type", L"f", L"-perm", L"/111"});
+  auto executable_perm_result = executable_perm.run();
+
+  EXPECT_EQ(executable_perm_result.exit_code, 0);
+  EXPECT_TRUE(executable_perm_result.stdout_text.find("run.cmd") !=
+              std::string::npos);
+  EXPECT_TRUE(executable_perm_result.stdout_text.find("plain.txt") ==
+              std::string::npos);
+
+  Pipeline access;
+  access.set_cwd(tmp.wpath());
+  access.add(L"find.exe", {L".", L"-type", L"f", L"-readable", L"-writable",
+                           L"-executable"});
+  auto access_result = access.run();
+
+  EXPECT_EQ(access_result.exit_code, 0);
+  EXPECT_TRUE(access_result.stdout_text.find("run.cmd") != std::string::npos);
+  EXPECT_TRUE(access_result.stdout_text.find("plain.txt") == std::string::npos);
+}
+
+TEST(find, find_inum_and_links_predicates_match_win32_metadata) {
+  TempDir tmp;
+  tmp.write("a.txt", "x");
+  tmp.write("c.txt", "x");
+
+  BOOL linked = CreateHardLinkW((tmp.path / "b.txt").c_str(),
+                                (tmp.path / "a.txt").c_str(), nullptr);
+  EXPECT_TRUE(linked);
+  if (!linked) return;
+
+  const std::string a_index = file_index_number(tmp.path / "a.txt");
+  EXPECT_FALSE(a_index.empty());
+  if (a_index.empty()) return;
+
+  Pipeline by_inode;
+  by_inode.set_cwd(tmp.wpath());
+  by_inode.add(L"find.exe", {L"a.txt", L"b.txt", L"c.txt", L"-inum",
+                             std::wstring(a_index.begin(), a_index.end()),
+                             L"-printf", L"%f\\n"});
+  auto inode_result = by_inode.run();
+
+  EXPECT_EQ(inode_result.exit_code, 0);
+  EXPECT_TRUE(inode_result.stdout_text.find("a.txt\n") != std::string::npos);
+  EXPECT_TRUE(inode_result.stdout_text.find("b.txt\n") != std::string::npos);
+  EXPECT_TRUE(inode_result.stdout_text.find("c.txt\n") == std::string::npos);
+
+  Pipeline by_links;
+  by_links.set_cwd(tmp.wpath());
+  by_links.add(L"find.exe", {L"a.txt", L"b.txt", L"c.txt", L"-links", L"+1",
+                             L"-printf", L"%f\\n"});
+  auto links_result = by_links.run();
+
+  EXPECT_EQ(links_result.exit_code, 0);
+  EXPECT_TRUE(links_result.stdout_text.find("a.txt\n") != std::string::npos);
+  EXPECT_TRUE(links_result.stdout_text.find("b.txt\n") != std::string::npos);
+  EXPECT_TRUE(links_result.stdout_text.find("c.txt\n") == std::string::npos);
+}
+
+TEST(find, find_user_group_uid_gid_predicates_match_ownership) {
+  TempDir tmp;
+  tmp.write("a.txt", "x");
+
+  const auto ownership = ownership_fields(tmp.path / "a.txt");
+  EXPECT_FALSE(ownership.owner_name.empty());
+  EXPECT_FALSE(ownership.owner_id.empty());
+  EXPECT_FALSE(ownership.group_id.empty());
+  if (ownership.owner_name.empty() || ownership.owner_id.empty() ||
+      ownership.group_id.empty()) {
+    return;
+  }
+
+  std::vector<std::wstring> args = {
+      L"a.txt",
+      L"-user",
+      std::wstring(ownership.owner_name.begin(), ownership.owner_name.end()),
+      L"-uid",
+      std::wstring(ownership.owner_id.begin(), ownership.owner_id.end()),
+      L"-gid",
+      std::wstring(ownership.group_id.begin(), ownership.group_id.end()),
+      L"-printf",
+      L"%f\\n"};
+  if (!ownership.group_name.empty()) {
+    args.insert(args.begin() + 5, std::wstring(ownership.group_name.begin(),
+                                               ownership.group_name.end()));
+    args.insert(args.begin() + 5, L"-group");
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", args);
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a.txt\n");
+
+  Pipeline numeric_user;
+  numeric_user.set_cwd(tmp.wpath());
+  numeric_user.add(L"find.exe", {L"a.txt", L"-user",
+                                 std::wstring(ownership.owner_id.begin(),
+                                              ownership.owner_id.end()),
+                                 L"-printf", L"%f\\n"});
+  auto numeric_result = numeric_user.run();
+
+  EXPECT_EQ(numeric_result.exit_code, 0);
+  EXPECT_EQ_TEXT(numeric_result.stdout_text, "a.txt\n");
+}
+
 TEST(find, find_true_and_false_are_expression_primaries) {
   TempDir tmp;
   tmp.write("keep.txt", "");
@@ -720,6 +884,71 @@ TEST(find, find_newer_matches_files_modified_after_reference) {
   EXPECT_TRUE(r.stdout_text.find("new.txt") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("old.txt") == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("reference.txt") == std::string::npos);
+}
+
+TEST(find, find_newerxy_matches_literal_and_reference_times) {
+  TempDir tmp;
+  tmp.write("old.txt", "old");
+  tmp.write("reference.txt", "ref");
+  tmp.write("new.txt", "new");
+
+  const bool old_set = set_file_times(tmp.path / "old.txt", 2020, 1, 1, 0, 0, 0,
+                                      2020, 1, 1, 0, 0, 0, 2020, 1, 1, 0, 0, 0);
+  const bool reference_set =
+      set_file_times(tmp.path / "reference.txt", 2022, 1, 1, 0, 0, 0, 2022, 1,
+                     1, 0, 0, 0, 2022, 1, 1, 0, 0, 0);
+  const bool new_set = set_file_times(tmp.path / "new.txt", 2024, 1, 1, 0, 0, 0,
+                                      2024, 1, 1, 0, 0, 0, 2024, 1, 1, 0, 0, 0);
+  EXPECT_TRUE(old_set);
+  EXPECT_TRUE(reference_set);
+  EXPECT_TRUE(new_set);
+  if (!old_set || !reference_set || !new_set) return;
+
+  Pipeline literal;
+  literal.set_cwd(tmp.wpath());
+  literal.add(L"find.exe", {L".", L"-type", L"f", L"-newermt", L"2023-01-01",
+                            L"-printf", L"%f\\n"});
+  auto literal_result = literal.run();
+
+  EXPECT_EQ(literal_result.exit_code, 0);
+  EXPECT_TRUE(literal_result.stdout_text.find("new.txt\n") !=
+              std::string::npos);
+  EXPECT_TRUE(literal_result.stdout_text.find("old.txt\n") ==
+              std::string::npos);
+  EXPECT_TRUE(literal_result.stdout_text.find("reference.txt\n") ==
+              std::string::npos);
+
+  Pipeline access_vs_modify;
+  access_vs_modify.set_cwd(tmp.wpath());
+  access_vs_modify.add(L"find.exe", {L".", L"-type", L"f", L"-neweram",
+                                     L"reference.txt", L"-printf", L"%f\\n"});
+  auto reference_result = access_vs_modify.run();
+
+  EXPECT_EQ(reference_result.exit_code, 0);
+  EXPECT_TRUE(reference_result.stdout_text.find("new.txt\n") !=
+              std::string::npos);
+  EXPECT_TRUE(reference_result.stdout_text.find("old.txt\n") ==
+              std::string::npos);
+  EXPECT_TRUE(reference_result.stdout_text.find("reference.txt\n") ==
+              std::string::npos);
+}
+
+TEST(find, find_files0_from_reads_nul_delimited_start_points) {
+  TempDir tmp;
+  tmp.write("a.txt", "a");
+  tmp.write("b.txt", "b");
+  tmp.write("ignored.txt", "ignored");
+  tmp.write_bytes("roots.bin", {'a', '.', 't', 'x', 't', '\0', 'b', '.', 't',
+                                'x', 't', '\0'});
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"-files0-from", L"roots.bin", L"-type", L"f", L"-printf", L"%f\\n"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a.txt\nb.txt\n");
 }
 
 TEST(find, find_depth_processes_directory_contents_first) {
@@ -1070,6 +1299,28 @@ TEST(find, find_printf_supports_hard_link_count_field_for_regular_file) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("a.txt|2\n") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("b.txt|2\n") != std::string::npos);
+}
+
+TEST(find, find_samefile_matches_hard_linked_files) {
+  TempDir tmp;
+  tmp.write("a.txt", "x");
+  tmp.write("c.txt", "x");
+
+  BOOL linked = CreateHardLinkW((tmp.path / "b.txt").c_str(),
+                                (tmp.path / "a.txt").c_str(), nullptr);
+  EXPECT_TRUE(linked);
+  if (!linked) return;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L"a.txt", L"b.txt", L"c.txt", L"-samefile", L"a.txt",
+                      L"-printf", L"%f\\n"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("a.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("b.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("c.txt\n") == std::string::npos);
 }
 
 TEST(find, find_printf_supports_inode_field_for_hard_linked_files) {
@@ -1935,6 +2186,62 @@ TEST(find, find_expression_scopes_prune_to_matching_branch) {
   EXPECT_TRUE(r.stdout_text.find("keep/match.txt") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("skip/nested/hidden.txt") ==
               std::string::npos);
+}
+
+TEST(find, find_xtype_f_matches_file_symlink_target_if_available) {
+  TempDir tmp;
+  tmp.write("target.txt", "x");
+
+  if (!create_file_symlink_or_skip(tmp.path / "link.txt",
+                                   tmp.path / "target.txt")) {
+    return;
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L"link.txt", L"-xtype", L"f", L"-printf", L"%f\\n"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "link.txt\n");
+}
+
+TEST(find, find_H_xtype_l_checks_command_line_symlink_itself_if_available) {
+  TempDir tmp;
+  tmp.write("target.txt", "x");
+
+  if (!create_file_symlink_or_skip(tmp.path / "link.txt",
+                                   tmp.path / "target.txt")) {
+    return;
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"-H", L"link.txt", L"-xtype", L"l", L"-printf", L"%f\\n"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "link.txt\n");
+}
+
+TEST(find, find_L_xtype_l_checks_symlink_itself_if_available) {
+  TempDir tmp;
+  tmp.write("target.txt", "x");
+
+  if (!create_file_symlink_or_skip(tmp.path / "link.txt",
+                                   tmp.path / "target.txt")) {
+    return;
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"-L", L"link.txt", L"-xtype", L"l", L"-printf", L"%f\\n"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "link.txt\n");
 }
 
 TEST(find, find_L_follows_directory_symlink_if_available) {

@@ -52,6 +52,253 @@ export struct OptionMeta {
       : short_name(s), long_name(l), description(d), type(t) {}
 };
 
+export constexpr auto option_matches(const OptionMeta& meta,
+                                     std::string_view short_name,
+                                     std::string_view long_name) -> bool {
+  return (!short_name.empty() && meta.short_name == short_name) ||
+         (!long_name.empty() && meta.long_name == long_name);
+}
+
+auto format_help_text(std::string_view name, std::string_view synopsis,
+                      std::string_view description,
+                      std::span<const OptionMeta> options) -> std::string {
+  std::string result;
+  result.reserve(4096);
+
+  result += "Usage: ";
+  result.append(name.data(), name.size());
+  result += " [OPTION]... [FILE]...\n";
+
+  if (!synopsis.empty()) {
+    result += synopsis;
+    result += "\n\n";
+  }
+
+  if (!description.empty()) {
+    result.append(description.data(), description.size());
+    result += "\n\n";
+  }
+
+  if (!options.empty()) {
+    size_t max_option_width = 0;
+    for (const auto& opt : options) {
+      size_t width = 2;
+      if (!opt.short_name.empty() && !opt.long_name.empty()) {
+        width += opt.short_name.size() + 2 + opt.long_name.size();
+      } else if (!opt.short_name.empty()) {
+        width += opt.short_name.size();
+      } else if (!opt.long_name.empty()) {
+        width += 4 + opt.long_name.size();
+      }
+      max_option_width = std::max(max_option_width, width);
+    }
+
+    result += "OPTIONS\n";
+    for (const auto& opt : options) {
+      std::string option_str;
+      if (!opt.short_name.empty() && !opt.long_name.empty()) {
+        option_str = "  " + std::string(opt.short_name) + ", " +
+                     std::string(opt.long_name);
+      } else if (!opt.short_name.empty()) {
+        option_str = "  " + std::string(opt.short_name);
+      } else if (!opt.long_name.empty()) {
+        option_str = "      " + std::string(opt.long_name);
+      }
+
+      result += option_str;
+      if (opt.description.empty()) {
+        result += "\n";
+      } else {
+        size_t padding = max_option_width + 2 - option_str.size();
+        if (padding > 0) {
+          result.append(padding, ' ');
+        }
+
+        std::string_view desc = opt.description;
+        bool first_line = true;
+        while (!desc.empty()) {
+          if (!first_line) {
+            result.append(max_option_width + 2, ' ');
+          }
+
+          size_t newline_pos = desc.find('\n');
+          if (newline_pos == std::string_view::npos) {
+            result.append(desc.data(), desc.size());
+            result += "\n";
+            break;
+          }
+
+          result.append(desc.data(), newline_pos);
+          result += "\n";
+          desc = desc.substr(newline_pos + 1);
+          first_line = false;
+        }
+      }
+      result += "\n";
+    }
+  }
+
+  result += "  -h, --help\n";
+  result += "          display this help and exit\n\n";
+  result += "  -V, --version\n";
+  result += "          output version information and exit\n\n";
+  result += "Exit status:\n";
+  result += "  0  if OK,\n";
+  result += "  1  if minor problems,\n";
+  result += "  2  if serious trouble.\n";
+  result += "This Project is a Windows implemention of GNU CoreUtils\n";
+  result += "Serverd for linux-windows developers and Ai coding assistant";
+
+  return result;
+}
+
+auto format_man_text(std::string_view name, std::string_view synopsis,
+                     std::string_view description,
+                     std::span<const OptionMeta> options,
+                     std::string_view examples, std::string_view see_also,
+                     std::string_view author, std::string_view copyright)
+    -> std::string {
+  std::string result;
+  result.reserve(4096);
+
+  result += "NAME\n";
+  result += "       ";
+  result.append(name.data(), name.size());
+  result += " - ";
+  result.append(synopsis.data(), synopsis.size());
+  result += "\n\n";
+
+  result += "SYNOPSIS\n";
+  result += "       ";
+  result.append(name.data(), name.size());
+  result += " [OPTION]... [FILE]...\n\n";
+
+  result += "DESCRIPTION\n";
+  if (!description.empty()) {
+    std::string_view desc = description;
+    while (!desc.empty()) {
+      result += "       ";
+
+      size_t newline_pos = desc.find('\n');
+      if (newline_pos == std::string_view::npos) {
+        result.append(desc.data(), desc.size());
+        result += "\n";
+        break;
+      }
+
+      result.append(desc.data(), newline_pos);
+      result += "\n";
+      desc = desc.substr(newline_pos + 1);
+    }
+    result += "\n";
+  }
+
+  if (!options.empty()) {
+    result += "OPTIONS\n";
+
+    size_t max_option_width = 0;
+    for (const auto& opt : options) {
+      size_t width = 7;
+      if (!opt.short_name.empty() && !opt.long_name.empty()) {
+        width += opt.short_name.size() + 2 + opt.long_name.size();
+      } else if (!opt.short_name.empty()) {
+        width += opt.short_name.size();
+      } else if (!opt.long_name.empty()) {
+        width += opt.long_name.size();
+      }
+      max_option_width = std::max(max_option_width, width);
+    }
+
+    for (const auto& opt : options) {
+      result += "       ";
+      if (!opt.short_name.empty() && !opt.long_name.empty()) {
+        result += opt.short_name;
+        result += ", ";
+        result += opt.long_name;
+      } else if (!opt.short_name.empty()) {
+        result += opt.short_name;
+      } else if (!opt.long_name.empty()) {
+        result += opt.long_name;
+      }
+
+      if (!opt.description.empty()) {
+        size_t current_width = result.length() - result.rfind('\n');
+        if (current_width < max_option_width) {
+          result.append(max_option_width - current_width, ' ');
+        } else {
+          result += "\n";
+          result.append(max_option_width, ' ');
+        }
+
+        std::string_view desc = opt.description;
+        bool first_line = true;
+        while (!desc.empty()) {
+          if (!first_line) {
+            result += "\n";
+            result.append(max_option_width, ' ');
+          }
+
+          size_t newline_pos = desc.find('\n');
+          if (newline_pos == std::string_view::npos) {
+            result.append(desc.data(), desc.size());
+            break;
+          }
+
+          result.append(desc.data(), newline_pos);
+          desc = desc.substr(newline_pos + 1);
+          first_line = false;
+        }
+      }
+      result += "\n";
+    }
+    result += "\n";
+  }
+
+  result += "       -h, --help\n";
+  result += "              display this help and exit\n\n";
+  result += "       -V, --version\n";
+  result += "              output version information and exit\n\n";
+
+  if (!examples.empty()) {
+    result += "EXAMPLES\n";
+    std::string_view ex = examples;
+    while (!ex.empty()) {
+      result += "       ";
+
+      size_t newline_pos = ex.find('\n');
+      if (newline_pos == std::string_view::npos) {
+        result.append(ex.data(), ex.size());
+        result += "\n";
+        break;
+      }
+
+      result.append(ex.data(), newline_pos);
+      result += "\n";
+      ex = ex.substr(newline_pos + 1);
+    }
+    result += "\n";
+  }
+
+  if (!see_also.empty()) {
+    result += "SEE ALSO\n";
+    result += "       ";
+    result.append(see_also.data(), see_also.size());
+    result += "\n\n";
+  }
+
+  result += "AUTHOR\n";
+  result += "       ";
+  result.append(author.data(), author.size());
+  result += "\n\n";
+
+  result += "COPYRIGHT\n";
+  result += "       ";
+  result.append(copyright.data(), copyright.size());
+  result += "\n";
+
+  return result;
+}
+
 // Compile-time command metadata (fully compile-time)
 export template <size_t OptionCount>
 class CommandMeta {
@@ -95,7 +342,7 @@ class CommandMeta {
   constexpr std::string_view name() const { return m_name; }
   constexpr std::string_view synopsis() const { return m_synopsis; }
   constexpr std::string_view description() const { return m_description; }
-  constexpr const auto &options() const { return m_options; }
+  constexpr const auto& options() const { return m_options; }
   constexpr size_t option_count() const { return OptionCount; }
   constexpr std::string_view examples() const { return m_examples; }
   constexpr std::string_view see_also() const { return m_see_also; }
@@ -124,296 +371,14 @@ class CommandMeta {
     return 0;
   }
 
-  // Generate help text
   std::string get_help() const {
-    std::string result;
-    result.reserve(4096);
-
-    // 1. Usage line
-    result += "Usage: ";
-    result.append(m_name.data(), m_name.size());
-    result += " [OPTION]... [FILE]...\n";
-
-    // 2. Synopsis
-    if (!m_synopsis.empty()) {
-      result += m_synopsis;
-      result += "\n\n";
-    }
-
-    // 3. Description
-    if (!m_description.empty()) {
-      result.append(m_description.data(), m_description.size());
-      result += "\n\n";
-    }
-
-    // 4. Mandatory arguments line
-    // result += "Mandatory arguments to long options are mandatory for short
-    // options too.\n\n";
-
-    // 5. Options list (compile-time array, runtime iteration)
-    if constexpr (OptionCount > 0) {
-      // Keep options in the order they were registered (no sorting)
-      std::vector<const OptionMeta *> ordered_options;
-      ordered_options.reserve(OptionCount);
-      for (const auto &opt : m_options) {
-        ordered_options.push_back(&opt);
-      }
-
-      // Calculate alignment width
-      size_t max_option_width = 0;
-      for (const auto *opt : ordered_options) {
-        size_t width = 2;
-        if (!opt->short_name.empty() && !opt->long_name.empty()) {
-          width += opt->short_name.size() + 2 + opt->long_name.size();
-        } else if (!opt->short_name.empty()) {
-          width += opt->short_name.size();
-        } else if (!opt->long_name.empty()) {
-          width += 4 + opt->long_name.size();
-        }
-        max_option_width = std::max(max_option_width, width);
-      }
-
-      result += "OPTIONS\n";
-      for (const auto *opt : ordered_options) {
-        // Build option string
-        std::string option_str;
-        if (!opt->short_name.empty() && !opt->long_name.empty()) {
-          option_str = "  " + std::string(opt->short_name) + ", " +
-                       std::string(opt->long_name);
-        } else if (!opt->short_name.empty()) {
-          option_str = "  " + std::string(opt->short_name);
-        } else if (!opt->long_name.empty()) {
-          option_str = "      " + std::string(opt->long_name);
-        }
-
-        // Align description
-        result += option_str;
-        if (opt->description.empty()) {
-          result += "\n";
-        } else {
-          size_t padding = max_option_width + 2 - option_str.size();
-          if (padding > 0) {
-            result.append(padding, ' ');
-          }
-
-          // Multi-line parsing
-          std::string_view desc = opt->description;
-          bool first_line = true;
-          while (!desc.empty()) {
-            if (!first_line) {
-              result.append(max_option_width + 2, ' ');
-            }
-
-            size_t newline_pos = desc.find('\n');
-            if (newline_pos == std::string_view::npos) {
-              result.append(desc.data(), desc.size());
-              result += "\n";
-              break;
-            } else {
-              result.append(desc.data(), newline_pos);
-              result += "\n";
-              desc = desc.substr(newline_pos + 1);
-            }
-            first_line = false;
-          }
-        }
-        result += "\n";
-      }
-    }
-
-    // 6. Standard help options
-    result += "  -h, --help\n";
-    result += "          display this help and exit\n\n";
-
-    // 7. Version
-    result += "  -V, --version\n";
-    result += "          output version information and exit\n\n";
-
-    // 8. Exit status
-    result += "Exit status:\n";
-    result += "  0  if OK,\n";
-    result += "  1  if minor problems,\n";
-    result += "  2  if serious trouble.\n";
-
-    // 9. Out Project's Infomation
-
-    result += "This Project is a Windows implemention of GNU CoreUtils\n";
-    result += "Serverd for linux-windows developers and Ai coding assistant";
-
-    return result;
+    return format_help_text(m_name, m_synopsis, m_description, m_options);
   }
 
-  // Generate man page format
   [[maybe_unused]]
   std::string get_man() const {
-    std::string result;
-    result.reserve(4096);
-
-    // ========== 1. NAME ==========
-    result += "NAME\n";
-    result += "       ";
-    result.append(m_name.data(), m_name.size());
-    result += " - ";
-    result.append(m_synopsis.data(), m_synopsis.size());
-    result += "\n\n";
-
-    // ========== 2. SYNOPSIS ==========
-    result += "SYNOPSIS\n";
-    result += "       ";
-    result.append(m_name.data(), m_name.size());
-    result += " [OPTION]... [FILE]...\n\n";
-
-    // ========== 3. DESCRIPTION ==========
-    result += "DESCRIPTION\n";
-    if (!m_description.empty()) {
-      std::string_view desc = m_description;
-      bool first_line = true;
-
-      while (!desc.empty()) {
-        result += "       ";
-
-        size_t newline_pos = desc.find('\n');
-        if (newline_pos == std::string_view::npos) {
-          result.append(desc.data(), desc.size());
-          result += "\n";
-          break;
-        } else {
-          result.append(desc.data(), newline_pos);
-          result += "\n";
-          desc = desc.substr(newline_pos + 1);
-        }
-      }
-      result += "\n";
-    }
-
-    // ========== 4. OPTIONS ==========
-    if constexpr (OptionCount > 0) {
-      result += "OPTIONS\n";
-
-      // Keep options in the order they were registered (no sorting)
-      std::vector<const OptionMeta *> ordered_options;
-      ordered_options.reserve(OptionCount);
-      for (const auto &opt : m_options) {
-        ordered_options.push_back(&opt);
-      }
-
-      // Calculate max option width
-      size_t max_option_width = 0;
-      for (const auto *opt : ordered_options) {
-        size_t width = 7;  // "       " prefix
-
-        if (!opt->short_name.empty() && !opt->long_name.empty()) {
-          width += opt->short_name.size() + 2 + opt->long_name.size();
-        } else if (!opt->short_name.empty()) {
-          width += opt->short_name.size();
-        } else if (!opt->long_name.empty()) {
-          width += opt->long_name.size();
-        }
-
-        max_option_width = std::max(max_option_width, width);
-      }
-
-      // Print options
-      for (const auto *opt : ordered_options) {
-        result += "       ";
-
-        if (!opt->short_name.empty() && !opt->long_name.empty()) {
-          result += opt->short_name;
-          result += ", ";
-          result += opt->long_name;
-        } else if (!opt->short_name.empty()) {
-          result += opt->short_name;
-        } else if (!opt->long_name.empty()) {
-          result += opt->long_name;
-        }
-
-        if (!opt->description.empty()) {
-          // Align the description
-          size_t current_width = result.length() - result.rfind('\n');
-          if (current_width < max_option_width) {
-            result.append(max_option_width - current_width, ' ');
-          } else {
-            result += "\n";
-            result.append(max_option_width, ' ');
-          }
-
-          // Multi-line description
-          std::string_view desc = opt->description;
-          bool first_line = true;
-
-          while (!desc.empty()) {
-            if (!first_line) {
-              result += "\n";
-              result.append(max_option_width, ' ');
-            }
-
-            size_t newline_pos = desc.find('\n');
-            if (newline_pos == std::string_view::npos) {
-              result.append(desc.data(), desc.size());
-              break;
-            } else {
-              result.append(desc.data(), newline_pos);
-              desc = desc.substr(newline_pos + 1);
-            }
-            first_line = false;
-          }
-        }
-        result += "\n";
-      }
-      result += "\n";
-    }
-
-    // ========== 5. Standard Options ==========
-    result += "       -h, --help\n";
-    result += "              display this help and exit\n\n";
-
-    result += "       -V, --version\n";
-    result += "              output version information and exit\n\n";
-
-    // ========== 6. EXAMPLES ==========
-    if (!m_examples.empty()) {
-      result += "EXAMPLES\n";
-      std::string_view ex = m_examples;
-      bool first_line = true;
-
-      while (!ex.empty()) {
-        result += "       ";
-
-        size_t newline_pos = ex.find('\n');
-        if (newline_pos == std::string_view::npos) {
-          result.append(ex.data(), ex.size());
-          result += "\n";
-          break;
-        } else {
-          result.append(ex.data(), newline_pos);
-          result += "\n";
-          ex = ex.substr(newline_pos + 1);
-        }
-      }
-      result += "\n";
-    }
-
-    // ========== 7. SEE ALSO ==========
-    if (!m_see_also.empty()) {
-      result += "SEE ALSO\n";
-      result += "       ";
-      result.append(m_see_also.data(), m_see_also.size());
-      result += "\n\n";
-    }
-
-    // ========== 8. AUTHOR ==========
-    result += "AUTHOR\n";
-    result += "       ";
-    result.append(m_author.data(), m_author.size());
-    result += "\n\n";
-
-    // ========== 9. COPYRIGHT ==========
-    result += "COPYRIGHT\n";
-    result += "       ";
-    result.append(m_copyright.data(), m_copyright.size());
-    result += "\n";
-
-    return result;
+    return format_man_text(m_name, m_synopsis, m_description, m_options,
+                           m_examples, m_see_also, m_author, m_copyright);
   }
 };
 
@@ -438,7 +403,7 @@ class CommandMetaWrapper : public CommandMetaBase {
   const CommandMeta<N> m_meta;
 
  public:
-  CommandMetaWrapper(const CommandMeta<N> &meta) : m_meta(meta) {}
+  CommandMetaWrapper(const CommandMeta<N>& meta) : m_meta(meta) {}
 
   std::string_view name() const override { return m_meta.name(); }
   std::string get_help() const override { return m_meta.get_help(); }
@@ -458,7 +423,7 @@ export class CommandMetaHandle {
   constexpr CommandMetaHandle() noexcept : m_ptr(nullptr) {}
 
   template <size_t N>
-  CommandMetaHandle(const CommandMeta<N> &meta)
+  CommandMetaHandle(const CommandMeta<N>& meta)
       : m_ptr(std::make_unique<CommandMetaWrapper<N> >(meta)) {}
 
   std::string_view name() const { return m_ptr->name(); }
@@ -474,12 +439,12 @@ export class Registry {
  public:
   template <size_t N>
   static void register_command(std::string_view command_name,
-                               const CommandMeta<N> &meta) {
+                               const CommandMeta<N>& meta) {
     get_storage()[command_name] = CommandMetaHandle(meta);
   }
 
   static bool print_help(std::string_view cmd_name) {
-    auto &storage = get_storage();
+    auto& storage = get_storage();
     auto it = storage.find(cmd_name);
     if (it != storage.end()) {
       std::wstring whelp = utf8_to_wstring(it->second.get_help().c_str());
@@ -490,7 +455,7 @@ export class Registry {
   }
 
   static std::string get_man(std::string_view cmd_name) {
-    auto &storage = get_storage();
+    auto& storage = get_storage();
     auto it = storage.find(cmd_name);
     if (it != storage.end()) {
       return it->second.get_man();
@@ -499,7 +464,7 @@ export class Registry {
   }
 
  private:
-  static std::unordered_map<std::string_view, CommandMetaHandle> &
+  static std::unordered_map<std::string_view, CommandMetaHandle>&
   get_storage() {
     static std::unordered_map<std::string_view, CommandMetaHandle> instance;
     return instance;

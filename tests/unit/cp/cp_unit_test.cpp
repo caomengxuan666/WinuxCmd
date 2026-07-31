@@ -286,6 +286,22 @@ TEST(cp,
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "dest.txt"));
 }
 
+TEST(cp, cp_parents_preserves_forward_slash_path) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src" / "nested");
+  std::filesystem::create_directory(tmp.path / "dest");
+  tmp.write("src/nested/file.txt", "payload");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--parents", L"src/nested/file.txt", L"dest"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest/src/nested/file.txt"), "payload");
+}
+
 TEST(cp, cp_no_clobber) {
   TempDir tmp;
   tmp.write("source.txt", "new content");

@@ -37,6 +37,7 @@ TEST(tput, tput_clear) {
   TEST_LOG_HEX("tput output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "\x1b[H\x1b[2J\x1b[3J");
 }
 
 TEST(tput, tput_reset) {

@@ -78,6 +78,23 @@ class ParsedOptions {
   std::span<const OptionOccurrence> occurrences() const { return occurrences_; }
 };
 
+export class ParsedOptionsRuntime {
+ private:
+  std::vector<OptionOccurrence> occurrences_;
+
+ public:
+  ParsedOptionsRuntime() = default;
+
+  void reset(size_t) { occurrences_.clear(); }
+
+  void set(size_t index, OptionValue v) {
+    occurrences_.push_back(OptionOccurrence{index, std::move(v)});
+  }
+
+  std::span<OptionOccurrence> occurrences() { return occurrences_; }
+  std::span<const OptionOccurrence> occurrences() const { return occurrences_; }
+};
+
 export template <size_t N>
 struct ParseResult {
   ParsedOptions<N> options;
@@ -86,11 +103,18 @@ struct ParseResult {
   std::string error_message;
 };
 
-export template <size_t N>
-ParseResult<N> parse_command(
+export struct ParseResultRuntime {
+  ParsedOptionsRuntime options;
+  std::vector<std::string_view> positionals;
+  bool ok = true;
+  std::string error_message;
+};
+
+export ParseResultRuntime parse_command_runtime(
     std::span<std::string_view> args,
-    const std::array<cmd::meta::OptionMeta, N>& metas) {
-  ParseResult<N> result;
+    std::span<const cmd::meta::OptionMeta> metas) {
+  ParseResultRuntime result;
+  result.options.reset(metas.size());
   using cmd::meta::OptionType;
 
   bool end_of_options = false;
@@ -122,6 +146,23 @@ ParseResult<N> parse_command(
     result.ok = false;
     result.error_message = "invalid argument '" + std::string(value) +
                            "' for '" + std::string(option) + "'";
+  };
+
+  auto parse_int_value = [&](std::string_view option, std::string_view value,
+                             int& out) -> bool {
+    std::string str(value);
+    auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), out);
+    if (ec != std::errc() || ptr != str.data() + str.size()) {
+      set_invalid_argument(option, value);
+      return false;
+    }
+    return true;
+  };
+
+  auto is_decimal_digits = [](std::string_view value) -> bool {
+    return !value.empty() && std::ranges::all_of(value, [](char ch) {
+      return std::isdigit(static_cast<unsigned char>(ch)) != 0;
+    });
   };
 
   for (size_t i = 0; i < args.size(); ++i) {
@@ -338,6 +379,31 @@ ParseResult<N> parse_command(
         continue;
       }
 
+      if (arg.size() > 1 && is_decimal_digits(arg.substr(1))) {
+        const cmd::meta::OptionMeta* numeric_meta = nullptr;
+        for (const auto& m : metas) {
+          if (m.short_name == "-NUM") {
+            numeric_meta = &m;
+            break;
+          }
+        }
+
+        if (numeric_meta) {
+          if (numeric_meta->type != OptionType::Int &&
+              numeric_meta->type != OptionType::OptionalInt) {
+            set_unrecognized_option(arg);
+            return result;
+          }
+
+          int v = 0;
+          if (!parse_int_value(numeric_meta->short_name, arg.substr(1), v)) {
+            return result;
+          }
+          result.options.set(numeric_meta->index, v);
+          continue;
+        }
+      }
+
       // iterate each short flag: -abc
       for (size_t pos = 1; pos < arg.size(); ++pos) {
         char ch = arg[pos];
@@ -454,6 +520,27 @@ ParseResult<N> parse_command(
 
     // ---------- positional ----------
     result.positionals.push_back(arg);
+  }
+
+  return result;
+}
+
+export template <size_t N>
+ParseResult<N> parse_command(
+    std::span<std::string_view> args,
+    const std::array<cmd::meta::OptionMeta, N>& metas) {
+  auto runtime = parse_command_runtime(
+      args, std::span<const cmd::meta::OptionMeta>(metas.data(), metas.size()));
+
+  ParseResult<N> result;
+  result.positionals = std::move(runtime.positionals);
+  result.ok = runtime.ok;
+  result.error_message = std::move(runtime.error_message);
+
+  for (auto& occurrence : runtime.options.occurrences()) {
+    if (occurrence.index < N) {
+      result.options.set(occurrence.index, std::move(occurrence.value));
+    }
   }
 
   return result;
