@@ -134,6 +134,8 @@ PROBES = [
     Probe("sort", "large lexical sort", ["words.txt"], "sort"),
     Probe("sort", "zero-terminated records", ["-z", "sort-zero.bin"], "sort"),
     Probe("sort", "field numeric key sort", ["-t", ",", "-k", "2,2n", "sort-fields.csv"], "sort"),
+    Probe("sort", "merge sorted streams", ["-m", "sort-merge-left.txt", "sort-merge-right.txt"], "sort"),
+    Probe("sort", "merge preserves input stream order", ["-m", "sort-merge-single.txt"], "sort"),
     Probe(
         "sort",
         "check unsorted diagnostic shape",
@@ -1111,6 +1113,21 @@ def write_sort_fixture(root: Path) -> None:
     expected_check = "10\n2\n1\n-5\n"
     if not check_path.is_file() or check_path.read_text(encoding="utf-8") != expected_check:
         check_path.write_text(expected_check, encoding="utf-8", newline="\n")
+
+    merge_left_path = root / "sort-merge-left.txt"
+    expected_merge_left = "".join(f"{i}\n" for i in range(0, 60000, 2))
+    if not merge_left_path.is_file() or merge_left_path.read_text(encoding="utf-8") != expected_merge_left:
+        merge_left_path.write_text(expected_merge_left, encoding="utf-8", newline="\n")
+
+    merge_right_path = root / "sort-merge-right.txt"
+    expected_merge_right = "".join(f"{i}\n" for i in range(1, 60000, 2))
+    if not merge_right_path.is_file() or merge_right_path.read_text(encoding="utf-8") != expected_merge_right:
+        merge_right_path.write_text(expected_merge_right, encoding="utf-8", newline="\n")
+
+    merge_single_path = root / "sort-merge-single.txt"
+    expected_merge_single = "2\na\n1\nb\n"
+    if not merge_single_path.is_file() or merge_single_path.read_text(encoding="utf-8") != expected_merge_single:
+        merge_single_path.write_text(expected_merge_single, encoding="utf-8", newline="\n")
 
 
 def write_tree_fixture(root: Path) -> None:

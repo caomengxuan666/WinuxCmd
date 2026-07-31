@@ -1431,6 +1431,21 @@ auto load_records(const Config& cfg) -> cp::Result<std::vector<std::string>> {
   return records;
 }
 
+auto load_record_chunks(const Config& cfg)
+    -> cp::Result<std::vector<std::vector<std::string>>> {
+  std::vector<std::vector<std::string>> chunks;
+  chunks.reserve(cfg.files.size());
+  for (size_t i = 0; i < cfg.files.size(); ++i) {
+    auto content = (cfg.delimiter == '\0') ? read_binary_source(cfg.files[i])
+                                           : read_source(cfg.files[i]);
+    if (!content) {
+      return std::unexpected(content.error());
+    }
+    chunks.push_back(split_records(*content, cfg.delimiter));
+  }
+  return chunks;
+}
+
 auto is_before(const std::string& a, const std::string& b, const Config& cfg)
     -> bool {
   int cmp = compare_records(a, b, cfg);
@@ -1612,6 +1627,55 @@ auto try_run_simple_lexical_block_sort(const Config& cfg)
   return 0;
 }
 
+struct MergeCursor {
+  size_t chunk_index = 0;
+  size_t record_index = 0;
+};
+
+auto merge_record_chunks(const Config& cfg)
+    -> cp::Result<std::vector<std::string>> {
+  auto loaded_chunks = load_record_chunks(cfg);
+  if (!loaded_chunks) return std::unexpected(loaded_chunks.error());
+
+  auto chunks = std::move(*loaded_chunks);
+  size_t total_records = 0;
+  for (const auto& chunk : chunks) total_records += chunk.size();
+
+  auto better_cursor = [&](const MergeCursor& lhs, const MergeCursor& rhs) {
+    const auto& left = chunks[lhs.chunk_index][lhs.record_index];
+    const auto& right = chunks[rhs.chunk_index][rhs.record_index];
+    if (is_before(left, right, cfg)) return true;
+    if (is_before(right, left, cfg)) return false;
+    if (lhs.chunk_index != rhs.chunk_index) {
+      return lhs.chunk_index < rhs.chunk_index;
+    }
+    return lhs.record_index < rhs.record_index;
+  };
+  auto worse_cursor = [&](const MergeCursor& lhs, const MergeCursor& rhs) {
+    return better_cursor(rhs, lhs);
+  };
+
+  std::priority_queue<MergeCursor, std::vector<MergeCursor>,
+                      decltype(worse_cursor)>
+      queue(worse_cursor);
+  for (size_t i = 0; i < chunks.size(); ++i) {
+    if (!chunks[i].empty()) queue.push(MergeCursor{i, 0});
+  }
+
+  std::vector<std::string> records;
+  records.reserve(total_records);
+  while (!queue.empty()) {
+    auto cursor = queue.top();
+    queue.pop();
+    records.push_back(chunks[cursor.chunk_index][cursor.record_index]);
+    ++cursor.record_index;
+    if (cursor.record_index < chunks[cursor.chunk_index].size()) {
+      queue.push(cursor);
+    }
+  }
+  return records;
+}
+
 auto run(const Config& cfg) -> int {
   emit_debug_diagnostics(cfg);
 
@@ -1619,15 +1683,16 @@ auto run(const Config& cfg) -> int {
     return *fast_result;
   }
 
-  auto loaded = load_records(cfg);
-  if (!loaded) {
-    cp::report_custom_error(L"sort", utf8_to_wstring(loaded.error()));
-    return 2;
-  }
-
-  std::vector<std::string> records = std::move(*loaded);
+  const bool simple_lexical = can_use_simple_lexical_compare(cfg);
+  std::vector<std::string> records;
 
   if (cfg.mode != OperationMode::Sort) {
+    auto loaded = load_records(cfg);
+    if (!loaded) {
+      cp::report_custom_error(L"sort", utf8_to_wstring(loaded.error()));
+      return 2;
+    }
+    records = std::move(*loaded);
     auto disorder = check_sorted(records, cfg);
     if (disorder) {
       if (cfg.mode == OperationMode::Check) {
@@ -1643,29 +1708,40 @@ auto run(const Config& cfg) -> int {
     return 0;
   }
 
-  const bool simple_lexical = can_use_simple_lexical_compare(cfg);
-  if (simple_lexical) {
-    auto lexical_before = [&](const std::string& a, const std::string& b) {
-      return cfg.reverse ? a > b : a < b;
-    };
-    if (cfg.merge || cfg.stable || cfg.unique) {
-      std::stable_sort(records.begin(), records.end(), lexical_before);
-    } else {
-      std::sort(records.begin(), records.end(), lexical_before);
+  if (cfg.merge) {
+    auto merged = merge_record_chunks(cfg);
+    if (!merged) {
+      cp::report_custom_error(L"sort", utf8_to_wstring(merged.error()));
+      return 2;
     }
+    records = std::move(*merged);
   } else {
-    if (cfg.merge || cfg.stable || cfg.unique) {
-      // -m: merge mode. Inputs are assumed pre-sorted; use std::merge to
-      // combine them efficiently rather than a full re-sort.  We keep a stable
-      // ordering for merge, -s, and -u because GNU/uutils preserve the first
-      // line selected from equal sort keys for those modes.
-      std::stable_sort(
-          records.begin(), records.end(),
-          [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+    auto loaded = load_records(cfg);
+    if (!loaded) {
+      cp::report_custom_error(L"sort", utf8_to_wstring(loaded.error()));
+      return 2;
+    }
+    records = std::move(*loaded);
+
+    if (simple_lexical) {
+      auto lexical_before = [&](const std::string& a, const std::string& b) {
+        return cfg.reverse ? a > b : a < b;
+      };
+      if (cfg.stable || cfg.unique) {
+        std::stable_sort(records.begin(), records.end(), lexical_before);
+      } else {
+        std::sort(records.begin(), records.end(), lexical_before);
+      }
     } else {
-      std::sort(
-          records.begin(), records.end(),
-          [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+      if (cfg.stable || cfg.unique) {
+        std::stable_sort(
+            records.begin(), records.end(),
+            [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+      } else {
+        std::sort(
+            records.begin(), records.end(),
+            [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+      }
     }
   }
 
