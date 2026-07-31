@@ -420,15 +420,47 @@ auto append_formatted_line(std::string& output, const Config& cfg,
 }
 
 auto read_file_bytes(const std::string& filename,
-                     std::vector<unsigned char>& data) -> bool {
+                     std::vector<unsigned char>& data,
+                     std::optional<size_t> max_bytes) -> bool {
+  if (max_bytes && data.size() >= *max_bytes) return true;
+
   std::ifstream input(filename, std::ios::binary);
   if (!input) {
     safeErrorPrintLn("od: cannot open '" + filename + "'");
     return false;
   }
-  data.insert(data.end(), std::istreambuf_iterator<char>(input),
-              std::istreambuf_iterator<char>());
+
+  std::array<char, 64 * 1024> buffer{};
+  while (input && (!max_bytes || data.size() < *max_bytes)) {
+    size_t wanted = buffer.size();
+    if (max_bytes) wanted = std::min(wanted, *max_bytes - data.size());
+    input.read(buffer.data(), static_cast<std::streamsize>(wanted));
+    std::streamsize got = input.gcount();
+    if (got <= 0) break;
+    data.insert(data.end(), buffer.begin(), buffer.begin() + got);
+  }
   return true;
+}
+
+auto read_stream_bytes(std::istream& input, std::vector<unsigned char>& data,
+                       std::optional<size_t> max_bytes) -> void {
+  std::array<char, 64 * 1024> buffer{};
+  while (input && (!max_bytes || data.size() < *max_bytes)) {
+    size_t wanted = buffer.size();
+    if (max_bytes) wanted = std::min(wanted, *max_bytes - data.size());
+    input.read(buffer.data(), static_cast<std::streamsize>(wanted));
+    std::streamsize got = input.gcount();
+    if (got <= 0) break;
+    data.insert(data.end(), buffer.begin(), buffer.begin() + got);
+  }
+}
+
+auto max_input_bytes_needed(const Config& cfg) -> std::optional<size_t> {
+  if (!cfg.limit_bytes) return std::nullopt;
+  if (cfg.skip_bytes > std::numeric_limits<size_t>::max() - *cfg.limit_bytes) {
+    return std::numeric_limits<size_t>::max();
+  }
+  return cfg.skip_bytes + *cfg.limit_bytes;
 }
 
 auto build_config(const CommandContext<OD_OPTIONS.size()>& ctx)
@@ -591,14 +623,15 @@ REGISTER_COMMAND(
 
   // Read input
   std::vector<unsigned char> data;
+  auto max_input_bytes = od_pipeline::max_input_bytes_needed(cfg);
 
   if (cfg.files.empty() || cfg.files[0] == "-") {
     _setmode(_fileno(stdin), _O_BINARY);
-    data.assign(std::istreambuf_iterator<char>(std::cin),
-                std::istreambuf_iterator<char>());
+    od_pipeline::read_stream_bytes(std::cin, data, max_input_bytes);
   } else {
     bool ok = true;
     for (const auto& file_arg : cfg.files) {
+      if (max_input_bytes && data.size() >= *max_input_bytes) break;
       std::vector<std::string> expanded;
       if (contains_wildcard(file_arg)) {
         auto glob_result = glob_expand(file_arg);
@@ -613,7 +646,8 @@ REGISTER_COMMAND(
         expanded.push_back(file_arg);
       }
       for (const auto& exp : expanded) {
-        ok = od_pipeline::read_file_bytes(exp, data) && ok;
+        if (max_input_bytes && data.size() >= *max_input_bytes) break;
+        ok = od_pipeline::read_file_bytes(exp, data, max_input_bytes) && ok;
       }
     }
     if (!ok && data.empty()) return 1;
