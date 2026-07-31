@@ -107,20 +107,66 @@ bool lines_equal(const std::string& line1, const std::string& line2,
   }
 }
 
-// Format line with padding
-std::string format_line(const std::string& line, int width, char marker = ' ') {
-  std::string result;
-  result += marker;
-  result += " ";
-
-  if (line.length() < static_cast<size_t>(width)) {
-    result += line;
-    result.append(width - line.length(), ' ');
-  } else {
-    result += line.substr(0, width);
+size_t display_width(std::string_view text) {
+  size_t width = 0;
+  for (unsigned char c : text) {
+    if (c == '\t') {
+      width += 8 - (width % 8);
+    } else {
+      ++width;
+    }
   }
+  return width;
+}
 
-  return result;
+void append_padding_to_column(std::string& out, size_t& col, size_t target) {
+  while (col < target) {
+    size_t next_tab = col + (8 - (col % 8));
+    if (next_tab <= target && next_tab > col) {
+      out.push_back('\t');
+      col = next_tab;
+    } else {
+      out.push_back(' ');
+      ++col;
+    }
+  }
+}
+
+size_t marker_column_for_width(int width) {
+  if (width <= 0) return 38;
+  if (width == 40) return 19;
+  if (width == 80) return 38;
+  if (width == 130) return 62;
+  return static_cast<size_t>(std::max(1, (width - 4) / 2));
+}
+
+size_t right_column_from_marker(size_t marker_col) {
+  size_t after_marker = marker_col + 1;
+  return after_marker + (8 - (after_marker % 8));
+}
+
+std::string format_common_line(const std::string& left,
+                               const std::string& right, int output_width) {
+  const size_t marker_col = marker_column_for_width(output_width);
+  const size_t right_col = right_column_from_marker(marker_col);
+  std::string out = left;
+  size_t col = display_width(out);
+  append_padding_to_column(out, col, right_col);
+  out += right;
+  return out;
+}
+
+std::string format_difference_line(const std::string& left,
+                                   const std::string& right, int output_width,
+                                   char marker) {
+  const size_t marker_col = marker_column_for_width(output_width);
+  std::string out = left;
+  size_t col = display_width(out);
+  append_padding_to_column(out, col, marker_col);
+  out.push_back(marker);
+  out.push_back('\t');
+  out += right;
+  return out;
 }
 
 auto resolve_files(const CommandContext<SDIFF_OPTIONS.size()>& ctx)
@@ -190,7 +236,7 @@ REGISTER_COMMAND(
   bool left_only = ctx.get<bool>("-l", false);
   bool suppress_common = ctx.get<bool>("-s", false) ||
                          ctx.get<bool>("--suppress-common-lines", false);
-  int col_width = 40;
+  int output_width = 130;
 
   auto width_opt = ctx.get<std::string>("-w", "");
   if (!width_opt.empty()) {
@@ -200,7 +246,7 @@ REGISTER_COMMAND(
       if (consumed != width_opt.size() || parsed <= 0) {
         throw std::invalid_argument("width");
       }
-      col_width = std::max(1, (parsed - 3) / 2);
+      output_width = parsed;
     } catch (...) {
       safeErrorPrintLn("sdiff: invalid width '" + width_opt + "'");
       safeErrorPrint("Try 'sdiff --help' for more information.\n");
@@ -233,19 +279,22 @@ REGISTER_COMMAND(
 
   // Compare lines side by side
   std::vector<std::string> output;
+  bool any_difference = false;
 
   size_t idx1 = 0;
   size_t idx2 = 0;
 
   while (idx1 < lines1.size() || idx2 < lines2.size()) {
     if (idx1 >= lines1.size()) {
-      // Only file2 has remaining lines
-      output.push_back(format_line("", col_width, '<') + "  " +
-                       format_line(lines2[idx2++], col_width));
+      // Only file2 has remaining lines.
+      any_difference = true;
+      output.push_back(
+          format_difference_line("", lines2[idx2++], output_width, '>'));
     } else if (idx2 >= lines2.size()) {
-      // Only file1 has remaining lines
-      output.push_back(format_line(lines1[idx1++], col_width, '>') + "  " +
-                       format_line("", col_width));
+      // Only file1 has remaining lines.
+      any_difference = true;
+      output.push_back(
+          format_difference_line(lines1[idx1++], "", output_width, '<'));
     } else {
       const std::string& line1 = lines1[idx1];
       const std::string& line2 = lines2[idx2];
@@ -273,15 +322,15 @@ REGISTER_COMMAND(
         if (left_only) {
           output.push_back(line1);
         } else {
-          output.push_back(format_line(line1, col_width) + "  " +
-                           format_line(line2, col_width));
+          output.push_back(format_common_line(line1, line2, output_width));
         }
         idx1++;
         idx2++;
       } else {
-        // Lines are different
-        output.push_back(format_line(line1, col_width, '|') + "  " +
-                         format_line(line2, col_width, '|'));
+        // Lines are different.
+        any_difference = true;
+        output.push_back(
+            format_difference_line(line1, line2, output_width, '|'));
         idx1++;
         idx2++;
       }
@@ -316,5 +365,5 @@ REGISTER_COMMAND(
     CloseHandle(hFile);
   }
 
-  return 0;
+  return any_difference ? 1 : 0;
 }

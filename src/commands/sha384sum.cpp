@@ -31,13 +31,8 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 // *** SIMPLIFIED IMPLEMENTATION - Some features may not be fully supported ***
 
-#include "pch/pch.h"
-// include other header after pch.h
-#include <wincrypt.h>
-
 #include "core/command_macros.h"
-
-#pragma comment(lib, "advapi32.lib")
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -144,91 +139,10 @@ auto input_open_error(const std::string& filename) -> std::string {
          "' for reading: No such file or directory";
 }
 
-// Calculate SHA384 hash using Windows CryptoAPI
-// Note: Windows CryptoAPI doesn't directly support SHA384, need to use SHA512
-// and truncate
 auto calculate_sha384(const std::string& filename, bool text_mode = false)
     -> cp::Result<std::string> {
-  HCRYPTPROV hProv = 0;
-  HCRYPTHASH hHash = 0;
-
-  // Open cryptographic provider
-  // Note: SHA512 requires PROV_RSA_AES or a SHA512-capable provider
-  if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_AES,
-                           CRYPT_VERIFYCONTEXT)) {
-    return std::unexpected("failed to acquire cryptographic context");
-  }
-
-  // Create hash object using SHA512 (we'll truncate to SHA384)
-  if (!CryptCreateHash(hProv, CALG_SHA_512, 0, 0, &hHash)) {
-    CryptReleaseContext(hProv, 0);
-    return std::unexpected("failed to create hash object");
-  }
-
-  bool success = false;
-  if (filename == "-" || filename.empty()) {
-    // Read from stdin
-    std::array<char, 8192> buffer;
-    size_t bytes_read;
-
-    while ((bytes_read = fread(buffer.data(), 1, buffer.size(), stdin)) > 0) {
-      if (!CryptHashData(hHash, reinterpret_cast<BYTE*>(buffer.data()),
-                         static_cast<DWORD>(bytes_read), 0)) {
-        CryptDestroyHash(hHash);
-        CryptReleaseContext(hProv, 0);
-        return std::unexpected("failed to hash data");
-      }
-    }
-    success = true;
-  } else {
-    // Read from file (binary mode by default, text mode if --text)
-    std::ifstream file(filename, text_mode ? std::ios::in : std::ios::binary);
-    if (!file) {
-      CryptDestroyHash(hHash);
-      CryptReleaseContext(hProv, 0);
-      return std::unexpected(input_open_error(filename));
-    }
-
-    std::array<char, 8192> buffer;
-    while (file) {
-      file.read(buffer.data(), buffer.size());
-      std::streamsize bytes_read = file.gcount();
-      if (bytes_read > 0) {
-        if (!CryptHashData(hHash, reinterpret_cast<BYTE*>(buffer.data()),
-                           static_cast<DWORD>(bytes_read), 0)) {
-          CryptDestroyHash(hHash);
-          CryptReleaseContext(hProv, 0);
-          return std::unexpected("failed to hash data");
-        }
-      }
-    }
-    success = !file.fail();
-  }
-
-  // Get hash value
-  DWORD hash_len = 64;  // SHA512 produces 64 bytes
-  std::array<BYTE, 64> hash_value{};
-
-  if (!CryptGetHashParam(hHash, HP_HASHVAL, hash_value.data(), &hash_len, 0)) {
-    CryptDestroyHash(hHash);
-    CryptReleaseContext(hProv, 0);
-    return std::unexpected("failed to get hash value");
-  }
-
-  CryptDestroyHash(hHash);
-  CryptReleaseContext(hProv, 0);
-
-  // SHA384 is SHA512 truncated to 48 bytes (384 bits)
-  // Convert first 48 bytes to hex string
-  std::string result;
-  result.reserve(96);
-  for (DWORD i = 0; i < 48; ++i) {
-    char buf[3];
-    snprintf(buf, sizeof(buf), "%02x", hash_value[i]);
-    result += buf;
-  }
-
-  return result;
+  return portable_digest::hash_file_hex(portable_digest::HashAlgorithm::Sha384,
+                                        filename, text_mode);
 }
 
 auto parse_check_line(const std::string& line) -> std::optional<CheckLine> {
@@ -405,12 +319,12 @@ auto run(const Config& cfg) -> int {
       continue;
     }
 
-    // Output format: HASH  FILENAME (or BSD-style if --tag)
+    // GNU/MSYS defaults to binary marker on Windows; --text uses a space.
     std::string output;
     if (cfg.tag) {
       output = "SHA384 (" + file + ") = " + *hash_result;
     } else {
-      output = *hash_result + "  " + file;
+      output = *hash_result + (cfg.text_mode ? "  " : " *") + file;
     }
     output.push_back(cfg.zero ? '\0' : '\n');
     safePrint(output);
@@ -428,8 +342,8 @@ REGISTER_COMMAND(sha384sum, "sha384sum", "sha384sum [OPTION]... [FILE]...",
                  "\n"
                  "SHA384 produces a 384-bit (48-byte) hash value, typically "
                  "rendered as a 96-digit hexadecimal number.\n"
-                 "This implementation uses SHA512 and truncates to 384 bits as "
-                 "Windows CryptoAPI doesn't directly support SHA384.",
+                 "Uses WinuxCmd's portable SHA-384 implementation with the "
+                 "FIPS-180-2 initial state and digest length.",
                  "  sha384sum file.txt\n"
                  "  echo \"test\" | sha384sum\n"
                  "  sha384sum *.txt > checksums.sha384",

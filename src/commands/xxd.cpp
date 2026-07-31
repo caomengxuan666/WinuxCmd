@@ -11,6 +11,84 @@ import container;
 auto constexpr XXD_OPTIONS =
     std::array{OPTION("-r", "--reverse", "reverse: convert hex to binary")};
 
+namespace {
+std::vector<unsigned char> read_stdin_bytes() {
+  std::vector<unsigned char> data;
+  char ch = 0;
+  while (std::cin.get(ch)) {
+    data.push_back(static_cast<unsigned char>(ch));
+  }
+  return data;
+}
+
+std::optional<std::vector<unsigned char>> read_file_bytes(
+    const std::string& filename) {
+  std::wstring wfilename = utf8_to_wstring(filename);
+  HANDLE hFile =
+      CreateFileW(wfilename.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
+                  OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (hFile == INVALID_HANDLE_VALUE) return std::nullopt;
+
+  LARGE_INTEGER fileSize{};
+  if (!GetFileSizeEx(hFile, &fileSize) || fileSize.QuadPart < 0) {
+    CloseHandle(hFile);
+    return std::nullopt;
+  }
+
+  std::vector<unsigned char> buffer(static_cast<size_t>(fileSize.QuadPart));
+  DWORD bytesRead = 0;
+  BOOL ok = TRUE;
+  if (!buffer.empty()) {
+    ok = ReadFile(hFile, buffer.data(), static_cast<DWORD>(buffer.size()),
+                  &bytesRead, nullptr);
+  }
+  CloseHandle(hFile);
+  if (!ok) return std::nullopt;
+  buffer.resize(bytesRead);
+  return buffer;
+}
+
+std::string byte_hex(unsigned char value) {
+  constexpr char digits[] = "0123456789abcdef";
+  std::string out;
+  out.push_back(digits[(value >> 4) & 0x0f]);
+  out.push_back(digits[value & 0x0f]);
+  return out;
+}
+
+std::string offset_hex(size_t offset) {
+  char buf[32];
+  sprintf_s(buf, sizeof(buf), "%08zx", offset);
+  return std::string(buf);
+}
+
+void print_default_xxd(const std::vector<unsigned char>& data) {
+  constexpr size_t kColumns = 16;
+  for (size_t offset = 0; offset < data.size(); offset += kColumns) {
+    size_t count = std::min(kColumns, data.size() - offset);
+    safePrint(offset_hex(offset));
+    safePrint(": ");
+
+    for (size_t i = 0; i < kColumns; ++i) {
+      if (i < count) {
+        safePrint(byte_hex(data[offset + i]));
+      } else {
+        safePrint("  ");
+      }
+      if (i % 2 == 1) safePrint(" ");
+    }
+
+    safePrint(" ");
+    for (size_t i = 0; i < count; ++i) {
+      unsigned char c = data[offset + i];
+      safePrint((c > 31 && c < 127) ? std::string(1, static_cast<char>(c))
+                                    : ".");
+    }
+    safePrint("\n");
+  }
+}
+}  // namespace
+
 REGISTER_COMMAND(xxd,
                  /* cmd_name */ "xxd",
                  /* cmd_synopsis */ "xxd [OPTION] [FILE]",
@@ -24,91 +102,25 @@ REGISTER_COMMAND(xxd,
       ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
 
   if (reverse) {
-    safePrintLn("xxd: reverse mode not fully implemented");
+    safeErrorPrintLn("xxd: reverse mode not fully implemented");
     return 1;
   }
 
   std::string filename =
       ctx.positionals.empty() ? "-" : std::string(ctx.positionals[0]);
 
+  std::vector<unsigned char> data;
   if (filename == "-") {
-    std::vector<char> data;
-    data.assign(std::istreambuf_iterator<char>(std::cin),
-                std::istreambuf_iterator<char>());
-
-    for (size_t i = 0; i < data.size(); i += 16) {
-      char buf[32];
-      sprintf_s(buf, sizeof(buf), "%08zx: ", i);
-      safePrint(buf);
-
-      for (size_t j = 0; j < 16 && i + j < data.size(); ++j) {
-        sprintf_s(buf, sizeof(buf), "%02x",
-                  static_cast<unsigned char>(data[i + j]));
-        safePrint(buf);
-        if (j % 2 == 1) safePrint(" ");
-      }
-
-      // Padding
-      for (size_t j = data.size() % 16; j < 16; ++j) {
-        safePrint("  ");
-        if (j % 2 == 1) safePrint(" ");
-      }
-
-      safePrint(" ");
-
-      for (size_t j = 0; j < 16 && i + j < data.size(); ++j) {
-        char c = data[i + j];
-        safePrint((c >= 32 && c < 127) ? std::string(1, c) : ".");
-      }
-      safePrintLn("\n");
-    }
+    data = read_stdin_bytes();
   } else {
-    std::wstring wfilename = utf8_to_wstring(filename);
-    HANDLE hFile =
-        CreateFileW(wfilename.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
-                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-    if (hFile == INVALID_HANDLE_VALUE) {
-      safeErrorPrintLn("xxd: cannot open '" + filename + "'");
+    auto file_data = read_file_bytes(filename);
+    if (!file_data) {
+      safeErrorPrintLn("xxd: cannot open " + filename);
       return 1;
     }
-
-    LARGE_INTEGER fileSize;
-    GetFileSizeEx(hFile, &fileSize);
-    std::vector<char> buffer(fileSize.QuadPart);
-    DWORD bytesRead;
-    ReadFile(hFile, buffer.data(), static_cast<DWORD>(fileSize.QuadPart),
-             &bytesRead, nullptr);
-    CloseHandle(hFile);
-
-    for (size_t i = 0; i < bytesRead; i += 16) {
-      char buf[32];
-      sprintf_s(buf, sizeof(buf), "%08zx: ", i);
-      safePrint(buf);
-
-      for (size_t j = 0; j < 16 && i + j < bytesRead; ++j) {
-        sprintf_s(buf, sizeof(buf), "%02x",
-                  static_cast<unsigned char>(buffer[i + j]));
-        safePrint(buf);
-        if (j % 2 == 1) safePrint(" ");
-      }
-
-      // Padding
-      size_t remaining = (bytesRead - i) % 16;
-      for (size_t j = remaining; j < 16; ++j) {
-        safePrint("  ");
-        if (j % 2 == 1) safePrint(" ");
-      }
-
-      safePrint(" ");
-
-      for (size_t j = 0; j < 16 && i + j < bytesRead; ++j) {
-        char c = buffer[i + j];
-        safePrint((c >= 32 && c < 127) ? std::string(1, c) : ".");
-      }
-      safePrintLn("\n");
-    }
+    data = std::move(*file_data);
   }
 
+  print_default_xxd(data);
   return 0;
 }

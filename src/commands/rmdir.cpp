@@ -45,17 +45,48 @@ auto constexpr RMDIR_OPTIONS =
 namespace rmdir_pipeline {
 namespace cp = core::pipeline;
 
-auto is_root_path(const std::wstring& p) -> bool {
-  if (p.empty()) return true;
-  if (p == L"\\" || p == L"/") return true;
-  return (p.size() == 3 && p[1] == L':' && (p[2] == L'\\' || p[2] == L'/'));
+auto is_separator(char ch) -> bool { return ch == '\\' || ch == '/'; }
+
+auto unc_root_length(std::string_view path) -> std::optional<size_t> {
+  if (path.size() < 3 || !is_separator(path[0]) || !is_separator(path[1])) {
+    return std::nullopt;
+  }
+
+  auto server_end = path.find_first_of("\\/", 2);
+  if (server_end == std::string_view::npos) return path.size();
+
+  auto share_start = server_end + 1;
+  auto share_end = path.find_first_of("\\/", share_start);
+  if (share_end == std::string_view::npos) return path.size();
+  return share_end;
 }
 
-auto parent_path(std::wstring p) -> std::wstring {
-  while (!p.empty() && (p.back() == L'\\' || p.back() == L'/')) p.pop_back();
-  auto pos = p.find_last_of(L"\\/");
-  if (pos == std::wstring::npos) return L"";
-  return p.substr(0, pos);
+auto strip_trailing_separators(std::string path) -> std::string {
+  while (path.size() > 1 && is_separator(path.back())) {
+    if (path.size() == 3 && path[1] == ':') break;
+    if (auto root_len = unc_root_length(path);
+        root_len && path.size() <= *root_len + 1) {
+      break;
+    }
+    path.pop_back();
+  }
+  return path;
+}
+
+auto parent_path(std::string path) -> std::string {
+  path = strip_trailing_separators(std::move(path));
+  if (path.empty()) return {};
+
+  auto pos = path.find_last_of("\\/");
+  if (pos == std::string::npos || pos == 0) return {};
+  if (pos == 2 && path.size() >= 3 && path[1] == ':') return {};
+  if (auto root_len = unc_root_length(path); root_len && pos <= *root_len) {
+    return {};
+  }
+
+  auto parent = path.substr(0, pos);
+  if (parent == "." || parent == "..") return {};
+  return parent;
 }
 
 auto remove_one(const std::string& utf8_path, bool ignore_non_empty,
@@ -119,17 +150,15 @@ auto process_command(const CommandContext<RMDIR_OPTIONS.size()>& ctx)
 
     if (!parents) continue;
 
-    std::wstring wcur = utf8_to_wstring(cur);
     while (true) {
-      std::wstring p = parent_path(wcur);
-      if (p.empty() || is_root_path(p)) break;
+      std::string p = parent_path(cur);
+      if (p.empty()) break;
 
-      std::string p8 = wstring_to_utf8(p);
-      if (!remove_one(p8, ignore_non_empty, verbose)) {
+      if (!remove_one(p, ignore_non_empty, verbose)) {
         ok_all = false;
         break;
       }
-      wcur = p;
+      cur = p;
     }
   }
 

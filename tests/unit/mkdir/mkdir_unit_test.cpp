@@ -69,6 +69,23 @@ TEST(mkdir, mkdir_p_parents) {
   EXPECT_TRUE(dir_exists);
 }
 
+TEST(mkdir, mkdir_verbose_parents_reports_each_created_directory) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"mkdir.exe", {L"-v", L"-p", L"newv/a/b"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "mkdir: created directory 'newv'\n"
+                 "mkdir: created directory 'newv/a'\n"
+                 "mkdir: created directory 'newv/a/b'\n");
+  EXPECT_TRUE(r.stderr_text.empty());
+  EXPECT_TRUE(std::filesystem::is_directory(tmp.path / "newv" / "a" / "b"));
+}
 TEST(mkdir, mkdir_multiple) {
   TempDir tmp;
 

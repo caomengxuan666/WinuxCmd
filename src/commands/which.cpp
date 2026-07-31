@@ -19,13 +19,12 @@ using cmd::meta::OptionType;
 auto constexpr WHICH_OPTIONS = std::array{
     OPTION("-a", "--all", "print all matching pathnames of each argument"),
     OPTION("-s", "--skip-dot",
-           "skip directories in PATH that start with a dot [NOT SUPPORT]"),
+           "skip directories in PATH that start with a dot"),
     OPTION("", "--skip-tilde",
-           "skip directories in PATH that start with a tilde [NOT SUPPORT]"),
+           "skip directories in PATH that start with a tilde and HOME matches"),
     OPTION("", "--show-dot",
-           "if a directory in PATH starts with a dot, print it [NOT SUPPORT]"),
-    OPTION("", "--show-tilde",
-           "output a tilde for HOME directory [NOT SUPPORT]")};
+           "if a directory in PATH starts with a dot, print ./COMMAND"),
+    OPTION("", "--show-tilde", "output a tilde for the HOME directory")};
 
 namespace which_pipeline {
 namespace cp = core::pipeline;
@@ -33,7 +32,19 @@ namespace fs = std::filesystem;
 
 struct Config {
   bool all = false;
+  bool skip_dot = false;
+  bool skip_tilde = false;
+  bool show_dot = false;
+  bool show_tilde = false;
+  fs::path cwd;
+  std::optional<fs::path> home;
   SmallVector<std::string, 32> names;
+};
+
+struct SearchDir {
+  fs::path dir;
+  bool starts_with_dot = false;
+  bool starts_with_tilde = false;
 };
 
 auto split_semicolon(std::string_view text) -> std::vector<std::string> {
@@ -63,25 +74,159 @@ auto get_env_utf8(const wchar_t* key) -> std::optional<std::string> {
   return wstring_to_utf8(value);
 }
 
+auto normalize_win_shell_path(std::string_view text) -> std::string {
+  auto make_drive_path = [](char drive, std::string_view rest) {
+    std::string out;
+    out.reserve(rest.size() + 2);
+    out.push_back(
+        static_cast<char>(std::toupper(static_cast<unsigned char>(drive))));
+    out.push_back(':');
+    out.append(rest.data(), rest.size());
+    return out;
+  };
+
+  if (text.size() >= 3 && (text[0] == '/' || text[0] == '\\') &&
+      std::isalpha(static_cast<unsigned char>(text[1])) &&
+      (text[2] == '/' || text[2] == '\\')) {
+    return make_drive_path(text[1], text.substr(2));
+  }
+
+  constexpr std::string_view cygdrive = "/cygdrive/";
+  if (text.size() > cygdrive.size() + 1 && text.starts_with(cygdrive) &&
+      std::isalpha(static_cast<unsigned char>(text[cygdrive.size()])) &&
+      (text[cygdrive.size() + 1] == '/' || text[cygdrive.size() + 1] == '\\')) {
+    return make_drive_path(text[cygdrive.size()],
+                           text.substr(cygdrive.size() + 1));
+  }
+
+  return std::string(text);
+}
+
+auto path_from_utf8(std::string_view text) -> fs::path {
+  return fs::path(utf8_to_wstring(normalize_win_shell_path(text)));
+}
+
+auto path_to_utf8(const fs::path& p) -> std::string {
+  return wstring_to_utf8(p.generic_wstring());
+}
+
+auto ascii_lower(std::string text) -> std::string {
+  std::transform(text.begin(), text.end(), text.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return text;
+}
+
+auto ensure_trailing_slash(std::string text) -> std::string {
+  if (!text.empty() && text.back() != '/') text.push_back('/');
+  return text;
+}
+
+auto starts_with_tilde(std::string_view text) -> bool {
+  return !text.empty() && text.front() == '~';
+}
+
+auto starts_with_dot(std::string_view text) -> bool {
+  return !text.empty() && text.front() == '.';
+}
+
+auto make_absolute_normalized(const fs::path& p) -> fs::path {
+  std::error_code ec;
+  fs::path absolute = p.is_absolute() ? p : fs::absolute(p, ec);
+  if (ec) absolute = p;
+  return absolute.lexically_normal();
+}
+
+auto get_current_directory() -> fs::path {
+  std::error_code ec;
+  auto cwd = fs::current_path(ec);
+  if (ec) return fs::path(L".");
+  return cwd.lexically_normal();
+}
+
+auto get_home_directory() -> std::optional<fs::path> {
+  if (auto home = get_env_utf8(L"HOME"); home.has_value() && !home->empty()) {
+    return make_absolute_normalized(path_from_utf8(*home));
+  }
+  if (auto profile = get_env_utf8(L"USERPROFILE");
+      profile.has_value() && !profile->empty()) {
+    return make_absolute_normalized(path_from_utf8(*profile));
+  }
+
+  auto drive = get_env_utf8(L"HOMEDRIVE");
+  auto path = get_env_utf8(L"HOMEPATH");
+  if (drive.has_value() && path.has_value() && !drive->empty() &&
+      !path->empty()) {
+    return make_absolute_normalized(path_from_utf8(*drive + *path));
+  }
+  return std::nullopt;
+}
+
+auto expand_leading_tilde(std::string_view text,
+                          const std::optional<fs::path>& home) -> std::string {
+  if (!starts_with_tilde(text) || !home.has_value()) return std::string(text);
+
+  if (text.size() == 1) return path_to_utf8(*home);
+  if (text[1] == '/' || text[1] == '\\') {
+    auto base = path_to_utf8(*home);
+    return ensure_trailing_slash(base) + std::string(text.substr(2));
+  }
+
+  // GNU which delegates full ~user handling to tilde expansion. Windows has no
+  // equivalent user database here, so keep such forms literal.
+  return std::string(text);
+}
+
 auto get_path_entries() -> std::vector<std::string> {
+  std::vector<std::string> entries;
+
+  // GNU which on Windows searches the current directory before PATH because
+  // that is what CreateProcess-style command lookup does.
+  entries.emplace_back(".");
+
   auto path_env = get_env_utf8(L"PATH");
-  if (!path_env.has_value() || path_env->empty()) return {};
-  return split_semicolon(*path_env);
+  if (!path_env.has_value()) return entries;
+
+  for (auto& entry : split_semicolon(*path_env)) {
+    entries.push_back(entry.empty() ? std::string(".") : std::move(entry));
+  }
+  return entries;
 }
 
 auto get_pathext_entries() -> std::vector<std::string> {
   auto ext_env = get_env_utf8(L"PATHEXT");
-  if (!ext_env.has_value() || ext_env->empty()) {
-    return std::vector<std::string>{".exe", ".cmd", ".bat", ".com"};
-  }
-  auto exts = split_semicolon(*ext_env);
-  if (exts.empty())
-    exts = std::vector<std::string>{".exe", ".cmd", ".bat", ".com"};
-  for (auto& ext : exts) {
-    if (!ext.empty() && ext.front() != '.') ext.insert(ext.begin(), '.');
+  std::vector<std::string> exts;
+  auto append_unique = [&exts](std::string ext) {
+    if (ext.empty()) return;
+    if (ext.front() != '.') ext.insert(ext.begin(), '.');
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
       return static_cast<char>(std::tolower(ch));
     });
+    if (std::find(exts.begin(), exts.end(), ext) == exts.end()) {
+      exts.push_back(std::move(ext));
+    }
+  };
+
+  if (!ext_env.has_value() || ext_env->empty()) {
+    for (auto ext : {".exe", ".ps1", ".bat", ".cmd", ".com"}) {
+      append_unique(ext);
+    }
+  } else {
+    for (auto& ext : split_semicolon(*ext_env)) {
+      append_unique(std::move(ext));
+    }
+    if (exts.empty()) {
+      for (auto ext : {".exe", ".ps1", ".bat", ".cmd", ".com"}) {
+        append_unique(ext);
+      }
+    }
+  }
+
+  // `which` describes what winuxsh/winuxcmd can launch, not only what cmd.exe
+  // has in the user's PATHEXT. Keep supported Windows wrappers ahead of
+  // extensionless POSIX scripts even if PATHEXT is minimal or unusual.
+  for (auto ext : {".exe", ".com", ".bat", ".cmd", ".ps1"}) {
+    append_unique(ext);
   }
   return exts;
 }
@@ -100,70 +245,148 @@ auto exists_command_candidate(const fs::path& p) -> bool {
 auto with_extensions(const fs::path& base, const std::vector<std::string>& exts)
     -> std::vector<fs::path> {
   std::vector<fs::path> out;
-  out.push_back(base);
-  if (base.has_extension()) return out;
+  if (base.has_extension()) {
+    out.push_back(base);
+    return out;
+  }
 
   for (const auto& ext : exts) {
     fs::path p = base;
-    p += ext;
+    p += utf8_to_wstring(ext);
     out.push_back(std::move(p));
   }
+  out.push_back(base);
   return out;
 }
 
-auto find_one(std::string_view name, bool all) -> std::vector<std::string> {
+auto make_search_dir(std::string entry, const Config& cfg)
+    -> std::optional<SearchDir> {
+  if (entry.empty()) entry = ".";
+
+  const bool tilde = starts_with_tilde(entry);
+  if (cfg.skip_tilde && tilde) return std::nullopt;
+
+  auto expanded = expand_leading_tilde(entry, cfg.home);
+  fs::path dir = path_from_utf8(expanded);
+  if (cfg.skip_dot && !dir.is_absolute()) return std::nullopt;
+
+  return SearchDir{.dir = std::move(dir),
+                   .starts_with_dot = starts_with_dot(expanded),
+                   .starts_with_tilde = tilde};
+}
+
+auto command_operand_search_dirs(std::string_view operand, const Config& cfg)
+    -> std::vector<SearchDir> {
+  std::vector<SearchDir> dirs;
+
+  if (!has_path_separator(operand)) {
+    for (auto& entry : get_path_entries()) {
+      if (auto dir = make_search_dir(std::move(entry), cfg); dir.has_value()) {
+        dirs.push_back(std::move(*dir));
+      }
+    }
+    return dirs;
+  }
+
+  std::string operand_str(operand);
+  fs::path operand_path = path_from_utf8(operand_str);
+  auto parent = operand_path.parent_path();
+  std::string parent_text;
+
+  if (operand_path.is_absolute() || starts_with_tilde(operand_str) ||
+      starts_with_dot(operand_str)) {
+    parent_text = parent.empty() ? std::string(".") : path_to_utf8(parent);
+  } else {
+    auto rel_parent = parent.empty() ? std::string(".") : path_to_utf8(parent);
+    parent_text = ensure_trailing_slash(".") + rel_parent;
+  }
+
+  if (auto dir = make_search_dir(parent_text, cfg); dir.has_value()) {
+    dirs.push_back(std::move(*dir));
+  }
+  return dirs;
+}
+
+auto command_operand_basename(std::string_view operand) -> std::string {
+  if (!has_path_separator(operand)) return std::string(operand);
+  return path_to_utf8(path_from_utf8(operand).filename());
+}
+
+auto path_suffix_under(const fs::path& path, const fs::path& base)
+    -> std::optional<std::string> {
+  auto path_text = path_to_utf8(make_absolute_normalized(path));
+  auto base_text =
+      ensure_trailing_slash(path_to_utf8(make_absolute_normalized(base)));
+  auto path_key = ascii_lower(path_text);
+  auto base_key = ascii_lower(base_text);
+
+  if (!path_key.starts_with(base_key)) return std::nullopt;
+  return path_text.substr(base_text.size());
+}
+
+auto display_hit(const fs::path& candidate, const SearchDir& dir,
+                 const Config& cfg) -> std::optional<std::string> {
+  auto normalized = make_absolute_normalized(candidate);
+
+  if (cfg.skip_tilde && cfg.home.has_value() &&
+      path_suffix_under(normalized, *cfg.home).has_value()) {
+    return std::nullopt;
+  }
+
+  if (cfg.show_dot && dir.starts_with_dot) {
+    if (auto suffix = path_suffix_under(normalized, cfg.cwd);
+        suffix.has_value() && !suffix->empty()) {
+      return std::string("./") + *suffix;
+    }
+  }
+
+  if (cfg.show_tilde && cfg.home.has_value()) {
+    if (auto suffix = path_suffix_under(normalized, *cfg.home);
+        suffix.has_value() && !suffix->empty()) {
+      return std::string("~/") + *suffix;
+    }
+  }
+
+  return path_to_utf8(normalized);
+}
+
+auto find_one(std::string_view name, const Config& cfg)
+    -> std::vector<std::string> {
   SmallVector<std::string, 64> hits;
   std::unordered_set<std::string> seen;
   const auto pathext = get_pathext_entries();
+  auto basename = command_operand_basename(name);
 
-  auto append_hit = [&](const fs::path& p) {
-    auto display = p.generic_string();
-    if (seen.insert(display).second) {
-      hits.push_back(std::move(display));
-    }
-  };
-
-  if (has_path_separator(name)) {
-    fs::path base = std::string(name);
+  for (const auto& dir : command_operand_search_dirs(name, cfg)) {
+    fs::path base = dir.dir / path_from_utf8(basename);
     for (const auto& candidate : with_extensions(base, pathext)) {
-      if (exists_command_candidate(candidate)) {
-        append_hit(candidate);
-        if (!all) return std::vector<std::string>(hits.begin(), hits.end());
-      }
-    }
-    return std::vector<std::string>(hits.begin(), hits.end());
-  }
+      if (!exists_command_candidate(candidate)) continue;
 
-  for (const auto& dir : get_path_entries()) {
-    if (dir.empty()) continue;
-    fs::path base = fs::path(dir) / std::string(name);
-    for (const auto& candidate : with_extensions(base, pathext)) {
-      if (exists_command_candidate(candidate)) {
-        append_hit(candidate);
-        if (!all) return std::vector<std::string>(hits.begin(), hits.end());
+      auto display = display_hit(candidate, dir, cfg);
+      if (!display.has_value()) continue;
+
+      if (seen.insert(*display).second) {
+        hits.push_back(std::move(*display));
       }
+      if (!cfg.all) return std::vector<std::string>(hits.begin(), hits.end());
     }
   }
 
   return std::vector<std::string>(hits.begin(), hits.end());
 }
 
-auto is_unsupported_used(const CommandContext<WHICH_OPTIONS.size()>& ctx)
-    -> std::optional<std::string_view> {
-  if (ctx.get<bool>("--skip-dot", false) || ctx.get<bool>("-s", false))
-    return "--skip-dot is [NOT SUPPORT]";
-  if (ctx.get<bool>("--skip-tilde", false))
-    return "--skip-tilde is [NOT SUPPORT]";
-  if (ctx.get<bool>("--show-dot", false)) return "--show-dot is [NOT SUPPORT]";
-  if (ctx.get<bool>("--show-tilde", false))
-    return "--show-tilde is [NOT SUPPORT]";
-  return std::nullopt;
-}
-
 auto build_config(const CommandContext<WHICH_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
   cfg.all = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
+  cfg.skip_dot =
+      ctx.get<bool>("--skip-dot", false) || ctx.get<bool>("-s", false);
+  cfg.skip_tilde = ctx.get<bool>("--skip-tilde", false);
+  cfg.show_dot = ctx.get<bool>("--show-dot", false);
+  cfg.show_tilde = ctx.get<bool>("--show-tilde", false);
+  cfg.cwd = make_absolute_normalized(get_current_directory());
+  cfg.home = get_home_directory();
+
   for (auto arg : ctx.positionals) cfg.names.emplace_back(arg);
   if (cfg.names.empty()) return std::unexpected("missing command operand");
   return cfg;
@@ -172,7 +395,7 @@ auto build_config(const CommandContext<WHICH_OPTIONS.size()>& ctx)
 auto run(const Config& cfg) -> int {
   bool all_found = true;
   for (const auto& name : cfg.names) {
-    auto hits = find_one(name, cfg.all);
+    auto hits = find_one(name, cfg);
     if (hits.empty()) {
       all_found = false;
       continue;
@@ -194,11 +417,6 @@ REGISTER_COMMAND(which, "which", "which [OPTION]... COMMAND...",
                  "where(1), command(1)", "WinuxCmd",
                  "Copyright © 2026 WinuxCmd", WHICH_OPTIONS) {
   using namespace which_pipeline;
-
-  if (auto unsupported = is_unsupported_used(ctx); unsupported.has_value()) {
-    cp::report_custom_error(L"which", utf8_to_wstring(*unsupported));
-    return 2;
-  }
 
   auto cfg = build_config(ctx);
   if (!cfg) {

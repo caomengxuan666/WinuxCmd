@@ -96,6 +96,9 @@ struct Config {
   bool unique_only = false;
   bool ignore_case = false;
   bool group_all = false;
+  bool output_unique = true;
+  bool output_first_repeated = true;
+  bool output_later_repeated = false;
   GroupMode group_mode = GroupMode::none;
   int skip_fields = 0;
   int skip_chars = 0;
@@ -148,15 +151,6 @@ auto split_records(std::string_view content, char delimiter)
   return std::vector<std::string>(out.begin(), out.end());
 }
 
-auto to_lower_ascii(std::string_view s) -> std::string {
-  std::string out;
-  out.reserve(s.size());
-  for (unsigned char c : s) {
-    out.push_back(static_cast<char>(std::tolower(c)));
-  }
-  return out;
-}
-
 auto skip_n_fields(std::string_view line, int n) -> std::string_view {
   if (n <= 0) return line;
 
@@ -185,7 +179,7 @@ auto comparison_key(std::string_view line, const Config& cfg) -> std::string {
   if (cfg.check_chars >= 0) {
     key = key.substr(0, static_cast<size_t>(cfg.check_chars));
   }
-  if (cfg.ignore_case) return to_lower_ascii(key);
+  if (cfg.ignore_case) return ascii_lower_copy(key);
   return std::string(key);
 }
 
@@ -194,16 +188,22 @@ auto is_unsupported_used(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
   return std::nullopt;
 }
 
-auto parse_group_mode(std::string_view method, GroupMode default_mode,
-                      bool allow_none = false) -> cp::Result<GroupMode> {
+auto parse_group_mode(std::string_view method, GroupMode default_mode)
+    -> cp::Result<GroupMode> {
   if (method.empty()) return default_mode;
-  if (allow_none && method == "none") return GroupMode::none;
   if (method == "separate") return GroupMode::separate;
   if (method == "prepend") return GroupMode::prepend;
   if (method == "append") return GroupMode::append;
   if (method == "both") return GroupMode::both;
-  return std::unexpected("invalid grouping method '" + std::string(method) +
-                         "'");
+  return std::unexpected("invalid grouping method " + std::string(method));
+}
+
+auto parse_all_repeated_mode(std::string_view method) -> cp::Result<GroupMode> {
+  if (method.empty() || method == "none") return GroupMode::none;
+  if (method == "prepend") return GroupMode::prepend;
+  if (method == "separate") return GroupMode::separate;
+  return std::unexpected("invalid argument " + std::string(method) +
+                         " for --all-repeated");
 }
 
 auto build_config(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
@@ -219,6 +219,13 @@ auto build_config(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
       ctx.get<bool>("--unique", false) || ctx.get<bool>("-u", false);
   cfg.ignore_case =
       ctx.get<bool>("--ignore-case", false) || ctx.get<bool>("-i", false);
+
+  if (cfg.repeated_only) cfg.output_unique = false;
+  if (cfg.all_repeated) {
+    cfg.output_unique = false;
+    cfg.output_later_repeated = true;
+  }
+  if (cfg.unique_only) cfg.output_first_repeated = false;
 
   cfg.skip_fields = ctx.get<int>("--skip-fields", 0);
   if (cfg.skip_fields == 0) cfg.skip_fields = ctx.get<int>("-f", 0);
@@ -245,10 +252,20 @@ auto build_config(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
     cfg.group_all = true;
     cfg.group_mode = *group_mode;
   } else if (ctx.has("--all-repeated")) {
-    auto group_mode = parse_group_mode(
-        ctx.get<std::string>("--all-repeated", ""), GroupMode::none, true);
+    auto group_mode =
+        parse_all_repeated_mode(ctx.get<std::string>("--all-repeated", ""));
     if (!group_mode) return std::unexpected(group_mode.error());
     cfg.group_mode = *group_mode;
+  }
+
+  const bool output_option_used = cfg.show_count || cfg.repeated_only ||
+                                  cfg.all_repeated || cfg.unique_only;
+  if (cfg.group_all && output_option_used) {
+    return std::unexpected("--group is mutually exclusive with -c/-d/-D/-u");
+  }
+  if (cfg.show_count && cfg.output_later_repeated) {
+    return std::unexpected(
+        "printing all duplicated lines and repeat counts is meaningless");
   }
 
   if (ctx.positionals.size() > 2) {
@@ -263,11 +280,8 @@ auto build_config(const CommandContext<UNIQ_OPTIONS.size()>& ctx)
 
 auto should_emit(size_t count, const Config& cfg) -> bool {
   if (cfg.group_all) return true;
-  if (!cfg.repeated_only && !cfg.unique_only && !cfg.all_repeated) return true;
-  if (cfg.repeated_only && count > 1) return true;
-  if (cfg.all_repeated && count > 1) return true;
-  if (cfg.unique_only && count == 1) return true;
-  return false;
+  if (count == 1) return cfg.output_unique;
+  return cfg.output_first_repeated || cfg.output_later_repeated;
 }
 
 auto emit_one(std::ostream& out, std::string_view line, size_t count,
@@ -305,6 +319,7 @@ auto run(const Config& cfg) -> int {
   if (records.empty()) return 0;
 
   size_t i = 0;
+  bool first_emitted_group = false;
   while (i < records.size()) {
     size_t j = i + 1;
     const auto key = comparison_key(records[i], cfg);
@@ -314,7 +329,7 @@ auto run(const Config& cfg) -> int {
 
     const size_t count = j - i;
     if (should_emit(count, cfg)) {
-      if (cfg.group_mode == GroupMode::separate && i != 0) {
+      if (cfg.group_mode == GroupMode::separate && first_emitted_group) {
         emit_group_separator(*out, cfg);
       }
       if (cfg.group_mode == GroupMode::prepend ||
@@ -322,19 +337,28 @@ auto run(const Config& cfg) -> int {
         emit_group_separator(*out, cfg);
       }
 
-      if ((cfg.all_repeated || cfg.group_mode != GroupMode::none) &&
-          count > 1) {
+      if (cfg.group_all) {
         for (size_t k = i; k < j; ++k) {
           emit_one(*out, records[k], count, cfg, true);
         }
-      } else {
+      } else if (count == 1) {
         emit_one(*out, records[i], count, cfg);
+      } else {
+        if (cfg.output_first_repeated) {
+          emit_one(*out, records[i], count, cfg);
+        }
+        if (cfg.output_later_repeated) {
+          for (size_t k = i + 1; k < j; ++k) {
+            emit_one(*out, records[k], count, cfg, true);
+          }
+        }
       }
 
       if (cfg.group_mode == GroupMode::append ||
           cfg.group_mode == GroupMode::both) {
         emit_group_separator(*out, cfg);
       }
+      first_emitted_group = true;
     }
     i = j;
   }

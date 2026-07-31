@@ -58,6 +58,7 @@ using cmd::meta::OptionType;
  * - @a -T, @a --print-type: print file system type [IMPLEMENTED]
  * - @a -B, @a --block-size=SIZE: scale sizes by SIZE [IMPLEMENTED]
  * - @a --total: produce a grand total [IMPLEMENTED]
+ * - @a --output[=FIELD_LIST]: use GNU-style output fields [IMPLEMENTED]
  * - @a -a, @a --all: include all file systems [ACCEPTED]
  * - @a --sync, @a --no-sync: sync control [ACCEPTED]
  */
@@ -80,7 +81,7 @@ auto constexpr DF_OPTIONS = std::array{
     OPTION("", "--sync", "invoke sync before getting usage info"),
     OPTION("", "--no-sync", "do not invoke sync before getting usage info"),
     OPTION("", "--output", "use the output format defined by FIELD_LIST",
-           STRING_TYPE),
+           OPTIONAL_STRING_TYPE),
     OPTION("-P", "--portability", "use the POSIX output format")};
 
 // ======================================================
@@ -221,9 +222,203 @@ struct OutputConfig {
   bool human = false;
   bool si = false;
   bool portability = false;
+  bool block_size_explicit = false;
   uint64_t block_size = 1;
   std::string block_label = "Total";
 };
+
+enum class OutputField {
+  Source,
+  FsType,
+  Size,
+  Used,
+  Avail,
+  Pcent,
+  ITotal,
+  IUsed,
+  IAvail,
+  IPcent,
+  Target,
+  File,
+};
+
+struct OutputColumn {
+  OutputField field;
+  std::string header;
+  bool align_right = false;
+};
+
+auto make_output_error(std::string message)
+    -> std::unexpected<std::string_view> {
+  static thread_local std::string storage;
+  storage = std::move(message);
+  return std::unexpected(std::string_view(storage));
+}
+
+auto parse_output_field(std::string_view name) -> std::optional<OutputField> {
+  if (name == "source") return OutputField::Source;
+  if (name == "fstype") return OutputField::FsType;
+  if (name == "size") return OutputField::Size;
+  if (name == "used") return OutputField::Used;
+  if (name == "avail") return OutputField::Avail;
+  if (name == "pcent") return OutputField::Pcent;
+  if (name == "itotal") return OutputField::ITotal;
+  if (name == "iused") return OutputField::IUsed;
+  if (name == "iavail") return OutputField::IAvail;
+  if (name == "ipcent") return OutputField::IPcent;
+  if (name == "target") return OutputField::Target;
+  if (name == "file") return OutputField::File;
+  return std::nullopt;
+}
+
+auto output_field_name(OutputField field) -> std::string_view {
+  switch (field) {
+    case OutputField::Source:
+      return "source";
+    case OutputField::FsType:
+      return "fstype";
+    case OutputField::Size:
+      return "size";
+    case OutputField::Used:
+      return "used";
+    case OutputField::Avail:
+      return "avail";
+    case OutputField::Pcent:
+      return "pcent";
+    case OutputField::ITotal:
+      return "itotal";
+    case OutputField::IUsed:
+      return "iused";
+    case OutputField::IAvail:
+      return "iavail";
+    case OutputField::IPcent:
+      return "ipcent";
+    case OutputField::Target:
+      return "target";
+    case OutputField::File:
+      return "file";
+  }
+  return "";
+}
+
+auto output_field_header(OutputField field, const OutputConfig& output)
+    -> std::string {
+  switch (field) {
+    case OutputField::Source:
+      return "Filesystem";
+    case OutputField::FsType:
+      return "Type";
+    case OutputField::Size:
+      return (output.human || output.si) ? "Size" : output.block_label;
+    case OutputField::Used:
+      return "Used";
+    case OutputField::Avail:
+      return "Avail";
+    case OutputField::Pcent:
+      return "Use%";
+    case OutputField::ITotal:
+      return "Inodes";
+    case OutputField::IUsed:
+      return "IUsed";
+    case OutputField::IAvail:
+      return "IFree";
+    case OutputField::IPcent:
+      return "IUse%";
+    case OutputField::Target:
+      return "Mounted on";
+    case OutputField::File:
+      return "File";
+  }
+  return "";
+}
+
+auto output_field_align_right(OutputField field) -> bool {
+  switch (field) {
+    case OutputField::Size:
+    case OutputField::Used:
+    case OutputField::Avail:
+    case OutputField::Pcent:
+    case OutputField::ITotal:
+    case OutputField::IUsed:
+    case OutputField::IAvail:
+    case OutputField::IPcent:
+      return true;
+    default:
+      return false;
+  }
+}
+
+auto append_output_fields(std::vector<OutputField>& fields,
+                          std::string_view csv) -> cp::Result<bool> {
+  size_t start = 0;
+  while (start <= csv.size()) {
+    size_t comma = csv.find(',', start);
+    std::string_view token = comma == std::string_view::npos
+                                 ? csv.substr(start)
+                                 : csv.substr(start, comma - start);
+
+    auto field = parse_output_field(token);
+    if (!field) {
+      return make_output_error("option --output: field " + std::string(token) +
+                               " unknown");
+    }
+    if (std::find(fields.begin(), fields.end(), *field) != fields.end()) {
+      return make_output_error("option --output: field " +
+                               std::string(output_field_name(*field)) +
+                               " used more than once");
+    }
+    fields.push_back(*field);
+
+    if (comma == std::string_view::npos) {
+      break;
+    }
+    start = comma + 1;
+  }
+  return true;
+}
+
+template <size_t N>
+auto has_empty_inline_output_value(const CommandContext<N>& ctx) -> bool {
+  for (std::string_view arg : ctx.raw_args) {
+    if (arg == "--output=") {
+      return true;
+    }
+  }
+  return false;
+}
+
+template <size_t N>
+auto parse_output_columns(const CommandContext<N>& ctx,
+                          const OutputConfig& output)
+    -> cp::Result<std::vector<OutputColumn>> {
+  std::vector<OutputField> fields;
+  constexpr std::string_view all_fields =
+      "source,fstype,itotal,iused,iavail,ipcent,size,used,avail,pcent,file,"
+      "target";
+
+  if (has_empty_inline_output_value(ctx)) {
+    return make_output_error("option --output: field  unknown");
+  }
+
+  for (const auto& occurrence : ctx.string_occurrences({"--output"})) {
+    std::string_view list =
+        occurrence.value.empty() ? all_fields : occurrence.value;
+    auto appended = append_output_fields(fields, list);
+    if (!appended) {
+      return std::unexpected(appended.error());
+    }
+  }
+
+  std::vector<OutputColumn> columns;
+  columns.reserve(fields.size());
+  for (auto field : fields) {
+    columns.push_back(
+        OutputColumn{.field = field,
+                     .header = output_field_header(field, output),
+                     .align_right = output_field_align_right(field)});
+  }
+  return columns;
+}
 
 auto block_label_for(std::string_view value) -> std::string {
   if (value.empty()) {
@@ -373,25 +568,29 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       output.si = false;
       output.block_size = 1024;
       output.block_label = "1K-blocks";
+      output.block_size_explicit = true;
       continue;
     }
 
     if (meta.short_name == "-h" || meta.long_name == "--human-readable") {
       output.human = true;
       output.si = false;
+      output.block_size_explicit = true;
       continue;
     }
 
     if (meta.short_name == "-H" || meta.long_name == "--si") {
       output.human = false;
       output.si = true;
+      output.block_size_explicit = true;
       continue;
     }
 
     if (meta.short_name == "-P" || meta.long_name == "--portability") {
       output.portability = true;
-      output.block_size = 512;
-      output.block_label = "512-blocks";
+      output.block_size = std::getenv("POSIXLY_CORRECT") ? 512 : 1024;
+      output.block_label = std::to_string(output.block_size) + "-blocks";
+      output.block_size_explicit = true;
       continue;
     }
 
@@ -403,11 +602,13 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       if (*value == "human-readable") {
         output.human = true;
         output.si = false;
+        output.block_size_explicit = true;
         continue;
       }
       if (*value == "si") {
         output.human = false;
         output.si = true;
+        output.block_size_explicit = true;
         continue;
       }
 
@@ -419,10 +620,139 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       output.si = false;
       output.block_size = *parsed;
       output.block_label = block_label_for(*value);
+      output.block_size_explicit = true;
     }
   }
 
   return output;
+}
+
+auto format_block_value(uint64_t value, const OutputConfig& output)
+    -> std::string {
+  if (output.human || output.si) {
+    return format_size(value, output.si);
+  }
+  return std::to_string(ceil_div(value, output.block_size));
+}
+
+auto format_percent(uint64_t used, uint64_t available) -> std::string {
+  uint64_t denominator = used + available;
+  if (denominator == 0 || denominator < used) {
+    return "-";
+  }
+
+  uint64_t percent = 0;
+  if (used <= std::numeric_limits<uint64_t>::max() / 100) {
+    uint64_t used_times_100 = used * 100;
+    percent = used_times_100 / denominator +
+              (used_times_100 % denominator != 0 ? 1 : 0);
+  } else {
+    double value =
+        (static_cast<double>(used) * 100.0) / static_cast<double>(denominator);
+    percent = static_cast<uint64_t>(value);
+    if (static_cast<double>(percent) < value) {
+      ++percent;
+    }
+  }
+
+  return std::to_string(percent) + "%";
+}
+
+auto output_cell(OutputField field, const DiskInfo& info,
+                 std::string_view requested_path, const OutputConfig& output)
+    -> std::string {
+  uint64_t used = info.total - info.total_free;
+  switch (field) {
+    case OutputField::Source:
+      return info.filesystem;
+    case OutputField::FsType:
+      return info.type;
+    case OutputField::Size:
+      return format_block_value(info.total, output);
+    case OutputField::Used:
+      return format_block_value(used, output);
+    case OutputField::Avail:
+      return format_block_value(info.available, output);
+    case OutputField::Pcent:
+      return format_percent(used, info.available);
+    case OutputField::ITotal:
+    case OutputField::IUsed:
+    case OutputField::IAvail:
+    case OutputField::IPcent:
+      // Windows volume APIs do not expose GNU-compatible inode accounting.
+      return "-";
+    case OutputField::Target:
+      return info.mount_point;
+    case OutputField::File:
+      return std::string(requested_path);
+  }
+  return "";
+}
+
+auto total_output_cell(OutputField field, uint64_t total, uint64_t used,
+                       uint64_t available, const OutputConfig& output)
+    -> std::string {
+  switch (field) {
+    case OutputField::Source:
+    case OutputField::File:
+    case OutputField::Target:
+      return "total";
+    case OutputField::FsType:
+    case OutputField::ITotal:
+    case OutputField::IUsed:
+    case OutputField::IAvail:
+    case OutputField::IPcent:
+      return "-";
+    case OutputField::Size:
+      return format_block_value(total, output);
+    case OutputField::Used:
+      return format_block_value(used, output);
+    case OutputField::Avail:
+      return format_block_value(available, output);
+    case OutputField::Pcent:
+      return format_percent(used, available);
+  }
+  return "";
+}
+
+auto print_custom_output_table(
+    const std::vector<OutputColumn>& columns,
+    const std::vector<std::vector<std::string>>& rows) -> void {
+  std::vector<size_t> widths;
+  widths.reserve(columns.size());
+  for (const auto& column : columns) {
+    widths.push_back(column.header.size());
+  }
+
+  for (const auto& row : rows) {
+    for (size_t i = 0; i < row.size() && i < widths.size(); ++i) {
+      widths[i] = std::max(widths[i], row[i].size());
+    }
+  }
+
+  auto print_row = [&](const std::vector<std::string>& cells) {
+    std::ostringstream line;
+    for (size_t i = 0; i < cells.size(); ++i) {
+      if (i > 0) line << ' ';
+      if (columns[i].align_right) {
+        line << std::right << std::setw(static_cast<int>(widths[i]))
+             << cells[i];
+      } else {
+        line << std::left << std::setw(static_cast<int>(widths[i])) << cells[i];
+      }
+    }
+    safePrintLn(line.str());
+  };
+
+  std::vector<std::string> headers;
+  headers.reserve(columns.size());
+  for (const auto& column : columns) {
+    headers.push_back(column.header);
+  }
+  print_row(headers);
+  for (const auto& row : rows) {
+    print_row(row);
+  }
 }
 
 auto print_total_row(uint64_t total, uint64_t used, uint64_t available,
@@ -438,10 +768,8 @@ auto print_total_row(uint64_t total, uint64_t used, uint64_t available,
   } else {
     print_size_columns(total, used, available, output);
 
-    double percent = (total > 0) ? (100.0 * used / total) : 0.0;
-    char percent_buf[32];
-    snprintf(percent_buf, sizeof(percent_buf), " %.0f%%", percent);
-    safePrint(percent_buf);
+    safePrint(" ");
+    safePrint(format_percent(used, available));
   }
 
   safePrintLn("  total");
@@ -484,6 +812,7 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
       ctx.get<bool>("--print-type", false) || ctx.get<bool>("-T", false);
   bool inodes = ctx.get<bool>("--inodes", false) || ctx.get<bool>("-i", false);
   bool total = ctx.get<bool>("--total", false);
+  bool custom_output = ctx.has("--output");
   bool local_only =
       ctx.get<bool>("--local", false) || ctx.get<bool>("-l", false);
   std::string include_type = ctx.get<std::string>("--type", "");
@@ -491,12 +820,38 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
   std::string exclude_type = ctx.get<std::string>("--exclude-type", "");
   if (exclude_type.empty()) exclude_type = ctx.get<std::string>("-x", "");
 
+  if (custom_output) {
+    if (inodes) {
+      return std::unexpected("options -i and --output are mutually exclusive");
+    }
+    if (print_type) {
+      return std::unexpected("options -T and --output are mutually exclusive");
+    }
+    if (output->portability) {
+      return std::unexpected("options -P and --output are mutually exclusive");
+    }
+    if (!output->block_size_explicit && !output->human && !output->si) {
+      output->block_size = 1024;
+      output->block_label = "1K-blocks";
+    }
+  }
+
+  std::vector<OutputColumn> custom_columns;
+  if (custom_output) {
+    auto columns = parse_output_columns(ctx, *output);
+    if (!columns) {
+      return std::unexpected(columns.error());
+    }
+    custom_columns = std::move(*columns);
+  }
+
   bool all_ok = true;
   bool header_printed = false;
   uint64_t total_size = 0;
   uint64_t total_used = 0;
   uint64_t total_available = 0;
   size_t printed_rows = 0;
+  std::vector<std::vector<std::string>> custom_rows;
 
   for (size_t i = 0; i < paths.size(); ++i) {
     const auto& path = paths[i];
@@ -541,37 +896,59 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
       if (drive_type == DRIVE_REMOTE) continue;
     }
 
-    // Print header (only once)
-    if (!header_printed) {
-      print_usage_header(*output, print_type, inodes);
+    if (custom_output) {
+      std::vector<std::string> row;
+      row.reserve(custom_columns.size());
+      for (const auto& column : custom_columns) {
+        row.push_back(output_cell(column.field, info, path, *output));
+      }
+      custom_rows.push_back(std::move(row));
       header_printed = true;
-    }
-
-    // Print filesystem
-    safePrint(info.filesystem);
-    if (print_type) {
-      safePrint(" ");
-      safePrint(info.type);
-    }
-
-    if (inodes) {
-      safePrint("            -          -          -     -");
     } else {
-      print_size_columns(info.total, used, info.available, *output);
+      // Print header (only once)
+      if (!header_printed) {
+        print_usage_header(*output, print_type, inodes);
+        header_printed = true;
+      }
 
-      // Print capacity percentage
-      double percent = (info.total > 0) ? (100.0 * used / info.total) : 0.0;
-      char percent_buf[32];
-      snprintf(percent_buf, sizeof(percent_buf), " %.0f%%", percent);
-      safePrint(percent_buf);
+      // Print filesystem
+      safePrint(info.filesystem);
+      if (print_type) {
+        safePrint(" ");
+        safePrint(info.type);
+      }
+
+      if (inodes) {
+        safePrint("            -          -          -     -");
+      } else {
+        print_size_columns(info.total, used, info.available, *output);
+
+        // Print capacity percentage
+        safePrint(" ");
+        safePrint(format_percent(used, info.available));
+      }
+
+      // Print mount point (use path itself on Windows)
+      safePrintLn(L"  " + utf8_to_wstring(info.mount_point));
     }
-
-    // Print mount point (use path itself on Windows)
-    safePrintLn(L"  " + utf8_to_wstring(info.mount_point));
     total_size += info.total;
     total_used += used;
     total_available += info.available;
     ++printed_rows;
+  }
+
+  if (custom_output) {
+    if (total && !custom_rows.empty()) {
+      std::vector<std::string> row;
+      row.reserve(custom_columns.size());
+      for (const auto& column : custom_columns) {
+        row.push_back(total_output_cell(column.field, total_size, total_used,
+                                        total_available, *output));
+      }
+      custom_rows.push_back(std::move(row));
+    }
+    print_custom_output_table(custom_columns, custom_rows);
+    return all_ok;
   }
 
   if (!header_printed && all_ok) {

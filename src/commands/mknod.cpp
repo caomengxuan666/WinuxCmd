@@ -21,6 +21,12 @@ auto constexpr MKNOD_OPTIONS = std::array{
 namespace mknod_pipeline {
 namespace cp = core::pipeline;
 
+auto make_error(std::string message) -> cp::Error {
+  static thread_local std::string storage;
+  storage = std::move(message);
+  return storage;
+}
+
 enum class NodeType { Block, Character, Fifo };
 
 auto is_plausible_mode(std::string_view mode) -> bool {
@@ -59,20 +65,21 @@ auto parse_node_type(std::string_view type) -> cp::Result<NodeType> {
     case 'p':
       return NodeType::Fifo;
     default:
-      return std::unexpected("invalid device type '" + std::string(type) + "'");
+      return std::unexpected(
+          make_error("invalid device type '" + std::string(type) + "'"));
   }
 }
 
 auto parse_uint_arg(std::string_view arg, std::string_view label)
     -> cp::Result<unsigned long long> {
   if (arg.empty()) {
-    return std::unexpected("missing " + std::string(label));
+    return std::unexpected(make_error("missing " + std::string(label)));
   }
   unsigned long long value = 0;
   auto [ptr, ec] = std::from_chars(arg.data(), arg.data() + arg.size(), value);
   if (ec != std::errc() || ptr != arg.data() + arg.size()) {
-    return std::unexpected("invalid " + std::string(label) + " '" +
-                           std::string(arg) + "'");
+    return std::unexpected(make_error("invalid " + std::string(label) + " '" +
+                                      std::string(arg) + "'"));
   }
   return value;
 }
@@ -98,7 +105,11 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
   (void)ctx.get<std::string>("--context", "");
 
   if (ctx.positionals.size() < 2) {
-    return std::unexpected("missing operand");
+    if (ctx.positionals.empty()) {
+      return std::unexpected("missing operand");
+    }
+    return std::unexpected(make_error(
+        "missing operand after '" + std::string(ctx.positionals.back()) + "'"));
   }
 
   cfg.name = std::string(ctx.positionals[0]);
@@ -109,14 +120,16 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
   if (cfg.type == NodeType::Fifo) {
     if (ctx.positionals.size() > 2) {
       return std::unexpected(
-          "fifo type does not accept major and minor device numbers");
+          make_error("extra operand '" + std::string(ctx.positionals[2]) +
+                     "'\nFifos do not have major and minor device numbers."));
     }
     return cfg;
   }
 
   if (ctx.positionals.size() < 4) {
-    return std::unexpected(
-        "special file type requires major and minor device numbers");
+    return std::unexpected(make_error(
+        "missing operand after '" + std::string(ctx.positionals.back()) +
+        "'\nSpecial files require major and minor device numbers."));
   }
 
   auto major_result = parse_uint_arg(ctx.positionals[2], "major");
@@ -131,9 +144,9 @@ auto run(const Config& cfg) -> int {
   std::filesystem::path p(cfg.name);
   std::error_code ec;
   if (std::filesystem::exists(p, ec)) {
-    safeErrorPrint("mknod: cannot create special file '");
+    safeErrorPrint("mknod: ");
     safeErrorPrint(cfg.name);
-    safeErrorPrint("': File exists\n");
+    safeErrorPrint(": File exists\n");
     return 1;
   }
 
@@ -164,6 +177,10 @@ REGISTER_COMMAND(
     safeErrorPrint("mknod: ");
     safeErrorPrint(cfg_result.error());
     safeErrorPrint("\n");
+    if (cfg_result.error().starts_with("missing operand") ||
+        cfg_result.error().starts_with("extra operand")) {
+      safeErrorPrint("Try 'mknod --help' for more information.\n");
+    }
     return 1;
   }
 

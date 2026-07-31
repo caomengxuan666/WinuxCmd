@@ -65,7 +65,7 @@ REGISTER_COMMAND(
   // Send ANSI escape sequence to clear screen and move cursor to home
   // \033[2J - Clear entire screen
   // \033[H  - Move cursor to home position (top-left)
-  safePrint("\033[2J\033[H");
+  safePrint("\033[H\033[2J\033[3J");
 
   return 0;
 }

@@ -7,7 +7,8 @@ TEST(runcon, runcon_no_args_reports_windows_limitation) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("not supported on Windows"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find("failed to get current context"),
+            std::string::npos);
 }
 
 TEST(runcon, runcon_plain_context_requires_command) {
@@ -17,7 +18,7 @@ TEST(runcon, runcon_plain_context_requires_command) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("missing command"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find("no command specified"), std::string::npos);
 }
 
 TEST(runcon, runcon_plain_context_form_reports_windows_limitation) {
@@ -31,14 +32,14 @@ TEST(runcon, runcon_plain_context_form_reports_windows_limitation) {
   EXPECT_NE(r.stderr_text.find("not supported on Windows"), std::string::npos);
 }
 
-TEST(runcon, runcon_custom_context_without_command_reports_windows_limitation) {
+TEST(runcon, runcon_custom_context_without_command_requires_command) {
   Pipeline p;
   p.add(L"runcon.exe", {L"-t", L"httpd_t"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("not supported on Windows"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find("no command specified"), std::string::npos);
 }
 
 TEST(runcon, runcon_custom_context_with_command_reports_windows_limitation) {

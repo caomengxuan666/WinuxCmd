@@ -3,22 +3,21 @@
  */
 #include "framework/winuxtest.h"
 
-TEST(sdiff, sdiff_basic) {
+TEST(sdiff, sdiff_basic_matches_gnu_width_80_shape) {
   TempDir tmp;
-  tmp.write("file1.txt", "hello\nworld\n");
-  tmp.write("file2.txt", "hello\nuniverse\n");
+  tmp.write("file1.txt", "same\nleft\n");
+  tmp.write("file2.txt", "same\nright\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sdiff.exe", {L"file1.txt", L"file2.txt"});
-
-  TEST_LOG_CMD_LIST("sdiff.exe", L"file1.txt", L"file2.txt");
+  p.add(L"sdiff.exe", {L"-w", L"80", L"file1.txt", L"file2.txt"});
 
   auto r = p.run();
 
-  TEST_LOG_EXIT_CODE(r);
-
-  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "same\t\t\t\t\tsame\n"
+                 "left\t\t\t\t      |\tright\n");
 }
 
 TEST(sdiff, sdiff_output_file) {
@@ -31,28 +30,24 @@ TEST(sdiff, sdiff_output_file) {
   p.add(L"sdiff.exe", {L"-o", L"output.txt", L"a.txt", L"b.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.exit_code, 1);
 }
 
-TEST(sdiff, sdiff_suppress_common) {
+TEST(sdiff, sdiff_suppress_common_matches_gnu_width_80_shape) {
   TempDir tmp;
-  tmp.write("a.txt", "same\ndiff1\n");
-  tmp.write("b.txt", "same\ndiff2\n");
+  tmp.write("a.txt", "same\nleft\n");
+  tmp.write("b.txt", "same\nright\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sdiff.exe", {L"--suppress-common-lines", L"a.txt", L"b.txt"});
+  p.add(L"sdiff.exe", {L"-s", L"-w", L"80", L"a.txt", L"b.txt"});
   auto r = p.run();
 
-  TEST_LOG_EXIT_CODE(r);
-  TEST_LOG("sdiff suppress common output", r.stdout_text);
-
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("same") == std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("diff1") != std::string::npos);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stdout_text, "left\t\t\t\t      |\tright\n");
 }
 
-TEST(sdiff, sdiff_width) {
+TEST(sdiff, sdiff_width_difference_returns_one) {
   TempDir tmp;
   tmp.write("a.txt", "hello\n");
   tmp.write("b.txt", "world\n");
@@ -62,10 +57,7 @@ TEST(sdiff, sdiff_width) {
   p.add(L"sdiff.exe", {L"-w", L"120", L"a.txt", L"b.txt"});
   auto r = p.run();
 
-  TEST_LOG_EXIT_CODE(r);
-  TEST_LOG("sdiff width output", r.stdout_text);
-
-  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.exit_code, 1);
 }
 
 TEST(sdiff, sdiff_ignore_tab_expansion) {
@@ -78,8 +70,7 @@ TEST(sdiff, sdiff_ignore_tab_expansion) {
   p.add(L"sdiff.exe", {L"-E", L"a.txt", L"b.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // With -E, tabs and spaces should be considered equivalent
+  EXPECT_EQ(r.exit_code, 1);
 }
 
 TEST(sdiff, sdiff_identical_files) {

@@ -480,9 +480,9 @@ TEST(du, du_files0_from_reads_nul_terminated_paths) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("3  a.txt") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("4  b.txt") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("7  total") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("3\ta.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("4\tb.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("7\ttotal") != std::string::npos);
 }
 
 TEST(du, du_files0_from_rejects_named_operands) {

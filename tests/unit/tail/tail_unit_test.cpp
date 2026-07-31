@@ -162,7 +162,7 @@ TEST(tail, tail_obsolete_count_after_options_reports_invalid_context) {
               std::string::npos);
 }
 
-TEST(tail, tail_bare_plus_count_is_treated_as_a_file_operand) {
+TEST(tail, tail_bare_plus_count_uses_obsolete_from_start_lines) {
   TempDir tmp;
   tmp.write("a.txt", "1\n2\n3\n4\n5\n6\n");
 
@@ -171,11 +171,8 @@ TEST(tail, tail_bare_plus_count_is_treated_as_a_file_operand) {
   p.add(L"tail.exe", {L"+5", L"a.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(r.stderr_text.find("cannot open '+5' for reading") !=
-              std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("==> a.txt <==") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("1\n2\n3\n4\n5\n6\n") != std::string::npos);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "5\n6\n");
 }
 
 TEST(tail, tail_negative_line_and_byte_counts) {

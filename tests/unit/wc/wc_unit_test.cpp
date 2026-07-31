@@ -50,7 +50,7 @@ TEST(wc, wc_direct_input) {
   TEST_LOG("wc.exe (no args) output", r2.stdout_text);
 
   EXPECT_EQ_TEXT(r.stdout_text, "2\n");
-  EXPECT_EQ_TEXT(r2.stdout_text, "2 2 12\n");
+  EXPECT_EQ_TEXT(r2.stdout_text, "      2       2      12\n");
 }
 
 TEST(wc, wc_with_options) {
@@ -121,6 +121,26 @@ TEST(wc, wc_chars_count_utf8_codepoints_not_bytes) {
   EXPECT_EQ_TEXT(bytes_result.stdout_text, "3\n");
 }
 
+TEST(wc, wc_chars_count_utf8_codepoint_split_across_read_block) {
+  std::string input((64 * 1024) - 1, 'a');
+  input.append("\xC3\xA9\n", 3);
+
+  Pipeline chars;
+  chars.set_stdin(input);
+  chars.add(L"wc.exe", {L"-m"});
+  auto chars_result = chars.run();
+
+  Pipeline bytes;
+  bytes.set_stdin(input);
+  bytes.add(L"wc.exe", {L"-c"});
+  auto bytes_result = bytes.run();
+
+  EXPECT_EQ(chars_result.exit_code, 0);
+  EXPECT_EQ(bytes_result.exit_code, 0);
+  EXPECT_EQ_TEXT(chars_result.stdout_text, "65537\n");
+  EXPECT_EQ_TEXT(bytes_result.stdout_text, "65538\n");
+}
+
 TEST(wc, wc_max_line_length_expands_tabs) {
   Pipeline p;
   p.set_stdin("a\tb\n");
@@ -158,7 +178,36 @@ TEST(wc, wc_combined_options) {
   TEST_LOG_EXIT_CODE(r);
   TEST_LOG("wc.exe -l -w -c output", r.stdout_text);
 
-  EXPECT_EQ_TEXT(r.stdout_text, "2 2 12\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "      2       2      12\n");
+}
+
+TEST(wc, wc_file_output_uses_gnu_number_alignment) {
+  TempDir tmp;
+  tmp.write("a.txt", "hello\nworld\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"wc.exe", {L"a.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, " 2  2 12 a.txt\n");
+}
+
+TEST(wc, wc_multiple_files_align_single_count_and_total) {
+  TempDir tmp;
+  tmp.write("a.txt", "hello\nworld\n");
+  tmp.write("b.txt", "one\ntwo\nthree\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"wc.exe", {L"-l", L"a.txt", L"b.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, " 2 a.txt\n 3 b.txt\n 5 total\n");
 }
 
 TEST(wc, wc_wildcard) {

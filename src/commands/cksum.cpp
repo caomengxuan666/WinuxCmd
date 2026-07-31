@@ -222,22 +222,26 @@ auto read_file(const std::string& filename) -> cp::Result<FileData> {
   return fd;
 }
 
-auto calculate_crc32(const std::vector<unsigned char>& data) -> uint32_t {
-  uint32_t crc = 0xFFFFFFFF;
-  constexpr uint32_t polynomial = 0xEDB88320;
-
-  for (unsigned char byte : data) {
-    crc ^= byte;
-    for (int i = 0; i < 8; ++i) {
-      if (crc & 1) {
-        crc = (crc >> 1) ^ polynomial;
-      } else {
-        crc >>= 1;
-      }
+auto read_crc_file(const std::string& filename)
+    -> cp::Result<portable_digest::PosixCksumResult> {
+  std::istream* input = &std::cin;
+  std::ifstream file;
+  if (filename != "-" && !filename.empty()) {
+    file.open(std::filesystem::u8path(filename), std::ios::binary);
+    if (!file) {
+      return std::unexpected(input_open_error(filename));
     }
+    input = &file;
   }
 
-  return ~crc;
+  auto result = portable_digest::posix_cksum_stream(*input);
+  if (!result) {
+    if (filename == "-" || filename.empty()) {
+      return std::unexpected("error reading from standard input");
+    }
+    return std::unexpected(std::string("error reading '") + filename + "'");
+  }
+  return *result;
 }
 
 auto calculate_sysv(const std::vector<unsigned char>& data)
@@ -506,26 +510,25 @@ auto run_check_mode(const Config& cfg) -> int {
       }
     }
 
-    // Compute actual digest
-    auto file_data = read_file(filename);
-    if (!file_data) {
+    auto crc_result = read_crc_file(filename);
+    if (!crc_result) {
       if (!cfg.status) {
         safeErrorPrint("cksum: ");
-        safeErrorPrint(std::string(file_data.error()));
+        safeErrorPrint(std::string(crc_result.error()));
         safeErrorPrint("\n");
       }
       ++unreadable;
       continue;
     }
 
-    uint32_t crc = calculate_crc32(file_data->data);
+    uint32_t crc = crc_result->checksum;
     char crc_hex[9];
     snprintf(crc_hex, sizeof(crc_hex), "%08x", crc);
 
     bool digest_matches =
         expected_digest == crc_hex || expected_digest == std::to_string(crc);
     bool size_matches =
-        !expected_bytes.has_value() || *expected_bytes == file_data->byte_count;
+        !expected_bytes.has_value() || *expected_bytes == crc_result->bytes;
 
     if (digest_matches && size_matches) {
       if (!cfg.zero_terminated && !cfg.quiet && !cfg.status) {
@@ -595,6 +598,28 @@ auto run(const Config& cfg) -> int {
 
   bool all_ok = true;
   for (const auto& file : cfg.files) {
+    if (cfg.algorithm == Algorithm::CRC) {
+      auto crc_result = read_crc_file(file);
+      if (!crc_result) {
+        cp::report_error(crc_result, L"cksum");
+        all_ok = false;
+        continue;
+      }
+
+      if (cfg.debug) {
+        safeErrorPrint("cksum: algorithm: crc\n");
+        safeErrorPrint("cksum: file: " + file + "\n");
+        safeErrorPrint("cksum: bytes: " + std::to_string(crc_result->bytes) +
+                       "\n");
+      }
+
+      char buf[9];
+      snprintf(buf, sizeof(buf), "%08x", crc_result->checksum);
+      output_digest(cfg, buf, crc_result->checksum, crc_result->bytes, file,
+                    cfg.algorithm);
+      continue;
+    }
+
     auto file_data = read_file(file);
     if (!file_data) {
       cp::report_error(file_data, L"cksum");
@@ -626,14 +651,6 @@ auto run(const Config& cfg) -> int {
     uint64_t display_bytes = file_data->byte_count;
 
     switch (cfg.algorithm) {
-      case Algorithm::CRC: {
-        uint32_t crc = calculate_crc32(file_data->data);
-        display_value = crc;
-        char buf[9];
-        snprintf(buf, sizeof(buf), "%08x", crc);
-        digest_hex = buf;
-        break;
-      }
       case Algorithm::SYSV: {
         auto [checksum, blocks] = calculate_sysv(file_data->data);
         display_value = checksum;
@@ -655,6 +672,8 @@ auto run(const Config& cfg) -> int {
         digest_hex = buf;
         break;
       }
+      case Algorithm::CRC:
+        std::unreachable();
     }
 
     output_digest(cfg, digest_hex, display_value, display_bytes, file,

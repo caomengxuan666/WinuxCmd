@@ -14,7 +14,7 @@ WinuxCmd 给 Windows 终端补上一层紧凑的 GNU 风格命令：`ls`、`cat`
 `grep`、`find`、`xargs`、`sed`、`sort`、`uniq`、`cp`、`mv`、`rm`
 等等。
 
-0.13 这一版开始，定位更明确：WinuxCmd 负责核心命令，WPM 负责管理
+0.14 这一版开始，定位更明确：WinuxCmd 负责核心命令，WPM 负责管理
 `awk`、`jq`、`rg`、`fd`、`fzf`、`bat`、`yq`、`7z`、`ffmpeg` 这类可携带的
 外部二进制工具。
 

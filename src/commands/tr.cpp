@@ -30,6 +30,9 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
+#include <fcntl.h>
+#include <io.h>
+
 #include "pch/pch.h"
 // include other header after pch.h
 #include "core/command_macros.h"
@@ -367,6 +370,11 @@ auto build_config(const CommandContext<TR_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
+#ifdef _WIN32
+  _setmode(_fileno(stdin), _O_BINARY);
+  _setmode(_fileno(stdout), _O_BINARY);
+#endif
+
   std::array<char, 256> trans_table;
   std::array<bool, 256> delete_set{};
   std::array<bool, 256> squeeze_set{};
@@ -389,50 +397,71 @@ auto run(const Config& cfg) -> int {
     }
   }
 
-  // Read from stdin and process
-  std::string input;
-  input.assign(std::istreambuf_iterator<char>(std::cin),
-               std::istreambuf_iterator<char>());
-
-  std::string output;
-  output.reserve(input.size());
-
+  std::array<char, 64 * 1024> input_buffer{};
+  std::array<char, 64 * 1024> output_buffer{};
   char prev_char = '\0';
   bool prev_was_squeezed = false;
 
-  for (size_t pos = 0; pos < input.size(); ++pos) {
-    char c = input[pos];
-    unsigned char uc = static_cast<unsigned char>(c);
+  auto write_block = [](const char* data, size_t size) -> bool {
+    return size == 0 || ::fwrite(data, 1, size, stdout) == size;
+  };
 
-    // Check delete (SET1 in delete mode)
-    if (cfg.delete_mode && delete_set[uc]) {
+  // GNU tr keeps its hot paths streaming through read_and_xlate,
+  // read_and_delete, and squeeze_filter. Keep the same shape here instead of
+  // materializing stdin/stdout as whole strings.
+  while (true) {
+    size_t got = ::fread(input_buffer.data(), 1, input_buffer.size(), stdin);
+    if (got == 0) break;
+
+    if (!cfg.delete_mode && !cfg.squeeze) {
+      for (size_t i = 0; i < got; ++i) {
+        unsigned char uc = static_cast<unsigned char>(input_buffer[i]);
+        input_buffer[i] = trans_table[uc];
+      }
+      if (!write_block(input_buffer.data(), got)) {
+        safeErrorPrintLn("tr: write error");
+        return 1;
+      }
       continue;
     }
 
-    // Translate
-    char translated = cfg.delete_mode ? c : trans_table[uc];
-    unsigned char translated_uc = static_cast<unsigned char>(translated);
+    size_t out_len = 0;
+    for (size_t pos = 0; pos < got; ++pos) {
+      char c = input_buffer[pos];
+      unsigned char uc = static_cast<unsigned char>(c);
 
-    // Squeeze
-    bool should_output = true;
-    if (cfg.squeeze && squeeze_set[translated_uc]) {
-      // This character is in the squeeze set
-      // If it's a repeat of the previous character, skip it
-      if (prev_was_squeezed && translated == prev_char) {
-        should_output = false;
+      if (cfg.delete_mode && delete_set[uc]) {
+        continue;
       }
+
+      char translated = cfg.delete_mode ? c : trans_table[uc];
+      unsigned char translated_uc = static_cast<unsigned char>(translated);
+
+      if (cfg.squeeze && squeeze_set[translated_uc]) {
+        if (prev_was_squeezed && translated == prev_char) {
+          continue;
+        }
+        prev_char = translated;
+        prev_was_squeezed = true;
+      } else {
+        prev_char = translated;
+        prev_was_squeezed = false;
+      }
+
+      output_buffer[out_len++] = translated;
     }
 
-    if (should_output) {
-      output += translated;
-      prev_char = translated;
-      prev_was_squeezed = (cfg.squeeze && squeeze_set[translated_uc]);
+    if (!write_block(output_buffer.data(), out_len)) {
+      safeErrorPrintLn("tr: write error");
+      return 1;
     }
-    // Note: If we skip a character (should_output = false), we keep
-    // prev_was_squeezed = true to continue skipping subsequent same characters
   }
 
-  safePrint(output);
+  if (::ferror(stdin)) {
+    safeErrorPrintLn("tr: read error");
+    return 1;
+  }
+
   return 0;
 }
 

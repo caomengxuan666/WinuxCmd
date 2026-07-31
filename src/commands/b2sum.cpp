@@ -31,15 +31,8 @@
 /// @Copyright: Copyright © 2026 WinuxCmd
 // *** SIMPLIFIED IMPLEMENTATION - Some features may not be fully supported ***
 
-#include "pch/pch.h"
-// include other header after pch.h
-#include <bcrypt.h>  // For CNG API (BLAKE2 support)
-#include <wincrypt.h>
-
 #include "core/command_macros.h"
-
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "bcrypt.lib")  // For CNG API
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -167,118 +160,10 @@ auto input_open_error(const std::string& filename) -> std::string {
          "' for reading: No such file or directory";
 }
 
-// Calculate hash using CNG API (SHA512 as BLAKE2-512 placeholder)
-auto calculate_hash(const std::string& filename, bool text_mode = false)
-    -> cp::Result<std::string> {
-  BCRYPT_ALG_HANDLE hAlg = NULL;
-  BCRYPT_HASH_HANDLE hHash = NULL;
-  NTSTATUS status;
-
-  // Open SHA512 algorithm provider (using CNG API)
-  status = BCryptOpenAlgorithmProvider(&hAlg, BCRYPT_SHA512_ALGORITHM, NULL, 0);
-  if (!BCRYPT_SUCCESS(status)) {
-    return std::unexpected("failed to open SHA512 algorithm provider");
-  }
-
-  // Get hash object size
-  DWORD hash_object_size = 0;
-  DWORD data_size = 0;
-  status =
-      BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH, (PUCHAR)&hash_object_size,
-                        sizeof(DWORD), &data_size, 0);
-  if (!BCRYPT_SUCCESS(status)) {
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    return std::unexpected("failed to get hash object size");
-  }
-
-  // Allocate hash object
-  std::vector<BYTE> hash_object(hash_object_size);
-
-  // Create hash handle
-  status = BCryptCreateHash(hAlg, &hHash, hash_object.data(), hash_object_size,
-                            NULL, 0, 0);
-  if (!BCRYPT_SUCCESS(status)) {
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    return std::unexpected("failed to create hash handle");
-  }
-
-  // Hash the data
-  if (filename == "-" || filename.empty()) {
-    // Read from stdin
-    std::array<char, 8192> buffer;
-    size_t bytes_read;
-    while ((bytes_read = fread(buffer.data(), 1, buffer.size(), stdin)) > 0) {
-      status = BCryptHashData(hHash, reinterpret_cast<PUCHAR>(buffer.data()),
-                              static_cast<ULONG>(bytes_read), 0);
-      if (!BCRYPT_SUCCESS(status)) {
-        BCryptDestroyHash(hHash);
-        BCryptCloseAlgorithmProvider(hAlg, 0);
-        return std::unexpected("failed to hash data");
-      }
-    }
-  } else {
-    // Read from file (binary mode by default, text mode if --text)
-    std::ifstream file(filename, text_mode ? std::ios::in : std::ios::binary);
-    if (!file) {
-      BCryptDestroyHash(hHash);
-      BCryptCloseAlgorithmProvider(hAlg, 0);
-      return std::unexpected(input_open_error(filename));
-    }
-
-    std::array<char, 8192> buffer;
-    while (file) {
-      file.read(buffer.data(), buffer.size());
-      std::streamsize bytes_read = file.gcount();
-      if (bytes_read > 0) {
-        status = BCryptHashData(hHash, reinterpret_cast<PUCHAR>(buffer.data()),
-                                static_cast<ULONG>(bytes_read), 0);
-        if (!BCRYPT_SUCCESS(status)) {
-          BCryptDestroyHash(hHash);
-          BCryptCloseAlgorithmProvider(hAlg, 0);
-          return std::unexpected("failed to hash data");
-        }
-      }
-    }
-    if (file.fail() && !file.eof()) {
-      BCryptDestroyHash(hHash);
-      BCryptCloseAlgorithmProvider(hAlg, 0);
-      return std::unexpected("error reading from file");
-    }
-  }
-
-  // Get hash length
-  DWORD hash_len = 0;
-  status = BCryptGetProperty(hAlg, BCRYPT_HASH_LENGTH, (PUCHAR)&hash_len,
-                             sizeof(DWORD), &data_size, 0);
-  if (!BCRYPT_SUCCESS(status)) {
-    BCryptDestroyHash(hHash);
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    return std::unexpected("failed to get hash length");
-  }
-
-  // Get hash value
-  std::vector<BYTE> hash_value(hash_len);
-  status = BCryptFinishHash(hHash, hash_value.data(), hash_len, 0);
-  if (!BCRYPT_SUCCESS(status)) {
-    BCryptDestroyHash(hHash);
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    return std::unexpected("failed to finish hash");
-  }
-
-  // Cleanup
-  BCryptDestroyHash(hHash);
-  BCryptCloseAlgorithmProvider(hAlg, 0);
-
-  // Convert to hex string
-  std::string result;
-  result.reserve(hash_len * 2);
-  for (DWORD i = 0; i < hash_len; ++i) {
-    char buf[3];
-    snprintf(buf, sizeof(buf), "%02x", hash_value[i]);
-    result += buf;
-  }
-
-  return result;
+auto calculate_hash(const std::string& filename, bool text_mode = false,
+                    size_t digest_bytes = 64) -> cp::Result<std::string> {
+  return portable_digest::hash_file_hex(portable_digest::HashAlgorithm::Blake2b,
+                                        filename, text_mode, digest_bytes);
 }
 
 auto parse_check_line(const std::string& line) -> std::optional<CheckLine> {
@@ -287,8 +172,14 @@ auto parse_check_line(const std::string& line) -> std::optional<CheckLine> {
   }
 
   size_t eq_pos = line.find(" = ");
-  if (eq_pos != std::string::npos && line.rfind("BLAKE2 (", 0) == 0) {
-    std::string filename = line.substr(8, eq_pos - 8);
+  if (eq_pos != std::string::npos &&
+      (line.rfind("BLAKE2 (", 0) == 0 || line.rfind("BLAKE2b (", 0) == 0 ||
+       line.rfind("BLAKE2b-", 0) == 0)) {
+    size_t paren = line.find(" (");
+    if (paren == std::string::npos || paren >= eq_pos) {
+      return std::nullopt;
+    }
+    std::string filename = line.substr(paren + 2, eq_pos - (paren + 2));
     if (!filename.empty() && filename.front() == '(') {
       filename.erase(filename.begin());
     }
@@ -414,7 +305,8 @@ auto run(const Config& cfg) -> int {
         continue;
       }
 
-      auto hash_result = calculate_hash(parsed->filename, cfg.text_mode);
+      auto hash_result = calculate_hash(parsed->filename, cfg.text_mode,
+                                        parsed->expected_hash.size() / 2);
       if (!hash_result) {
         if (!cfg.status) {
           cp::report_error(hash_result, L"b2sum");
@@ -422,10 +314,6 @@ auto run(const Config& cfg) -> int {
         ++unreadable;
         ++mismatches;
         continue;
-      }
-
-      if (hash_result->size() > parsed->expected_hash.size()) {
-        hash_result->resize(parsed->expected_hash.size());
       }
 
       if (*hash_result == parsed->expected_hash) {
@@ -466,26 +354,25 @@ auto run(const Config& cfg) -> int {
   }
 
   bool all_ok = true;
-  size_t output_hex_chars = static_cast<size_t>(cfg.digest_bits / 4);
-
   for (const auto& file : cfg.files) {
-    auto hash_result = calculate_hash(file, cfg.text_mode);
+    auto hash_result = calculate_hash(file, cfg.text_mode,
+                                      static_cast<size_t>(cfg.digest_bits / 8));
     if (!hash_result) {
       cp::report_error(hash_result, L"b2sum");
       all_ok = false;
       continue;
     }
 
-    if (hash_result->size() > output_hex_chars) {
-      hash_result->resize(output_hex_chars);
-    }
-
-    // Output format: HASH  FILENAME (or BSD-style if --tag)
+    // GNU/MSYS defaults to binary marker on Windows; --text uses a space.
     std::string output;
     if (cfg.tag) {
-      output = "BLAKE2 (" + file + ") = " + *hash_result;
+      std::string tag = "BLAKE2b";
+      if (cfg.digest_bits < 512) {
+        tag += "-" + std::to_string(cfg.digest_bits);
+      }
+      output = tag + " (" + file + ") = " + *hash_result;
     } else {
-      output = *hash_result + "  " + file;
+      output = *hash_result + (cfg.text_mode ? "  " : " *") + file;
     }
     output.push_back(cfg.zero ? '\0' : '\n');
     safePrint(output);
@@ -502,9 +389,8 @@ REGISTER_COMMAND(
     "\n"
     "With no FILE, or when FILE is -, read standard input.\n"
     "\n"
-    "Note: Windows CNG API doesn't support BLAKE2 natively in all versions.\n"
-    "This implementation uses CNG API with SHA512 as a fallback,\n"
-    "providing the same 512-bit hash length as BLAKE2-512.",
+    "Uses WinuxCmd's portable BLAKE2b implementation, matching GNU b2sum's "
+    "default 512-bit digest and --length truncation behavior.",
     "  b2sum file.txt\n"
     "  echo \"test\" | b2sum\n"
     "  b2sum *.txt > checksums.b2",

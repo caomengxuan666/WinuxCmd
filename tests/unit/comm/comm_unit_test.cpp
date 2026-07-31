@@ -107,6 +107,55 @@ TEST(comm, comm_nocheck_order_accepts_unsorted_input) {
   EXPECT_EQ(r.exit_code, 0);
 }
 
+TEST(comm, comm_default_order_check_warns_after_unpairable_disorder) {
+  TempDir tmp;
+  tmp.write("file1.txt", "banana\napple\n");
+  tmp.write("file2.txt", "carrot\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"comm.exe", {L"file1.txt", L"file2.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stdout_text, "banana\napple\n\tcarrot\n");
+  EXPECT_TRUE(r.stderr_text.find("comm: file 1 is not in sorted order") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("comm: input is not in sorted order") !=
+              std::string::npos);
+}
+
+TEST(comm, comm_default_order_check_all_pairable_disorder_succeeds) {
+  TempDir tmp;
+  tmp.write("file1.txt", "banana\napple\n");
+  tmp.write("file2.txt", "banana\napple\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"comm.exe", {L"file1.txt", L"file2.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "\t\tbanana\n\t\tapple\n");
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(comm, comm_rejects_multiple_different_output_delimiters) {
+  TempDir tmp;
+  tmp.write("file1.txt", "apple\n");
+  tmp.write("file2.txt", "banana\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"comm.exe", {L"--output-delimiter=:", L"--output-delimiter=,",
+                      L"file1.txt", L"file2.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.find("multiple output delimiters specified") !=
+              std::string::npos);
+}
 TEST(comm, comm_empty_output_delimiter_is_nul) {
   TempDir tmp;
   tmp.write("file1.txt", "apple\nbanana\n");

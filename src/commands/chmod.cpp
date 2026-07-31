@@ -243,31 +243,29 @@ auto apply_symbolic_mode(const std::string &path, const std::string &who,
   // For Windows, we simulate Unix permissions using file attributes
   // Read-only attribute is the closest approximation
 
-  bool set_readonly = false;
+  const bool affects_owner =
+      who.find('a') != std::string::npos || who.find('u') != std::string::npos;
+  if (!affects_owner) {
+    return false;
+  }
 
-  for (char who_char : who) {
-    for (char perm : perms) {
-      // On Windows, we mainly care about the 'w' (write) permission
-      // Setting 'w' means removing read-only attribute
-      // Removing 'w' means setting read-only attribute
-
-      if (perm == 'w') {
-        if (op == '+' || op == '=') {
-          // Grant write permission: remove read-only
-          set_readonly = false;
-        } else if (op == '-') {
-          // Remove write permission: set read-only
-          set_readonly = true;
-        }
-      }
-    }
+  // On Windows/MSYS, chmod's observable read-only attribute follows the owner
+  // write bit.  Group/other write bits have no independent FILE_ATTRIBUTE_*.
+  const bool mentions_write = perms.find('w') != std::string::npos;
+  bool owner_writable = (attrs & FILE_ATTRIBUTE_READONLY) == 0;
+  if (op == '+') {
+    owner_writable = owner_writable || mentions_write;
+  } else if (op == '-') {
+    owner_writable = owner_writable && !mentions_write;
+  } else if (op == '=') {
+    owner_writable = mentions_write;
   }
 
   DWORD new_attrs = attrs;
-  if (set_readonly) {
-    new_attrs |= FILE_ATTRIBUTE_READONLY;
-  } else {
+  if (owner_writable) {
     new_attrs &= ~FILE_ATTRIBUTE_READONLY;
+  } else {
+    new_attrs |= FILE_ATTRIBUTE_READONLY;
   }
 
   bool changed = (attrs != new_attrs);
@@ -298,16 +296,15 @@ auto apply_numeric_mode(const std::string &path, int mode) -> cp::Result<bool> {
   // Check if file is a directory
   bool is_directory = (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
 
-  // Extract write permission from mode
-  // User write (mode 0x002), Group write (mode 0x020), Other write (mode 0x200)
-  bool has_write =
-      ((mode & 0x2) != 0) || ((mode & 0x20) != 0) || ((mode & 0x200) != 0);
+  // Match GNU/MSYS' Windows-visible mapping: FILE_ATTRIBUTE_READONLY follows
+  // the owner write bit, not group/other write bits.
+  bool owner_writable = (mode & 0200) != 0;
 
   DWORD new_attrs = attrs;
-  if (!has_write) {
-    new_attrs |= FILE_ATTRIBUTE_READONLY;
-  } else {
+  if (owner_writable) {
     new_attrs &= ~FILE_ATTRIBUTE_READONLY;
+  } else {
+    new_attrs |= FILE_ATTRIBUTE_READONLY;
   }
 
   bool changed = (attrs != new_attrs);

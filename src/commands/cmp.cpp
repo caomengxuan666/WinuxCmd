@@ -257,124 +257,210 @@ auto build_config(const CommandContext<CMP_OPTIONS.size()>& ctx)
   return cfg;
 }
 
+auto report_open_error(const Config& cfg, const std::string& file) -> void {
+  if (cfg.quiet) return;
+  auto err = std::string("cmp: ") + file + ": No such file";
+  cp::Result<int> result = std::unexpected(std::string_view(err));
+  cp::report_error(result, L"cmp");
+}
+
+auto regular_remaining_after_skip(const std::string& file, size_t skip)
+    -> std::optional<std::uintmax_t> {
+  if (file == "-") return std::nullopt;
+
+  std::error_code ec;
+  auto path = std::filesystem::path(utf8_to_wstring(file));
+  if (!std::filesystem::is_regular_file(path, ec) || ec) return std::nullopt;
+
+  auto size = std::filesystem::file_size(path, ec);
+  if (ec) return std::nullopt;
+  if (size <= skip) return 0;
+  return size - skip;
+}
+
+auto seek_to_skip(std::ifstream& file, size_t skip) -> void {
+  if (skip == 0) return;
+  if (skip > static_cast<size_t>(std::numeric_limits<std::streamoff>::max())) {
+    file.seekg(0, std::ios::end);
+    return;
+  }
+  file.seekg(static_cast<std::streamoff>(skip), std::ios::beg);
+  if (!file) {
+    file.clear();
+    file.seekg(0, std::ios::end);
+  }
+}
+
+auto discard_stdin_prefix(size_t skip) -> void {
+  std::array<char, 64 * 1024> scratch{};
+  size_t remaining = skip;
+  while (remaining > 0 && std::cin.good()) {
+    const size_t want = std::min(remaining, scratch.size());
+    std::cin.read(scratch.data(), static_cast<std::streamsize>(want));
+    const auto got =
+        static_cast<size_t>(std::max<std::streamsize>(std::cin.gcount(), 0));
+    if (got == 0) break;
+    remaining -= got;
+  }
+}
+
+auto count_newlines(std::span<const char> bytes) -> size_t {
+  return static_cast<size_t>(
+      std::count(bytes.begin(), bytes.end(), static_cast<char>('\n')));
+}
+
+auto first_difference(const char* lhs, const char* rhs, size_t count)
+    -> size_t {
+  for (size_t i = 0; i < count; ++i) {
+    if (lhs[i] != rhs[i]) return i;
+  }
+  return count;
+}
+
+auto print_difference(const Config& cfg, const std::string& file1,
+                      const std::string& file2, size_t display_pos,
+                      size_t line_number, unsigned char c1, unsigned char c2)
+    -> void {
+  if (cfg.verbose || cfg.print_bytes) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "%zu %3o %3o", display_pos, c1, c2);
+    safePrintLn(buf);
+    return;
+  }
+
+  safePrint(file1);
+  safePrint(" ");
+  safePrint(file2);
+  safePrint(" differ: byte ");
+  safePrint(std::to_string(display_pos));
+  safePrint(", line ");
+  safePrintLn(std::to_string(line_number));
+}
+
 auto run(const Config& cfg) -> int {
   const std::string& file1 = cfg.files[0];
   const std::string& file2 = cfg.files[1];
 
-  // Read file 1
-  std::vector<char> data1;
+  if (file1 == "-" && file2 == "-" &&
+      cfg.skip_bytes_file1 == cfg.skip_bytes_file2) {
+    return 0;
+  }
+
+  std::ifstream stream1;
+  std::ifstream stream2;
+  std::istream* in1 = &std::cin;
+  std::istream* in2 = &std::cin;
+
+  if (file1 != "-") {
+    stream1.open(std::filesystem::path(utf8_to_wstring(file1)),
+                 std::ios::binary);
+    if (!stream1) {
+      report_open_error(cfg, file1);
+      return 2;
+    }
+    in1 = &stream1;
+  }
+
+  if (file2 != "-") {
+    stream2.open(std::filesystem::path(utf8_to_wstring(file2)),
+                 std::ios::binary);
+    if (!stream2) {
+      report_open_error(cfg, file2);
+      return 2;
+    }
+    in2 = &stream2;
+  }
+
+  if (file1 != "-" && file2 != "-" &&
+      cfg.skip_bytes_file1 == cfg.skip_bytes_file2) {
+    std::error_code ec;
+    if (std::filesystem::equivalent(
+            std::filesystem::path(utf8_to_wstring(file1)),
+            std::filesystem::path(utf8_to_wstring(file2)), ec) &&
+        !ec) {
+      return 0;
+    }
+  }
+
+  auto remaining1 = regular_remaining_after_skip(file1, cfg.skip_bytes_file1);
+  auto remaining2 = regular_remaining_after_skip(file2, cfg.skip_bytes_file2);
+  if (cfg.quiet && remaining1 && remaining2 && *remaining1 != *remaining2 &&
+      std::min(*remaining1, *remaining2) < cfg.max_bytes) {
+    return 1;
+  }
+
   if (file1 == "-") {
-    data1.assign(std::istreambuf_iterator<char>(std::cin),
-                 std::istreambuf_iterator<char>());
+    discard_stdin_prefix(cfg.skip_bytes_file1);
   } else {
-    std::ifstream f1(file1, std::ios::binary);
-    if (!f1) {
-      if (!cfg.quiet) {
-        auto err = std::string("cmp: ") + file1 + ": No such file";
-        cp::Result<int> result = std::unexpected(std::string_view(err));
-        cp::report_error(result, L"cmp");
-      }
-      return 2;
-    }
-    data1.assign(std::istreambuf_iterator<char>(f1),
-                 std::istreambuf_iterator<char>());
-    // Skip UTF-8 BOM if present at the beginning
-    if (data1.size() >= 3 && static_cast<unsigned char>(data1[0]) == 0xEF &&
-        static_cast<unsigned char>(data1[1]) == 0xBB &&
-        static_cast<unsigned char>(data1[2]) == 0xBF) {
-      data1.assign(data1.begin() + 3, data1.end());
-    }
+    seek_to_skip(stream1, cfg.skip_bytes_file1);
   }
 
-  // Read file 2
-  std::vector<char> data2;
   if (file2 == "-") {
-    data2.assign(std::istreambuf_iterator<char>(std::cin),
-                 std::istreambuf_iterator<char>());
+    discard_stdin_prefix(cfg.skip_bytes_file2);
   } else {
-    std::ifstream f2(file2, std::ios::binary);
-    if (!f2) {
-      if (!cfg.quiet) {
-        auto err = std::string("cmp: ") + file2 + ": No such file";
-        cp::Result<int> result = std::unexpected(std::string_view(err));
-        cp::report_error(result, L"cmp");
-      }
-      return 2;
-    }
-    data2.assign(std::istreambuf_iterator<char>(f2),
-                 std::istreambuf_iterator<char>());
-    // Skip UTF-8 BOM if present at the beginning
-    if (data2.size() >= 3 && static_cast<unsigned char>(data2[0]) == 0xEF &&
-        static_cast<unsigned char>(data2[1]) == 0xBB &&
-        static_cast<unsigned char>(data2[2]) == 0xBF) {
-      data2.assign(data2.begin() + 3, data2.end());
-    }
+    seek_to_skip(stream2, cfg.skip_bytes_file2);
   }
 
-  size_t start_pos1 = std::min(cfg.skip_bytes_file1, data1.size());
-  size_t start_pos2 = std::min(cfg.skip_bytes_file2, data2.size());
-  size_t remaining1 = data1.size() - start_pos1;
-  size_t remaining2 = data2.size() - start_pos2;
-  size_t bytes_to_compare = std::min(remaining1, remaining2);
-  bytes_to_compare = std::min(bytes_to_compare, cfg.max_bytes);
+  constexpr size_t kBufferSize = 1024 * 1024;
+  std::vector<char> buffer1(kBufferSize);
+  std::vector<char> buffer2(kBufferSize);
+
   size_t line_number = 1;
+  size_t compared = 0;
   bool found_difference = false;
+  size_t remaining_limit = cfg.max_bytes;
 
-  for (size_t i = 0; i < bytes_to_compare; ++i) {
-    size_t pos1 = start_pos1 + i;
-    size_t pos2 = start_pos2 + i;
-    unsigned char c1 = static_cast<unsigned char>(data1[pos1]);
-    unsigned char c2 = static_cast<unsigned char>(data2[pos2]);
-    size_t display_pos = i + 1;
+  while (remaining_limit > 0) {
+    const size_t want = std::min(kBufferSize, remaining_limit);
+    in1->read(buffer1.data(), static_cast<std::streamsize>(want));
+    const auto read1 =
+        static_cast<size_t>(std::max<std::streamsize>(in1->gcount(), 0));
+    in2->read(buffer2.data(), static_cast<std::streamsize>(want));
+    const auto read2 =
+        static_cast<size_t>(std::max<std::streamsize>(in2->gcount(), 0));
+    const size_t smaller = std::min(read1, read2);
 
-    if (c1 != c2) {
-      if (cfg.quiet) {
+    if (smaller > 0 &&
+        std::memcmp(buffer1.data(), buffer2.data(), smaller) != 0) {
+      size_t diff = first_difference(buffer1.data(), buffer2.data(), smaller);
+      line_number +=
+          count_newlines(std::span<const char>(buffer1.data(), diff));
+
+      if (cfg.quiet) return 1;
+
+      if (!cfg.verbose) {
+        print_difference(cfg, file1, file2, compared + diff + 1, line_number,
+                         static_cast<unsigned char>(buffer1[diff]),
+                         static_cast<unsigned char>(buffer2[diff]));
         return 1;
       }
 
-      if (cfg.verbose) {
-        found_difference = true;
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%zu %3o %3o", display_pos, c1, c2);
-        safePrintLn(buf);
-      } else if (cfg.print_bytes) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%zu %3o %3o", display_pos, c1, c2);
-        safePrintLn(buf);
-        return 1;
-      } else {
-        safePrint(file1);
-        safePrint(" ");
-        safePrint(file2);
-        safePrint(" differ: byte ");
-        safePrint(std::to_string(display_pos));
-        safePrint(", line ");
-        safePrintLn(std::to_string(line_number));
-        return 1;
+      found_difference = true;
+      for (size_t i = diff; i < smaller; ++i) {
+        unsigned char c1 = static_cast<unsigned char>(buffer1[i]);
+        unsigned char c2 = static_cast<unsigned char>(buffer2[i]);
+        if (c1 != c2) {
+          print_difference(cfg, file1, file2, compared + i + 1, line_number, c1,
+                           c2);
+        }
       }
+    } else if (!cfg.verbose) {
+      line_number +=
+          count_newlines(std::span<const char>(buffer1.data(), smaller));
     }
 
-    if (c1 == '\n') {
-      ++line_number;
-    }
-  }
+    compared += smaller;
+    remaining_limit -= smaller;
 
-  if (cfg.max_bytes <= bytes_to_compare) {
-    return found_difference ? 1 : 0;
-  }
+    if (read1 != read2) {
+      if (!cfg.quiet) {
+        safePrint("cmp: EOF on ");
+        safePrintLn(read1 < read2 ? file1 : file2);
+      }
+      return 1;
+    }
 
-  if (remaining1 > remaining2) {
-    if (!cfg.quiet) {
-      safePrint("cmp: EOF on ");
-      safePrintLn(file2);
-    }
-    return 1;
-  } else if (remaining2 > remaining1) {
-    if (!cfg.quiet) {
-      safePrint("cmp: EOF on ");
-      safePrintLn(file1);
-    }
-    return 1;
+    if (read1 == 0 || read1 < want) break;
   }
 
   return found_difference ? 1 : 0;

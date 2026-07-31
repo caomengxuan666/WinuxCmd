@@ -19,4 +19,7 @@ TEST(hmac256, hmac256_basic) {
   TEST_LOG("hmac256 output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "88aab3ede8d3adf94d26ab90d3bafd4a2083070c3bcce9c014ee04a443847"
+                 "c0b  data.txt\n");
 }

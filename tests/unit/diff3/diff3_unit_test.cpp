@@ -1,29 +1,184 @@
 /*
- *  Copyright © 2026 [caomengxuan666]
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a
- *  copy of this software and associated documentation files (the "Software"),
- *  to deal in the Software without restriction, including without limitation
- *  the rights to use, copy, modify, merge, publish, distribute, sublicense,
- *  and/or sell copies of the Software, and to permit persons to whom the
- *  Software is furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in
- *  all copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- *  DEALINGS IN THE SOFTWARE.
- *
- *  - File: diff3_unit_test.cpp
- *  - Username: Administrator
- *  - CopyrightYear: 2026
+ *  Copyright (c) 2026 WinuxCmd
  */
 #include "framework/winuxtest.h"
+
+TEST(diff3, diff3_default_conflict_matches_gnu_shape) {
+  TempDir tmp;
+  tmp.write("mine.txt", "mine\n");
+  tmp.write("base.txt", "base\n");
+  tmp.write("yours.txt", "yours\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  const std::string expected =
+      "====\n"
+      "1:1c\n"
+      "  mine\n"
+      "2:1c\n"
+      "  base\n"
+      "3:1c\n"
+      "  yours\n";
+  EXPECT_EQ_TEXT(r.stdout_text, expected);
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(diff3, diff3_merge_conflict_matches_gnu_shape_and_status) {
+  TempDir tmp;
+  tmp.write("mine.txt", "same\nmine\n");
+  tmp.write("base.txt", "same\nbase\n");
+  tmp.write("yours.txt", "same\nyours\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"-m", L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  const std::string expected =
+      "same\n"
+      "<<<<<<< mine.txt\n"
+      "mine\n"
+      "||||||| base.txt\n"
+      "base\n"
+      "=======\n"
+      "yours\n"
+      ">>>>>>> yours.txt\n";
+  EXPECT_EQ_TEXT(r.stdout_text, expected);
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(diff3, diff3_yours_only_change_matches_gnu_shape) {
+  TempDir tmp;
+  tmp.write("mine.txt", "base\n");
+  tmp.write("base.txt", "base\n");
+  tmp.write("yours.txt", "yours\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  const std::string expected =
+      "====3\n"
+      "1:1c\n"
+      "2:1c\n"
+      "  base\n"
+      "3:1c\n"
+      "  yours\n";
+  EXPECT_EQ_TEXT(r.stdout_text, expected);
+}
+
+TEST(diff3, diff3_mine_only_change_matches_gnu_shape) {
+  TempDir tmp;
+  tmp.write("mine.txt", "mine\n");
+  tmp.write("base.txt", "base\n");
+  tmp.write("yours.txt", "base\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  const std::string expected =
+      "====1\n"
+      "1:1c\n"
+      "  mine\n"
+      "2:1c\n"
+      "3:1c\n"
+      "  base\n";
+  EXPECT_EQ_TEXT(r.stdout_text, expected);
+}
+
+TEST(diff3, diff3_same_change_matches_gnu_default_and_merge_shape) {
+  TempDir tmp;
+  tmp.write("mine.txt", "same-change\n");
+  tmp.write("base.txt", "base\n");
+  tmp.write("yours.txt", "same-change\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"mine.txt", L"base.txt", L"yours.txt"});
+  auto default_run = p.run();
+
+  EXPECT_EQ(default_run.exit_code, 0);
+  const std::string default_expected =
+      "====2\n"
+      "1:1c\n"
+      "  same-change\n"
+      "3:1c\n"
+      "  same-change\n"
+      "2:1c\n"
+      "  base\n";
+  EXPECT_EQ_TEXT(default_run.stdout_text, default_expected);
+
+  Pipeline merge;
+  merge.set_cwd(tmp.wpath());
+  merge.add(L"diff3.exe", {L"-m", L"mine.txt", L"base.txt", L"yours.txt"});
+  auto merged = merge.run();
+
+  EXPECT_EQ(merged.exit_code, 1);
+  const std::string merge_expected =
+      "<<<<<<< base.txt\n"
+      "base\n"
+      "=======\n"
+      "same-change\n"
+      ">>>>>>> yours.txt\n";
+  EXPECT_EQ_TEXT(merged.stdout_text, merge_expected);
+}
+
+TEST(diff3, diff3_identical_default_is_silent) {
+  TempDir tmp;
+  tmp.write("mine.txt", "same\n");
+  tmp.write("base.txt", "same\n");
+  tmp.write("yours.txt", "same\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(diff3, diff3_identical_merge_prints_input) {
+  TempDir tmp;
+  tmp.write("mine.txt", "same\n");
+  tmp.write("base.txt", "same\n");
+  tmp.write("yours.txt", "same\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"-m", L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "same\n");
+}
+
+TEST(diff3, diff3_empty_files_are_valid_inputs) {
+  TempDir tmp;
+  tmp.write("mine.txt", "");
+  tmp.write("base.txt", "");
+  tmp.write("yours.txt", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.empty());
+}
 
 TEST(diff3, diff3_wildcard_triplet_expands) {
   TempDir tmp;
@@ -34,92 +189,25 @@ TEST(diff3, diff3_wildcard_triplet_expands) {
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"diff3.exe", {L"*.txt"});
-
-  TEST_LOG_CMD_LIST("diff3.exe", L"*.txt");
-
   auto r = p.run();
 
-  TEST_LOG_EXIT_CODE(r);
-  TEST_LOG("diff3 wildcard output", r.stdout_text);
-
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("No conflicts found") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.empty());
 }
 
-TEST(diff3, diff3_conflict_detection) {
+TEST(diff3, diff3_ed_script_options_remain_accepted) {
   TempDir tmp;
-  tmp.write("mine.txt", "my change\n");
-  tmp.write("older.txt", "original\n");
-  tmp.write("yours.txt", "your change\n");
+  tmp.write("mine.txt", "same\nmine\n");
+  tmp.write("base.txt", "same\nbase\n");
+  tmp.write("yours.txt", "same\nyours\n");
 
-  Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"diff3.exe", {L"mine.txt", L"older.txt", L"yours.txt"});
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  // Should detect conflicts
-  EXPECT_TRUE(r.stdout_text.find("conflicts") != std::string::npos);
-}
-
-TEST(diff3, diff3_merged_output) {
-  TempDir tmp;
-  tmp.write("mine.txt", "same\nmy change\n");
-  tmp.write("older.txt", "same\noriginal\n");
-  tmp.write("yours.txt", "same\nyour change\n");
-
-  Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"diff3.exe", {L"-m", L"mine.txt", L"older.txt", L"yours.txt"});
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  // Merged format should show conflict markers
-}
-
-TEST(diff3, diff3_ed_script) {
-  TempDir tmp;
-  tmp.write("mine.txt", "same\nmy change\n");
-  tmp.write("older.txt", "same\noriginal\n");
-  tmp.write("yours.txt", "same\nyour change\n");
-
-  Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"diff3.exe", {L"-e", L"mine.txt", L"older.txt", L"yours.txt"});
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  // Ed script format
-}
-
-TEST(diff3, diff3_bracketed_conflicts) {
-  TempDir tmp;
-  tmp.write("mine.txt", "same\nmy change\n");
-  tmp.write("older.txt", "same\noriginal\n");
-  tmp.write("yours.txt", "same\nyour change\n");
-
-  Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"diff3.exe", {L"-E", L"mine.txt", L"older.txt", L"yours.txt"});
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  // Bracketed conflict format
-}
-
-TEST(diff3, diff3_identical_files) {
-  TempDir tmp;
-  tmp.write("mine.txt", "same\n");
-  tmp.write("older.txt", "same\n");
-  tmp.write("yours.txt", "same\n");
-
-  Pipeline p;
-  p.set_cwd(tmp.wpath());
-  p.add(L"diff3.exe", {L"mine.txt", L"older.txt", L"yours.txt"});
-  auto r = p.run();
-
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("No conflicts found") != std::string::npos);
+  for (const auto* opt : {L"-e", L"-E", L"-A"}) {
+    Pipeline p;
+    p.set_cwd(tmp.wpath());
+    p.add(L"diff3.exe", {opt, L"mine.txt", L"base.txt", L"yours.txt"});
+    auto r = p.run();
+    EXPECT_EQ(r.exit_code, 0);
+  }
 }
 
 TEST(diff3, diff3_missing_file_fails) {

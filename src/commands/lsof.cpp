@@ -391,7 +391,7 @@ auto parse_inet_spec(std::string_view spec) -> InternetFilter {
     std::wstring port_str = ws.substr(1);
     if (!port_str.empty()) {
       try {
-        int v = std::stoi(std::string(port_str.begin(), port_str.end()));
+        int v = std::stoi(port_str);
         if (v > 0 && v <= 65535) f.port = static_cast<unsigned short>(v);
       } catch (...) {
       }
@@ -405,7 +405,7 @@ auto parse_inet_spec(std::string_view spec) -> InternetFilter {
       std::wstring port_str = ws.substr(ws.rfind(L':') + 1);
       if (!port_str.empty()) {
         try {
-          int v = std::stoi(std::string(port_str.begin(), port_str.end()));
+          int v = std::stoi(port_str);
           if (v > 0 && v <= 65535) f.port = static_cast<unsigned short>(v);
         } catch (...) {
         }

@@ -75,6 +75,10 @@ import utils;
  * - @a -x, @a --one-file-system: Stay on this file system [TODO]
  * - @a -Z: Set SELinux security context of destination file to default type
  * [TODO]
+ * - @a --parent, @a --parents: Use full source file name under DIRECTORY
+ * [IMPLEMENTED]
+ * - @a --debug: Explain how a file is copied [IMPLEMENTED AS VERBOSE]
+ * - @a -g, @a --progress-bar: Accept progress-bar flag [COMPAT NO-OP]
  */
 
 using cmd::meta::OptionMeta;
@@ -119,6 +123,8 @@ auto constexpr CP_OPTIONS = std::array{
            "remove any trailing slashes from each SOURCE argument"),
     OPTION("-u", "--update", "equivalent to --update[=older]"),
     OPTION("-v", "--verbose", "explain what is being done"),
+    OPTION("", "--debug", "explain how a file is copied; implies --verbose"),
+    OPTION("-g", "--progress-bar", "display a progress bar while copying"),
     OPTION("-x", "--one-file-system", "stay on this file system"),
     OPTION("-Z", "",
            "set SELinux security context of destination file to default type"),
@@ -128,6 +134,7 @@ auto constexpr CP_OPTIONS = std::array{
     OPTION("", "--attributes-only",
            "don't copy the file data, just the attributes"),
     OPTION("", "--parents", "use full source file name under DIRECTORY"),
+    OPTION("", "--parent", "use full source file name under DIRECTORY"),
     OPTION("", "--sparse", "control creation of sparse files", STRING_TYPE),
     OPTION("", "--reflink", "control clone/CoW copies", OPTIONAL_STRING_TYPE),
     OPTION("", "--preserve", "preserve the specified attributes", STRING_TYPE),
@@ -157,6 +164,11 @@ auto append_expanded_source(std::vector<std::string>& source_paths,
     }
   }
   source_paths.push_back(std::move(source));
+}
+
+auto normalize_path_separators(std::string path) -> std::string {
+  std::ranges::replace(path, '/', '\\');
+  return path;
 }
 
 auto strip_trailing_slashes(std::string path) -> std::string {
@@ -255,7 +267,7 @@ auto create_directory_recursive(const std::string& path) -> cp::Result<bool> {
   }
 
   // If parent directory doesn't exist, create it first
-  size_t lastSlash = path.find_last_of('\\');
+  size_t lastSlash = path.find_last_of("\\/");
   if (lastSlash == std::string::npos) {
     return std::unexpected("cannot create directory");
   }
@@ -359,6 +371,11 @@ auto backup_suffix(const CommandContext<CP_OPTIONS.size()>& ctx)
   return suffix;
 }
 
+auto verbose_enabled(const CommandContext<CP_OPTIONS.size()>& ctx) -> bool {
+  return ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false) ||
+         ctx.get<bool>("--debug", false);
+}
+
 auto backup_existing_destination(const std::string& destPath,
                                  const CommandContext<CP_OPTIONS.size()>& ctx)
     -> cp::Result<bool> {
@@ -403,7 +420,7 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
     -> cp::Result<bool> {
   bool interactive =
       ctx.get<bool>("--interactive", false) || ctx.get<bool>("-i", false);
-  bool verbose = ctx.get<bool>("--verbose", false);
+  bool verbose = verbose_enabled(ctx);
   bool no_clobber =
       ctx.get<bool>("--no-clobber", false) || ctx.get<bool>("-n", false);
   bool update = ctx.get<bool>("-u", false) || ctx.get<bool>("--update", false);
@@ -582,7 +599,7 @@ auto copy_directory_helper(const std::string& srcPath,
   }
 
   bool success = true;
-  bool verbose = ctx.get<bool>("--verbose", false);
+  bool verbose = verbose_enabled(ctx);
 
   // Process each item in the directory
   do {
@@ -689,12 +706,12 @@ auto process_source_paths(
     bool srcIsDir = *isDirResult;
     std::string finalDestPath = destPath;
 
-    bool parents = ctx.has("--parents");
+    bool parents = ctx.has("--parents") || ctx.has("--parent");
     if (destIsDir) {
       if (parents) {
         // --parents: use relative source path under destination
         // e.g., cp --parents a/b/c dest/ -> dest/a/b/c
-        finalDestPath = destPath + "\\" + srcPath;
+        finalDestPath = destPath + "\\" + normalize_path_separators(srcPath);
         // Create intermediate directories
         size_t pos = 0;
         while ((pos = finalDestPath.find('\\', pos)) != std::string::npos) {

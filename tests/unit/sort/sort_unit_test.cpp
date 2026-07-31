@@ -717,6 +717,22 @@ TEST(sort, sort_check_detects_unsorted_input) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stdout_text, "");
+  EXPECT_TRUE(r.stderr_text.find("sort: bad.txt:2: disorder: a") !=
+              std::string::npos);
+}
+
+TEST(sort, sort_zero_terminated_records_are_sorted_and_written_binary) {
+  TempDir tmp;
+  tmp.write_bytes("z.bin", {'b', '\0', 'a', '\0', 'c', '\0'});
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"-z", L"z.bin"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, std::string("a\0b\0c\0", 6));
 }
 
 TEST(sort, sort_check_quiet_detects_unsorted_input) {
@@ -819,4 +835,100 @@ TEST(sort, sort_wildcard) {
   EXPECT_TRUE(r.stdout_text.find("date") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("aaa") == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("zzz") == std::string::npos);
+}
+
+TEST(sort, sort_files0_from_rejects_empty_file_list) {
+  TempDir tmp;
+  tmp.write("list.bin", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"--files0-from", L"list.bin"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_TRUE(r.stderr_text.find("no input from list.bin") !=
+              std::string::npos);
+}
+
+TEST(sort, sort_files0_from_rejects_zero_length_file_name) {
+  TempDir tmp;
+  tmp.write_bytes("list.bin", {'\0'});
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"--files0-from", L"list.bin"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_TRUE(r.stderr_text.find("list.bin:1: invalid zero-length file name") !=
+              std::string::npos);
+}
+
+TEST(sort, sort_files0_from_rejects_stdin_file_name) {
+  TempDir tmp;
+  tmp.write_bytes("list.bin", {'-', '\0'});
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"--files0-from", L"list.bin"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_TRUE(r.stderr_text.find("no file name of '-' allowed") !=
+              std::string::npos);
+}
+
+TEST(sort, sort_check_rejects_extra_operands) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\n");
+  tmp.write("b.txt", "b\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"-c", L"a.txt", L"b.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_TRUE(r.stderr_text.find("extra operand 'b.txt' not allowed with "
+                                 "check mode") != std::string::npos);
+}
+
+TEST(sort, sort_check_rejects_output_file) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"-c", L"-o", L"out.txt", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_TRUE(r.stderr_text.find("options '-co' are incompatible") !=
+              std::string::npos);
+}
+
+TEST(sort, sort_debug_rejects_check_and_output_file) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\n");
+
+  Pipeline check_mode;
+  check_mode.set_cwd(tmp.wpath());
+  check_mode.add(L"sort.exe", {L"--debug", L"-c", L"a.txt"});
+  auto check_result = check_mode.run();
+
+  EXPECT_EQ(check_result.exit_code, 2);
+  EXPECT_TRUE(
+      check_result.stderr_text.find("options '-c --debug' are incompatible") !=
+      std::string::npos);
+
+  Pipeline output_mode;
+  output_mode.set_cwd(tmp.wpath());
+  output_mode.add(L"sort.exe", {L"--debug", L"-o", L"out.txt", L"a.txt"});
+  auto output_result = output_mode.run();
+
+  EXPECT_EQ(output_result.exit_code, 2);
+  EXPECT_TRUE(
+      output_result.stderr_text.find("options '-o --debug' are incompatible") !=
+      std::string::npos);
 }

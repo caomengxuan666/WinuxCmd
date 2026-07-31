@@ -545,41 +545,14 @@ auto print_env(const std::map<std::string, std::string>& vars,
   }
 }
 
-auto quote_arg(const std::wstring& arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
-
 auto build_command_line(const SmallVector<std::string, 32>& command,
                         const std::optional<std::string>& argv0_override =
                             std::nullopt) -> std::wstring {
   auto argv0 = argv0_override.has_value() ? utf8_to_wstring(*argv0_override)
                                           : utf8_to_wstring(command.front());
-  std::wstring out = quote_arg(argv0);
+  std::wstring out = quote_windows_command_arg(argv0);
   for (size_t i = 1; i < command.size(); ++i) {
-    out.push_back(L' ');
-    out += quote_arg(utf8_to_wstring(command[i]));
+    append_windows_command_arg(out, utf8_to_wstring(command[i]));
   }
   return out;
 }
@@ -659,16 +632,9 @@ auto env_command_status_from_create_error(DWORD error) -> int {
 }
 
 auto env_windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return "No such file or directory";
-    case ERROR_ACCESS_DENIED:
-    case ERROR_BAD_EXE_FORMAT:
-      return "Permission denied";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
+  Win32ErrorTextOptions options;
+  options.bad_exe_format_as_permission = true;
+  return win32_posix_error_text(error, options);
 }
 
 auto run_command(const Config& cfg,

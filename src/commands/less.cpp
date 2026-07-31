@@ -39,6 +39,7 @@ import core;
 import utils;
 import container;
 
+using cmd::meta::option_matches;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
@@ -56,12 +57,17 @@ auto constexpr LESS_OPTIONS = std::array{
            BOOL_TYPE),
     OPTION("-S", "--chop-long-lines", "chop long lines (do not wrap)",
            BOOL_TYPE),
-    OPTION("-q", "--quiet", "silence the terminal bell", BOOL_TYPE),
-    OPTION("-Q", "--QUIET", "never ring the terminal bell", BOOL_TYPE),
-    OPTION("-r", "--raw-control-chars", "display \"raw\" control characters",
+    OPTION("-q", "--quiet", "accepted placeholder; terminal bell is not used",
            BOOL_TYPE),
+    OPTION("-Q", "--QUIET", "accepted placeholder; terminal bell is not used",
+           BOOL_TYPE),
+    OPTION("-r", "--raw-control-chars",
+           "accepted placeholder; control chars are passed through", BOOL_TYPE),
     OPTION("-R", "--RAW-CONTROL-CHARS",
-           "display \"raw\" control characters and ANSI colors", BOOL_TYPE)};
+           "accepted placeholder; ANSI color parsing is not implemented",
+           BOOL_TYPE),
+    OPTION("-z", "--window", "set scrolling window size", INT_TYPE),
+    OPTION("-NUM", "", "same as -z NUM", INT_TYPE)};
 
 namespace less_pipeline {
 namespace cp = core::pipeline;
@@ -74,10 +80,11 @@ struct Config {
   bool ignore_case_all = false;    // -I
   bool show_line_numbers = false;  // -n, -N
   bool chop_long_lines = false;    // -S
-  bool quiet = false;              // -q
-  bool never_bell = false;         // -Q
-  bool raw_control = false;        // -r
-  bool raw_control_color = false;  // -R
+  bool quiet = false;              // -q accepted; pager does not ring a bell.
+  bool never_bell = false;         // -Q accepted; pager does not ring a bell.
+  bool raw_control = false;        // -r accepted; pass-through output mode.
+  bool raw_control_color = false;  // -R accepted; ANSI parsing not implemented.
+  int window_size = -1;            // -z, -NUM
   SmallVector<std::string, 16> files;
 };
 
@@ -106,6 +113,17 @@ auto build_config(const CommandContext<LESS_OPTIONS.size()>& ctx)
       ctx.get<bool>("--raw-control-chars", false) || ctx.get<bool>("-r", false);
   cfg.raw_control_color =
       ctx.get<bool>("--RAW-CONTROL-CHARS", false) || ctx.get<bool>("-R", false);
+
+  for (const auto& occurrence : ctx.options.occurrences()) {
+    if (!ctx.metas || occurrence.index >= LESS_OPTIONS.size()) continue;
+    const auto& meta = (*ctx.metas)[occurrence.index];
+    const auto* value = std::get_if<int>(&occurrence.value);
+    if (!value) continue;
+    if (option_matches(meta, "-z", "--window") ||
+        option_matches(meta, "-NUM", "")) {
+      cfg.window_size = *value;
+    }
+  }
 
   for (auto arg : ctx.positionals) {
     std::string file_arg(arg);
@@ -155,91 +173,359 @@ auto read_file_content(const std::string& filename) -> cp::Result<std::string> {
   return content;
 }
 
-// Simple pager implementation - displays content page by page
-auto simple_pager(const Config& cfg, const std::string& content) -> int {
-  if (!isOutputConsole()) {
-    // Not a terminal, just output everything
-    safePrint(content);
-    return 0;
-  }
-
-  // Split into lines
+auto split_lines(std::string_view content) -> SmallVector<std::string, 4096> {
   SmallVector<std::string, 4096> lines;
   size_t start = 0;
   while (start < content.size()) {
     size_t end = content.find('\n', start);
-    if (end == std::string::npos) {
-      lines.push_back(content.substr(start));
+    if (end == std::string_view::npos) {
+      lines.push_back(std::string(content.substr(start)));
       break;
     }
-    lines.push_back(content.substr(start, end - start));
+    std::string_view line = content.substr(start, end - start);
+    if (!line.empty() && line.back() == '\r') line.remove_suffix(1);
+    lines.push_back(std::string(line));
     start = end + 1;
   }
+  if (lines.empty()) lines.push_back("");
+  return lines;
+}
 
-  // Get terminal size
-  int term_height = getTerminalWidth();
+auto console_size() -> std::pair<int, int> {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
   if (GetConsoleScreenBufferInfo(hConsole, &csbi)) {
-    term_height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    int width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    int height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    return {std::max(width, 1), std::max(height, 2)};
+  }
+  return {80, 24};
+}
+
+auto clear_console() -> void {
+  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  if (!GetConsoleScreenBufferInfo(hConsole, &csbi)) return;
+
+  DWORD cells = static_cast<DWORD>(csbi.dwSize.X) * csbi.dwSize.Y;
+  DWORD written = 0;
+  FillConsoleOutputCharacterA(hConsole, ' ', cells, {0, 0}, &written);
+  FillConsoleOutputAttribute(hConsole, csbi.wAttributes, cells, {0, 0},
+                             &written);
+  SetConsoleCursorPosition(hConsole, {0, 0});
+}
+
+class ConsoleInputMode {
+ public:
+  ConsoleInputMode() : input_(GetStdHandle(STD_INPUT_HANDLE)) {
+    if (input_ == INVALID_HANDLE_VALUE || input_ == nullptr) return;
+    if (!GetConsoleMode(input_, &original_mode_)) return;
+
+    DWORD raw_mode = original_mode_ & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+    if (SetConsoleMode(input_, raw_mode)) active_ = true;
   }
 
-  int page_size = term_height - 1;  // Leave one line for prompt
+  ~ConsoleInputMode() {
+    if (active_) SetConsoleMode(input_, original_mode_);
+  }
 
-  // Check if content fits on one screen
+  [[nodiscard]] auto active() const -> bool { return active_; }
+  [[nodiscard]] auto input() const -> HANDLE { return input_; }
+
+ private:
+  HANDLE input_ = nullptr;
+  DWORD original_mode_ = 0;
+  bool active_ = false;
+};
+
+enum class PagerAction {
+  None,
+  NextPage,
+  NextLine,
+  PrevPage,
+  PrevLine,
+  SearchForward,
+  SearchBackward,
+  RepeatSearch,
+  ReverseSearch,
+  Quit
+};
+
+struct PagerCommand {
+  PagerAction action = PagerAction::None;
+  std::string text;
+};
+
+struct SearchState {
+  std::string text;
+  portable_regex::Pattern pattern;
+  bool forward = true;
+};
+
+auto read_search_text(HANDLE input, wchar_t prompt)
+    -> std::optional<std::string> {
+  std::wstring text;
+  safePrint(std::wstring_view(&prompt, 1));
+
+  INPUT_RECORD record{};
+  DWORD read = 0;
+  while (ReadConsoleInputW(input, &record, 1, &read)) {
+    if (record.EventType != KEY_EVENT || !record.Event.KeyEvent.bKeyDown) {
+      continue;
+    }
+
+    const auto& key = record.Event.KeyEvent;
+    if (key.wVirtualKeyCode == VK_ESCAPE) return std::nullopt;
+    if (key.wVirtualKeyCode == VK_RETURN) {
+      safePrint("\n");
+      return wstring_to_utf8(text);
+    }
+    if (key.wVirtualKeyCode == VK_BACK) {
+      if (!text.empty()) {
+        text.pop_back();
+        safePrint("\b \b");
+      }
+      continue;
+    }
+
+    wchar_t ch = key.uChar.UnicodeChar;
+    if (ch >= L' ') {
+      text.push_back(ch);
+      safePrint(std::wstring_view(&ch, 1));
+    }
+  }
+  return std::nullopt;
+}
+
+auto read_pager_command(HANDLE input) -> PagerCommand {
+  INPUT_RECORD record{};
+  DWORD read = 0;
+  while (ReadConsoleInputW(input, &record, 1, &read)) {
+    if (record.EventType != KEY_EVENT || !record.Event.KeyEvent.bKeyDown) {
+      continue;
+    }
+
+    const auto& key = record.Event.KeyEvent;
+    char ch = key.uChar.AsciiChar;
+    if (ch == 'q' || ch == 'Q') return {PagerAction::Quit, {}};
+    if (ch == 'b' || ch == 'B') return {PagerAction::PrevPage, {}};
+    if (ch == ' ') return {PagerAction::NextPage, {}};
+    if (ch == '\r' || ch == '\n') return {PagerAction::NextLine, {}};
+    if (ch == 'n') return {PagerAction::RepeatSearch, {}};
+    if (ch == 'N') return {PagerAction::ReverseSearch, {}};
+    if (ch == '/') {
+      auto text = read_search_text(input, L'/');
+      return text ? PagerCommand{PagerAction::SearchForward, *text}
+                  : PagerCommand{PagerAction::None, {}};
+    }
+    if (ch == '?') {
+      auto text = read_search_text(input, L'?');
+      return text ? PagerCommand{PagerAction::SearchBackward, *text}
+                  : PagerCommand{PagerAction::None, {}};
+    }
+
+    switch (key.wVirtualKeyCode) {
+      case VK_NEXT:
+        return {PagerAction::NextPage, {}};
+      case VK_PRIOR:
+        return {PagerAction::PrevPage, {}};
+      case VK_DOWN:
+        return {PagerAction::NextLine, {}};
+      case VK_UP:
+        return {PagerAction::PrevLine, {}};
+      case VK_ESCAPE:
+        return {PagerAction::Quit, {}};
+      default:
+        return {PagerAction::None, {}};
+    }
+  }
+  return {PagerAction::Quit, {}};
+}
+
+auto compile_search(const Config& cfg, std::string_view text, bool forward)
+    -> std::optional<SearchState> {
+  if (text.empty()) return std::nullopt;
+  bool has_upper = std::ranges::any_of(
+      text, [](unsigned char ch) { return std::isupper(ch) != 0; });
+  bool ignore_case = cfg.ignore_case_all || (cfg.ignore_case && !has_upper);
+  auto compiled = portable_regex::compile(portable_regex::Syntax::Extended,
+                                          text, ignore_case);
+  if (!compiled) return std::nullopt;
+  return SearchState{std::string(text), std::move(compiled.pattern), forward};
+}
+
+auto find_search_match(const SmallVector<std::string, 4096>& lines,
+                       const SearchState& search, size_t top_line, bool forward)
+    -> std::optional<size_t> {
+  if (lines.empty()) return std::nullopt;
+
+  if (forward) {
+    size_t start = std::min(top_line + 1, lines.size());
+    for (size_t i = start; i < lines.size(); ++i) {
+      if (search.pattern.find_first(lines[i]).has_value()) return i;
+    }
+    for (size_t i = 0; i < start; ++i) {
+      if (search.pattern.find_first(lines[i]).has_value()) return i;
+    }
+  } else {
+    size_t start = top_line == 0 ? lines.size() - 1 : top_line - 1;
+    for (size_t i = start + 1; i-- > 0;) {
+      if (search.pattern.find_first(lines[i]).has_value()) return i;
+      if (i == 0) break;
+    }
+    for (size_t i = lines.size(); i-- > start + 1;) {
+      if (search.pattern.find_first(lines[i]).has_value()) return i;
+    }
+  }
+  return std::nullopt;
+}
+
+auto print_pager_line(const Config& cfg, size_t line_index,
+                      std::string_view line, int width) -> void {
+  std::string rendered;
+  if (cfg.show_line_numbers) {
+    rendered += std::format("{:>6}\t", line_index + 1);
+  }
+  rendered.append(line);
+
+  if (cfg.chop_long_lines && width > 0 &&
+      rendered.size() > static_cast<size_t>(width)) {
+    rendered.resize(static_cast<size_t>(width));
+  }
+
+  safePrintLn(rendered);
+}
+
+auto render_page(const Config& cfg, const SmallVector<std::string, 4096>& lines,
+                 size_t top_line, int page_size, int width) -> void {
+  clear_console();
+  for (int i = 0; i < page_size; ++i) {
+    size_t line_index = top_line + static_cast<size_t>(i);
+    if (line_index >= lines.size()) {
+      safePrintLn("");
+      continue;
+    }
+    print_pager_line(cfg, line_index, lines[line_index], width);
+  }
+}
+
+auto print_prompt(size_t top_line, size_t total_lines, bool at_eof) -> void {
+  safePrint(":");
+  if (at_eof) {
+    safePrint("(END) ");
+  }
+  safePrint(std::to_string(top_line + 1));
+  safePrint("/");
+  safePrint(std::to_string(total_lines));
+  safePrint("  SPACE:next  b:back  /:search  n:next  q:quit");
+}
+
+// Interactive pager. Non-terminal output still behaves like cat, matching less.
+auto simple_pager(const Config& cfg, const std::string& content) -> int {
+  if (!isOutputConsole()) {
+    safePrint(content);
+    return 0;
+  }
+
+  auto lines = split_lines(content);
+  auto [width, height] = console_size();
+  int page_size =
+      cfg.window_size > 0 ? cfg.window_size : std::max(height - 1, 1);
+
   if (cfg.quit_one_screen && lines.size() <= static_cast<size_t>(page_size)) {
-    for (const auto& line : lines) {
-      safePrintLn(line);
+    for (size_t i = 0; i < lines.size(); ++i) {
+      print_pager_line(cfg, i, lines[i], width);
     }
     return 0;
   }
 
-  // Display pages
-  size_t current_line = 0;
-  int eof_count = 0;
-
-  while (true) {
-    // Clear screen and display current page
-    // Note: This is a simplified implementation
-    for (int i = 0; i < page_size && current_line < lines.size(); ++i) {
-      if (cfg.show_line_numbers) {
-        safePrint(current_line + 1);
-        safePrint(": ");
-      }
-      safePrintLn(lines[current_line]);
-      current_line++;
-    }
-
-    // Check if at end of file
-    if (current_line >= lines.size()) {
-      eof_count++;
-      if (cfg.quit_first_eof || (cfg.quit_at_eof && eof_count >= 2)) {
-        return 0;
-      }
-    }
-
-    // Simple prompt (non-interactive for now)
-    safePrintLn("--Press Enter to continue, q to quit--");
-
-    // For simplicity, just read one character
-    // A full implementation would use proper console input handling
-    char c = '\0';
-    if (std::cin.get(c)) {
-      if (c == 'q' || c == 'Q') {
-        return 0;
-      }
-      // Any other key continues
-    } else {
-      break;
-    }
-
-    // Reset eof count if we scroll back up (simplified)
-    if (current_line < lines.size()) {
-      eof_count = 0;
-    }
+  ConsoleInputMode input_mode;
+  if (!input_mode.active()) {
+    safePrint(content);
+    return 0;
   }
 
-  return 0;
+  size_t top_line = 0;
+  int eof_count = 0;
+  std::optional<SearchState> last_search;
+
+  while (true) {
+    bool at_eof = top_line + static_cast<size_t>(page_size) >= lines.size();
+    render_page(cfg, lines, top_line, page_size, width);
+    print_prompt(top_line, lines.size(), at_eof);
+
+    if (at_eof && cfg.quit_first_eof) return 0;
+
+    PagerCommand command = read_pager_command(input_mode.input());
+    PagerAction action = command.action;
+    if (action == PagerAction::Quit) return 0;
+
+    const size_t max_top = lines.size() > static_cast<size_t>(page_size)
+                               ? lines.size() - static_cast<size_t>(page_size)
+                               : 0;
+
+    switch (action) {
+      case PagerAction::NextPage:
+        if (at_eof) {
+          ++eof_count;
+          if (cfg.quit_at_eof && eof_count >= 2) return 0;
+        } else {
+          top_line =
+              std::min(max_top, top_line + static_cast<size_t>(page_size));
+          eof_count = 0;
+        }
+        break;
+      case PagerAction::NextLine:
+        if (top_line >= max_top) {
+          ++eof_count;
+          if (cfg.quit_at_eof && eof_count >= 2) return 0;
+        } else {
+          ++top_line;
+          eof_count = 0;
+        }
+        break;
+      case PagerAction::PrevPage:
+        top_line = top_line > static_cast<size_t>(page_size)
+                       ? top_line - static_cast<size_t>(page_size)
+                       : 0;
+        eof_count = 0;
+        break;
+      case PagerAction::PrevLine:
+        if (top_line > 0) --top_line;
+        eof_count = 0;
+        break;
+      case PagerAction::SearchForward:
+      case PagerAction::SearchBackward: {
+        bool forward = action == PagerAction::SearchForward;
+        auto compiled = compile_search(cfg, command.text, forward);
+        if (compiled) {
+          last_search = std::move(*compiled);
+          if (auto match =
+                  find_search_match(lines, *last_search, top_line, forward)) {
+            top_line = std::min(*match, max_top);
+          }
+        }
+        eof_count = 0;
+        break;
+      }
+      case PagerAction::RepeatSearch:
+      case PagerAction::ReverseSearch:
+        if (last_search) {
+          bool forward = last_search->forward;
+          if (action == PagerAction::ReverseSearch) forward = !forward;
+          if (auto match =
+                  find_search_match(lines, *last_search, top_line, forward)) {
+            top_line = std::min(*match, max_top);
+          }
+        }
+        eof_count = 0;
+        break;
+      case PagerAction::Quit:
+        return 0;
+      case PagerAction::None:
+        break;
+    }
+  }
 }
 
 auto run(const Config& cfg) -> int {

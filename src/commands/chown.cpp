@@ -476,6 +476,10 @@ auto build_config(const CommandContext<CHOWN_OPTIONS.size()>& ctx)
   cfg.has_reference = !cfg.reference_file.empty();
   cfg.from_spec = ctx.get<std::string>("--from", "");
 
+  if (cfg.recursive && ctx.get<bool>("--dereference", false) &&
+      !ctx.get<bool>("-H", false) && !ctx.get<bool>("-L", false)) {
+    return std::unexpected("-R --dereference requires either -H or -L");
+  }
   (void)ctx.get<bool>("--dereference", false);
   (void)ctx.get<bool>("-h", false);
   (void)ctx.get<bool>("--no-dereference", false);

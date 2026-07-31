@@ -489,6 +489,17 @@ TEST(chown, chown_current_owner_only_verbose_reports_retained_ownership) {
   EXPECT_EQ(r.stderr_text.find("changing ownership of "), std::string::npos);
 }
 
+TEST(chown, chown_recursive_dereference_requires_H_or_L) {
+  Pipeline p;
+  p.add(L"chown.exe", {L"-R", L"--dereference", L"Users", L"missing.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("-R --dereference requires either -H or -L") !=
+              std::string::npos);
+}
+
 TEST(chown, chown_preserve_root_recursive_root_failsafe) {
   Pipeline p;
   p.add(L"chown.exe", {L"--preserve-root", L"-R", L"Users", L"/"});

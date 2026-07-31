@@ -308,6 +308,10 @@ auto build_config(const CommandContext<CHGRP_OPTIONS.size()>& ctx)
       ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);
   cfg.no_dereference =
       ctx.get<bool>("-h", false) || ctx.get<bool>("--no-dereference", false);
+  if (cfg.recursive && ctx.get<bool>("--dereference", false) &&
+      !ctx.get<bool>("-H", false) && !ctx.get<bool>("-L", false)) {
+    return std::unexpected("-R --dereference requires either -H or -L");
+  }
   cfg.preserve_root = ctx.get<bool>("--preserve-root", false);
   cfg.from_group = ctx.get<std::string>("--from", "");
   cfg.reference_file = ctx.get<std::string>("--reference", "");

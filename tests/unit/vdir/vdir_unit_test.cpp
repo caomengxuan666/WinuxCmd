@@ -78,3 +78,20 @@ TEST(vdir, vdir_forwards_directory_option_to_ls) {
   EXPECT_TRUE(r.stdout_text.find("test data") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("beta.txt") == std::string::npos);
 }
+
+TEST(vdir, vdir_forwards_format_option_to_ls) {
+  TempDir tmp;
+  std::ofstream(tmp.path / "alpha.txt") << "a";
+  std::ofstream(tmp.path / "beta.txt") << "b";
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"vdir.exe", {L"--format=single-column"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.empty());
+  EXPECT_TRUE(r.stdout_text.find("alpha.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("beta.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("total ") == std::string::npos);
+}

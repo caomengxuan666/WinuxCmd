@@ -98,19 +98,22 @@ REGISTER_COMMAND(
     std::transform(var_name.begin(), var_name.end(), var_name.begin(),
                    ::tolower);
 
-    if (var_name == "path_max" || var_name == "name_max") {
+    if (var_name == "path_max" || var_name == "_posix_path_max" ||
+        var_name == "name_max" || var_name == "_posix_name_max") {
       safePrintLn("260");  // MAX_PATH on Windows
     } else if (var_name == "nprocessors_onln" ||
-               var_name == "nprocessors_conf") {
+               var_name == "_nprocessors_onln" ||
+               var_name == "nprocessors_conf" ||
+               var_name == "_nprocessors_conf") {
       safePrintLn(std::to_string(sysInfo.dwNumberOfProcessors));
-    } else if (var_name == "page_size") {
+    } else if (var_name == "page_size" || var_name == "pagesize") {
       safePrintLn(std::to_string(sysInfo.dwPageSize));
-    } else if (var_name == "phys_pages") {
+    } else if (var_name == "phys_pages" || var_name == "_phys_pages") {
       MEMORYSTATUS memStatus;
       memStatus.dwLength = sizeof(memStatus);
       GlobalMemoryStatus(&memStatus);
       safePrintLn(std::to_string(memStatus.dwTotalPhys / sysInfo.dwPageSize));
-    } else if (var_name == "avphys_pages") {
+    } else if (var_name == "avphys_pages" || var_name == "_avphys_pages") {
       MEMORYSTATUS memStatus;
       memStatus.dwLength = sizeof(memStatus);
       GlobalMemoryStatus(&memStatus);

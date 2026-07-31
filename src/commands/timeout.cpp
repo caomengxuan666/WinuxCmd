@@ -68,40 +68,13 @@ struct Config {
   SmallVector<std::string, 64> args;
 };
 
-auto quote_timeout_windows_arg(const std::wstring& arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
-
 auto build_timeout_command_line(std::string_view command,
                                 std::span<const std::string> args)
     -> std::wstring {
   std::wstring cmd_line =
-      quote_timeout_windows_arg(utf8_to_wstring(std::string(command)));
+      quote_windows_command_arg(utf8_to_wstring(std::string(command)));
   for (const auto& arg : args) {
-    cmd_line.push_back(L' ');
-    cmd_line += quote_timeout_windows_arg(utf8_to_wstring(arg));
+    append_windows_command_arg(cmd_line, utf8_to_wstring(arg));
   }
   return cmd_line;
 }

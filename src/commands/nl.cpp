@@ -104,9 +104,9 @@ auto validate_numbering_style(const std::string& style,
     return 0;
   }
   if (style.starts_with("p")) {
-    try {
-      std::regex unused(style.substr(1), std::regex_constants::basic);
-    } catch (const std::regex_error&) {
+    auto pattern =
+        portable_regex::compile(portable_regex::Syntax::Basic, style.substr(1));
+    if (!pattern) {
       return std::unexpected("invalid " + std::string(section) +
                              " numbering style");
     }
@@ -275,8 +275,9 @@ auto should_number_line(const std::string& style, const std::string& line,
 
   if (style.starts_with("p")) {
     blank_count = 0;
-    std::regex pattern(style.substr(1), std::regex_constants::basic);
-    return std::regex_search(line, pattern);
+    auto pattern =
+        portable_regex::compile(portable_regex::Syntax::Basic, style.substr(1));
+    return pattern && !pattern.pattern.find_all(line).empty();
   }
 
   if (!line.empty()) {
@@ -314,6 +315,11 @@ auto format_line_number(int line_number, const Config& cfg) -> std::string {
   return num_buf;
 }
 
+auto unnumbered_prefix(const Config& cfg) -> std::string {
+  return std::string(
+      static_cast<size_t>(cfg.number_width) + cfg.separator.size(), ' ');
+}
+
 auto print_data_line(const std::string& line, const Config& cfg,
                      Section section, int& line_number, int& blank_count) {
   bool should_number = should_number_line(style_for_section(cfg, section), line,
@@ -327,7 +333,8 @@ auto print_data_line(const std::string& line, const Config& cfg,
     return;
   }
 
-  safePrintLn(cfg.separator + line);
+  safePrint(unnumbered_prefix(cfg));
+  safePrintLn(line);
 }
 
 auto handle_section_delimiter(const std::string& line, const Config& cfg,
