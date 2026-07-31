@@ -68,6 +68,33 @@ struct Config {
   std::string template_str;
   std::string suffix;
 };
+auto normalize_win_shell_path(std::string_view text) -> std::string {
+  auto make_drive_path = [](char drive, std::string_view rest) {
+    std::string out;
+    out.reserve(rest.size() + 2);
+    out.push_back(
+        static_cast<char>(std::toupper(static_cast<unsigned char>(drive))));
+    out.push_back(':');
+    out.append(rest.data(), rest.size());
+    return out;
+  };
+
+  if (text.size() >= 3 && (text[0] == '/' || text[0] == '\\') &&
+      std::isalpha(static_cast<unsigned char>(text[1])) &&
+      (text[2] == '/' || text[2] == '\\')) {
+    return make_drive_path(text[1], text.substr(2));
+  }
+
+  constexpr std::string_view cygdrive = "/cygdrive/";
+  if (text.size() > cygdrive.size() + 1 && text.starts_with(cygdrive) &&
+      std::isalpha(static_cast<unsigned char>(text[cygdrive.size()])) &&
+      (text[cygdrive.size() + 1] == '/' || text[cygdrive.size() + 1] == '\\')) {
+    return make_drive_path(text[cygdrive.size()],
+                           text.substr(cygdrive.size() + 1));
+  }
+
+  return std::string(text);
+}
 
 auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
@@ -142,12 +169,14 @@ auto run(const Config& cfg) -> int {
   std::string template_component = cfg.template_str;
 
   if (!cfg.tmpdir.empty()) {
-    base_dir = std::filesystem::path(cfg.tmpdir);
+    base_dir = std::filesystem::path(normalize_win_shell_path(cfg.tmpdir));
     template_component =
-        std::filesystem::path(cfg.template_str).filename().string();
+        std::filesystem::path(normalize_win_shell_path(cfg.template_str))
+            .filename()
+            .string();
   } else {
     std::filesystem::path template_path =
-        std::filesystem::path(cfg.template_str);
+        std::filesystem::path(normalize_win_shell_path(cfg.template_str));
     base_dir = template_path.parent_path();
     template_component = template_path.filename().string();
   }
@@ -185,7 +214,7 @@ auto run(const Config& cfg) -> int {
     std::filesystem::path candidate_path =
         base_dir.empty() ? std::filesystem::path(filename)
                          : (base_dir / std::filesystem::path(filename));
-    temp_file = candidate_path.string();
+    temp_file = candidate_path.generic_string();
 
     // Check if file/directory already exists
     DWORD attrs = GetFileAttributesA(temp_file.c_str());

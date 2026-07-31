@@ -104,6 +104,7 @@ COREUTILS = {
     "stat",
     "stdbuf",
     "sum",
+    "stty",
     "sync",
     "tac",
     "tail",
@@ -136,6 +137,7 @@ SED_FAMILY = {"sed"}
 LESS_FAMILY = {"less"}
 UTIL_LINUX = {
     "cal",
+    "col",
     "column",
     "hexdump",
     "look",
@@ -155,7 +157,9 @@ XXD_FAMILY = {"xxd"}
 PATCH_FAMILY = {"patch"}
 MAN_FAMILY = {"man"}
 LSOF_FAMILY = {"lsof"}
-LOCALE_FAMILY = {"locale"}
+CYGWIN_FAMILY = {"getconf", "locale"}
+GNU_WHICH_FAMILY = {"which"}
+GNU_CPIO_FAMILY = {"cpio"}
 CYGPATH_FAMILY = {"cygpath"}
 BINUTILS = {"strings"}
 LIBGCRYPT = {"hmac256", "mpicalc"}
@@ -245,6 +249,9 @@ REFERENCE_URLS = {
     "man-db": "https://www.nongnu.org/man-db/",
     "lsof": "https://github.com/lsof-org/lsof",
     "cygpath": "https://cygwin.com/cygwin-ug-net/cygpath.html",
+    "cygwin": "https://cygwin.com/",
+    "gnu-which": "https://savannah.gnu.org/projects/which/",
+    "gnu-cpio": "https://www.gnu.org/software/cpio/",
     "gnu-binutils": "https://www.gnu.org/software/binutils/",
     "libgcrypt": "https://gnupg.org/software/libgcrypt/",
     "local": "",
@@ -323,8 +330,12 @@ def command_family(command: str) -> str:
         return "man-db"
     if command in LSOF_FAMILY:
         return "lsof"
-    if command in LOCALE_FAMILY:
-        return "gnu-coreutils"
+    if command in CYGWIN_FAMILY:
+        return "cygwin"
+    if command in GNU_WHICH_FAMILY:
+        return "gnu-which"
+    if command in GNU_CPIO_FAMILY:
+        return "gnu-cpio"
     if command in CYGPATH_FAMILY:
         return "cygpath"
     if command in BINUTILS:
@@ -540,6 +551,7 @@ def upstream_source_candidates(command: str, family: str) -> list[Path]:
             "[": "test",
             "base32": "basenc",
             "base64": "basenc",
+            "arch": "uname",
             "false": "true",
             "dir": "ls",
             "vdir": "ls",
@@ -593,6 +605,7 @@ def upstream_source_candidates(command: str, family: str) -> list[Path]:
     if family == "util-linux":
         util_linux_paths = {
             "cal": upstream / "util-linux" / "misc-utils" / "cal.c",
+            "col": upstream / "util-linux" / "text-utils" / "col.c",
             "column": upstream / "util-linux" / "text-utils" / "column.c",
             "getopt": upstream / "util-linux" / "misc-utils" / "getopt.c",
             "hexdump": upstream / "util-linux" / "text-utils" / "hexdump.c",
@@ -603,8 +616,77 @@ def upstream_source_candidates(command: str, family: str) -> list[Path]:
             return [util_linux_paths[command]]
     if family == "man-db":
         return [upstream / "man-db" / "src" / "man.c"]
+    if family == "cygwin":
+        cygwin_paths = {
+            "getconf": upstream / "cygwin-full" / "winsup" / "utils" / "getconf.c",
+            "locale": upstream / "cygwin-full" / "winsup" / "utils" / "locale.cc",
+        }
+        if command in cygwin_paths:
+            return [cygwin_paths[command]]
+    if family == "gnu-which":
+        if command == "which":
+            return [upstream / "gnu-which" / "which.c"]
+    if family == "gnu-cpio":
+        if command == "cpio":
+            return [
+                upstream / "gnu-cpio" / "src" / "main.c",
+                upstream / "gnu-cpio" / "src" / "copyin.c",
+                upstream / "gnu-cpio" / "src" / "copyout.c",
+                upstream / "gnu-cpio" / "src" / "copypass.c",
+                upstream / "gnu-cpio" / "src" / "util.c",
+            ]
     if family == "cygpath":
         return [upstream / "cygwin" / "winsup" / "utils" / "cygpath.cc"]
+    if family == "ncurses":
+        ncurses_paths = {
+            "clear": upstream / "ncurses" / "progs" / "clear.c",
+            "infocmp": upstream / "ncurses" / "progs" / "infocmp.c",
+            "reset": upstream / "ncurses" / "progs" / "reset_cmd.c",
+            "tic": upstream / "ncurses" / "progs" / "tic.c",
+            "toe": upstream / "ncurses" / "progs" / "toe.c",
+            "tput": upstream / "ncurses" / "progs" / "tput.c",
+        }
+        if command in ncurses_paths:
+            return [ncurses_paths[command]]
+    if family == "dos2unix":
+        if command in {"d2u", "dos2unix", "u2d", "unix2dos"}:
+            return [
+                upstream / "dos2unix" / "dos2unix" / "dos2unix.c",
+                upstream / "dos2unix" / "dos2unix" / "common.c",
+            ]
+    if family == "file":
+        if command == "file":
+            return [
+                upstream / "file" / "src" / "file.c",
+                upstream / "file" / "src" / "softmagic.c",
+                upstream / "file" / "src" / "apprentice.c",
+            ]
+    if family == "tree":
+        if command == "tree":
+            return [upstream / "tree" / "tree.c", upstream / "tree" / "tree.h"]
+    if family == "xxd":
+        if command == "xxd":
+            return [upstream / "vim" / "src" / "xxd" / "xxd.c"]
+    if family == "lsof":
+        if command == "lsof":
+            return [
+                upstream / "lsof" / "lib" / "lsof.c",
+                upstream / "lsof" / "lib" / "proc.c",
+                upstream / "lsof" / "lib" / "print.c",
+                upstream / "lsof" / "lib" / "misc.c",
+            ]
+    if family == "procps-ng":
+        procps_paths = {
+            "free": [upstream / "procps-ng" / "src" / "free.c"],
+            "ps": [
+                upstream / "procps-ng" / "src" / "ps" / "parser.c",
+                upstream / "procps-ng" / "src" / "ps" / "output.c",
+            ],
+            "top": [upstream / "procps-ng" / "src" / "top" / "top.c"],
+            "watch": [upstream / "procps-ng" / "src" / "watch.c"],
+        }
+        if command in procps_paths:
+            return procps_paths[command]
     if family == "gnu-binutils":
         if command == "strings":
             return [upstream / "gnu-binutils" / "binutils" / "strings.c"]

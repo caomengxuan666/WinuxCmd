@@ -79,6 +79,7 @@ class Probe:
     isolated: bool = False
     reference_command: str | None = None
     reference_argv: list[str] | None = None
+    reference_required: bool = True
     mode_paths: list[str] | None = None
     time_paths: list[str] | None = None
     stdout_regex: str | None = None
@@ -320,6 +321,14 @@ PROBES = [
     ),
     Probe("whoami", "current user name", [], "text"),
     Probe("logname", "login name", [], "text"),
+    Probe("cpio", "newc archive create shape", ["-o"], "text", stdin="cat-no-newline.txt\n", compare_stdout=False, stdout_regex=r"(?s)070701.*TRAILER!+.*", reference_required=False),
+    Probe("free", "megabytes memory table shape", ["-m"], "text", compare_stdout=False, stdout_regex=r"(?s)\s*total\s+used\s+free\s+available\nMem:\s+\d+\s+\d+\s+\d+\nSwap:\s+\d+\s+\d+\s+\d+\n", reference_required=False),
+    Probe("lsof", "field output prefix shape", ["--no-headers", "-F", "-t", "50"], "text", compare_stdout=False, compare_exit=False, expected_exit=None, stdout_regex=r"(?s)(?:[pctn][^\n]*\n|\n)+", stderr_regex=r"(?s)(?:lsof: warning: [^\n]*\n)*", stdout_line_limit=12, reference_required=False),
+    Probe("man", "command index shape", ["--list"], "text", compare_stdout=False, stdout_regex=r"(?s)Available commands:\n.*\b(?:cat|grep|ls)\b.*", reference_required=False),
+    Probe("top", "batch prefix shape", ["-b", "--rows", "8"], "text", compare_stdout=False, compare_exit=False, expected_exit=None, stdout_regex=r"(?s)top - .*Tasks:.*%Cpu\(s\):.*MiB Mem :.*PID USER.*", stdout_line_limit=12, reference_required=False),
+    Probe("tree", "depth one tree shape", ["-L", "1", "tree"], "tree", compare_stdout=False, stdout_regex=r"(?s).*tree\n.*(?:├──|\+--|`--).*(?:directories|files).*", reference_required=False),
+    Probe("uptime", "windows uptime shape", [], "text", compare_stdout=False, stdout_regex=r"(?s)\s*\d{2}:\d{2}:\d{2} up .*,  load average: N/A, N/A, N/A\n", reference_required=False),
+    Probe("watch", "single iteration command shape", ["-n", "0", "-c", "1", "-t", "{winux:printf}", "watch-ok"], "text", compare_stdout=False, stdout_regex=r"(?s).*watch-ok.*", reference_required=False),
     Probe("hostid", "hex host id shape", [], "text", compare_stdout=False, stdout_regex=r"[0-9a-f]{8}\n"),
     Probe(
         "groups",
@@ -978,12 +987,12 @@ def materialize_probe_argv(
         if arg.startswith("{ref:") and arg.endswith("}"):
             command = arg[len("{ref:") : -1]
             exe = detect_reference_bin(command, reference_root)
-            materialized.append(str(exe) if exe else arg)
+            materialized.append(str(exe.resolve()) if exe else arg)
             continue
         if arg.startswith("{winux:") and arg.endswith("}"):
             command = arg[len("{winux:") : -1]
             exe = command_exe(build_dir, command)
-            materialized.append(str(exe) if exe else arg)
+            materialized.append(str(exe.resolve()) if exe else arg)
             continue
         materialized.append(arg)
     return materialized
@@ -1666,7 +1675,8 @@ def run_probe(
     winux = command_exe(build_dir, probe.command)
     reference_command = probe.reference_command or probe.command
     reference_argv = probe.reference_argv or probe.argv
-    reference = detect_reference_bin(reference_command, reference_root)
+    reference = detect_reference_bin(reference_command, reference_root) if probe.reference_required else None
+    has_reference = reference is not None
     if winux is None:
         return ProbeResult(
             probe.command,
@@ -1687,7 +1697,7 @@ def run_probe(
             None,
             f"missing built executable for {probe.command}",
         )
-    if reference is None:
+    if reference is None and probe.reference_required:
         return ProbeResult(
             probe.command,
             probe.name,
@@ -1745,12 +1755,17 @@ def run_probe(
         wx_exit, wx_out, wx_err, wx_ms = run_once(
             winux, winux_argv, winux_cwd, stdin_bytes, env, probe.stdout_line_limit
         )
-        ref_exit, ref_out, ref_err, ref_ms = run_once(
-            reference, reference_argv, reference_cwd, stdin_bytes, env, probe.stdout_line_limit
-        )
+        if has_reference:
+            assert reference is not None
+            ref_exit, ref_out, ref_err, ref_ms = run_once(
+                reference, reference_argv, reference_cwd, stdin_bytes, env, probe.stdout_line_limit
+            )
+        else:
+            ref_exit, ref_out, ref_err, ref_ms = None, b"", b"", None
         if run_index >= warmups:
             winux_times.append(wx_ms)
-            reference_times.append(ref_ms)
+            if ref_ms is not None:
+                reference_times.append(ref_ms)
             if probe.isolated:
                 run_state_match = isolated_state_matches(
                     probe, winux_cwd, reference_cwd
@@ -1763,7 +1778,7 @@ def run_probe(
         winux_exit, reference_exit = wx_exit, ref_exit
         winux_stdout, reference_stdout = wx_out, ref_out
         winux_stderr, reference_stderr = wx_err, ref_err
-        if probe.compare_exit and wx_exit != ref_exit:
+        if has_reference and probe.compare_exit and wx_exit != ref_exit:
             note = (
                 f"exit mismatch; winux stderr={wx_err[:160]!r}; "
                 f"reference stderr={ref_err[:160]!r}"
@@ -1773,7 +1788,7 @@ def run_probe(
     raw_stdout_match = None
     normalized_stdout_match = None
     status = "ok"
-    if probe.compare_stdout:
+    if probe.compare_stdout and has_reference:
         raw_stdout_match = winux_stdout == reference_stdout
         normalized_stdout_match = (
             normalize_text_stdout(winux_stdout)
@@ -1793,13 +1808,15 @@ def run_probe(
         winux_shape = pattern.fullmatch(
             normalize_text_stdout(winux_stdout).decode("utf-8", "replace")
         )
-        reference_shape = pattern.fullmatch(
-            normalize_text_stdout(reference_stdout).decode("utf-8", "replace")
-        )
+        reference_shape = True
+        if has_reference:
+            reference_shape = pattern.fullmatch(
+                normalize_text_stdout(reference_stdout).decode("utf-8", "replace")
+            )
         stdout_match = bool(winux_shape and reference_shape)
         if stdout_match:
             status = "ok"
-            note = "stdout shape matched regex"
+            note = "stdout shape matched regex" if has_reference else "stdout shape matched regex; reference not required"
         else:
             status = "stdout-mismatch"
             note = "stdout shape differs from expected regex"
@@ -1809,15 +1826,17 @@ def run_probe(
         winux_shape = pattern.fullmatch(
             normalize_text_stdout(winux_stderr).decode("utf-8", "replace")
         )
-        reference_shape = pattern.fullmatch(
-            normalize_text_stdout(reference_stderr).decode("utf-8", "replace")
-        )
+        reference_shape = True
+        if has_reference:
+            reference_shape = pattern.fullmatch(
+                normalize_text_stdout(reference_stderr).decode("utf-8", "replace")
+            )
         if winux_shape and reference_shape and status.startswith("ok"):
             note = note or "stderr shape matched regex"
         elif not (winux_shape and reference_shape):
             status = "stderr-mismatch"
             note = "stderr shape differs from expected regex"
-    if probe.compare_exit and winux_exit != reference_exit:
+    if has_reference and probe.compare_exit and winux_exit != reference_exit:
         status = "exit-mismatch"
     elif probe.compare_exit and probe.expected_exit is not None and winux_exit != probe.expected_exit:
         status = "unexpected-exit"
@@ -1827,8 +1846,8 @@ def run_probe(
         note = "isolated filesystem state differs from reference"
 
     wx_median = median_ms(winux_times)
-    ref_median = median_ms(reference_times)
-    ratio = round(wx_median / ref_median, 3) if ref_median > 0 else None
+    ref_median = median_ms(reference_times) if reference_times else None
+    ratio = round(wx_median / ref_median, 3) if ref_median and ref_median > 0 else None
 
     return ProbeResult(
         probe.command,
@@ -1846,7 +1865,7 @@ def run_probe(
         winux_exit,
         reference_exit,
         sha256(winux_stdout),
-        sha256(reference_stdout),
+        sha256(reference_stdout) if has_reference else None,
         note,
     )
 
@@ -1875,8 +1894,10 @@ def render_markdown(
         "",
         "Generated by `scripts/benchmark-command-parity.py`.",
         "",
-        "This is a black-box smoke benchmark against a local GNU/MSYS reference. "
-        "It complements unit tests; it does not replace source review.",
+        "This is a black-box smoke benchmark against a local GNU/MSYS reference "
+        "when one is available. Dynamic Windows-only probes record Winux shape "
+        "and timing without inventing a reference runtime. It complements unit "
+        "tests; it does not replace source review.",
         "",
         "## Summary",
         "",
@@ -1953,6 +1974,7 @@ def main() -> int:
     parser.add_argument("--reference-root", type=Path)
     parser.add_argument("--iterations", type=int, default=3)
     parser.add_argument("--warmups", type=int, default=1)
+    parser.add_argument("--commands", help="comma-separated command names to run")
     parser.add_argument("--json", type=Path)
     parser.add_argument("--markdown", type=Path)
     parser.add_argument(
@@ -1973,6 +1995,14 @@ def main() -> int:
     )
 
     prepare_fixtures(fixture_dir)
+    selected_probes = PROBES
+    if args.commands:
+        wanted = {name.strip() for name in args.commands.split(",") if name.strip()}
+        selected_probes = [probe for probe in PROBES if probe.command in wanted]
+        found = {probe.command for probe in selected_probes}
+        missing = sorted(wanted - found)
+        if missing:
+            raise SystemExit("No probes registered for: " + ",".join(missing))
     results = [
         run_probe(
             probe,
@@ -1982,7 +2012,7 @@ def main() -> int:
             iterations=args.iterations,
             warmups=args.warmups,
         )
-        for probe in PROBES
+        for probe in selected_probes
     ]
 
     payload = {
