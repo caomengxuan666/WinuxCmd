@@ -129,6 +129,22 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-type", "",
            "file is of type c: b,d,p,f,l,s,D [only d,f,l are supported]",
            STRING_TYPE),
+    OPTION("-xtype", "",
+           "like -type but checks the opposite symlink resolution state [only "
+           "d,f,l are supported]",
+           STRING_TYPE),
+    OPTION("-perm", "",
+           "file's permission bits match MODE [PARTIAL: octal modes only]",
+           STRING_TYPE),
+    OPTION("-readable", "", "file can be read"),
+    OPTION("-writable", "", "file can be written"),
+    OPTION("-executable", "", "file can be executed or searched"),
+    OPTION("-inum", "", "file has inode/file-index number N", STRING_TYPE),
+    OPTION("-links", "", "file has N hard links", STRING_TYPE),
+    OPTION("-user", "", "file is owned by user name or UID", STRING_TYPE),
+    OPTION("-group", "", "file belongs to group name or GID", STRING_TYPE),
+    OPTION("-uid", "", "file owner's numeric UID matches N", STRING_TYPE),
+    OPTION("-gid", "", "file group's numeric GID matches N", STRING_TYPE),
     OPTION("-size", "", "file uses n units of space", STRING_TYPE),
     OPTION("-empty", "",
            "file is empty and is either a regular file or a directory"),
@@ -176,6 +192,46 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-newer", "",
            "file was modified more recently than the reference file",
            STRING_TYPE),
+    OPTION("-neweraa", "", "compare access time to reference access time",
+           STRING_TYPE),
+    OPTION("-neweraB", "", "compare access time to reference birth time",
+           STRING_TYPE),
+    OPTION("-newerac", "", "compare access time to reference change time",
+           STRING_TYPE),
+    OPTION("-neweram", "", "compare access time to reference modify time",
+           STRING_TYPE),
+    OPTION("-newerat", "", "compare access time to literal time", STRING_TYPE),
+    OPTION("-newerBa", "", "compare birth time to reference access time",
+           STRING_TYPE),
+    OPTION("-newerBB", "", "compare birth time to reference birth time",
+           STRING_TYPE),
+    OPTION("-newerBc", "", "compare birth time to reference change time",
+           STRING_TYPE),
+    OPTION("-newerBm", "", "compare birth time to reference modify time",
+           STRING_TYPE),
+    OPTION("-newerBt", "", "compare birth time to literal time", STRING_TYPE),
+    OPTION("-newerca", "", "compare change time to reference access time",
+           STRING_TYPE),
+    OPTION("-newercB", "", "compare change time to reference birth time",
+           STRING_TYPE),
+    OPTION("-newercc", "", "compare change time to reference change time",
+           STRING_TYPE),
+    OPTION("-newercm", "", "compare change time to reference modify time",
+           STRING_TYPE),
+    OPTION("-newerct", "", "compare change time to literal time", STRING_TYPE),
+    OPTION("-newerma", "", "compare modify time to reference access time",
+           STRING_TYPE),
+    OPTION("-newermB", "", "compare modify time to reference birth time",
+           STRING_TYPE),
+    OPTION("-newermc", "", "compare modify time to reference change time",
+           STRING_TYPE),
+    OPTION("-newermm", "", "compare modify time to reference modify time",
+           STRING_TYPE),
+    OPTION("-newermt", "", "compare modify time to literal time", STRING_TYPE),
+    OPTION("-samefile", "",
+           "file refers to the same file as the reference file", STRING_TYPE),
+    OPTION("-files0-from", "", "read starting points from NUL-delimited file",
+           STRING_TYPE),
     OPTION("-depth", "",
            "process each directory's contents before the directory itself"),
     OPTION("-d", "", "same as -depth"),
@@ -207,6 +263,25 @@ struct SizePredicate {
   unsigned long long unit = 512;
 };
 
+enum class PermissionComparison { Exact, All, Any };
+
+struct PermissionPredicate {
+  PermissionComparison comparison = PermissionComparison::Exact;
+  unsigned mode = 0;
+};
+
+struct FileIdentity {
+  DWORD volume_serial = 0;
+  ULONGLONG file_index = 0;
+
+  auto operator==(const FileIdentity& other) const -> bool {
+    return volume_serial == other.volume_serial &&
+           file_index == other.file_index;
+  }
+};
+
+enum class FindFileTimeKind { Access, Birth, Change, Modify };
+
 enum class ExprKind {
   Always,
   Name,
@@ -216,11 +291,24 @@ enum class ExprKind {
   Regex,
   IRegex,
   Type,
+  XType,
+  Perm,
+  Readable,
+  Writable,
+  Executable,
+  Inum,
+  Links,
+  User,
+  Group,
+  Uid,
+  Gid,
   Empty,
   Size,
   MTime,
   MMin,
   Newer,
+  NewerXY,
+  SameFile,
   Print,
   Print0,
   Printf,
@@ -238,10 +326,14 @@ enum class ExprKind {
 struct ExprNode {
   ExprKind kind = ExprKind::Always;
   std::string text;
-  std::optional<std::regex> regex;
+  std::optional<portable_regex::Pattern> regex;
   std::optional<SizePredicate> size;
   std::optional<NumericPredicate> numeric;
+  std::optional<PermissionPredicate> permission;
   std::optional<std::filesystem::file_time_type> reference_time;
+  std::optional<long long> reference_ticks;
+  std::optional<FileIdentity> reference_identity;
+  FindFileTimeKind time_kind = FindFileTimeKind::Modify;
   size_t action_index = 0;
   std::unique_ptr<ExprNode> left;
   std::unique_ptr<ExprNode> right;
@@ -274,6 +366,7 @@ struct Config {
   std::vector<ExecAction> exec_actions;
   bool follow_symlinks = false;
   bool follow_arg_symlinks = false;
+  std::string files0_from;
   bool prune_current = false;
   bool quit = false;
   std::unique_ptr<ExprNode> expression;
@@ -362,22 +455,156 @@ auto parse_size_predicate(std::string_view text) -> cp::Result<SizePredicate> {
   return result;
 }
 
-auto parse_regex(std::string_view pattern, bool case_insensitive)
-    -> cp::Result<std::regex> {
-  auto flags = std::regex_constants::ECMAScript;
-  if (case_insensitive) flags |= std::regex_constants::icase;
+auto parse_permission_predicate(std::string_view text)
+    -> cp::Result<PermissionPredicate> {
+  if (text.empty()) return std::unexpected("missing -perm argument");
 
-  try {
-    return std::regex(std::string(pattern), flags);
-  } catch (const std::regex_error&) {
+  PermissionPredicate result;
+  size_t pos = 0;
+  if (text[pos] == '-') {
+    result.comparison = PermissionComparison::All;
+    ++pos;
+  } else if (text[pos] == '/') {
+    result.comparison = PermissionComparison::Any;
+    ++pos;
+  }
+
+  if (pos >= text.size()) return std::unexpected("invalid -perm mode");
+
+  unsigned mode = 0;
+  for (; pos < text.size(); ++pos) {
+    unsigned char ch = static_cast<unsigned char>(text[pos]);
+    if (ch < '0' || ch > '7') {
+      return std::unexpected(
+          "symbolic -perm modes are not implemented; use an octal mode");
+    }
+    mode = (mode << 3) + static_cast<unsigned>(ch - '0');
+  }
+
+  result.mode = mode & 07777;
+  return result;
+}
+
+auto is_decimal_text(std::string_view text) -> bool {
+  return !text.empty() &&
+         std::all_of(text.begin(), text.end(),
+                     [](unsigned char ch) { return std::isdigit(ch) != 0; });
+}
+
+auto parse_find_time_kind(char ch) -> std::optional<FindFileTimeKind> {
+  switch (ch) {
+    case 'a':
+      return FindFileTimeKind::Access;
+    case 'B':
+      return FindFileTimeKind::Birth;
+    case 'c':
+      return FindFileTimeKind::Change;
+    case 'm':
+      return FindFileTimeKind::Modify;
+    default:
+      return std::nullopt;
+  }
+}
+
+auto is_newerxy_option(std::string_view option) -> bool {
+  if (option.size() != 8 || option.substr(0, 6) != "-newer") return false;
+  if (!parse_find_time_kind(option[6])) return false;
+  return option[7] == 't' || parse_find_time_kind(option[7]).has_value();
+}
+
+auto filetime_ticks(FILETIME ft) -> long long {
+  ULARGE_INTEGER value{};
+  value.LowPart = ft.dwLowDateTime;
+  value.HighPart = ft.dwHighDateTime;
+  if (value.QuadPart >
+      static_cast<ULONGLONG>(std::numeric_limits<long long>::max())) {
+    return std::numeric_limits<long long>::max();
+  }
+  return static_cast<long long>(value.QuadPart);
+}
+
+auto local_system_time_to_filetime_ticks(const SYSTEMTIME& local_time)
+    -> std::optional<long long> {
+  SYSTEMTIME utc_time{};
+  if (!TzSpecificLocalTimeToSystemTime(nullptr, &local_time, &utc_time)) {
+    return std::nullopt;
+  }
+
+  FILETIME file_time{};
+  if (!SystemTimeToFileTime(&utc_time, &file_time)) return std::nullopt;
+  return filetime_ticks(file_time);
+}
+
+auto parse_literal_time_ticks(std::string_view text)
+    -> std::optional<long long> {
+  auto trim = [](std::string_view value) {
+    while (!value.empty() &&
+           std::isspace(static_cast<unsigned char>(value.front())) != 0) {
+      value.remove_prefix(1);
+    }
+    while (!value.empty() &&
+           std::isspace(static_cast<unsigned char>(value.back())) != 0) {
+      value.remove_suffix(1);
+    }
+    return value;
+  };
+
+  text = trim(text);
+  if (text.empty()) return std::nullopt;
+
+  if (text.front() == '@') {
+    long long seconds = 0;
+    auto numeric = text.substr(1);
+    auto [ptr, ec] = std::from_chars(numeric.data(),
+                                     numeric.data() + numeric.size(), seconds);
+    if (ec == std::errc() && ptr == numeric.data() + numeric.size()) {
+      constexpr long long kUnixToWindowsEpochSeconds = 11644473600LL;
+      return (seconds + kUnixToWindowsEpochSeconds) * 10000000LL;
+    }
+  }
+
+  std::string normalized(text);
+  std::replace(normalized.begin(), normalized.end(), 'T', ' ');
+  std::replace(normalized.begin(), normalized.end(), '/', '-');
+
+  const std::array formats = {"%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+                              "%Y-%m-%d"};
+  for (const char* format : formats) {
+    std::tm tm{};
+    tm.tm_isdst = -1;
+    std::istringstream stream(normalized);
+    stream >> std::get_time(&tm, format);
+    if (stream.fail()) continue;
+    stream >> std::ws;
+    if (!stream.eof()) continue;
+
+    SYSTEMTIME st{.wYear = static_cast<WORD>(tm.tm_year + 1900),
+                  .wMonth = static_cast<WORD>(tm.tm_mon + 1),
+                  .wDay = static_cast<WORD>(tm.tm_mday),
+                  .wHour = static_cast<WORD>(tm.tm_hour),
+                  .wMinute = static_cast<WORD>(tm.tm_min),
+                  .wSecond = static_cast<WORD>(tm.tm_sec)};
+    return local_system_time_to_filetime_ticks(st);
+  }
+
+  return std::nullopt;
+}
+
+auto parse_regex(std::string_view pattern, bool case_insensitive)
+    -> cp::Result<portable_regex::Pattern> {
+  auto parsed = portable_regex::compile(portable_regex::Syntax::Extended,
+                                        pattern, case_insensitive);
+  if (!parsed) {
     return std::unexpected("invalid regular expression");
   }
+  return std::move(parsed.pattern);
 }
 
 auto reference_write_time(std::string_view path)
     -> cp::Result<std::filesystem::file_time_type> {
   std::error_code ec;
-  auto t = std::filesystem::last_write_time(std::filesystem::path(path), ec);
+  auto t = std::filesystem::last_write_time(
+      std::filesystem::path(utf8_to_wstring(std::string(path))), ec);
   if (ec) return std::unexpected("cannot read reference file for -newer");
   return t;
 }
@@ -392,6 +619,23 @@ auto numeric_matches(const NumericPredicate& pred, long long actual) -> bool {
       return actual < pred.value;
   }
   return false;
+}
+
+auto numeric_matches_unsigned(const NumericPredicate& pred,
+                              unsigned long long actual) -> bool {
+  const auto max_signed =
+      static_cast<unsigned long long>(std::numeric_limits<long long>::max());
+  if (actual > max_signed) {
+    switch (pred.comparison) {
+      case NumericComparison::Exact:
+        return false;
+      case NumericComparison::GreaterThan:
+        return true;
+      case NumericComparison::LessThan:
+        return false;
+    }
+  }
+  return numeric_matches(pred, static_cast<long long>(actual));
 }
 
 auto is_directory_reparse_point(const std::filesystem::directory_entry& e)
@@ -412,6 +656,52 @@ auto type_matches(const std::filesystem::directory_entry& e,
   return false;
 }
 
+auto file_type_matches(std::filesystem::file_type file_type, bool link_like,
+                       std::string_view type) -> bool {
+  if (type.empty()) return true;
+  if (type == "l") {
+    return link_like || file_type == std::filesystem::file_type::symlink;
+  }
+  if (type == "d") {
+    return file_type == std::filesystem::file_type::directory && !link_like;
+  }
+  if (type == "f") {
+    return file_type == std::filesystem::file_type::regular && !link_like;
+  }
+  return false;
+}
+auto self_type_matches(const std::filesystem::path& p,
+                       const std::filesystem::directory_entry& e,
+                       std::string_view type) -> bool {
+  std::error_code ec;
+  auto status = std::filesystem::symlink_status(p, ec);
+  if (ec) return false;
+  bool link_like = status.type() == std::filesystem::file_type::symlink ||
+                   is_directory_reparse_point(e);
+  return file_type_matches(status.type(), link_like, type);
+}
+auto target_type_matches(const std::filesystem::path& p, std::string_view type)
+    -> std::optional<bool> {
+  std::error_code ec;
+  auto status = std::filesystem::status(p, ec);
+  if (ec) return std::nullopt;
+  return file_type_matches(status.type(), false, type);
+}
+auto xtype_matches(const std::filesystem::path& p,
+                   const std::filesystem::directory_entry& e,
+                   std::string_view type, const Config& cfg,
+                   const std::filesystem::path& root) -> bool {
+  bool command_line_root = p.lexically_normal() == root.lexically_normal();
+  bool normally_follows =
+      cfg.follow_symlinks || (cfg.follow_arg_symlinks && command_line_root);
+  if (normally_follows) {
+    return self_type_matches(p, e, type);
+  }
+  if (auto target = target_type_matches(p, type)) {
+    return *target;
+  }
+  return self_type_matches(p, e, type);
+}
 auto is_directory_reparse_point(const std::filesystem::directory_entry& e)
     -> bool {
   const auto path = e.path().wstring();
@@ -420,6 +710,56 @@ auto is_directory_reparse_point(const std::filesystem::directory_entry& e)
 
   return (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0 &&
          (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
+
+auto permission_mode(const std::filesystem::path& p,
+                     const std::filesystem::directory_entry& e) -> unsigned;
+
+auto win32_file_identity(const std::filesystem::path& p)
+    -> std::optional<FileIdentity>;
+auto win32_file_time_ticks(const std::filesystem::path& p,
+                           FindFileTimeKind kind) -> std::optional<long long>;
+auto win32_file_index_value(const std::filesystem::path& p)
+    -> std::optional<unsigned long long>;
+auto win32_hard_link_count(const std::filesystem::path& p)
+    -> unsigned long long;
+auto owner_matches(const std::filesystem::path& p, std::string_view expected)
+    -> bool;
+auto group_matches(const std::filesystem::path& p, std::string_view expected)
+    -> bool;
+auto owner_id_matches(const std::filesystem::path& p,
+                      const NumericPredicate& expected) -> bool;
+auto group_id_matches(const std::filesystem::path& p,
+                      const NumericPredicate& expected) -> bool;
+
+auto parse_newerxy_reference(std::string_view option, std::string_view value)
+    -> cp::Result<long long> {
+  if (!is_newerxy_option(option)) {
+    return std::unexpected("invalid -newerXY predicate");
+  }
+
+  if (option[7] == 't') {
+    auto literal = parse_literal_time_ticks(value);
+    if (!literal) {
+      return std::unexpected("cannot parse literal time for " +
+                             std::string(option));
+    }
+    return *literal;
+  }
+
+  auto reference_kind = parse_find_time_kind(option[7]);
+  if (!reference_kind) {
+    return std::unexpected("invalid reference time selector for " +
+                           std::string(option));
+  }
+  auto ticks = win32_file_time_ticks(
+      std::filesystem::path(utf8_to_wstring(std::string(value))),
+      *reference_kind);
+  if (!ticks) {
+    return std::unexpected("cannot read reference file for " +
+                           std::string(option));
+  }
+  return *ticks;
 }
 
 auto is_unsupported_used(const CommandContext<FIND_OPTIONS.size()>& ctx)
@@ -431,8 +771,12 @@ auto is_path_option(std::string_view arg) -> bool {
   return arg == "-name" || arg == "-iname" || arg == "-path" ||
          arg == "-ipath" || arg == "-wholename" || arg == "-iwholename" ||
          arg == "-regex" || arg == "-iregex" || arg == "-type" ||
+         arg == "-xtype" || arg == "-perm" || arg == "-readable" ||
+         arg == "-executable" || arg == "-inum" || arg == "-links" ||
+         arg == "-user" || arg == "-group" || arg == "-uid" || arg == "-gid" ||
          arg == "-size" || arg == "-empty" || arg == "-mtime" ||
-         arg == "-mmin" || arg == "-newer" || arg == "-mindepth" ||
+         arg == "-mmin" || arg == "-newer" || is_newerxy_option(arg) ||
+         arg == "-samefile" || arg == "-files0-from" || arg == "-mindepth" ||
          arg == "-maxdepth" || arg == "-print" || arg == "-print0" ||
          arg == "-delete" || arg == "-exec" || arg == "-ok" ||
          arg == "-printf" || arg == "-prune" || arg == "-quit" ||
@@ -459,6 +803,10 @@ auto parse_roots(std::span<const std::string_view> args)
       continue;
     }
     if (roots.empty() && arg == "-regextype") {
+      ++i;
+      continue;
+    }
+    if (roots.empty() && arg == "-files0-from") {
       ++i;
       continue;
     }
@@ -562,6 +910,10 @@ auto expression_start_index(std::span<const std::string_view> args) -> size_t {
       ++i;
       continue;
     }
+    if (!roots_seen && arg == "-files0-from" && i + 1 < args.size()) {
+      ++i;
+      continue;
+    }
     if (!roots_seen && arg.size() > 2 && arg[0] == '-' && arg[1] == 'O' &&
         std::all_of(arg.begin() + 2, arg.end(), [](char ch) {
           return std::isdigit(static_cast<unsigned char>(ch)) != 0;
@@ -631,16 +983,22 @@ class ExpressionParser {
     return token == "!" || token == "-not" || token == "(" ||
            token == "-name" || token == "-iname" || token == "-path" ||
            token == "-ipath" || token == "-regex" || token == "-iregex" ||
-           token == "-type" || token == "-size" || token == "-empty" ||
+           token == "-type" || token == "-xtype" || token == "-perm" ||
+           token == "-readable" || token == "-writable" ||
+           token == "-executable" || token == "-inum" || token == "-links" ||
+           token == "-user" || token == "-group" || token == "-uid" ||
+           token == "-gid" || token == "-size" || token == "-empty" ||
            token == "-mtime" || token == "-mmin" || token == "-newer" ||
-           token == "-mindepth" || token == "-maxdepth" || token == "-print" ||
-           token == "-print0" || token == "-printf" || token == "-prune" ||
-           token == "-quit" || token == "-true" || token == "-false" ||
-           token == "-depth" || token == "-d" || token == "-follow" ||
-           token == "-mount" || token == "-xdev" || token == "-noleaf" ||
-           token == "-daystart" || token == "-regextype" || token == "-O" ||
-           token == "-delete" || token == "-exec" || token == "-ok" ||
-           token == "-L" || token == "-P" || token == "-H";
+           is_newerxy_option(token) || token == "-samefile" ||
+           token == "-files0-from" || token == "-mindepth" ||
+           token == "-maxdepth" || token == "-print" || token == "-print0" ||
+           token == "-printf" || token == "-prune" || token == "-quit" ||
+           token == "-true" || token == "-false" || token == "-depth" ||
+           token == "-d" || token == "-follow" || token == "-mount" ||
+           token == "-xdev" || token == "-noleaf" || token == "-daystart" ||
+           token == "-regextype" || token == "-O" || token == "-delete" ||
+           token == "-exec" || token == "-ok" || token == "-L" ||
+           token == "-P" || token == "-H";
   }
 
   auto require_value(std::string_view option) -> cp::Result<std::string> {
@@ -732,7 +1090,7 @@ class ExpressionParser {
     auto option = consume();
     if (option == "-name" || option == "-iname" || option == "-path" ||
         option == "-ipath" || option == "-wholename" ||
-        option == "-iwholename" || option == "-type") {
+        option == "-iwholename" || option == "-type" || option == "-xtype") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       ExprKind kind = ExprKind::Name;
@@ -741,13 +1099,57 @@ class ExpressionParser {
       if (option == "-ipath") kind = ExprKind::IPath;
       if (option == "-wholename") kind = ExprKind::Path;
       if (option == "-iwholename") kind = ExprKind::IPath;
-      if (option == "-type") {
+      if (option == "-type" || option == "-xtype") {
         if (*value != "f" && *value != "d" && *value != "l") {
-          return std::unexpected("-type currently supports only f,d,l");
+          return std::unexpected(std::string(option) +
+                                 " currently supports only f,d,l");
         }
-        kind = ExprKind::Type;
+        kind = option == "-type" ? ExprKind::Type : ExprKind::XType;
       }
       auto node = make_expr(kind);
+      node->text = std::move(*value);
+      return node;
+    }
+
+    if (option == "-perm") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto parsed = parse_permission_predicate(*value);
+      if (!parsed) return std::unexpected(parsed.error());
+      auto node = make_expr(ExprKind::Perm);
+      node->text = std::move(*value);
+      node->permission = *parsed;
+      return node;
+    }
+
+    if (option == "-readable" || option == "-writable" ||
+        option == "-executable") {
+      if (option == "-readable") return make_expr(ExprKind::Readable);
+      if (option == "-writable") return make_expr(ExprKind::Writable);
+      return make_expr(ExprKind::Executable);
+    }
+
+    if (option == "-inum" || option == "-links" || option == "-uid" ||
+        option == "-gid") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto parsed = parse_numeric_predicate(*value);
+      if (!parsed) return std::unexpected(parsed.error());
+      ExprKind kind = ExprKind::Inum;
+      if (option == "-links") kind = ExprKind::Links;
+      if (option == "-uid") kind = ExprKind::Uid;
+      if (option == "-gid") kind = ExprKind::Gid;
+      auto node = make_expr(kind);
+      node->numeric = *parsed;
+      node->text = std::move(*value);
+      return node;
+    }
+
+    if (option == "-user" || option == "-group") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto node =
+          make_expr(option == "-user" ? ExprKind::User : ExprKind::Group);
       node->text = std::move(*value);
       return node;
     }
@@ -800,8 +1202,39 @@ class ExpressionParser {
       return node;
     }
 
+    if (is_newerxy_option(option)) {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto reference = parse_newerxy_reference(option, *value);
+      if (!reference) return std::unexpected(reference.error());
+      auto candidate_kind = parse_find_time_kind(option[6]);
+      if (!candidate_kind) {
+        return std::unexpected("invalid candidate time selector for " +
+                               std::string(option));
+      }
+      auto node = make_expr(ExprKind::NewerXY);
+      node->text = std::move(*value);
+      node->time_kind = *candidate_kind;
+      node->reference_ticks = *reference;
+      return node;
+    }
+
+    if (option == "-samefile") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto identity =
+          win32_file_identity(std::filesystem::path(utf8_to_wstring(*value)));
+      if (!identity) {
+        return std::unexpected("cannot read reference file for -samefile");
+      }
+      auto node = make_expr(ExprKind::SameFile);
+      node->text = std::move(*value);
+      node->reference_identity = *identity;
+      return node;
+    }
+
     if (option == "-mindepth" || option == "-maxdepth" || option == "-O" ||
-        option == "-regextype") {
+        option == "-regextype" || option == "-files0-from") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       return make_expr(ExprKind::Always);
@@ -882,6 +1315,38 @@ auto parse_expression(std::span<const std::string_view> raw_args)
   return parser.parse();
 }
 
+auto load_roots_from_files0(std::string_view source)
+    -> cp::Result<SmallVector<std::string, 64>> {
+  std::string data;
+  if (source == "-") {
+    std::ostringstream buffer;
+    buffer << std::cin.rdbuf();
+    data = buffer.str();
+  } else {
+    std::ifstream in(
+        std::filesystem::path(utf8_to_wstring(std::string(source))),
+        std::ios::binary);
+    if (!in.is_open()) {
+      return std::unexpected("cannot open -files0-from file '" +
+                             std::string(source) + "'");
+    }
+    std::ostringstream buffer;
+    buffer << in.rdbuf();
+    data = buffer.str();
+  }
+
+  SmallVector<std::string, 64> roots;
+  size_t start = 0;
+  while (start <= data.size()) {
+    size_t end = data.find('\0', start);
+    if (end == std::string::npos) end = data.size();
+    if (end > start) roots.emplace_back(data.substr(start, end - start));
+    if (end == data.size()) break;
+    start = end + 1;
+  }
+  return roots;
+}
+
 auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
@@ -898,6 +1363,7 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
   cfg.empty_filter = ctx.get<bool>("-empty", false);
   cfg.mindepth = ctx.get<int>("-mindepth", 0);
   cfg.maxdepth = ctx.get<int>("-maxdepth", std::numeric_limits<int>::max());
+  cfg.files0_from = ctx.get<std::string>("-files0-from", "");
 
   cfg.delete_action = ctx.get<bool>("-delete", false);
   cfg.depth_first =
@@ -957,8 +1423,14 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
     return std::unexpected("invalid depth range");
   }
 
-  cfg.roots = parse_roots(std::span<const std::string_view>(
-      ctx.raw_args.data(), ctx.raw_args.size()));
+  if (!cfg.files0_from.empty()) {
+    auto roots = load_roots_from_files0(cfg.files0_from);
+    if (!roots) return std::unexpected(roots.error());
+    cfg.roots = std::move(*roots);
+  } else {
+    cfg.roots = parse_roots(std::span<const std::string_view>(
+        ctx.raw_args.data(), ctx.raw_args.size()));
+  }
 
   auto expression = parse_expression(std::span<const std::string_view>(
       ctx.raw_args.data(), ctx.raw_args.size()));
@@ -1039,6 +1511,22 @@ auto size_matches(const std::filesystem::directory_entry& e,
   return numeric_matches(pred.predicate, static_cast<long long>(units));
 }
 
+auto permission_matches(const std::filesystem::path& p,
+                        const std::filesystem::directory_entry& e,
+                        const PermissionPredicate& pred) -> bool {
+  const unsigned mode = permission_mode(p, e) & 07777U;
+  switch (pred.comparison) {
+    case PermissionComparison::Exact:
+      return mode == pred.mode;
+    case PermissionComparison::All:
+      return (mode & pred.mode) == pred.mode;
+    case PermissionComparison::Any:
+      if (pred.mode == 0) return true;
+      return (mode & pred.mode) != 0;
+  }
+  return false;
+}
+
 auto modification_age_units(const std::filesystem::directory_entry& e,
                             std::chrono::seconds unit)
     -> std::optional<long long> {
@@ -1102,11 +1590,47 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       if (!expr.regex) return false;
       auto full_path = p.generic_string();
       if (full_path.empty()) full_path = ".";
-      return std::regex_match(full_path, *expr.regex);
+      return expr.regex->matches_entire(full_path);
     }
 
     case ExprKind::Type:
       return type_matches(e, expr.text);
+    case ExprKind::XType:
+      return xtype_matches(p, e, expr.text, cfg, root);
+
+    case ExprKind::Perm:
+      return expr.permission && permission_matches(p, e, *expr.permission);
+
+    case ExprKind::Readable:
+      return (permission_mode(p, e) & 0444U) != 0;
+
+    case ExprKind::Writable:
+      return (permission_mode(p, e) & 0222U) != 0;
+
+    case ExprKind::Executable:
+      return (permission_mode(p, e) & 0111U) != 0;
+
+    case ExprKind::Inum: {
+      if (!expr.numeric) return false;
+      auto index = win32_file_index_value(p);
+      return index && numeric_matches_unsigned(*expr.numeric, *index);
+    }
+
+    case ExprKind::Links:
+      return expr.numeric &&
+             numeric_matches_unsigned(*expr.numeric, win32_hard_link_count(p));
+
+    case ExprKind::User:
+      return owner_matches(p, expr.text);
+
+    case ExprKind::Group:
+      return group_matches(p, expr.text);
+
+    case ExprKind::Uid:
+      return expr.numeric && owner_id_matches(p, *expr.numeric);
+
+    case ExprKind::Gid:
+      return expr.numeric && group_id_matches(p, *expr.numeric);
 
     case ExprKind::Empty:
       return is_empty_entry(e);
@@ -1131,6 +1655,18 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       std::error_code ec;
       auto write_time = e.last_write_time(ec);
       return !ec && write_time > *expr.reference_time;
+    }
+
+    case ExprKind::NewerXY: {
+      if (!expr.reference_ticks) return false;
+      auto ticks = win32_file_time_ticks(p, expr.time_kind);
+      return ticks && *ticks > *expr.reference_ticks;
+    }
+
+    case ExprKind::SameFile: {
+      if (!expr.reference_identity) return false;
+      auto identity = win32_file_identity(p);
+      return identity && *identity == *expr.reference_identity;
     }
 
     case ExprKind::Print:
@@ -1302,25 +1838,39 @@ auto file_size_bytes(const std::filesystem::directory_entry& e)
   return static_cast<unsigned long long>(size);
 }
 
-auto permission_bits(const std::filesystem::path& p,
-                     const std::filesystem::directory_entry& e) -> std::string {
-  unsigned mode = 0;
-
+auto permission_mode(const std::filesystem::path& p,
+                     const std::filesystem::directory_entry& e) -> unsigned {
   std::error_code ec;
   if (e.is_symlink(ec) || is_directory_reparse_point(e)) {
-    mode = 0777;
-  } else if (e.is_directory(ec) && !ec) {
-    mode = 0755;
-  } else {
-    std::string ext = p.extension().generic_string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
-      return static_cast<char>(std::tolower(c));
-    });
-    bool executable =
-        ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".ps1";
-    mode = executable ? 0755 : 0644;
+    return 0777;
+  }
+  ec.clear();
+  if (e.is_directory(ec) && !ec) {
+    DWORD attrs = GetFileAttributesW(p.wstring().c_str());
+    unsigned mode = 0755;
+    if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_READONLY)) {
+      mode &= ~0222U;
+    }
+    return mode;
   }
 
+  std::string ext = p.extension().generic_string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  bool executable =
+      ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".ps1";
+  unsigned mode = executable ? 0755 : 0644;
+  DWORD attrs = GetFileAttributesW(p.wstring().c_str());
+  if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_READONLY)) {
+    mode &= ~0222U;
+  }
+  return mode;
+}
+
+auto permission_bits(const std::filesystem::path& p,
+                     const std::filesystem::directory_entry& e) -> std::string {
+  unsigned mode = permission_mode(p, e);
   char buf[8];
   snprintf(buf, sizeof(buf), "%03o", mode);
   return std::string(buf);
@@ -1332,48 +1882,23 @@ auto permission_string(const std::filesystem::path& p,
   char perms[11] = "----------";
   perms[10] = '\0';
 
-  if (e.is_symlink() || is_directory_reparse_point(e)) {
+  std::error_code ec;
+  if (e.is_symlink(ec) || is_directory_reparse_point(e)) {
     perms[0] = 'l';
-    perms[1] = 'r';
-    perms[2] = 'w';
-    perms[3] = 'x';
-    perms[4] = 'r';
-    perms[5] = 'w';
-    perms[6] = 'x';
-    perms[7] = 'r';
-    perms[8] = 'w';
-    perms[9] = 'x';
-    return std::string(perms, 10);
-  }
-
-  if (e.is_directory()) {
+  } else if (e.is_directory(ec) && !ec) {
     perms[0] = 'd';
-    perms[1] = 'r';
-    perms[2] = 'w';
-    perms[3] = 'x';
-    perms[4] = 'r';
-    perms[6] = 'x';
-    perms[7] = 'r';
-    perms[9] = 'x';
-    return std::string(perms, 10);
   }
 
-  std::string ext = p.extension().generic_string();
-  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
-    return static_cast<char>(std::tolower(c));
-  });
-  bool executable =
-      ext == ".exe" || ext == ".bat" || ext == ".cmd" || ext == ".ps1";
-
-  perms[1] = 'r';
-  perms[2] = 'w';
-  perms[4] = 'r';
-  perms[7] = 'r';
-  if (executable) {
-    perms[3] = 'x';
-    perms[6] = 'x';
-    perms[9] = 'x';
-  }
+  unsigned mode = permission_mode(p, e);
+  if (mode & 0400) perms[1] = 'r';
+  if (mode & 0200) perms[2] = 'w';
+  if (mode & 0100) perms[3] = 'x';
+  if (mode & 0040) perms[4] = 'r';
+  if (mode & 0020) perms[5] = 'w';
+  if (mode & 0010) perms[6] = 'x';
+  if (mode & 0004) perms[7] = 'r';
+  if (mode & 0002) perms[8] = 'w';
+  if (mode & 0001) perms[9] = 'x';
   return std::string(perms, 10);
 }
 
@@ -1394,6 +1919,89 @@ auto win32_hard_link_count(const std::filesystem::path& p)
   if (!ok) return 1;
   return static_cast<unsigned long long>(
       std::max<DWORD>(info.nNumberOfLinks, 1));
+}
+
+auto win32_file_identity(const std::filesystem::path& p)
+    -> std::optional<FileIdentity> {
+  DWORD attrs = GetFileAttributesW(p.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) return std::nullopt;
+
+  DWORD flags = 0;
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+    flags |= FILE_FLAG_BACKUP_SEMANTICS;
+  }
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) {
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  }
+
+  HANDLE handle =
+      CreateFileW(p.c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return std::nullopt;
+
+  BY_HANDLE_FILE_INFORMATION info{};
+  std::optional<FileIdentity> result;
+  if (GetFileInformationByHandle(handle, &info)) {
+    result = FileIdentity{
+        .volume_serial = info.dwVolumeSerialNumber,
+        .file_index = (static_cast<ULONGLONG>(info.nFileIndexHigh) << 32) |
+                      static_cast<ULONGLONG>(info.nFileIndexLow),
+    };
+  }
+  CloseHandle(handle);
+  return result;
+}
+
+auto win32_file_index_value(const std::filesystem::path& p)
+    -> std::optional<unsigned long long> {
+  auto identity = win32_file_identity(p);
+  if (!identity) return std::nullopt;
+  return static_cast<unsigned long long>(identity->file_index);
+}
+
+auto win32_file_time_ticks(const std::filesystem::path& p,
+                           FindFileTimeKind kind) -> std::optional<long long> {
+  DWORD attrs = GetFileAttributesW(p.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) return std::nullopt;
+
+  DWORD flags = 0;
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+    flags |= FILE_FLAG_BACKUP_SEMANTICS;
+  }
+  if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) {
+    flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  }
+
+  HANDLE handle =
+      CreateFileW(p.c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return std::nullopt;
+
+  FILE_BASIC_INFO info{};
+  std::optional<long long> result;
+  if (GetFileInformationByHandleEx(handle, FileBasicInfo, &info,
+                                   sizeof(info))) {
+    LARGE_INTEGER value = info.LastWriteTime;
+    switch (kind) {
+      case FindFileTimeKind::Access:
+        value = info.LastAccessTime;
+        break;
+      case FindFileTimeKind::Birth:
+        value = info.CreationTime;
+        break;
+      case FindFileTimeKind::Change:
+        value = info.ChangeTime;
+        break;
+      case FindFileTimeKind::Modify:
+        value = info.LastWriteTime;
+        break;
+    }
+    result = value.QuadPart;
+  }
+  CloseHandle(handle);
+  return result;
 }
 
 auto win32_file_index(const std::filesystem::path& p) -> std::string {
@@ -1634,6 +2242,72 @@ auto win32_ownership_info(const std::filesystem::path& p)
     LocalFree(security_desc);
   }
   return info;
+}
+
+auto ascii_equals_ignore_case(std::string_view lhs, std::string_view rhs)
+    -> bool {
+  if (lhs.size() != rhs.size()) return false;
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    auto a = static_cast<unsigned char>(lhs[i]);
+    auto b = static_cast<unsigned char>(rhs[i]);
+    if (std::tolower(a) != std::tolower(b)) return false;
+  }
+  return true;
+}
+
+auto parse_unsigned_decimal(std::string_view text)
+    -> std::optional<unsigned long long> {
+  if (!is_decimal_text(text)) return std::nullopt;
+  unsigned long long value = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
+    return std::nullopt;
+  }
+  return value;
+}
+
+auto numeric_id_matches(std::string_view actual,
+                        const NumericPredicate& expected) -> bool {
+  auto actual_value = parse_unsigned_decimal(actual);
+  return actual_value &&
+         numeric_matches_unsigned(
+             expected, static_cast<unsigned long long>(*actual_value));
+}
+
+auto exact_id_matches(std::string_view actual, std::string_view expected)
+    -> bool {
+  auto actual_value = parse_unsigned_decimal(actual);
+  auto expected_value = parse_unsigned_decimal(expected);
+  return actual_value && expected_value && *actual_value == *expected_value;
+}
+
+auto owner_matches(const std::filesystem::path& p, std::string_view expected)
+    -> bool {
+  auto ownership = win32_ownership_info(p);
+  if (is_decimal_text(expected)) {
+    return exact_id_matches(ownership.owner_id, expected);
+  }
+  return ascii_equals_ignore_case(ownership.owner_name, expected);
+}
+
+auto group_matches(const std::filesystem::path& p, std::string_view expected)
+    -> bool {
+  auto ownership = win32_ownership_info(p);
+  if (is_decimal_text(expected)) {
+    return exact_id_matches(ownership.group_id, expected);
+  }
+  return ascii_equals_ignore_case(ownership.group_name, expected);
+}
+
+auto owner_id_matches(const std::filesystem::path& p,
+                      const NumericPredicate& expected) -> bool {
+  return numeric_id_matches(win32_ownership_info(p).owner_id, expected);
+}
+
+auto group_id_matches(const std::filesystem::path& p,
+                      const NumericPredicate& expected) -> bool {
+  return numeric_id_matches(win32_ownership_info(p).group_id, expected);
 }
 
 enum class Win32FileTimeKind {
@@ -2084,38 +2758,11 @@ auto delete_path(const std::filesystem::path& p, Config& cfg) -> bool {
   return true;
 }
 
-auto quote_arg(const std::wstring& arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
-
 auto build_command_line(const std::string& command,
                         const std::vector<std::string>& args) -> std::wstring {
-  std::wstring cmd_line = quote_arg(utf8_to_wstring(command));
+  std::wstring cmd_line = quote_windows_command_arg(utf8_to_wstring(command));
   for (const auto& arg : args) {
-    cmd_line.push_back(L' ');
-    cmd_line += quote_arg(utf8_to_wstring(arg));
+    append_windows_command_arg(cmd_line, utf8_to_wstring(arg));
   }
   return cmd_line;
 }
@@ -2406,7 +3053,7 @@ auto scan_one_root(const std::filesystem::path& root, Config& cfg,
     std::error_code iec;
     const auto& de = *it;
     auto p = de.path();
-    int d = depth_from_root(root, p);
+    int d = static_cast<int>(it.depth()) + 1;
 
     if (d > cfg.maxdepth) {
       it.disable_recursion_pending();

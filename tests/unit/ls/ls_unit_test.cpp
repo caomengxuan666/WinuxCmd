@@ -947,7 +947,7 @@ TEST(ls, ls_size_directory_prints_total_line) {
   EXPECT_TRUE(r.stdout_text.find("file1.txt") != std::string::npos);
 }
 
-TEST(ls, ls_size_uses_allocated_bytes_by_default_on_windows) {
+TEST(ls, ls_size_uses_1k_blocks_by_default_on_windows) {
   TempDir tmp;
   tmp.write("sample.txt", "content");
 
@@ -960,10 +960,10 @@ TEST(ls, ls_size_uses_allocated_bytes_by_default_on_windows) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
-      std::regex(R"(^7\s+-[rwx-]{9}\s+\d+\s+.*\s7\s+.*sample\.txt\n?$)")));
+      std::regex(R"(^1\s+-[rwx-]{9}\s+\d+\s+.*\s7\s+.*sample\.txt\n?$)")));
 }
 
-TEST(ls, ls_long_directory_total_uses_allocated_bytes_by_default_on_windows) {
+TEST(ls, ls_long_directory_total_uses_1k_blocks_by_default_on_windows) {
   TempDir tmp;
   tmp.write("sample.txt", "content");
 
@@ -974,7 +974,7 @@ TEST(ls, ls_long_directory_total_uses_allocated_bytes_by_default_on_windows) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("total 7\n") == 0);
+  EXPECT_TRUE(r.stdout_text.find("total 1\n") == 0);
   EXPECT_TRUE(r.stdout_text.find("sample.txt") != std::string::npos);
 }
 
@@ -2004,6 +2004,28 @@ TEST(ls, ls_recursive) {
   EXPECT_TRUE(r.stdout_text.find("file2.txt") != std::string::npos);
 }
 
+TEST(ls, ls_recursive_directory_operand_matches_gnu_headers) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "dir" / "sub");
+  tmp.write("dir/alpha.txt", "alpha\n");
+  tmp.write("dir/sub/nested.txt", "nested\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ls.exe", {L"-R", L"dir"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "dir:\n"
+                 "alpha.txt\n"
+                 "sub\n"
+                 "\n"
+                 "dir/sub:\n"
+                 "nested.txt\n");
+}
+
 TEST(ls, ls_reverse_sort) {
   TempDir tmp;
   tmp.write("aaa.txt", "a");
@@ -2768,7 +2790,7 @@ TEST(ls, ls_block_size_scales_long_size_column) {
           R"(\s3\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+big\.bin)")));
 }
 
-TEST(ls, ls_block_size_does_not_rescale_s_or_total_on_windows) {
+TEST(ls, ls_block_size_scales_s_and_total_on_windows) {
   TempDir tmp;
   tmp.write("f1000.bin", std::string(1000, 'x'));
   tmp.write("f2049.bin", std::string(2049, 'x'));
@@ -2779,9 +2801,9 @@ TEST(ls, ls_block_size_does_not_rescale_s_or_total_on_windows) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("total 3049\n") == 0);
-  EXPECT_TRUE(r.stdout_text.find("1000 -rwxrwxrwx") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("2049 -rwxrwxrwx") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("total 4\n") == 0);
+  EXPECT_TRUE(r.stdout_text.find("1 -rwxrwxrwx") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("3 -rwxrwxrwx") != std::string::npos);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
       std::regex(
@@ -2790,9 +2812,21 @@ TEST(ls, ls_block_size_does_not_rescale_s_or_total_on_windows) {
       r.stdout_text,
       std::regex(
           R"(\s3\s+[A-Z][a-z][a-z]\s+\d{1,2}\s+\d{2}:\d{2}\s+f2049\.bin)")));
+
+  Pipeline bytes;
+  bytes.set_cwd(tmp.wpath());
+  bytes.add(L"ls.exe", {L"-ls", L"--block-size=1"});
+  auto bytes_result = bytes.run();
+
+  EXPECT_EQ(bytes_result.exit_code, 0);
+  EXPECT_TRUE(bytes_result.stdout_text.find("total 4096\n") == 0);
+  EXPECT_TRUE(bytes_result.stdout_text.find("1024 -rwxrwxrwx") !=
+              std::string::npos);
+  EXPECT_TRUE(bytes_result.stdout_text.find("3072 -rwxrwxrwx") !=
+              std::string::npos);
 }
 
-TEST(ls, ls_k_option_does_not_rescale_s_or_total_on_windows) {
+TEST(ls, ls_k_option_scales_s_and_total_on_windows) {
   TempDir tmp;
   tmp.write("f1000.bin", std::string(1000, 'x'));
   tmp.write("f2049.bin", std::string(2049, 'x'));
@@ -2803,9 +2837,9 @@ TEST(ls, ls_k_option_does_not_rescale_s_or_total_on_windows) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find("total 3049\n") == 0);
-  EXPECT_TRUE(r.stdout_text.find("1000 -rwxrwxrwx") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("2049 -rwxrwxrwx") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("total 4\n") == 0);
+  EXPECT_TRUE(r.stdout_text.find("1 -rwxrwxrwx") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("3 -rwxrwxrwx") != std::string::npos);
   EXPECT_TRUE(std::regex_search(
       r.stdout_text,
       std::regex(
@@ -2818,7 +2852,7 @@ TEST(ls, ls_k_option_does_not_rescale_s_or_total_on_windows) {
 
 TEST(ls, ls_block_size_humanizes_blocks_and_total) {
   TempDir tmp;
-  tmp.write("sample.txt", std::string(2048, 'x'));
+  tmp.write("sample.txt", "x");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -2826,8 +2860,10 @@ TEST(ls, ls_block_size_humanizes_blocks_and_total) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(std::regex_search(r.stdout_text, std::regex(R"(^total\s+\S+)")));
-  EXPECT_TRUE(r.stdout_text.find("2.0K") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("total 1.0K\n") == 0);
+  EXPECT_TRUE(std::regex_search(
+      r.stdout_text, std::regex(R"(^1\.0K\s+-[rwx-]{9}\s+\d+\s+.*sample\.txt$)",
+                                std::regex::multiline)));
   EXPECT_TRUE(r.stdout_text.find("sample.txt") != std::string::npos);
 }
 

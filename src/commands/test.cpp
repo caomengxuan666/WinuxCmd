@@ -95,6 +95,16 @@ auto constexpr TEST_OPTIONS =
 // ======================================================
 
 namespace {
+std::vector<std::string> materialize_test_args(
+    const std::vector<std::string_view>& raw_args) {
+  std::vector<std::string> args;
+  args.reserve(raw_args.size());
+  for (auto arg : raw_args) {
+    args.emplace_back(arg);
+  }
+  return args;
+}
+
 // Check if file exists
 bool file_exists(const std::string& path) {
   std::wstring wpath = utf8_to_wstring(path);
@@ -159,6 +169,120 @@ bool compare_integers(const std::string& op, long long a, long long b) {
   if (op == "-ge") return a >= b;
   return false;
 }
+
+bool is_unary_operator(const std::string& op) {
+  static const std::unordered_set<std::string> ops = {
+      "-n", "-z", "-b", "-c", "-d", "-e", "-f", "-g", "-G", "-h", "-L",
+      "-k", "-p", "-r", "-s", "-S", "-t", "-u", "-w", "-x", "-O"};
+  return ops.contains(op);
+}
+
+bool is_binary_operator(const std::string& op) {
+  static const std::unordered_set<std::string> ops = {
+      "=",   "==",  "!=",  "<",   "<=", ">",    ">=", "-eq", "-ne",
+      "-lt", "-le", "-gt", "-ge", "-a", "-and", "-o", "-or"};
+  return ops.contains(op);
+}
+
+int evaluate_unary(const std::string& op, const std::string& arg) {
+  if (op == "-n") return arg.empty() ? 1 : 0;
+  if (op == "-z") return arg.empty() ? 0 : 1;
+  if (op == "-b") return file_exists(arg) ? 0 : 1;  // Simplified on Windows
+  if (op == "-c") return file_exists(arg) ? 0 : 1;  // Simplified on Windows
+  if (op == "-d") return is_directory(arg) ? 0 : 1;
+  if (op == "-e") return file_exists(arg) ? 0 : 1;
+  if (op == "-f") return is_regular_file(arg) ? 0 : 1;
+  if (op == "-g") return 1;  // Not supported on Windows
+  if (op == "-G") return 1;  // Not supported on Windows
+  if (op == "-h" || op == "-L") return file_exists(arg) ? 0 : 1;
+  if (op == "-k") return 1;  // Not supported on Windows
+  if (op == "-p") return 1;  // Not supported on Windows
+  if (op == "-r") {
+    std::wstring wpath = utf8_to_wstring(arg);
+    DWORD attrs = GetFileAttributesW(wpath.c_str());
+    return (attrs != INVALID_FILE_ATTRIBUTES) ? 0 : 1;
+  }
+  if (op == "-s") return file_has_size(arg) ? 0 : 1;
+  if (op == "-S") return 1;  // Not supported on Windows
+  if (op == "-t") return 1;  // Not supported on Windows
+  if (op == "-u") return 1;  // Not supported on Windows
+  if (op == "-w") {
+    std::wstring wpath = utf8_to_wstring(arg);
+    DWORD attrs = GetFileAttributesW(wpath.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_READONLY)) {
+      return 1;
+    }
+    return 0;
+  }
+  if (op == "-x") {
+    std::wstring wpath = utf8_to_wstring(arg);
+    auto dot = wpath.find_last_of(L'.');
+    if (dot == std::wstring::npos) return 1;
+    std::wstring ext = wpath.substr(dot + 1);
+    std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
+    return (ext == L"exe" || ext == L"bat" || ext == L"cmd" || ext == L"ps1")
+               ? 0
+               : 1;
+  }
+  if (op == "-O") return 1;  // Not supported on Windows
+  return 2;
+}
+
+int evaluate_binary(const std::string& a, const std::string& op,
+                    const std::string& b) {
+  if (op == "=" || op == "==" || op == "!=" || op == "<" || op == "<=" ||
+      op == ">" || op == ">=") {
+    return compare_strings(op, a, b) ? 0 : 1;
+  }
+
+  if (op == "-eq" || op == "-ne" || op == "-lt" || op == "-le" || op == "-gt" ||
+      op == "-ge") {
+    long long va = 0;
+    long long vb = 0;
+    if (!string_to_int(a, va) || !string_to_int(b, vb)) {
+      return 2;
+    }
+    return compare_integers(op, va, vb) ? 0 : 1;
+  }
+
+  if (op == "-a" || op == "-and") return (!a.empty() && !b.empty()) ? 0 : 1;
+  if (op == "-o" || op == "-or") return (!a.empty() || !b.empty()) ? 0 : 1;
+  return 2;
+}
+
+int invert_test_status(int status) {
+  if (status == 0) return 1;
+  if (status == 1) return 0;
+  return status;
+}
+
+int evaluate_test_expression(std::span<const std::string> args) {
+  // GNU test.c's term() treats operators as expression tokens, not command
+  // options.  Keep this parser token-based so constructs like
+  // `test 123 -gt 45` survive the generic Winux option scanner.
+  if (args.empty()) return 1;
+
+  if (args.front() == "!") {
+    return invert_test_status(evaluate_test_expression(args.subspan(1)));
+  }
+
+  if (args.size() == 1) return args[0].empty() ? 1 : 0;
+
+  if (args.size() == 2 && is_unary_operator(args[0])) {
+    return evaluate_unary(args[0], args[1]);
+  }
+
+  if (args.size() == 3 && is_binary_operator(args[1])) {
+    return evaluate_binary(args[0], args[1], args[2]);
+  }
+
+  if (args.size() == 4 && args[1] == "!" &&
+      (args[2] == "=" || args[2] == "==" || args[2] == "!=")) {
+    return invert_test_status(evaluate_binary(args[0], args[2], args[3]));
+  }
+
+  return 2;
+}
 }  // namespace
 
 // ======================================================
@@ -183,157 +307,6 @@ REGISTER_COMMAND(
     /* author */ "WinuxCmd",
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */ TEST_OPTIONS) {
-  // Find which operator is set
-  std::string op;
-  for (size_t i = 0; i < TEST_OPTIONS.size(); ++i) {
-    if (ctx.get<bool>(TEST_OPTIONS[i].short_name, false) ||
-        ctx.get<bool>(TEST_OPTIONS[i].long_name, false)) {
-      op = std::string(TEST_OPTIONS[i].short_name);
-      if (op.empty()) op = std::string(TEST_OPTIONS[i].long_name);
-      break;
-    }
-  }
-
-  // Handle empty arguments
-  if (ctx.positionals.empty() && op.empty()) {
-    return 1;
-  }
-
-  // Handle single argument (test -n equivalent, or just a string)
-  if (ctx.positionals.size() == 1 && op.empty()) {
-    return ctx.positionals[0].empty() ? 1 : 0;
-  }
-
-  // Handle two arguments (op + arg)
-  if (!op.empty() && ctx.positionals.size() == 1) {
-    std::string arg = std::string(ctx.positionals[0]);
-
-    if (op == "-n") {
-      return arg.empty() ? 1 : 0;
-    }
-    if (op == "-z") {
-      return arg.empty() ? 0 : 1;
-    }
-    if (op == "-b") {
-      return file_exists(arg) ? 0 : 1;  // Simplified for Windows
-    }
-    if (op == "-c") {
-      return file_exists(arg) ? 0 : 1;  // Simplified for Windows
-    }
-    if (op == "-d") {
-      return is_directory(arg) ? 0 : 1;
-    }
-    if (op == "-e") {
-      return file_exists(arg) ? 0 : 1;
-    }
-    if (op == "-f") {
-      return is_regular_file(arg) ? 0 : 1;
-    }
-    if (op == "-g") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-G") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-h" || op == "-L") {
-      return file_exists(arg) ? 0 : 1;  // Simplified for Windows
-    }
-    if (op == "-k") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-p") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-r") {
-      std::wstring wpath = utf8_to_wstring(arg);
-      DWORD attrs = GetFileAttributesW(wpath.c_str());
-      return (attrs != INVALID_FILE_ATTRIBUTES) ? 0 : 1;
-    }
-    if (op == "-s") {
-      return file_has_size(arg) ? 0 : 1;
-    }
-    if (op == "-S") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-t") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-u") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "-w") {
-      std::wstring wpath = utf8_to_wstring(arg);
-      DWORD attrs = GetFileAttributesW(wpath.c_str());
-      if (attrs == INVALID_FILE_ATTRIBUTES ||
-          (attrs & FILE_ATTRIBUTE_READONLY)) {
-        return 1;
-      }
-      return 0;
-    }
-    if (op == "-x") {
-      std::wstring wpath = utf8_to_wstring(arg);
-      std::wstring ext = wpath.substr(wpath.find_last_of(L'.') + 1);
-      std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
-      return (ext == L"exe" || ext == L"bat" || ext == L"cmd" || ext == L"ps1")
-                 ? 0
-                 : 1;
-    }
-    if (op == "-O") {
-      return 1;  // Not supported on Windows
-    }
-    if (op == "!") {
-      return arg.empty() ? 0 : 1;
-    }
-
-    // Default: test string is non-empty
-    return arg.empty() ? 1 : 0;
-  }
-
-  // Handle three arguments
-  if (ctx.positionals.size() == 3) {
-    std::string a = std::string(ctx.positionals[0]);
-    std::string op = std::string(ctx.positionals[1]);
-    std::string b = std::string(ctx.positionals[2]);
-
-    if (op == "=" || op == "==" || op == "!=" || op == "<" || op == "<=" ||
-        op == ">" || op == ">=") {
-      return compare_strings(op, a, b) ? 0 : 1;
-    }
-
-    if (op == "-eq" || op == "-ne" || op == "-lt" || op == "-le" ||
-        op == "-gt" || op == "-ge") {
-      long long va, vb;
-      if (!string_to_int(a, va) || !string_to_int(b, vb)) {
-        return 2;
-      }
-      return compare_integers(op, va, vb) ? 0 : 1;
-    }
-
-    if (op == "-a" || op == "-and") {
-      return (!a.empty() && !b.empty()) ? 0 : 1;
-    }
-
-    if (op == "-o" || op == "-or") {
-      return (!a.empty() || !b.empty()) ? 0 : 1;
-    }
-
-    return 2;
-  }
-
-  // Handle four arguments (a ! op b)
-  if (ctx.positionals.size() == 4) {
-    std::string a = std::string(ctx.positionals[0]);
-    std::string op1 = std::string(ctx.positionals[1]);
-    std::string op2 = std::string(ctx.positionals[2]);
-    std::string b = std::string(ctx.positionals[3]);
-
-    if (op1 == "!" && (op2 == "=" || op2 == "==" || op2 == "!=")) {
-      bool result = compare_strings(op2, a, b);
-      return (!result) ? 0 : 1;
-    }
-
-    return 2;
-  }
-
-  return 2;
+  auto args = materialize_test_args(ctx.raw_args);
+  return evaluate_test_expression(args);
 }

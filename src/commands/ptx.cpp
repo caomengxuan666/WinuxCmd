@@ -1,38 +1,9 @@
 /*
- *  Copyright © 2026 [caomengxuan666]
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to
- *  deal in the Software without restriction, including without limitation the
- *  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- *  sell copies of the Software, and to permit persons to whom the Software is
- *  furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in
- *  all copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
- *  IN THE SOFTWARE.
- *
- *  - File: ptx.cpp
- *  - Username: Administrator
- *  - CopyrightYear: 2026
+ * Copyright 2026 WinuxCmd
+ * ptx compatible subset based on GNU coreutils ptx data flow.
  */
-/// @contributors:
-///   - caomengxuan666 <2507560089@qq.com>
-/// @Description: Implementation for ptx.
-/// @Version: 0.1.0
-/// @License: MIT
-/// @Copyright: Copyright © 2026 WinuxCmd
-
-#include "pch/pch.h"
-// include other header after pch.h
 #include "core/command_macros.h"
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -46,57 +17,100 @@ auto constexpr PTX_OPTIONS = std::array{
     OPTION("-A", "--auto-reference",
            "output automatically generated references", BOOL_TYPE),
     OPTION("-C", "--copyright", "display copyright and version", BOOL_TYPE),
-    OPTION("-G", "--traditional", "behave more like System V 'ptx'", BOOL_TYPE),
-    OPTION("-F", "--flag-truncation", "truncate words flagged by 'g'",
+    OPTION("-G", "--traditional", "use traditional non-GNU word splitting",
+           BOOL_TYPE),
+    OPTION("-F", "--flag-truncation", "string used for line truncation",
            STRING_TYPE),
-    OPTION("-M", "--macro-name", "macro name for missing file", STRING_TYPE),
+    OPTION("-M", "--macro-name", "macro name for formatted output",
+           STRING_TYPE),
     OPTION("-O", "--format", "roff format for output", BOOL_TYPE),
     OPTION("-R", "--right-side-refs", "put references in right margin",
            BOOL_TYPE),
     OPTION("-S", "--sentence-regexp", "regexp for sentence ends", STRING_TYPE),
-    OPTION("-T", "--tabs", "tabs in output", STRING_TYPE),
+    OPTION("-T", "--tabs", "TeX output mode", STRING_TYPE),
     OPTION("-W", "--word-regexp", "regexp for words", STRING_TYPE),
-    OPTION("-b", "--break", "file break character", STRING_TYPE),
+    OPTION("-b", "--break", "file containing word break characters",
+           STRING_TYPE),
     OPTION("-f", "--ignore-case", "fold lower case to upper case for sorting",
            BOOL_TYPE),
     OPTION("-g", "--gap-size", "gap size for output", STRING_TYPE),
-    OPTION("-i", "--ignore-file", "ignore file", STRING_TYPE),
-    OPTION("-o", "--only-file", "output only file", BOOL_TYPE),
-    OPTION("-r", "--references", "first field is reference", BOOL_TYPE),
-    OPTION("-t", "--typeset-mode", "output for troff/nroff", BOOL_TYPE),
+    OPTION("-i", "--ignore-file", "ignore words from file", STRING_TYPE),
+    OPTION("-o", "--only-file", "only output words from file", STRING_TYPE),
+    OPTION("-r", "--references", "first input field is reference", BOOL_TYPE),
+    OPTION("-t", "--typeset-mode", "output for troff or nroff", BOOL_TYPE),
     OPTION("-w", "--width", "output width", STRING_TYPE)};
 
 namespace ptx_pipeline {
 namespace cp = core::pipeline;
 
-struct WordEntry {
-  std::string word;
-  int line_number;
-  std::string line_context;
-  int position;
-};
+enum class OutputFormat { Dumb, Roff, Tex };
+
+auto make_error(std::string message) -> cp::Error {
+  static thread_local std::string storage;
+  storage = std::move(message);
+  return storage;
+}
 
 struct Config {
   bool auto_reference = false;
   bool copyright = false;
   bool traditional = false;
-  std::string flag_truncation;
-  std::string macro_name;
-  bool roff_format = false;
+  std::string truncation = "/";
+  std::string macro_name = "xx";
+  OutputFormat output_format = OutputFormat::Dumb;
   bool right_side_refs = false;
   std::string sentence_regexp;
-  std::string tabs;
   std::string word_regexp;
-  std::string break_char;
+  std::string break_file;
   bool ignore_case = false;
-  std::string gap_size;
+  int gap_size = 3;
   std::string ignore_file;
-  bool only_file = false;
-  bool references = false;
-  bool typeset_mode = false;
+  std::string only_file;
+  bool input_references = false;
   int width = 72;
   SmallVector<std::string, 64> files;
 };
+
+struct SourceText {
+  std::string name;
+  std::string text;
+  std::vector<size_t> line_starts{0};
+};
+
+struct Occurrence {
+  size_t source_index = 0;
+  size_t start = 0;
+  size_t end = 0;
+  size_t context_start = 0;
+  size_t context_end = 0;
+  size_t line_number = 1;
+  std::string key;
+};
+
+auto option_value(const CommandContext<PTX_OPTIONS.size()>& ctx,
+                  std::string_view long_name, std::string_view short_name)
+    -> std::string {
+  auto value = ctx.get<std::string>(std::string(long_name), "");
+  if (value.empty()) value = ctx.get<std::string>(std::string(short_name), "");
+  return value;
+}
+
+auto parse_int_option(const std::string& value, int fallback,
+                      std::string_view label) -> cp::Result<int> {
+  if (value.empty()) return fallback;
+  try {
+    size_t used = 0;
+    int parsed = std::stoi(value, &used, 10);
+    if (used != value.size()) {
+      return std::unexpected(
+          make_error("invalid " + std::string(label) + " value"));
+    }
+    return parsed;
+  } catch (...) {
+    return std::unexpected(
+        make_error("invalid " + std::string(label) + " value"));
+  }
+}
 
 auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
@@ -107,334 +121,361 @@ auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
       ctx.get<bool>("--copyright", false) || ctx.get<bool>("-C", false);
   cfg.traditional =
       ctx.get<bool>("--traditional", false) || ctx.get<bool>("-G", false);
-  cfg.roff_format =
-      ctx.get<bool>("--format", false) || ctx.get<bool>("-O", false);
   cfg.right_side_refs =
       ctx.get<bool>("--right-side-refs", false) || ctx.get<bool>("-R", false);
   cfg.ignore_case =
       ctx.get<bool>("--ignore-case", false) || ctx.get<bool>("-f", false);
-  cfg.only_file =
-      ctx.get<bool>("--only-file", false) || ctx.get<bool>("-o", false);
-  cfg.references =
+  cfg.input_references =
       ctx.get<bool>("--references", false) || ctx.get<bool>("-r", false);
-  cfg.typeset_mode =
-      ctx.get<bool>("--typeset-mode", false) || ctx.get<bool>("-t", false);
 
-  auto trunc_opt = ctx.get<std::string>("--flag-truncation", "");
-  if (trunc_opt.empty()) {
-    trunc_opt = ctx.get<std::string>("-F", "");
+  if (ctx.get<bool>("--format", false) || ctx.get<bool>("-O", false) ||
+      ctx.get<bool>("--typeset-mode", false) || ctx.get<bool>("-t", false)) {
+    cfg.output_format = OutputFormat::Roff;
   }
-  cfg.flag_truncation = trunc_opt;
-
-  auto macro_opt = ctx.get<std::string>("--macro-name", "");
-  if (macro_opt.empty()) {
-    macro_opt = ctx.get<std::string>("-M", "");
-  }
-  cfg.macro_name = macro_opt;
-
-  auto sent_opt = ctx.get<std::string>("--sentence-regexp", "");
-  if (sent_opt.empty()) {
-    sent_opt = ctx.get<std::string>("-S", "");
-  }
-  cfg.sentence_regexp = sent_opt;
-
-  auto tabs_opt = ctx.get<std::string>("--tabs", "");
-  if (tabs_opt.empty()) {
-    tabs_opt = ctx.get<std::string>("-T", "");
-  }
-  cfg.tabs = tabs_opt;
-
-  auto word_opt = ctx.get<std::string>("--word-regexp", "");
-  if (word_opt.empty()) {
-    word_opt = ctx.get<std::string>("-W", "");
-  }
-  cfg.word_regexp = word_opt;
-
-  auto break_opt = ctx.get<std::string>("--break", "");
-  if (break_opt.empty()) {
-    break_opt = ctx.get<std::string>("-b", "");
-  }
-  cfg.break_char = break_opt;
-
-  auto gap_opt = ctx.get<std::string>("--gap-size", "");
-  if (gap_opt.empty()) {
-    gap_opt = ctx.get<std::string>("-g", "");
-  }
-  cfg.gap_size = gap_opt;
-
-  auto ignore_opt = ctx.get<std::string>("--ignore-file", "");
-  if (ignore_opt.empty()) {
-    ignore_opt = ctx.get<std::string>("-i", "");
-  }
-  cfg.ignore_file = ignore_opt;
-
-  auto width_opt = ctx.get<std::string>("--width", "");
-  if (width_opt.empty()) {
-    width_opt = ctx.get<std::string>("-w", "");
-  }
-  if (!width_opt.empty()) {
-    try {
-      cfg.width = std::stoi(width_opt);
-    } catch (...) {
-      return std::unexpected("invalid width value");
-    }
+  if (!option_value(ctx, "--tabs", "-T").empty()) {
+    cfg.output_format = OutputFormat::Tex;
   }
 
-  for (auto arg : ctx.positionals) {
-    std::string file_arg(arg);
-    if (contains_wildcard(file_arg)) {
-      auto glob_result = glob_expand(file_arg);
-      if (glob_result.expanded) {
-        for (const auto& file : glob_result.files) {
-          cfg.files.push_back(wstring_to_utf8(file));
-        }
-        continue;
-      }
-    }
-    cfg.files.push_back(file_arg);
-  }
+  cfg.truncation = option_value(ctx, "--flag-truncation", "-F");
+  if (cfg.truncation.empty()) cfg.truncation = "/";
+  cfg.macro_name = option_value(ctx, "--macro-name", "-M");
+  if (cfg.macro_name.empty()) cfg.macro_name = "xx";
+  cfg.sentence_regexp = option_value(ctx, "--sentence-regexp", "-S");
+  cfg.word_regexp = option_value(ctx, "--word-regexp", "-W");
+  cfg.break_file = option_value(ctx, "--break", "-b");
+  cfg.ignore_file = option_value(ctx, "--ignore-file", "-i");
+  cfg.only_file = option_value(ctx, "--only-file", "-o");
 
-  if (cfg.files.empty()) {
-    cfg.files.push_back("-");
-  }
+  auto gap =
+      parse_int_option(option_value(ctx, "--gap-size", "-g"), 3, "gap size");
+  if (!gap) return std::unexpected(gap.error());
+  cfg.gap_size = std::max(0, *gap);
 
+  auto width =
+      parse_int_option(option_value(ctx, "--width", "-w"), 72, "width");
+  if (!width) return std::unexpected(width.error());
+  cfg.width = std::max(1, *width);
+
+  for (auto arg : ctx.positionals) cfg.files.push_back(std::string(arg));
+  if (cfg.files.empty()) cfg.files.push_back("-");
   return cfg;
 }
 
-auto read_file_content(const std::string& filename)
-    -> std::vector<std::string> {
-  std::vector<std::string> lines;
-
+auto read_all(const std::string& filename) -> std::optional<std::string> {
   if (filename == "-") {
-    // Read from stdin
-    std::string line;
-    while (std::getline(std::cin, line)) {
-      if (!line.empty() && line.back() == '\r') {
-        line.pop_back();
-      }
-      lines.push_back(line);
-    }
-  } else {
-    // Read from file
-    lines = read_file_lines(filename);
+    std::ostringstream buffer;
+    buffer << std::cin.rdbuf();
+    return buffer.str();
   }
-
-  return lines;
+  std::ifstream input(filename, std::ios::binary);
+  if (!input) return std::nullopt;
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  return buffer.str();
 }
 
-auto extract_words(const std::vector<std::string>& lines, bool ignore_case)
-    -> std::vector<WordEntry> {
-  std::vector<WordEntry> entries;
-
-  for (size_t line_num = 0; line_num < lines.size(); ++line_num) {
-    const std::string& line = lines[line_num];
-    std::string word;
-
-    for (size_t i = 0; i <= line.size(); ++i) {
-      if (i < line.size() &&
-          std::isalpha(static_cast<unsigned char>(line[i]))) {
-        word += line[i];
-      } else {
-        if (!word.empty()) {
-          std::string word_key = word;
-          if (ignore_case) {
-            std::transform(word_key.begin(), word_key.end(), word_key.begin(),
-                           ::tolower);
-          }
-
-          WordEntry entry;
-          entry.word = word_key;
-          entry.line_number = static_cast<int>(line_num + 1);
-          entry.line_context = line;
-          entry.position = static_cast<int>(i) - static_cast<int>(word.size());
-
-          entries.push_back(entry);
-          word.clear();
-        }
-      }
-    }
-  }
-
-  return entries;
+auto lower_copy(std::string value) -> std::string {
+  std::transform(
+      value.begin(), value.end(), value.begin(),
+      [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return value;
 }
 
-auto compare_entries(const WordEntry& a, const WordEntry& b, bool ignore_case)
-    -> bool {
-  std::string a_word = a.word;
-  std::string b_word = b.word;
-
-  if (ignore_case) {
-    std::transform(a_word.begin(), a_word.end(), a_word.begin(), ::tolower);
-    std::transform(b_word.begin(), b_word.end(), b_word.begin(), ::tolower);
-  }
-
-  if (a_word != b_word) {
-    return a_word < b_word;
-  }
-
-  // If words are equal, sort by line number
-  return a.line_number < b.line_number;
+auto key_for(const std::string& value, bool ignore_case) -> std::string {
+  return ignore_case ? lower_copy(value) : value;
 }
 
-auto format_output(const std::vector<WordEntry>& entries, const Config& cfg)
-    -> void {
-  // Determine gap size
-  int gap = 3;  // default gap
-  if (!cfg.gap_size.empty()) {
-    try {
-      gap = std::stoi(cfg.gap_size);
-    } catch (...) {
+auto is_word_char(unsigned char ch, const std::set<unsigned char>& breaks,
+                  bool traditional) -> bool {
+  if (!breaks.empty()) return breaks.find(ch) == breaks.end();
+  if (traditional) return !std::isspace(ch);
+  return std::isalpha(ch) != 0;
+}
+
+auto read_break_chars(const std::string& file) -> std::set<unsigned char> {
+  std::set<unsigned char> breaks;
+  if (file.empty()) return breaks;
+  if (auto data = read_all(file)) {
+    for (unsigned char ch : *data) breaks.insert(ch);
+  }
+  return breaks;
+}
+
+auto word_set_from_file(const std::string& file, bool ignore_case)
+    -> std::set<std::string> {
+  std::set<std::string> words;
+  if (file.empty()) return words;
+  auto data = read_all(file);
+  if (!data) return words;
+  std::string current;
+  for (unsigned char ch : *data) {
+    if (std::isalpha(ch)) {
+      current.push_back(static_cast<char>(ch));
+    } else if (!current.empty()) {
+      words.insert(key_for(current, ignore_case));
+      current.clear();
     }
   }
+  if (!current.empty()) words.insert(key_for(current, ignore_case));
+  return words;
+}
 
-  // Determine tab character
-  std::string tab = "\t";
-  if (!cfg.tabs.empty()) {
-    tab = cfg.tabs;
+auto trim_left(std::string value) -> std::string {
+  size_t pos = 0;
+  while (pos < value.size() &&
+         std::isspace(static_cast<unsigned char>(value[pos]))) {
+    ++pos;
   }
+  value.erase(0, pos);
+  return value;
+}
 
-  // Break character for line breaks
-  char break_char = ' ';
-  if (!cfg.break_char.empty()) {
-    break_char = cfg.break_char[0];
+auto trim_right(std::string value) -> std::string {
+  while (!value.empty() &&
+         std::isspace(static_cast<unsigned char>(value.back()))) {
+    value.pop_back();
   }
+  return value;
+}
 
-  for (const auto& entry : entries) {
-    std::string output;
-    std::string ref_str;
+auto printable(std::string value) -> std::string {
+  for (char& ch : value) {
+    if (std::isspace(static_cast<unsigned char>(ch)))
+      ch = static_cast<char>(32);
+  }
+  return value;
+}
 
-    // Build reference
-    if (cfg.auto_reference) {
-      ref_str = "(" + std::to_string(entry.line_number) + ":" +
-                std::to_string(entry.position) + ")";
-    } else if (cfg.references) {
-      ref_str = "(" + std::to_string(entry.line_number) + ")";
+auto rightmost_field(std::string value, size_t limit)
+    -> std::pair<std::string, bool> {
+  value = trim_right(printable(value));
+  if (value.size() <= limit) return {trim_left(value), false};
+  size_t start = value.size() - limit;
+  while (start < value.size() &&
+         !std::isspace(static_cast<unsigned char>(value[start]))) {
+    ++start;
+  }
+  if (start >= value.size()) start = value.size() - limit;
+  return {trim_left(value.substr(start)), true};
+}
+
+auto leftmost_field(std::string value, size_t limit)
+    -> std::pair<std::string, bool> {
+  value = trim_left(printable(value));
+  if (value.size() <= limit) return {trim_right(value), false};
+  size_t end = limit;
+  while (end > 0 && !std::isspace(static_cast<unsigned char>(value[end - 1]))) {
+    --end;
+  }
+  if (end == 0) end = limit;
+  return {trim_right(value.substr(0, end)), true};
+}
+
+auto line_number_for(const SourceText& source, size_t pos) -> size_t {
+  auto it = std::upper_bound(source.line_starts.begin(),
+                             source.line_starts.end(), pos);
+  return static_cast<size_t>(std::distance(source.line_starts.begin(), it));
+}
+
+auto load_sources(const Config& cfg) -> cp::Result<std::vector<SourceText>> {
+  std::vector<SourceText> sources;
+  for (const auto& file : cfg.files) {
+    auto data = read_all(file);
+    if (!data) {
+      std::string q(1, static_cast<char>(39));
+      return std::unexpected(
+          make_error("cannot open " + q + file + q + " for reading"));
     }
-
-    // Format based on right_side_refs
-    if (cfg.right_side_refs) {
-      // Word context, then reference on right
-      output = entry.line_context;
-      if (!ref_str.empty()) {
-        output += tab + ref_str;
+    SourceText source;
+    source.name = file == "-" ? "" : file;
+    source.text = std::move(*data);
+    for (size_t i = 0; i < source.text.size(); ++i) {
+      if (static_cast<unsigned char>(source.text[i]) == 10 &&
+          i + 1 < source.text.size()) {
+        source.line_starts.push_back(i + 1);
       }
-    } else {
-      // Reference, then word context
-      if (!ref_str.empty()) {
-        output = ref_str + tab;
-      }
-      output += entry.line_context;
     }
-
-    // Apply width limit
-    if (cfg.width > 0 && static_cast<int>(output.size()) > cfg.width) {
-      output = output.substr(0, cfg.width);
-    }
-
-    // Typeset mode: wrap in roff macros
-    if (cfg.typeset_mode || cfg.roff_format) {
-      std::string macro = cfg.macro_name.empty() ? ".xx" : cfg.macro_name;
-      output = macro + " " + output;
-    }
-
-    safePrintLn(output);
+    sources.push_back(std::move(source));
   }
+  return sources;
+}
+
+void collect_occurrences(const SourceText& source, size_t source_index,
+                         const Config& cfg,
+                         const std::set<unsigned char>& breaks,
+                         const std::set<std::string>& ignore_words,
+                         const std::set<std::string>& only_words,
+                         std::vector<Occurrence>& out) {
+  const auto& text = source.text;
+  size_t context_start = 0;
+  size_t context_end = trim_right(text).size();
+  size_t pos = 0;
+  while (pos < context_end) {
+    while (pos < context_end &&
+           !is_word_char(static_cast<unsigned char>(text[pos]), breaks,
+                         cfg.traditional)) {
+      ++pos;
+    }
+    if (pos >= context_end) break;
+    size_t start = pos;
+    while (pos < context_end &&
+           is_word_char(static_cast<unsigned char>(text[pos]), breaks,
+                        cfg.traditional)) {
+      ++pos;
+    }
+    size_t end = pos;
+    std::string word = text.substr(start, end - start);
+    std::string lookup = key_for(word, cfg.ignore_case);
+    if (!ignore_words.empty() && ignore_words.contains(lookup)) continue;
+    if (!only_words.empty() && !only_words.contains(lookup)) continue;
+    out.push_back(Occurrence{source_index, start, end, context_start,
+                             context_end, line_number_for(source, start),
+                             lookup});
+  }
+}
+
+auto reference_text(const SourceText& source, const Occurrence& occ)
+    -> std::string {
+  if (source.name.empty()) return std::to_string(occ.line_number);
+  return source.name + ":" + std::to_string(occ.line_number);
+}
+
+void append_spaces(std::string& line, int count) {
+  if (count > 0) line.append(static_cast<size_t>(count), static_cast<char>(32));
+}
+
+void emit_dumb_line(const SourceText& source, const Occurrence& occ,
+                    const Config& cfg) {
+  int width = std::max(1, cfg.width);
+  int gap = cfg.gap_size;
+  std::string ref;
+  int ref_width = 0;
+  if (cfg.auto_reference) {
+    ref = reference_text(source, occ);
+    ref_width = static_cast<int>(ref.size()) + 1;
+    width = std::max(0, width - (ref_width + gap));
+  }
+
+  const int half = std::max(1, width / 2);
+  const int trunc = static_cast<int>(cfg.truncation.size());
+  const int before_limit = std::max(0, half - gap - 2 * trunc);
+  const int key_limit = std::max(1, half - 2 * trunc);
+
+  auto before_pair = rightmost_field(
+      source.text.substr(occ.context_start, occ.start - occ.context_start),
+      static_cast<size_t>(before_limit));
+  auto key_pair =
+      leftmost_field(source.text.substr(occ.start, occ.context_end - occ.start),
+                     static_cast<size_t>(key_limit));
+
+  std::string before = before_pair.first;
+  std::string keyafter = key_pair.first;
+  bool before_truncated = before_pair.second;
+  bool key_truncated = key_pair.second;
+
+  std::string line;
+  if (cfg.auto_reference && !cfg.right_side_refs) {
+    line += ref + ":";
+    append_spaces(line, ref_width + gap - static_cast<int>(ref.size()) - 1);
+  }
+
+  append_spaces(line, half - gap - static_cast<int>(before.size()) -
+                          (before_truncated ? trunc : 0));
+  if (before_truncated) line += cfg.truncation;
+  line += before;
+  append_spaces(line, gap);
+  line += keyafter;
+  if (key_truncated) line += cfg.truncation;
+
+  if (cfg.auto_reference && cfg.right_side_refs) {
+    append_spaces(line, half - static_cast<int>(keyafter.size()) -
+                            (key_truncated ? trunc : 0));
+    append_spaces(line, gap);
+    line += ref;
+  }
+  safePrintLn(line);
+}
+
+void emit_roff_line(const SourceText& source, const Occurrence& occ,
+                    const Config& cfg) {
+  std::string before = printable(trim_left(trim_right(
+      source.text.substr(occ.context_start, occ.start - occ.context_start))));
+  std::string keyafter = printable(trim_left(
+      trim_right(source.text.substr(occ.start, occ.context_end - occ.start))));
+  safePrintLn("." + cfg.macro_name + " \"\" \"" + before + "\" \"" + keyafter +
+              "\" \"\"");
+}
+
+void emit_tex_line(const SourceText& source, const Occurrence& occ,
+                   const Config& cfg) {
+  std::string before = printable(trim_left(trim_right(
+      source.text.substr(occ.context_start, occ.start - occ.context_start))));
+  std::string keyafter = printable(trim_left(
+      trim_right(source.text.substr(occ.start, occ.context_end - occ.start))));
+  safePrintLn("\\" + cfg.macro_name + " {}{" + before + "}{" + keyafter +
+              "}{}");
 }
 
 auto run(const Config& cfg) -> int {
-  // Display copyright if requested
   if (cfg.copyright) {
-    safePrintLn("ptx (WinuxCmd) 0.1.0");
-    safePrintLn("Copyright © 2026 WinuxCmd");
-    safePrintLn("License MIT: GNU GPL compatible");
+    safePrintLn("ptx (GNU coreutils compatible subset) 0.1.0");
+    safePrintLn("Copyright 2026 WinuxCmd");
     return 0;
   }
 
-  std::vector<WordEntry> all_entries;
+  auto sources_result = load_sources(cfg);
+  if (!sources_result) {
+    safeErrorPrintLn(std::string("ptx: ") +
+                     std::string(sources_result.error()));
+    return 1;
+  }
+  auto sources = std::move(*sources_result);
+  auto breaks = read_break_chars(cfg.break_file);
+  auto ignore_words = word_set_from_file(cfg.ignore_file, cfg.ignore_case);
+  auto only_words = word_set_from_file(cfg.only_file, cfg.ignore_case);
 
-  // Load ignore file if specified
-  std::set<std::string> ignore_words;
-  if (!cfg.ignore_file.empty()) {
-    auto ignore_lines = read_file_content(cfg.ignore_file);
-    for (const auto& line : ignore_lines) {
-      std::string word;
-      for (char c : line) {
-        if (std::isalpha(static_cast<unsigned char>(c))) {
-          word += c;
-        } else {
-          if (!word.empty()) {
-            if (cfg.ignore_case) {
-              std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-            }
-            ignore_words.insert(word);
-            word.clear();
-          }
-        }
-      }
-      if (!word.empty()) {
-        if (cfg.ignore_case) {
-          std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-        }
-        ignore_words.insert(word);
-      }
-    }
+  std::vector<Occurrence> occurrences;
+  for (size_t i = 0; i < sources.size(); ++i) {
+    collect_occurrences(sources[i], i, cfg, breaks, ignore_words, only_words,
+                        occurrences);
   }
 
-  for (const auto& file : cfg.files) {
-    auto lines = read_file_content(file);
-    if (lines.empty()) {
-      continue;
-    }
-
-    auto entries = extract_words(lines, cfg.ignore_case);
-
-    // Filter out ignored words
-    if (!ignore_words.empty()) {
-      std::vector<WordEntry> filtered;
-      for (const auto& entry : entries) {
-        if (ignore_words.find(entry.word) == ignore_words.end()) {
-          filtered.push_back(entry);
-        }
-      }
-      entries = std::move(filtered);
-    }
-
-    all_entries.insert(all_entries.end(), entries.begin(), entries.end());
-  }
-
-  // Sort entries
-  std::sort(all_entries.begin(), all_entries.end(),
-            [&cfg](const WordEntry& a, const WordEntry& b) {
-              return compare_entries(a, b, cfg.ignore_case);
+  std::sort(occurrences.begin(), occurrences.end(),
+            [&](const auto& a, const auto& b) {
+              if (a.key != b.key) return a.key < b.key;
+              if (a.source_index != b.source_index)
+                return a.source_index < b.source_index;
+              return a.start < b.start;
             });
 
-  // Output
-  format_output(all_entries, cfg);
-
+  for (const auto& occ : occurrences) {
+    const auto& source = sources[occ.source_index];
+    switch (cfg.output_format) {
+      case OutputFormat::Dumb:
+        emit_dumb_line(source, occ, cfg);
+        break;
+      case OutputFormat::Roff:
+        emit_roff_line(source, occ, cfg);
+        break;
+      case OutputFormat::Tex:
+        emit_tex_line(source, occ, cfg);
+        break;
+    }
+  }
   return 0;
 }
 
 }  // namespace ptx_pipeline
 
-REGISTER_COMMAND(
-    ptx, "ptx", "ptx [OPTION]... [FILE]...",
-    "Produce a permuted index of file contents.\n"
-    "\n"
-    "Output a permuted index, including context, of the words in the given "
-    "files.\n"
-    "\n"
-    "Note: This is an advanced command. Full implementation is not provided\n"
-    "due to its complexity. This is mainly used for building book indexes.",
-    "  ptx file.txt\n"
-    "  ptx -w file.txt",
-    "grep(1), sort(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd", PTX_OPTIONS) {
+REGISTER_COMMAND(ptx, "ptx", "ptx [OPTION]... [FILE]...",
+                 "Produce a permuted index of file contents.",
+                 "  ptx file.txt\n  ptx -w 40 file.txt", "grep(1), sort(1)",
+                 "WinuxCmd", "Copyright 2026 WinuxCmd", PTX_OPTIONS) {
   using namespace ptx_pipeline;
-
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {
     cp::report_error(cfg_result, L"ptx");
     return 1;
   }
-
   return run(*cfg_result);
 }

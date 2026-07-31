@@ -45,7 +45,7 @@ function Step([string]`$Title, [string[]]`$ArgsList) {
 }
 
 Clear-Host
-Write-Host "WinuxCmd 0.13 - native Windows commands + WPM" -ForegroundColor Green
+Write-Host "WinuxCmd 0.14 - native Windows commands + WPM" -ForegroundColor Green
 Start-Sleep -Seconds 1
 
 Step "winuxcmd --version" @("--version")

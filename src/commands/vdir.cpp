@@ -57,6 +57,8 @@ auto constexpr VDIR_OPTIONS = std::array{
            "with -l and -s, print sizes like 1K 234M 2G etc."),
     OPTION("-i", "--inode", "print the index number of each file"),
     OPTION("-l", "", "use a long listing format"),
+    OPTION("", "--long", "use a long listing format"),
+    OPTION("", "--long-list", "use a long listing format"),
     OPTION("-m", "", "fill width with a comma separated list of entries"),
     OPTION("-n", "--numeric-uid-gid",
            "like -l, but list numeric user and group IDs"),
@@ -73,47 +75,38 @@ auto constexpr VDIR_OPTIONS = std::array{
     OPTION("-u", "", "with -lt: sort by, and show, access time"),
     OPTION("-U", "", "do not sort; list entries in directory order"),
     OPTION("-v", "", "natural sort of (version) numbers within text"),
+    OPTION("-T", "--tabsize", "assume tab stops at each COLS instead of 8",
+           STRING_TYPE),
     OPTION("-w", "--width", "assume screen is instead of COLS wide",
            STRING_TYPE),
     OPTION("-x", "", "list entries by lines across"),
     OPTION("-X", "", "sort alphabetically by entry extension"),
-    OPTION("-1", "", "list one file per line")};
+    OPTION("-1", "", "list one file per line"),
+    OPTION("", "--sort",
+           "sort by WORD: none (-U), size (-S), time (-t), version (-v), "
+           "extension (-X)",
+           STRING_TYPE),
+    OPTION("", "--format",
+           "set output format: across, commas, horizontal, long, "
+           "single-column, verbose, vertical",
+           STRING_TYPE),
+    OPTION("", "--time",
+           "show time as WORD instead of default: atime, access, use, ctime, "
+           "status",
+           STRING_TYPE),
+    OPTION("", "--color", "colorize the output: always, auto, never",
+           STRING_TYPE),
+    OPTION("", "--group-directories-first", "group directories before files"),
+    OPTION("", "--zero", "end each output line with NUL, not newline")};
 
 namespace vdir_pipeline {
 namespace cp = core::pipeline;
-
-auto quote_vdir_windows_arg(const std::wstring& arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
 
 auto build_vdir_command_line(std::span<const std::wstring> args)
     -> std::wstring {
   std::wstring cmd_line = L"ls.exe";
   for (const auto& arg : args) {
-    cmd_line.push_back(L' ');
-    cmd_line += quote_vdir_windows_arg(arg);
+    append_windows_command_arg(cmd_line, arg);
   }
   return cmd_line;
 }
@@ -175,6 +168,7 @@ REGISTER_COMMAND(
     "  -h, --human-readable       with -l and -s, print sizes like 1K 234M 2G\n"
     "  -i, --inode                print the index number of each file\n"
     "  -l                         use a long listing format (default)\n"
+    "      --long, --long-list     use a long listing format\n"
     "  -m                         fill width with a comma separated list of "
     "entries\n"
     "  -n, --numeric-uid-gid      like -l, but list numeric user and group "
@@ -194,10 +188,17 @@ REGISTER_COMMAND(
     "order\n"
     "  -v                         natural sort of (version) numbers within "
     "text\n"
+    "  -T, --tabsize=COLS          assume tab stops at each COLS instead of 8\n"
     "  -w, --width=COLS           assume screen is COLS wide\n"
     "  -x                         list entries by lines across\n"
     "  -X                         sort alphabetically by entry extension\n"
     "  -1                         list one file per line\n"
+    "      --sort=WORD             sort entries by WORD\n"
+    "      --format=WORD           set output format\n"
+    "      --time=WORD             change time field used for sorting/display\n"
+    "      --color=WHEN            colorize output\n"
+    "      --group-directories-first group directories before files\n"
+    "      --zero                  end each output line with NUL\n"
     "\n"
     "vdir is a wrapper around ls with -l (long format) as the default.",
     "  vdir           list files in long format\n"

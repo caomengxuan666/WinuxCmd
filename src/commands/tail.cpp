@@ -38,6 +38,7 @@ import utils;
 
 import container;
 
+using cmd::meta::option_matches;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
@@ -142,12 +143,6 @@ struct TailConfig {
   std::chrono::milliseconds sleep_interval{1000};
   std::uintmax_t max_unchanged_stats = 5;
 };
-
-auto option_matches(const OptionMeta& meta, std::string_view short_name,
-                    std::string_view long_name) -> bool {
-  return (!short_name.empty() && meta.short_name == short_name) ||
-         (!long_name.empty() && meta.long_name == long_name);
-}
 
 auto stream_all(std::istream& in) -> void {
   std::array<char, 8192> buffer{};
@@ -343,6 +338,127 @@ auto streampos_to_size(std::streampos pos) -> std::uintmax_t {
   return static_cast<std::uintmax_t>(offset);
 }
 
+auto stream_needs_text_decoding(std::istream& in) -> bool {
+  auto original = in.tellg();
+  if (original == std::streampos(-1)) return true;
+
+  std::array<char, 4096> sample{};
+  in.read(sample.data(), static_cast<std::streamsize>(sample.size()));
+  auto got = static_cast<size_t>(std::max<std::streamsize>(in.gcount(), 0));
+  in.clear();
+  in.seekg(original);
+
+  if (got >= 3 && static_cast<std::uint8_t>(sample[0]) == 0xEF &&
+      static_cast<std::uint8_t>(sample[1]) == 0xBB &&
+      static_cast<std::uint8_t>(sample[2]) == 0xBF) {
+    return true;
+  }
+  if (got >= 2 && ((static_cast<std::uint8_t>(sample[0]) == 0xFF &&
+                    static_cast<std::uint8_t>(sample[1]) == 0xFE) ||
+                   (static_cast<std::uint8_t>(sample[0]) == 0xFE &&
+                    static_cast<std::uint8_t>(sample[1]) == 0xFF))) {
+    return true;
+  }
+
+  return std::find(sample.begin(), sample.begin() + got, '\0') !=
+         sample.begin() + got;
+}
+
+auto seek_to_end(std::ifstream& input) -> std::optional<std::uintmax_t> {
+  input.clear();
+  input.seekg(0, std::ios::end);
+  auto end = input.tellg();
+  if (end == std::streampos(-1) || input.bad()) return std::nullopt;
+  return streampos_to_size(end);
+}
+
+auto output_file_range(std::ifstream& input, std::uintmax_t start,
+                       std::optional<std::uintmax_t> byte_count = std::nullopt)
+    -> bool {
+  input.clear();
+  input.seekg(static_cast<std::streamoff>(start), std::ios::beg);
+  if (input.bad()) return false;
+
+  std::array<char, 64 * 1024> buffer{};
+  std::uintmax_t remaining =
+      byte_count.value_or(std::numeric_limits<std::uintmax_t>::max());
+  while (remaining > 0 && input.good()) {
+    const auto want = static_cast<std::streamsize>(std::min<std::uintmax_t>(
+        remaining, static_cast<std::uintmax_t>(buffer.size())));
+    input.read(buffer.data(), want);
+    auto got =
+        static_cast<size_t>(std::max<std::streamsize>(input.gcount(), 0));
+    if (got == 0) break;
+    safePrint(std::string_view(buffer.data(), got));
+    if (byte_count.has_value()) remaining -= got;
+  }
+
+  return !input.bad();
+}
+
+auto output_tail_seekable_bytes(std::ifstream& input, const TailConfig& config)
+    -> bool {
+  if (!config.by_bytes) return false;
+  auto end = seek_to_end(input);
+  if (!end) return false;
+
+  const std::uintmax_t n = config.spec.value;
+  std::uintmax_t start = 0;
+  if (config.spec.from_start) {
+    start = n > 0 ? n - 1 : 0;
+    if (start >= *end) return true;
+  } else {
+    if (n == 0) return true;
+    start = n >= *end ? 0 : *end - n;
+  }
+
+  return output_file_range(input, start);
+}
+
+auto output_tail_seekable_lines(std::ifstream& input, const TailConfig& config)
+    -> bool {
+  if (config.by_bytes || config.spec.from_start) return false;
+  std::uintmax_t lines = config.spec.value;
+  if (lines == 0) return true;
+
+  auto end = seek_to_end(input);
+  if (!end) return false;
+  if (*end == 0) return true;
+
+  constexpr std::uintmax_t kChunkSize = 64 * 1024;
+  std::vector<char> buffer(static_cast<size_t>(kChunkSize));
+  std::uintmax_t pos = *end;
+  bool checked_last_byte = false;
+
+  while (pos > 0) {
+    const std::uintmax_t chunk_start = pos > kChunkSize ? pos - kChunkSize : 0;
+    const auto chunk_size = static_cast<size_t>(pos - chunk_start);
+    input.clear();
+    input.seekg(static_cast<std::streamoff>(chunk_start), std::ios::beg);
+    input.read(buffer.data(), static_cast<std::streamsize>(chunk_size));
+    auto got =
+        static_cast<size_t>(std::max<std::streamsize>(input.gcount(), 0));
+    if (got == 0 || input.bad()) return false;
+
+    if (!checked_last_byte) {
+      checked_last_byte = true;
+      if (buffer[got - 1] != config.delimiter && lines > 0) --lines;
+    }
+
+    for (size_t i = got; i > 0; --i) {
+      if (buffer[i - 1] != config.delimiter) continue;
+      if (lines == 0) {
+        return output_file_range(input, chunk_start + i);
+      }
+      --lines;
+    }
+
+    pos = chunk_start;
+  }
+
+  return output_file_range(input, 0);
+}
+
 auto output_new_data(std::ifstream& input, std::streampos& offset,
                      std::string_view header = {}) -> bool {
   input.clear();
@@ -374,6 +490,34 @@ auto output_new_data(std::ifstream& input, std::streampos& offset,
 
   offset = end;
   return !input.bad();
+}
+
+auto output_tail_from_start_records(std::istream& in, size_t records_to_skip,
+                                    char delimiter) -> void {
+  if (records_to_skip == 0) {
+    stream_all(in);
+    return;
+  }
+
+  std::array<char, 64 * 1024> buffer{};
+  while (records_to_skip > 0 && in.good()) {
+    in.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    auto got = static_cast<size_t>(std::max<std::streamsize>(in.gcount(), 0));
+    if (got == 0) break;
+
+    for (size_t i = 0; i < got; ++i) {
+      if (buffer[i] != delimiter) continue;
+      if (--records_to_skip == 0) {
+        const size_t remainder_start = i + 1;
+        if (remainder_start < got) {
+          safePrint(std::string_view(buffer.data() + remainder_start,
+                                     got - remainder_start));
+        }
+        stream_all(in);
+        return;
+      }
+    }
+  }
 }
 
 auto output_tail(std::istream& in, const TailConfig& config) -> void {
@@ -416,26 +560,7 @@ auto output_tail(std::istream& in, const TailConfig& config) -> void {
 
   size_t n = static_cast<size_t>(config.spec.value);
   if (config.spec.from_start) {
-    size_t start = n > 0 ? n - 1 : 0;
-    if (start == 0) {
-      stream_all(in);
-      return;
-    }
-
-    size_t record_index = 0;
-    std::string current;
-    char ch = '\0';
-    while (in.get(ch)) {
-      current.push_back(ch);
-      if (ch == config.delimiter) {
-        if (record_index >= start) safePrint(current);
-        current.clear();
-        ++record_index;
-      }
-    }
-    if (!current.empty() && record_index >= start) {
-      safePrint(current);
-    }
+    output_tail_from_start_records(in, n > 0 ? n - 1 : 0, config.delimiter);
     return;
   }
 
@@ -948,10 +1073,20 @@ REGISTER_COMMAND(
       }
 
       emit_header();
-      if (config.by_bytes || config.delimiter == '\0') {
-        output_tail(*input, config);
+      bool used_fast_path = false;
+      if (config.by_bytes) {
+        used_fast_path = output_tail_seekable_bytes(*input, config);
+      } else if (config.delimiter == '\0') {
+        used_fast_path = output_tail_seekable_lines(*input, config);
+      } else if (!stream_needs_text_decoding(*input)) {
+        used_fast_path = output_tail_seekable_lines(*input, config);
+        if (!used_fast_path) output_tail(*input, config);
       } else {
         output_text_tail(*input, config);
+        used_fast_path = true;
+      }
+      if (!used_fast_path) {
+        output_tail(*input, config);
       }
       if (input->bad()) {
         safeErrorPrint("tail: error reading '");

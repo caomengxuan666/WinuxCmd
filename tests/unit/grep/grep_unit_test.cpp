@@ -165,6 +165,57 @@ TEST(grep, grep_colors_controls_prefix_components) {
                  "\x1b[36malpha\x1b[m\n");
 }
 
+TEST(grep, grep_colors_selected_line_color_wraps_unmatched_text) {
+  TempDir tmp;
+  tmp.write("a.txt", "xx alpha yy\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"");
+  p.set_env(L"GREP_COLORS", L"sl=41:ms=32:ne");
+  p.add(L"grep.exe", {L"--color=always", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "\x1b[41mxx \x1b[32malpha\x1b[m"
+                 "\x1b[41m yy\x1b[m\n");
+}
+
+TEST(grep, grep_colors_context_line_color_wraps_context_text) {
+  TempDir tmp;
+  tmp.write("a.txt", "ctx\nalpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"");
+  p.set_env(L"GREP_COLORS", L"cx=42:ne");
+  p.add(L"grep.exe", {L"--color=always", L"-B1", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "\x1b[42mctx\x1b[m\n"
+                 "\x1b[01;31malpha\x1b[m\n");
+}
+
+TEST(grep, grep_colors_rv_swaps_line_colors_for_inverted_context) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\nbeta\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"GREP_COLOR", L"");
+  p.set_env(L"GREP_COLORS", L"sl=41:cx=42:rv:ms=32:mc=33:ne");
+  p.add(L"grep.exe", {L"--color=always", L"-v", L"-C1", L"beta", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "\x1b[42malpha\x1b[m\n"
+                 "\x1b[41m\x1b[33mbeta\x1b[m\n");
+}
+
 TEST(grep, grep_color_env_is_deprecated_but_applied) {
   TempDir tmp;
   tmp.write("a.txt", "alpha\n");
@@ -359,6 +410,73 @@ TEST(grep, grep_count_and_files_with_matches) {
   EXPECT_EQ_TEXT(r2.stdout_text, "a.txt\n");
 }
 
+TEST(grep, grep_fixed_string_fast_path_preserves_count_line_numbers_and_crlf) {
+  TempDir tmp;
+  tmp.write_bytes("a.txt", {'n', 'e', 'e', 'd', 'l', 'e', '\r', '\n', 'h', 'a',
+                            'y', '\r', '\n', 'n', 'e', 'e', 'd', 'l', 'e'});
+
+  Pipeline numbered;
+  numbered.set_cwd(tmp.wpath());
+  numbered.add(L"grep.exe", {L"-F", L"-n", L"needle", L"a.txt"});
+  auto numbered_result = numbered.run();
+
+  EXPECT_EQ(numbered_result.exit_code, 0);
+  EXPECT_EQ_TEXT(numbered_result.stdout_text, "1:needle\n3:needle\n");
+
+  Pipeline counted;
+  counted.set_cwd(tmp.wpath());
+  counted.add(L"grep.exe", {L"-F", L"-c", L"needle", L"a.txt"});
+  auto counted_result = counted.run();
+
+  EXPECT_EQ(counted_result.exit_code, 0);
+  EXPECT_EQ_TEXT(counted_result.stdout_text, "2\n");
+}
+
+TEST(grep, grep_fixed_string_fast_path_honors_ignore_case) {
+  TempDir tmp;
+  tmp.write("a.txt", "Needle\nhay\nNEEDLE\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-F", L"-i", L"needle", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "Needle\nNEEDLE\n");
+}
+
+TEST(grep, grep_fixed_pattern_file_matches_many_literals) {
+  TempDir tmp;
+  std::string patterns;
+  for (int i = 0; i < 300; ++i) {
+    patterns += "absent-" + std::to_string(i) + "\n";
+  }
+  patterns += "needle_999\n";
+  tmp.write("patterns.txt", patterns);
+  tmp.write("a.txt", "hay\nNEEDLE_999\nneedle_999 tail\n");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-F", L"-i", L"-f", L"patterns.txt", L"a.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "NEEDLE_999\nneedle_999 tail\n");
+}
+TEST(grep, grep_null_after_filename_emits_real_nul) {
+  TempDir tmp;
+  tmp.write("a.txt", "needle\n");
+  tmp.write("b.txt", "hay\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-F", L"-lZ", L"needle", L"a.txt", L"b.txt"});
+  auto r = p.run();
+
+  std::string expected = "a.txt";
+  expected.push_back('\0');
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, expected);
+}
+
 TEST(grep, grep_recursive_search) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "d1" / "d2");
@@ -388,6 +506,18 @@ TEST(grep, grep_recursive_alias_R) {
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("needle") != std::string::npos);
+}
+
+TEST(grep, grep_recursive_single_directory_operand_prints_filename) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "d1");
+  tmp.write("d1/a.txt", "needle\n");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-RIn", L"needle", L"d1"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "d1/a.txt:1:needle\n");
 }
 
 TEST(grep, grep_exclude_dir_skips_nested_directory) {
@@ -460,6 +590,191 @@ TEST(grep, grep_basic_and_extended_regex_semantics) {
   EXPECT_EQ_TEXT(extended_result.stdout_text, "aaa\na+\n");
 }
 
+TEST(grep, grep_basic_and_extended_backreferences) {
+  TempDir tmp;
+  tmp.write("a.txt", "book\nabcd\nnoon\nabca\n");
+
+  Pipeline basic;
+  basic.set_cwd(tmp.wpath());
+  basic.add(L"grep.exe", {L"\\([a-z]\\)\\1", L"a.txt"});
+  auto basic_result = basic.run();
+
+  EXPECT_EQ(basic_result.exit_code, 0);
+  EXPECT_EQ_TEXT(basic_result.stdout_text, "book\nnoon\n");
+
+  Pipeline extended;
+  extended.set_cwd(tmp.wpath());
+  extended.add(L"grep.exe", {L"-E", L"([a-z])\\1", L"a.txt"});
+  auto extended_result = extended.run();
+
+  EXPECT_EQ(extended_result.exit_code, 0);
+  EXPECT_EQ_TEXT(extended_result.stdout_text, "book\nnoon\n");
+}
+
+TEST(grep, grep_gnu_word_boundary_tokens) {
+  TempDir tmp;
+  tmp.write("a.txt", "foo\nfood\nxfoo\nfoo_bar\nbar foo baz\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"\\<foo\\>", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "foo\nbar foo baz\n");
+}
+
+TEST(grep, grep_basic_escaped_alternation_matches_gnu_extension) {
+  TempDir tmp;
+  tmp.write("a.txt", "zero\nrecord\nother\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"zero\\|record", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "zero\nrecord\n");
+}
+
+TEST(grep, grep_extended_posix_classes_and_intervals) {
+  TempDir tmp;
+  tmp.write("a.txt", "tile 28x12\ntile 9x12\ntile 12x10\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-E", L"[[:digit:]]{2}x(10|12)", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "tile 28x12\ntile 12x10\n");
+}
+
+TEST(grep, grep_extended_literal_alternation_matches_gnu_shape) {
+  TempDir tmp;
+  tmp.write("a.txt", "needle_123\nneedle_456\nprefix needle_999 suffix\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-nE", L"needle_(123|999)", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "1:needle_123\n3:prefix needle_999 suffix\n");
+}
+
+TEST(grep, grep_recursive_extended_size_alternation_no_match_and_match) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "outputs" /
+                                      "xuliang-lianliankan" / "nested");
+  tmp.write("outputs/xuliang-lianliankan/ok.txt", "tile 32x24\nsprite 64x48\n");
+  tmp.write("outputs/xuliang-lianliankan/nested/also_ok.txt", "size 48x32\n");
+
+  Pipeline no_match;
+  no_match.set_cwd(tmp.wpath());
+  no_match.add(L"grep.exe", {L"-REIn", L"28x12|12x10|16x12",
+                             L"outputs/xuliang-lianliankan"});
+  auto no_match_result = no_match.run();
+  EXPECT_EQ(no_match_result.exit_code, 1);
+  EXPECT_EQ_TEXT(no_match_result.stdout_text, "");
+
+  tmp.write("outputs/xuliang-lianliankan/nested/bad.txt", "safe\nbad 12x10\n");
+
+  Pipeline match;
+  match.set_cwd(tmp.wpath());
+  match.add(L"grep.exe",
+            {L"-REIn", L"28x12|12x10|16x12", L"outputs/xuliang-lianliankan"});
+  auto match_result = match.run();
+  EXPECT_EQ(match_result.exit_code, 0);
+  EXPECT_EQ_TEXT(match_result.stdout_text,
+                 "outputs/xuliang-lianliankan/nested/bad.txt:2:bad 12x10\n");
+}
+TEST(grep, grep_pattern_file_dash_reads_standard_input) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\nbeta\ngamma\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_stdin("beta\ndelta\n");
+  p.add(L"grep.exe", {L"-f", L"-", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "beta\n");
+}
+
+TEST(grep, grep_unix_byte_offsets_option_is_accepted) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-u", L"alpha", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "alpha\n");
+}
+
+TEST(grep, grep_binary_option_preserves_cr_before_lf) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\r\n");
+
+  Pipeline normal;
+  normal.set_cwd(tmp.wpath());
+  normal.add(L"grep.exe", {L"a$", L"a.txt"});
+  auto normal_result = normal.run();
+
+  EXPECT_EQ(normal_result.exit_code, 0);
+  EXPECT_EQ_TEXT(normal_result.stdout_text, "a\n");
+
+  Pipeline binary;
+  binary.set_cwd(tmp.wpath());
+  binary.add(L"grep.exe", {L"-U", L"a$", L"a.txt"});
+  auto binary_result = binary.run();
+
+  EXPECT_EQ(binary_result.exit_code, 1);
+  EXPECT_EQ_TEXT(binary_result.stdout_text, "");
+}
+
+TEST(grep, grep_recursive_extended_alternation_combined_short_options) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "outputs" /
+                                      "xuliang-lianliankan");
+  std::filesystem::create_directories(tmp.path / "clean" /
+                                      "xuliang-lianliankan");
+  tmp.write("outputs/xuliang-lianliankan/a.txt", "tile 28x12\ntile 20x20\n");
+  tmp.write("outputs/xuliang-lianliankan/b.txt", "tile 12x10\ntile 16x12\n");
+  tmp.write("clean/xuliang-lianliankan/a.txt", "tile 20x20\ntile 32x32\n");
+
+  Pipeline matched;
+  matched.set_cwd(tmp.wpath());
+  matched.add(L"grep.exe",
+              {L"-REIn", L"28x12|12x10|16x12", L"outputs/xuliang-lianliankan"});
+  auto matched_result = matched.run();
+
+  EXPECT_EQ(matched_result.exit_code, 0);
+  EXPECT_TRUE(matched_result.stdout_text.find(
+                  "outputs/xuliang-lianliankan/a.txt:1:tile 28x12") !=
+              std::string::npos);
+  EXPECT_TRUE(matched_result.stdout_text.find(
+                  "outputs/xuliang-lianliankan/b.txt:1:tile 12x10") !=
+              std::string::npos);
+  EXPECT_TRUE(matched_result.stdout_text.find(
+                  "outputs/xuliang-lianliankan/b.txt:2:tile 16x12") !=
+              std::string::npos);
+  EXPECT_TRUE(matched_result.stdout_text.find('\\') == std::string::npos);
+
+  Pipeline clean;
+  clean.set_cwd(tmp.wpath());
+  clean.add(L"grep.exe",
+            {L"-REIn", L"28x12|12x10|16x12", L"clean/xuliang-lianliankan"});
+  auto clean_result = clean.run();
+
+  EXPECT_EQ(clean_result.exit_code, 1);
+  EXPECT_EQ_TEXT(clean_result.stdout_text, "");
+}
+
 TEST(grep, grep_regexp_mode_last_option_wins) {
   TempDir tmp;
   tmp.write("a.txt", "aaa\na+\n");
@@ -476,6 +791,27 @@ TEST(grep, grep_regexp_mode_last_option_wins) {
   fixed_last.set_cwd(tmp.wpath());
   fixed_last.add(L"grep.exe", {L"-E", L"-F", L"a+", L"a.txt"});
   auto fixed_result = fixed_last.run();
+
+  EXPECT_EQ(fixed_result.exit_code, 0);
+  EXPECT_EQ_TEXT(fixed_result.stdout_text, "a+\n");
+}
+
+TEST(grep, grep_egrep_and_fgrep_entry_points_set_default_mode) {
+  TempDir tmp;
+  tmp.write("a.txt", "aaa\na+\n");
+
+  Pipeline extended;
+  extended.set_cwd(tmp.wpath());
+  extended.add(L"egrep.exe", {L"a+", L"a.txt"});
+  auto extended_result = extended.run();
+
+  EXPECT_EQ(extended_result.exit_code, 0);
+  EXPECT_EQ_TEXT(extended_result.stdout_text, "aaa\na+\n");
+
+  Pipeline fixed;
+  fixed.set_cwd(tmp.wpath());
+  fixed.add(L"fgrep.exe", {L"a+", L"a.txt"});
+  auto fixed_result = fixed.run();
 
   EXPECT_EQ(fixed_result.exit_code, 0);
   EXPECT_EQ_TEXT(fixed_result.stdout_text, "a+\n");
@@ -548,6 +884,19 @@ TEST(grep, grep_context_lines_use_hyphen_prefix_separator) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "1-before\n2:needle\n3-after\n");
+}
+
+TEST(grep, grep_numeric_context_shorthand_sets_both_sides) {
+  TempDir tmp;
+  tmp.write("a.txt", "before\nneedle\nafter\nfar\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-1", L"needle", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "before\nneedle\nafter\n");
 }
 
 TEST(grep, grep_context_ranges_merge_without_duplicates_or_separator) {

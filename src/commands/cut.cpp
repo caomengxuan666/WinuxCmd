@@ -21,8 +21,11 @@ auto constexpr CUT_OPTIONS = std::array{
     OPTION("-c", "--characters", "select only these characters", STRING_TYPE),
     OPTION("-d", "--delimiter", "use DELIM instead of TAB for field delimiter",
            STRING_TYPE),
-    OPTION("-w", "", "use any number of spaces or tabs as field delimiters"),
+    OPTION("-w", "--whitespace-delimited",
+           "use runs of spaces/tabs as field delimiters [=trimmed]",
+           OPTIONAL_STRING_TYPE),
     OPTION("-f", "--fields", "select only these fields", STRING_TYPE),
+    OPTION("-F", "", "like -f, but also implies -w and -O ' '", STRING_TYPE),
     OPTION("", "--complement",
            "complement the set of selected bytes, characters or fields"),
     OPTION("-n", "--no-partial",
@@ -47,6 +50,7 @@ struct Config {
   Mode mode = Mode::fields;
   char delimiter = '\t';
   bool whitespace_delimited = false;
+  bool trim_outer_whitespace = false;
   std::string output_delimiter;
   bool output_delimiter_set = false;
   bool complement = false;
@@ -162,27 +166,26 @@ auto is_whole_span_selected(size_t first_byte, size_t last_byte,
   return false;
 }
 
-auto read_source(std::string_view path) -> cp::Result<std::string> {
-  auto input_open_error = [](std::string_view input_path) -> std::string {
-    std::error_code ec;
-    if (std::filesystem::is_directory(std::filesystem::u8path(input_path),
-                                      ec) &&
-        !ec) {
-      return "cannot open '" + std::string(input_path) +
-             "' for reading: Is a directory";
-    }
-
+auto cut_input_open_error(std::string_view input_path) -> std::string {
+  std::error_code ec;
+  if (std::filesystem::is_directory(std::filesystem::u8path(input_path), ec) &&
+      !ec) {
     return "cannot open '" + std::string(input_path) +
-           "' for reading: No such file or directory";
-  };
+           "' for reading: Is a directory";
+  }
 
+  return "cannot open '" + std::string(input_path) +
+         "' for reading: No such file or directory";
+}
+
+auto read_source(std::string_view path) -> cp::Result<std::string> {
   if (path == "-") {
     return std::string(std::istreambuf_iterator<char>(std::cin),
                        std::istreambuf_iterator<char>());
   }
   std::ifstream in(std::string(path), std::ios::binary);
   if (!in.is_open()) {
-    return std::unexpected(input_open_error(path));
+    return std::unexpected(cut_input_open_error(path));
   }
   return std::string(std::istreambuf_iterator<char>(in),
                      std::istreambuf_iterator<char>());
@@ -191,12 +194,26 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
 auto build_config(const CommandContext<CUT_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
-  cfg.whitespace_delimited = ctx.get<bool>("-w", false);
-  if (cfg.whitespace_delimited && ctx.has("--delimiter")) {
+  const bool whitespace_specified =
+      ctx.has("-w") || ctx.has("--whitespace-delimited");
+  std::string whitespace_mode =
+      ctx.get<std::string>("--whitespace-delimited", "");
+  if (whitespace_mode.empty()) whitespace_mode = ctx.get<std::string>("-w", "");
+  if (!whitespace_mode.empty()) {
+    if (whitespace_mode != "trimmed") {
+      return std::unexpected("invalid whitespace-delimited mode: " +
+                             whitespace_mode);
+    }
+    cfg.trim_outer_whitespace = true;
+  }
+
+  cfg.whitespace_delimited = whitespace_specified;
+  const bool delimiter_specified = ctx.has("--delimiter");
+  if (delimiter_specified && whitespace_specified) {
     return std::unexpected(
         "Only one of --delimiter (-d) or -w option can be specified");
   }
-  if (ctx.has("--delimiter")) {
+  if (delimiter_specified) {
     std::string delim = ctx.get<std::string>("--delimiter", "");
     if (delim.size() > 1) {
       return std::unexpected("the delimiter must be a single character");
@@ -206,7 +223,9 @@ auto build_config(const CommandContext<CUT_OPTIONS.size()>& ctx)
   cfg.output_delimiter.clear();
   std::string out_delim = ctx.get<std::string>("--output-delimiter", "");
   cfg.output_delimiter_set = ctx.has("--output-delimiter");
-  if (cfg.output_delimiter_set) cfg.output_delimiter = out_delim;
+  if (cfg.output_delimiter_set) {
+    cfg.output_delimiter = out_delim.empty() ? std::string(1, '\0') : out_delim;
+  }
 
   cfg.only_delimited =
       ctx.get<bool>("--only-delimited", false) || ctx.get<bool>("-s", false);
@@ -222,11 +241,13 @@ auto build_config(const CommandContext<CUT_OPTIONS.size()>& ctx)
   if (characters.empty()) characters = ctx.get<std::string>("-c", "");
   std::string fields = ctx.get<std::string>("--fields", "");
   if (fields.empty()) fields = ctx.get<std::string>("-f", "");
+  std::string whitespace_fields = ctx.get<std::string>("-F", "");
 
   int mode_count = 0;
   if (!bytes.empty()) ++mode_count;
   if (!characters.empty()) ++mode_count;
   if (!fields.empty()) ++mode_count;
+  if (!whitespace_fields.empty()) ++mode_count;
   if (mode_count == 0) return std::unexpected("missing list");
   if (mode_count > 1) {
     return std::unexpected("only one of -b, -c or -f may be specified");
@@ -241,6 +262,14 @@ auto build_config(const CommandContext<CUT_OPTIONS.size()>& ctx)
     list = characters;
   } else {
     cfg.mode = Mode::fields;
+    if (!whitespace_fields.empty()) {
+      list = whitespace_fields;
+      cfg.whitespace_delimited = !delimiter_specified;
+      if (!cfg.output_delimiter_set) {
+        cfg.output_delimiter_set = true;
+        cfg.output_delimiter = " ";
+      }
+    }
   }
   if (cfg.mode != Mode::fields &&
       (ctx.has("--delimiter") || cfg.only_delimited)) {
@@ -280,29 +309,48 @@ auto cut_fields(std::string_view line, const Config& cfg) -> std::string {
     auto is_delim = [](char ch) { return ch == ' ' || ch == '\t'; };
 
     size_t pos = 0;
-    if (!line.empty() && is_delim(line.front())) {
-      has_delim = true;
-      fields.emplace_back(line.substr(0, 0));
+    if (cfg.trim_outer_whitespace) {
       while (pos < line.size() && is_delim(line[pos])) {
         ++pos;
       }
-    }
-
-    while (pos < line.size()) {
-      size_t start = pos;
-      while (pos < line.size() && !is_delim(line[pos])) {
-        ++pos;
+      while (pos < line.size()) {
+        size_t start = pos;
+        while (pos < line.size() && !is_delim(line[pos])) {
+          ++pos;
+        }
+        fields.emplace_back(line.substr(start, pos - start));
+        size_t blank_start = pos;
+        while (pos < line.size() && is_delim(line[pos])) {
+          ++pos;
+        }
+        if (pos >= line.size()) break;
+        if (pos > blank_start) has_delim = true;
       }
-      fields.emplace_back(line.substr(start, pos - start));
-      if (pos >= line.size()) break;
-
-      has_delim = true;
-      while (pos < line.size() && is_delim(line[pos])) {
-        ++pos;
+    } else {
+      if (!line.empty() && is_delim(line.front())) {
+        has_delim = true;
+        fields.emplace_back(line.substr(0, 0));
+        while (pos < line.size() && is_delim(line[pos])) {
+          ++pos;
+        }
       }
-      if (pos >= line.size()) {
-        fields.emplace_back(line.substr(line.size(), 0));
-        break;
+
+      while (pos < line.size()) {
+        size_t start = pos;
+        while (pos < line.size() && !is_delim(line[pos])) {
+          ++pos;
+        }
+        fields.emplace_back(line.substr(start, pos - start));
+        if (pos >= line.size()) break;
+
+        has_delim = true;
+        while (pos < line.size() && is_delim(line[pos])) {
+          ++pos;
+        }
+        if (pos >= line.size()) {
+          fields.emplace_back(line.substr(line.size(), 0));
+          break;
+        }
       }
     }
   } else {
@@ -378,8 +426,116 @@ auto cut_line(std::string_view line, const Config& cfg) -> std::string {
   if (cfg.mode == Mode::fields) return cut_fields(line, cfg);
   return cut_bytes_or_characters(line, cfg);
 }
+auto record_has_field_delimiter(std::string_view rec, const Config& cfg)
+    -> bool {
+  if (cfg.whitespace_delimited) {
+    auto is_delim = [](char ch) { return ch == ' ' || ch == '\t'; };
+    size_t pos = 0;
+    if (cfg.trim_outer_whitespace) {
+      while (pos < rec.size() && is_delim(rec[pos])) ++pos;
+      bool seen_field = false;
+      while (pos < rec.size()) {
+        while (pos < rec.size() && !is_delim(rec[pos])) ++pos;
+        seen_field = true;
+        size_t blanks = pos;
+        while (pos < rec.size() && is_delim(rec[pos])) ++pos;
+        if (pos < rec.size() && seen_field && pos > blanks) return true;
+      }
+      return false;
+    }
+    return rec.find_first_of(" \t") != std::string::npos;
+  }
+  return rec.find(cfg.delimiter) != std::string::npos;
+}
+
+auto can_use_fast_field_stream(const Config& cfg) -> bool {
+  const char record_delim = cfg.zero_terminated ? '\0' : '\n';
+  return cfg.mode == Mode::fields && !cfg.whitespace_delimited &&
+         !cfg.complement && !cfg.output_delimiter_set &&
+         cfg.delimiter != record_delim;
+}
+
+auto append_fast_field_record(std::string_view rec, const Config& cfg,
+                              std::string& output) -> bool {
+  bool has_delim = false;
+  bool wrote_selected = false;
+  int field_index = 1;
+  size_t field_start = 0;
+
+  for (size_t i = 0; i <= rec.size(); ++i) {
+    if (i != rec.size() && rec[i] != cfg.delimiter) continue;
+
+    if (i != rec.size()) has_delim = true;
+    const bool selected = is_selected(field_index, cfg.ranges);
+    if (selected) {
+      if (wrote_selected) output.push_back(cfg.delimiter);
+      output.append(rec.substr(field_start, i - field_start));
+      wrote_selected = true;
+    }
+
+    ++field_index;
+    field_start = i + 1;
+  }
+
+  if (!has_delim) {
+    if (cfg.only_delimited) return false;
+    output.append(rec);
+    return true;
+  }
+
+  return true;
+}
+
+auto run_file_fast_fields(const std::string& path, const Config& cfg) -> int {
+  std::ifstream file;
+  std::istream* input = nullptr;
+  if (path == "-") {
+    input = &std::cin;
+  } else {
+    file.open(path, std::ios::binary);
+    if (!file.is_open()) {
+      cp::report_custom_error(L"cut",
+                              utf8_to_wstring(cut_input_open_error(path)));
+      return 1;
+    }
+    input = &file;
+  }
+
+  const char record_delim = cfg.zero_terminated ? '\0' : '\n';
+  std::string record;
+  std::string output;
+  output.reserve(1024 * 1024);
+
+  auto flush = [&]() {
+    if (output.empty()) return;
+    safePrint(std::string_view(output.data(), output.size()));
+    output.clear();
+  };
+
+  while (std::getline(*input, record, record_delim)) {
+    if (!cfg.zero_terminated && !record.empty() && record.back() == '\r') {
+      record.pop_back();
+    }
+
+    if (output.size() + record.size() + 1 > output.capacity()) {
+      flush();
+      if (is_stdout_pipe_closed()) return 0;
+    }
+
+    const bool should_emit = append_fast_field_record(record, cfg, output);
+    if (!should_emit) continue;
+    output.push_back(record_delim);
+  }
+
+  flush();
+  return 0;
+}
 
 auto run_file(const std::string& path, const Config& cfg) -> int {
+  if (can_use_fast_field_stream(cfg)) {
+    return run_file_fast_fields(path, cfg);
+  }
+
   auto content = read_source(path);
   if (!content) {
     cp::report_error(content, L"cut");
@@ -406,16 +562,11 @@ auto run_file(const std::string& path, const Config& cfg) -> int {
     }
 
     auto out = cut_line(rec, cfg);
-    auto has_delimiter = [&]() {
-      if (cfg.whitespace_delimited) {
-        return rec.find_first_of(" \t") != std::string::npos;
-      }
-      return rec.find(cfg.delimiter) != std::string::npos;
-    }();
+    auto has_delimiter = record_has_field_delimiter(rec, cfg);
     if (out.empty() && cfg.only_delimited && !has_delimiter) {
       continue;
     }
-    safePrint(out);
+    safePrint(std::string_view(out.data(), out.size()));
     if (cfg.zero_terminated) {
       safePrint(char{'\0'});
     } else {

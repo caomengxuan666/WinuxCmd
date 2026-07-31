@@ -76,6 +76,12 @@ function Get-CommandNames {
         ForEach-Object { $_.BaseName } |
         Sort-Object -Unique
 
+    # grep.cpp also registers the GNU compatibility entry points egrep/fgrep.
+    # WPM discovers these from the runtime registry, but this lightweight
+    # workspace-link helper only sees source file names.
+    $names = @($names) + @("egrep", "fgrep")
+    $names = $names | Sort-Object -Unique
+
     return @("winuxcmd") + $names
 }
 

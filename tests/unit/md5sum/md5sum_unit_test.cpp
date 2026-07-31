@@ -131,7 +131,7 @@ TEST(md5sum, md5sum_short_zero_alias_uses_nul_terminator) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(r.stdout_text,
-            std::string("6f5902ac237024bdd0c176cb93063dc4  test.txt\0", 43));
+            std::string("6f5902ac237024bdd0c176cb93063dc4 *test.txt\0", 43));
 }
 
 TEST(md5sum, md5sum_quiet) {

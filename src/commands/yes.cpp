@@ -26,13 +26,12 @@
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
 /// @Description: Implementation for yes.
-/// @Version: 0.1.0
+/// @Version: 0.2.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "pch/pch.h"
-// include other header after pch.h
 #include "core/command_macros.h"
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -42,10 +41,8 @@ import container;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
-auto constexpr YES_OPTIONS = std::array{
-    OPTION("", "", "output a string repeatedly", STRING_TYPE)
-    // yes has no options
-};
+auto constexpr YES_OPTIONS =
+    std::array{OPTION("", "", "output a string repeatedly", STRING_TYPE)};
 
 namespace yes_pipeline {
 namespace cp = core::pipeline;
@@ -57,9 +54,7 @@ struct Config {
 auto join_yes_args(std::span<const std::string_view> args) -> std::string {
   std::string output;
   for (size_t i = 0; i < args.size(); ++i) {
-    if (i != 0) {
-      output += ' ';
-    }
+    if (i != 0) output += char(32);
     output += args[i];
   }
   return output;
@@ -68,39 +63,63 @@ auto join_yes_args(std::span<const std::string_view> args) -> std::string {
 auto build_config(const CommandContext<YES_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
-
   if (!ctx.positionals.empty()) {
     cfg.output = join_yes_args(std::span<const std::string_view>(
         ctx.positionals.data(), ctx.positionals.size()));
   }
-
   return cfg;
 }
 
-auto run(const Config& cfg) -> int {
-  // Note: In a real implementation, this would run indefinitely
-  // For safety, we'll limit to 1000 iterations
-  const int MAX_ITERATIONS = 1000;
+std::string repeated_block(const std::string& line) {
+  const std::string unit = line + "\n";
+  std::string block = unit;
+  constexpr size_t target_size = 8192;
+  while (block.size() + block.size() <= target_size) {
+    block.append(block.data(), block.size());
+  }
+  while (block.size() + unit.size() <= target_size) {
+    block += unit;
+  }
+  return block;
+}
 
-  for (int i = 0; i < MAX_ITERATIONS; ++i) {
-    safePrintLn(cfg.output);
+std::optional<size_t> test_repeat_limit() {
+  const char* raw_limit = getenv("WINUXCMD_YES_REPEAT_LIMIT");
+  if (!raw_limit || !*raw_limit) return std::nullopt;
+  try {
+    return static_cast<size_t>(std::stoull(raw_limit));
+  } catch (...) {
+    return std::nullopt;
+  }
+}
+
+auto run(const Config& cfg) -> int {
+  if (auto limit = test_repeat_limit()) {
+    std::string line = cfg.output + "\n";
+    for (size_t i = 0; i < *limit; ++i) {
+      if (fwrite(line.data(), 1, line.size(), stdout) != line.size()) {
+        return ferror(stdout) ? 1 : 0;
+      }
+    }
+    return 0;
   }
 
-  return 0;
+  std::string block = repeated_block(cfg.output);
+  for (;;) {
+    size_t written = fwrite(block.data(), 1, block.size(), stdout);
+    if (written != block.size()) {
+      return ferror(stdout) ? 1 : 0;
+    }
+  }
 }
 
 }  // namespace yes_pipeline
 
-REGISTER_COMMAND(
-    yes, "yes", "yes [STRING]...",
-    "Repeatedly output a line with all specified STRING(s), or 'y'.\n"
-    "\n"
-    "Note: This implementation limits output to 1000 iterations\n"
-    "for safety. The actual yes command runs indefinitely.",
-    "  yes\n"
-    "  yes please\n"
-    "  yes 'do something'",
-    "", "WinuxCmd", "Copyright © 2026 WinuxCmd", YES_OPTIONS) {
+REGISTER_COMMAND(yes, "yes", "yes [STRING]...",
+                 "Repeatedly output a line with all specified STRING(s), or y.",
+                 "  yes\n"
+                 "  yes please",
+                 "", "WinuxCmd", "Copyright © 2026 WinuxCmd", YES_OPTIONS) {
   using namespace yes_pipeline;
 
   auto cfg_result = build_config(ctx);

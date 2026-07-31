@@ -50,7 +50,7 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  * - @a -f: (ignored) [IMPLEMENTED]
  * - @a -h, @a --no-dereference: Affect symbolic link instead of referenced file
- * [NOT SUPPORT]
+ * [IMPLEMENTED]
  * - @a -m: Change only the modification time [IMPLEMENTED]
  * - @a -r, @a --reference: Use this file's times instead of current time
  * [IMPLEMENTED]
@@ -65,7 +65,7 @@ auto constexpr TOUCH_OPTIONS = std::array{
            STRING_TYPE),
     OPTION("-f", "", "(ignored)"),
     OPTION("-h", "--no-dereference",
-           "affect symbolic link instead of referenced file [NOT SUPPORT]"),
+           "affect symbolic link instead of referenced file"),
     OPTION("-m", "", "change only the modification time"),
     OPTION("-r", "--reference", "use this file's times instead of current time",
            STRING_TYPE),
@@ -443,12 +443,18 @@ auto parse_touch_timestamp(const std::string& input)
   return local_system_time_to_filetime(st);
 }
 
-auto read_times_from_file(const std::wstring& wpath)
+auto file_open_flags(bool no_dereference) -> DWORD {
+  DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
+  if (no_dereference) flags |= FILE_FLAG_OPEN_REPARSE_POINT;
+  return flags;
+}
+
+auto read_times_from_file(const std::wstring& wpath, bool no_dereference)
     -> std::optional<TimePair> {
-  HANDLE h =
-      CreateFileW(wpath.c_str(), FILE_READ_ATTRIBUTES,
-                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                  nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  HANDLE h = CreateFileW(wpath.c_str(), FILE_READ_ATTRIBUTES,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         nullptr, OPEN_EXISTING,
+                         file_open_flags(no_dereference), nullptr);
   if (h == INVALID_HANDLE_VALUE) return std::nullopt;
 
   FILETIME c{}, a{}, m{};
@@ -462,15 +468,28 @@ auto read_times_from_file(const std::wstring& wpath)
 auto apply_touch_one(const std::string& path,
                      const CommandContext<TOUCH_OPTIONS.size()>& ctx,
                      bool update_access, bool update_modify, bool no_create,
+                     bool no_dereference,
                      const std::optional<TimePair>& ref_times,
                      const std::optional<TimePair>& date_times) -> bool {
   std::wstring wpath = utf8_to_wstring(path);
 
-  DWORD create_mode = no_create ? OPEN_EXISTING : OPEN_ALWAYS;
-  HANDLE h =
-      CreateFileW(wpath.c_str(), FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
-                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                  nullptr, create_mode, FILE_ATTRIBUTE_NORMAL, nullptr);
+  DWORD create_mode =
+      (no_create || no_dereference) ? OPEN_EXISTING : OPEN_ALWAYS;
+  HANDLE h = CreateFileW(
+      wpath.c_str(), FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+      create_mode, file_open_flags(no_dereference), nullptr);
+
+  if (h == INVALID_HANDLE_VALUE && !no_create && !no_dereference) {
+    DWORD attrs = GetFileAttributesW(wpath.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES &&
+        (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+      h = CreateFileW(wpath.c_str(),
+                      FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                      nullptr, OPEN_EXISTING, file_open_flags(false), nullptr);
+    }
+  }
 
   if (h == INVALID_HANDLE_VALUE) {
     DWORD e = GetLastError();
@@ -560,11 +579,14 @@ auto process_command(const CommandContext<TOUCH_OPTIONS.size()>& ctx)
   bool no_create =
       ctx.get<bool>("--no-create", false) || ctx.get<bool>("-c", false);
 
+  bool no_dereference =
+      ctx.get<bool>("--no-dereference", false) || ctx.get<bool>("-h", false);
+
   std::optional<TimePair> ref_times = std::nullopt;
   std::string ref_path = ctx.get<std::string>("--reference", "");
   if (ref_path.empty()) ref_path = ctx.get<std::string>("-r", "");
   if (!ref_path.empty()) {
-    ref_times = read_times_from_file(utf8_to_wstring(ref_path));
+    ref_times = read_times_from_file(utf8_to_wstring(ref_path), no_dereference);
     if (!ref_times.has_value()) {
       safeErrorPrint("touch: failed to get attributes of '");
       safeErrorPrint(ref_path);
@@ -599,8 +621,6 @@ auto process_command(const CommandContext<TOUCH_OPTIONS.size()>& ctx)
     base_time = *ft;
   }
 
-  (void)ctx.get<bool>("--no-dereference", false);
-  (void)ctx.get<bool>("-h", false);
   (void)ctx.get<bool>("-f", false);
 
   bool all_ok = true;
@@ -621,7 +641,7 @@ auto process_command(const CommandContext<TOUCH_OPTIONS.size()>& ctx)
     }
     for (const auto& f : expanded) {
       if (!apply_touch_one(f, ctx, update_access, update_modify, no_create,
-                           ref_times, date_times)) {
+                           no_dereference, ref_times, date_times)) {
         all_ok = false;
       }
     }
@@ -635,12 +655,13 @@ REGISTER_COMMAND(touch, "touch", "touch [OPTION]... FILE...",
                  "Update the access and modification times of each FILE to the "
                  "current time.\n"
                  "A FILE argument that does not exist is created empty, unless "
-                 "-c is supplied.",
+                 "-c or -h is supplied.",
                  "  touch file.txt\n"
                  "  touch -a file.txt\n"
                  "  touch -m file.txt\n"
                  "  touch -c missing.txt\n"
-                 "  touch -r ref.txt target.txt",
+                 "  touch -r ref.txt target.txt\n"
+                 "  touch -h link.txt",
                  "stat(1), date(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
                  TOUCH_OPTIONS) {
   using namespace touch_pipeline;

@@ -379,10 +379,7 @@ auto print_scaled_size(uint64_t size, const OutputConfig& cfg) -> void {
     return;
   }
 
-  char buf[32];
-  snprintf(buf, sizeof(buf), "%16ju",
-           static_cast<uintmax_t>(ceil_div(size, cfg.block_size)));
-  safePrint(buf);
+  safePrint(std::to_string(ceil_div(size, cfg.block_size)));
 }
 
 auto parse_du_time_mode(std::string_view value) -> std::optional<DuTimeMode> {
@@ -878,7 +875,7 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
           print_scaled_size(dir_size, cfg.output);
         }
         print_time_if_requested(dir_summary, cfg);
-        safePrint(L"  ");
+        safePrint("\t");
         safePrint(wpath);
         print_record_terminator(cfg.null_terminated);
       }
@@ -905,7 +902,7 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
               }
               print_time_if_requested(entry_summary, cfg);
             }
-            safePrint(L"  ");
+            safePrint("\t");
             safePrint(subpath);
             print_record_terminator(cfg.null_terminated);
           }
@@ -934,7 +931,7 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
           print_scaled_size(file_size, cfg.output);
         }
         print_time_if_requested(file_summary, cfg);
-        safePrint(L"  ");
+        safePrint("\t");
         safePrint(wpath);
         print_record_terminator(cfg.null_terminated);
       }
@@ -944,7 +941,7 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
   if (cfg.total && passes_threshold(cfg, grand_total)) {
     safePrint(L"");
     print_scaled_size(grand_total, cfg.output);
-    safePrint(L"  total");
+    safePrint("\ttotal");
     print_record_terminator(cfg.null_terminated);
   }
 

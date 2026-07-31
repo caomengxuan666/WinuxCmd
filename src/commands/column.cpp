@@ -234,6 +234,106 @@ auto read_input(const std::string& filename) -> cp::Result<std::string> {
   return content;
 }
 
+auto split_records(std::string_view content) -> std::vector<std::string> {
+  std::vector<std::string> lines;
+  size_t start = 0;
+  while (start < content.size()) {
+    size_t end = content.find('\n', start);
+    if (end == std::string_view::npos) {
+      std::string line(content.substr(start));
+      if (!line.empty() && line.back() == '\r') line.pop_back();
+      if (!line.empty()) lines.push_back(std::move(line));
+      break;
+    }
+
+    std::string line(content.substr(start, end - start));
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    lines.push_back(std::move(line));
+    start = end + 1;
+  }
+  return lines;
+}
+
+auto split_table_line(const std::string& line, const Config& cfg)
+    -> std::vector<std::string> {
+  std::vector<std::string> row;
+
+  if (cfg.separator.empty()) {
+    size_t pos = 0;
+    while (pos < line.size()) {
+      pos = line.find_first_not_of(" \t", pos);
+      if (pos == std::string::npos) break;
+      size_t end = line.find_first_of(" \t", pos);
+      if (end == std::string::npos) {
+        row.push_back(line.substr(pos));
+        break;
+      }
+      row.push_back(line.substr(pos, end - pos));
+      pos = end + 1;
+    }
+    return row;
+  }
+
+  size_t start = 0;
+  while (start <= line.size()) {
+    size_t end = line.find_first_of(cfg.separator, start);
+    if (end == std::string::npos) {
+      row.push_back(line.substr(start));
+      break;
+    }
+    row.push_back(line.substr(start, end - start));
+    start = end + 1;
+  }
+  return row;
+}
+
+auto parse_column_set(std::string_view spec) -> std::set<size_t> {
+  std::set<size_t> columns;
+  size_t pos = 0;
+  while (pos < spec.size()) {
+    size_t comma = spec.find(',', pos);
+    std::string_view token = comma == std::string_view::npos
+                                 ? spec.substr(pos)
+                                 : spec.substr(pos, comma - pos);
+    size_t value = 0;
+    auto [ptr, ec] =
+        std::from_chars(token.data(), token.data() + token.size(), value);
+    if (ec == std::errc() && ptr == token.data() + token.size() && value > 0) {
+      columns.insert(value);
+    }
+    if (comma == std::string_view::npos) break;
+    pos = comma + 1;
+  }
+  return columns;
+}
+
+auto json_escape(std::string_view text) -> std::string {
+  std::string out;
+  for (unsigned char c : text) {
+    switch (c) {
+      case '\\':
+        out += "\\\\";
+        break;
+      case '"':
+        out += "\\\"";
+        break;
+      case '\n':
+        out += "\\n";
+        break;
+      case '\r':
+        out += "\\r";
+        break;
+      case '\t':
+        out += "\\t";
+        break;
+      default:
+        out.push_back(static_cast<char>(c));
+        break;
+    }
+  }
+  return out;
+}
+
 auto run(const Config& cfg) -> int {
   std::string all_content;
 
@@ -247,62 +347,16 @@ auto run(const Config& cfg) -> int {
   }
 
   if (cfg.table_mode) {
-    // Table mode - format as a table
-    // Use heap allocation to avoid stack overflow
-    std::vector<std::string> lines;
-    auto normalize_line = [](std::string& line) {
-      if (!line.empty() && line.back() == '\r') {
-        line.pop_back();
-      }
-    };
-    size_t start = 0;
-    while (start < all_content.size()) {
-      size_t end = all_content.find('\n', start);
-      if (end == std::string::npos) {
-        std::string line = all_content.substr(start);
-        normalize_line(line);
-        if (!line.empty()) {
-          lines.push_back(std::move(line));
-        }
-        break;
-      }
-      std::string line = all_content.substr(start, end - start);
-      normalize_line(line);
-      lines.push_back(std::move(line));
-      start = end + 1;
-    }
-
+    std::vector<std::string> lines = split_records(all_content);
     if (lines.empty()) {
       return 0;
     }
 
-    // Determine separator
-    char sep = '\t';  // Default to tab
-    if (!cfg.separator.empty()) {
-      sep = cfg.separator[0];
-    }
-
-    // Parse all lines into columns
     std::vector<std::vector<std::string>> table;
     size_t max_cols = 0;
 
     for (const auto& line : lines) {
-      std::vector<std::string> row;
-      size_t col_start = 0;
-
-      while (col_start < line.size()) {
-        size_t col_end = line.find(sep, col_start);
-        if (col_end == std::string::npos || col_end == col_start) {
-          if (col_start < line.size()) {
-            row.push_back(line.substr(col_start));
-          }
-          break;
-        }
-        if (col_end > col_start) {
-          row.push_back(line.substr(col_start, col_end - col_start));
-        }
-        col_start = col_end + 1;
-      }
+      std::vector<std::string> row = split_table_line(line, cfg);
 
       if (row.size() > max_cols) {
         max_cols = row.size();
@@ -326,91 +380,70 @@ auto run(const Config& cfg) -> int {
       }
     }
 
-    // Print table
+    if (cfg.json_output) {
+      const std::string table_name =
+          cfg.table_name.empty() ? "table" : cfg.table_name;
+      safePrintLn("{");
+      safePrintLn("  \"" + json_escape(table_name) + "\": [");
+      for (size_t row_idx = (cfg.table_hide ? 1 : 0); row_idx < table.size();
+           ++row_idx) {
+        const auto& row = table[row_idx];
+        safePrint("    {");
+        for (size_t col_idx = 0; col_idx < row.size(); ++col_idx) {
+          if (col_idx > 0) safePrint(", ");
+          std::string key = "col" + std::to_string(col_idx + 1);
+          if (!table.empty() && col_idx < table[0].size()) {
+            key = table[0][col_idx].empty() ? key : table[0][col_idx];
+          }
+          safePrint("\"" + json_escape(key) + "\": \"" +
+                    json_escape(row[col_idx]) + "\"");
+        }
+        safePrintLn("}" + std::string(row_idx + 1 < table.size() ? "," : ""));
+      }
+      safePrintLn("  ]");
+      safePrintLn("}");
+      return 0;
+    }
+
+    const std::string output_separator =
+        cfg.output_separator.empty() ? "  " : cfg.output_separator;
+    const std::set<size_t> right_columns =
+        parse_column_set(cfg.table_right_columns);
+
     for (size_t row_idx = 0; row_idx < table.size(); ++row_idx) {
       if (cfg.table_hide && row_idx == 0) {
-        continue;  // Skip header
+        continue;
       }
 
       const auto& row = table[row_idx];
       std::string line_output;
 
       for (size_t col_idx = 0; col_idx < row.size(); ++col_idx) {
-        if (col_idx > 0) {
-          line_output +=
-              cfg.output_separator.empty() ? " " : cfg.output_separator;
+        const size_t width = (col_idx < col_widths.size())
+                                 ? col_widths[col_idx]
+                                 : row[col_idx].size();
+        const bool last_col = col_idx + 1 == row.size();
+        const bool right_align =
+            cfg.table_right || right_columns.contains(col_idx + 1);
+
+        if (right_align && row[col_idx].size() < width) {
+          line_output.append(width - row[col_idx].size(), ' ');
         }
-
-        size_t width = (col_idx < col_widths.size()) ? col_widths[col_idx]
-                                                     : row[col_idx].size();
-
-        // Check if this column should be right-aligned
-        bool right_align = cfg.table_right;
-        if (!cfg.table_right_columns.empty()) {
-          // Parse column numbers for right alignment (comma-separated)
-          std::string col_spec = cfg.table_right_columns;
-          size_t pos = 0;
-          while (pos < col_spec.size()) {
-            size_t comma = col_spec.find(',', pos);
-            std::string token = (comma == std::string::npos)
-                                    ? col_spec.substr(pos)
-                                    : col_spec.substr(pos, comma - pos);
-            try {
-              int col_num = std::stoi(token);
-              if (static_cast<size_t>(col_num) == col_idx + 1) {
-                right_align = true;
-                break;
-              }
-            } catch (...) {
-            }
-            if (comma == std::string::npos) break;
-            pos = comma + 1;
-          }
+        line_output += row[col_idx];
+        if (!right_align && !last_col && row[col_idx].size() < width) {
+          line_output.append(width - row[col_idx].size(), ' ');
         }
-
-        if (right_align) {
-          // Right align
-          for (size_t i = 0; i < width - row[col_idx].size(); ++i) {
-            line_output += ' ';
-          }
-          line_output += row[col_idx];
-        } else {
-          // Left align
-          line_output += row[col_idx];
-          for (size_t i = 0; i < width - row[col_idx].size(); ++i) {
-            line_output += ' ';
-          }
+        if (!last_col) {
+          line_output += output_separator;
         }
       }
 
-      // Apply output width limit
       if (cfg.output_width > 0 &&
           static_cast<int>(line_output.size()) > cfg.output_width) {
         line_output = line_output.substr(0, cfg.output_width);
       }
 
       safePrintLn(line_output);
-    }
-
-    // JSON output mode
-    if (cfg.json_output) {
-      safePrintLn("[");
-      for (size_t row_idx = (cfg.table_hide ? 1 : 0); row_idx < table.size();
-           ++row_idx) {
-        const auto& row = table[row_idx];
-        safePrint("  {");
-        for (size_t col_idx = 0; col_idx < row.size(); ++col_idx) {
-          if (col_idx > 0) safePrint(",");
-          // Use header as key if available
-          std::string key = "col" + std::to_string(col_idx + 1);
-          if (!table.empty() && col_idx < table[0].size()) {
-            key = table[0][col_idx];
-          }
-          safePrint("\"" + key + "\":\"" + row[col_idx] + "\"");
-        }
-        safePrintLn("}" + std::string(row_idx < table.size() - 1 ? "," : ""));
-      }
-      safePrintLn("]");
     }
   } else {
     // Simple column output mode

@@ -59,8 +59,9 @@ using cmd::meta::OptionType;
  * @par Options:
  * - @a -a, @a --append: Append to the given FILEs, do not overwrite
  * [IMPLEMENTED]
- * - @a -i, @a --ignore-interrupts: Ignore interrupt signals [NOT SUPPORT]
- * - @a -p, @a --diagnose: Write errors to standard error [NOT SUPPORT]
+ * - @a -i, @a --ignore-interrupts: Ignore interrupt signals [IMPLEMENTED]
+ * - @a -p, @a --diagnose: Diagnose write errors using warn-nopipe mode
+ * [IMPLEMENTED]
  */
 auto constexpr TEE_OPTIONS = std::array{
     OPTION("-a", "--append", "append to the given FILEs, do not overwrite"),
@@ -69,14 +70,14 @@ auto constexpr TEE_OPTIONS = std::array{
     OPTION("", "--output-error",
            "set behavior on write error: 'warn' (default), 'warn-nopipe', "
            "'exit', 'exit-nopipe'",
-           STRING_TYPE)};
+           OPTIONAL_STRING_TYPE)};
 
 REGISTER_COMMAND(
     tee, "tee",
     "read from standard input and write to standard output and files",
     "Copy standard input to each FILE, and also to standard output.\n"
     "\n"
-    "If a FILE is -, copy to standard output.",
+    "FILE operands are opened literally; '-' names a file called '-'.",
     "  echo 'Hello' | tee output.txt       Save output to file\n"
     "  echo 'World' | tee -a output.txt    Append to file\n"
     "  cat file.txt | tee backup.txt       Create backup while viewing",
@@ -96,7 +97,8 @@ REGISTER_COMMAND(
 
   auto output_error = ctx.get<std::string>("--output-error", "");
   if (output_error.empty()) {
-    output_error = diagnose ? "warn-nopipe" : "warn";
+    output_error =
+        (diagnose || ctx.has("--output-error")) ? "warn-nopipe" : "warn";
   } else if (output_error != "warn" && output_error != "warn-nopipe" &&
              output_error != "exit" && output_error != "exit-nopipe") {
     safeErrorPrint("tee: invalid argument '");
@@ -115,23 +117,11 @@ REGISTER_COMMAND(
     output_files.push_back(std::string(arg));
   }
 
-  size_t extra_stdout_copies = 0;
-  for (const auto& filename : output_files) {
-    if (filename == "-") {
-      ++extra_stdout_copies;
-    }
-  }
-
   bool encountered_error = false;
 
   // Open output files
   SmallVector<std::ofstream, 32> file_streams;
   for (const auto& filename : output_files) {
-    if (filename == "-") {
-      // "-" means stdout, skip opening
-      continue;
-    }
-
     std::ofstream file;
     if (append) {
       file.open(filename, std::ios::out | std::ios::app | std::ios::binary);
@@ -174,11 +164,6 @@ REGISTER_COMMAND(
 
     if (!write_stdout_copy(buffer.data(), got)) {
       if (handle_write_error()) return 1;
-    }
-    for (size_t i = 0; i < extra_stdout_copies; ++i) {
-      if (!write_stdout_copy(buffer.data(), got)) {
-        if (handle_write_error()) return 1;
-      }
     }
 
     for (auto& file : file_streams) {

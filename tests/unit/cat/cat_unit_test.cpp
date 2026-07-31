@@ -222,3 +222,73 @@ TEST(cat, cat_missing_input_reports_gnu_shaped_diagnostic) {
       r.stderr_text.find("cat: missing.txt: No such file or directory") !=
       std::string::npos);
 }
+
+TEST(cat, cat_number_uses_gnu_tab_separator) {
+  TempDir tmp;
+  tmp.write("n.txt", "alpha\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"-n", L"n.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "     1\talpha\n");
+}
+
+TEST(cat, cat_number_preserves_final_unterminated_line) {
+  TempDir tmp;
+  tmp.write("tail.txt", "tail");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"-n", L"tail.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "     1\ttail");
+}
+
+TEST(cat, cat_show_ends_crlf_outputs_caret_m) {
+  TempDir tmp;
+  tmp.write("crlf.txt", "alpha\r\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"-E", L"crlf.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "alpha^M$\n");
+}
+
+TEST(cat, cat_squeeze_blank_keeps_space_only_lines) {
+  TempDir tmp;
+  tmp.write("blank.txt", "\n\n \n\n\nx\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"-s", L"blank.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "\n \n\nx\n");
+}
+
+TEST(cat, cat_u_is_ignored_compatibility_option) {
+  TempDir tmp;
+  tmp.write("u.txt", "alpha\nbeta\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"-u", L"u.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "alpha\nbeta\n");
+}

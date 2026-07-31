@@ -37,7 +37,7 @@ TEST(mknod, mknod_fifo_rejects_major_minor) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("fifo type does not accept"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find("Fifos do not have"), std::string::npos);
 }
 
 TEST(mknod, mknod_fifo_reports_windows_limitation) {

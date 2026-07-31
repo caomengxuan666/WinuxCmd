@@ -7,7 +7,7 @@ TEST(patch, patch_basic) {
   TempDir tmp;
   tmp.write("file.txt", "hello\n");
   std::string patch_data =
-      "--- a/file.txt\n+++ b/file.txt\n@@ -1,1 +1,1 @@\n-hello\n+world\n";
+      "--- file.txt\n+++ file.txt\n@@ -1,1 +1,1 @@\n-hello\n+world\n";
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -23,4 +23,5 @@ TEST(patch, patch_basic) {
   TEST_LOG("patch stderr", r.stderr_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(tmp.read("file.txt"), "world\n");
 }

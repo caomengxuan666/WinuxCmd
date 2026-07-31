@@ -9,19 +9,26 @@ import utils;
 import container;
 
 auto constexpr TOE_OPTIONS =
-    std::array{OPTION("", "", "list terminal types", STRING_TYPE)};
+    std::array{OPTION("-a", "", "list all terminal databases", BOOL_TYPE),
+               OPTION("-h", "", "list with a heading", BOOL_TYPE),
+               OPTION("-s", "", "sort by terminal name", BOOL_TYPE),
+               OPTION("-u", "", "write direct dependencies", STRING_TYPE),
+               OPTION("-U", "", "write reverse dependencies", STRING_TYPE),
+               OPTION("-v", "", "set verbosity level", OPTIONAL_INT_TYPE),
+               OPTION("-V", "", "print version", BOOL_TYPE)};
 
-REGISTER_COMMAND(toe,
-                 /* cmd_name */ "toe",
-                 /* cmd_synopsis */ "toe [OPTION]...",
-                 /* cmd_desc */ "Table of terminfo entries.",
-                 /* examples */ "toe",
-                 /* see_also */ "infocmp",
-                 /* author */ "WinuxCmd",
-                 /* copyright */ "Copyright © 2026 WinuxCmd",
-                 /* options */ TOE_OPTIONS) {
-  safePrintLn("windows-ansi");
-  safePrintLn("vt100");
-  safePrintLn("xterm");
+REGISTER_COMMAND(toe, "toe", "toe [-ahsuUV] [-v n] [file...]",
+                 "Table of terminfo entries.", "toe\ntoe -V", "infocmp",
+                 "WinuxCmd", "Copyright © 2026 WinuxCmd", TOE_OPTIONS) {
+  if (ctx.get<bool>("-V", false)) {
+    safePrintLn("ncurses 6.6.20251230");
+    return 0;
+  }
+  if (ctx.get<bool>("-h", false)) {
+    safePrintLn("Terminfo Entries");
+  }
+  safePrintLn("xterm        xterm terminal emulator");
+  safePrintLn("vt100        DEC VT100");
+  safePrintLn("ansi         ANSI/VT100 terminal");
   return 0;
 }

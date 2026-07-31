@@ -52,20 +52,9 @@ auto emit_link_operand_count_error() -> int {
 }
 
 auto link_windows_error_text(DWORD error) -> std::string {
-  switch (error) {
-    case ERROR_FILE_NOT_FOUND:
-    case ERROR_PATH_NOT_FOUND:
-      return "No such file or directory";
-    case ERROR_FILE_EXISTS:
-    case ERROR_ALREADY_EXISTS:
-      return "File exists";
-    case ERROR_ACCESS_DENIED:
-      return "Permission denied";
-    case ERROR_INVALID_PARAMETER:
-      return "Invalid argument";
-    default:
-      return std::system_category().message(static_cast<int>(error));
-  }
+  Win32ErrorTextOptions options;
+  options.file_exists = true;
+  return win32_posix_error_text(error, options);
 }
 
 auto resolve_source_operand(const std::string& source)

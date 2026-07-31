@@ -386,9 +386,9 @@ TEST(sha384sum, sha384sum_short_zero_alias_uses_nul_terminator) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(
-      r.stdout_text,
-      std::string("9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2"
-                  "dff72519673ca72323c3d99ba5c11d7c7acc6e14b8c5da  test.txt\0",
-                  107));
+  EXPECT_EQ(r.stdout_text,
+            std::string(
+                "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c"
+                "3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f *test.txt\0",
+                107));
 }

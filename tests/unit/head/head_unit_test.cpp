@@ -118,6 +118,63 @@ TEST(head, head_negative_line_and_byte_counts) {
 
   EXPECT_EQ(r2.exit_code, 0);
   EXPECT_EQ_TEXT(r2.stdout_text, "alpha\nbeta\n");
+
+  Pipeline p3;
+  p3.set_cwd(tmp.wpath());
+  p3.add(L"head.exe", {L"-n", L"-1", L"a.txt"});
+  auto r3 = p3.run();
+
+  EXPECT_EQ(r3.exit_code, 0);
+  EXPECT_EQ_TEXT(r3.stdout_text, "alpha\nbeta\n");
+
+  Pipeline p4;
+  p4.set_cwd(tmp.wpath());
+  p4.add(L"head.exe", {L"-c", L"-6", L"a.txt"});
+  auto r4 = p4.run();
+
+  EXPECT_EQ(r4.exit_code, 0);
+  EXPECT_EQ_TEXT(r4.stdout_text, "alpha\nbeta\n");
+}
+
+TEST(head, head_elide_tail_bytes_large_seekable_file) {
+  TempDir tmp;
+  std::string data;
+  data.reserve(90'008);
+  for (int i = 0; i < 90'000; ++i) {
+    data.push_back(static_cast<char>('a' + (i % 26)));
+  }
+  data += "TAIL-END";
+  tmp.write("large.bin", data);
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"head.exe", {L"-c", L"-8", L"large.bin"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text.size(), data.size() - 8);
+  EXPECT_EQ_TEXT(r.stdout_text.substr(0, 26), "abcdefghijklmnopqrstuvwxyz");
+  EXPECT_EQ(r.stdout_text.find("TAIL-END"), std::string::npos);
+}
+
+TEST(head, head_elide_tail_lines_large_seekable_file) {
+  TempDir tmp;
+  std::string data;
+  std::string expected;
+  for (int i = 0; i < 9000; ++i) {
+    std::string line = "line" + std::to_string(i) + "\n";
+    data += line;
+    if (i < 8998) expected += line;
+  }
+  tmp.write("large.txt", data);
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"head.exe", {L"-n", L"-2", L"large.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, expected);
 }
 
 TEST(head, head_count_suffixes) {

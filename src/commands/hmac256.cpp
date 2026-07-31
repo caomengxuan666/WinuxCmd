@@ -28,61 +28,53 @@ struct Config {
 
 auto build_config(const CommandContext<HMAC256_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
-  Config cfg;
-
   if (ctx.positionals.empty()) {
-    return std::unexpected("missing arguments");
+    return std::unexpected("missing key");
   }
 
+  Config cfg;
   cfg.key = std::string(ctx.positionals[0]);
   cfg.filename =
       ctx.positionals.size() > 1 ? std::string(ctx.positionals[1]) : "-";
-
   return cfg;
 }
 
+auto input_open_error(const std::string& filename) -> std::string {
+  std::error_code ec;
+  if (std::filesystem::is_directory(std::filesystem::u8path(filename), ec) &&
+      !ec) {
+    return "cannot open \x27" + filename + "\x27 for reading: Is a directory";
+  }
+  return "cannot open \x27" + filename +
+         "\x27 for reading: No such file or directory";
+}
+
 auto run(const Config& cfg) -> int {
-  // Simplified HMAC-SHA256 implementation
-  std::string data;
-  if (cfg.filename == "-") {
-    data = std::string(std::istreambuf_iterator<char>(std::cin),
-                       std::istreambuf_iterator<char>());
-  } else {
-    std::wstring wfilename = utf8_to_wstring(cfg.filename);
-    HANDLE hFile =
-        CreateFileW(wfilename.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
-                    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (hFile == INVALID_HANDLE_VALUE) {
-      safeErrorPrint("hmac256: cannot open '");
-      safeErrorPrint(cfg.filename);
-      safeErrorPrintLn("'");
+  std::istream* input = &std::cin;
+  std::ifstream file;
+  if (cfg.filename != "-") {
+    file.open(cfg.filename, std::ios::binary);
+    if (!file) {
+      safeErrorPrint("hmac256: ");
+      safeErrorPrintLn(input_open_error(cfg.filename));
       return 1;
     }
-
-    LARGE_INTEGER fileSize;
-    GetFileSizeEx(hFile, &fileSize);
-    data.resize(fileSize.QuadPart);
-    DWORD bytesRead;
-    ReadFile(hFile, data.data(), static_cast<DWORD>(fileSize.QuadPart),
-             &bytesRead, nullptr);
-    CloseHandle(hFile);
+    input = &file;
   }
 
-  // Compute hash (simplified - just concatenate key and data)
-  std::string combined = cfg.key + data;
-  char hash[65];
-  for (int i = 0; i < 64; ++i) {
-    hash[i] = "0123456789abcdef"[combined[i % combined.size()] % 16];
+  auto digest = portable_digest::hmac_sha256_stream_hex(cfg.key, *input);
+  if (!digest) {
+    safeErrorPrint("hmac256: ");
+    safeErrorPrintLn(digest.error());
+    return 1;
   }
-  hash[64] = '\0';
 
-  safePrint(hash);
+  safePrint(*digest);
   if (cfg.filename != "-") {
     safePrint("  ");
     safePrint(cfg.filename);
   }
-  safePrintLn("\n");
-
+  safePrintLn("");
   return 0;
 }
 

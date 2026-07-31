@@ -172,14 +172,64 @@ auto build_config(const CommandContext<MKDIR_OPTIONS.size()>& ctx)
   return cfg;
 }
 
+auto is_separator(char ch) -> bool { return ch == '\\' || ch == '/'; }
+
+auto directory_exists_utf8(const std::string& path) -> bool {
+  std::wstring wpath = utf8_to_wstring(path);
+  DWORD attrs = GetFileAttributesW(wpath.c_str());
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+auto preferred_separator(std::string_view path) -> char {
+  return path.find('/') != std::string_view::npos ? '/' : '\\';
+}
+
+auto progressive_directory_paths(std::string_view path)
+    -> std::vector<std::string> {
+  std::vector<std::string> paths;
+  if (path.empty()) return paths;
+
+  const char sep = preferred_separator(path);
+  std::string current;
+  size_t i = 0;
+
+  if (path.size() >= 2 && path[1] == ':') {
+    current = std::string(path.substr(0, 2));
+    i = 2;
+    if (i < path.size() && is_separator(path[i])) {
+      current += path[i];
+      ++i;
+    }
+  } else if (is_separator(path[0])) {
+    current = std::string(1, path[0]);
+    while (i < path.size() && is_separator(path[i])) ++i;
+  }
+
+  while (i < path.size()) {
+    while (i < path.size() && is_separator(path[i])) ++i;
+    size_t segment_start = i;
+    while (i < path.size() && !is_separator(path[i])) ++i;
+    if (segment_start == i) break;
+    if (!current.empty() && !is_separator(current.back())) current += sep;
+    current.append(path.substr(segment_start, i - segment_start));
+    paths.push_back(current);
+  }
+
+  return paths;
+}
+
 auto create_directory(const std::string& path, const Config& config) -> bool {
   std::wstring wpath = utf8_to_wstring(path);
-  bool existed_before =
-      std::filesystem::is_directory(std::filesystem::path(path));
+  bool existed_before = directory_exists_utf8(path);
 
   if (config.parents) {
+    std::vector<std::pair<std::string, bool>> creation_state;
+    for (const auto& candidate : progressive_directory_paths(path)) {
+      creation_state.emplace_back(candidate, directory_exists_utf8(candidate));
+    }
+
     if (!create_directory_recursive(wpath)) {
-      // OPTIMIZED: Use string literals instead of wstring concatenation
       safeErrorPrint("mkdir: cannot create directory '");
       safeErrorPrint(path);
       safeErrorPrint("': No such file or directory\n");
@@ -197,9 +247,13 @@ auto create_directory(const std::string& path, const Config& config) -> bool {
       }
     }
     if (config.verbose) {
-      safePrint("mkdir: created directory '");
-      safePrint(path);
-      safePrint("'\n");
+      for (const auto& [candidate, existed] : creation_state) {
+        if (!existed && directory_exists_utf8(candidate)) {
+          safePrint("mkdir: created directory '");
+          safePrint(candidate);
+          safePrint("'\n");
+        }
+      }
     }
   } else {
     if (!CreateDirectoryW(wpath.c_str(), NULL)) {
@@ -235,7 +289,6 @@ auto create_directory(const std::string& path, const Config& config) -> bool {
   }
   return true;
 }
-
 /**
  * @brief Process all paths
  * @param paths Paths to process

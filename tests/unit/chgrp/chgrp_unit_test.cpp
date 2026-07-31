@@ -383,6 +383,17 @@ TEST(chgrp, chgrp_from_colon_numeric_group_allows_reference_processing) {
             std::string::npos);
 }
 
+TEST(chgrp, chgrp_recursive_dereference_requires_H_or_L) {
+  Pipeline p;
+  p.add(L"chgrp.exe", {L"-R", L"--dereference", L"Users", L"missing.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("-R --dereference requires either -H or -L") !=
+              std::string::npos);
+}
+
 TEST(chgrp, chgrp_preserve_root_recursive_root_failsafe) {
   Pipeline p;
   p.add(L"chgrp.exe", {L"--preserve-root", L"-R", L"Users", L"/"});

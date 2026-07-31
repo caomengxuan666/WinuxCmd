@@ -36,6 +36,12 @@ auto constexpr CHCON_OPTIONS = std::array{
 namespace chcon_pipeline {
 namespace cp = core::pipeline;
 
+auto make_error(std::string message) -> cp::Error {
+  static thread_local std::string storage;
+  storage = std::move(message);
+  return storage;
+}
+
 struct Config {
   bool verbose = false;
   std::vector<std::string> files;
@@ -91,8 +97,8 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
       return std::unexpected("missing operand");
     }
     if (ctx.positionals.size() < 2) {
-      return std::unexpected("missing file operand after '" +
-                             std::string(ctx.positionals[0]) + "'");
+      return std::unexpected(make_error("missing operand after '" +
+                                        std::string(ctx.positionals[0]) + "'"));
     }
     add_file_args(
         cfg, std::span<const std::string_view>(ctx.positionals.data() + 1,
@@ -106,8 +112,8 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
   for (const auto& file : cfg.files) {
     std::wstring wfile = utf8_to_wstring(file);
     if (GetFileAttributesW(wfile.c_str()) == INVALID_FILE_ATTRIBUTES) {
-      return std::unexpected("cannot access '" + file +
-                             "': No such file or directory");
+      return std::unexpected(make_error("cannot access '" + file +
+                                        "': No such file or directory"));
     }
   }
 
@@ -155,6 +161,9 @@ REGISTER_COMMAND(
     safeErrorPrint("chcon: ");
     safeErrorPrint(cfg_result.error());
     safeErrorPrint("\n");
+    if (cfg_result.error().starts_with("missing operand")) {
+      safeErrorPrint("Try 'chcon --help' for more information.\n");
+    }
     return 1;
   }
 

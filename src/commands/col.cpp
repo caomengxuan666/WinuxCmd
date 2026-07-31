@@ -104,9 +104,7 @@ auto run(const Config& cfg) -> int {
 
     switch (ch) {
       case '\b':  // Backspace
-        if (cfg.no_backspaces) {
-          // Skip backspace
-        } else if (current_col > 0) {
+        if (current_col > 0) {
           current_col--;
         }
         break;
@@ -163,9 +161,14 @@ auto run(const Config& cfg) -> int {
     }
   }
 
-  // Output processed lines
-  for (const auto& line : lines) {
-    safePrintLn(line);
+  // Output processed lines. A trailing empty buffer is an artifact of an
+  // input newline, not an extra output line.
+  size_t output_count = lines.size();
+  if (output_count > 1 && lines.back().empty()) {
+    --output_count;
+  }
+  for (size_t i = 0; i < output_count; ++i) {
+    safePrintLn(lines[i]);
   }
 
   return 0;

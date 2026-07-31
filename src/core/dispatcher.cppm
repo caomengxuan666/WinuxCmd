@@ -34,6 +34,8 @@ import version;
 export template <size_t N>
 using CommandFunc = int (*)(CommandContext<N> &) noexcept;
 
+export using CommandInvoker = int (*)(std::span<std::string_view>) noexcept;
+
 export template <size_t N>
 struct CommandEntry {
   cmd::meta::CommandMetaHandle meta;
@@ -53,16 +55,15 @@ export struct OptionInfo {
 };
 
 struct CommandEntryErased {
-  cmd::meta::CommandMetaHandle meta;
-  std::function<int(std::span<std::string_view>)> handler;
+  std::span<const cmd::meta::OptionMeta> options;
+  CommandInvoker handler = nullptr;
   std::string_view brief_desc;
 
   CommandEntryErased() = default;
 
-  CommandEntryErased(cmd::meta::CommandMetaHandle m,
-                     std::function<int(std::span<std::string_view>)> h,
-                     std::string_view brief)
-      : meta(std::move(m)), handler(std::move(h)), brief_desc(brief) {}
+  CommandEntryErased(std::span<const cmd::meta::OptionMeta> opts,
+                     CommandInvoker h, std::string_view brief)
+      : options(opts), handler(h), brief_desc(brief) {}
 };
 
 auto legacy_count_value(std::string_view arg) -> std::string {
@@ -152,7 +153,7 @@ auto rewrite_tail_obsolete_args(std::span<std::string_view> args)
   if (args.empty()) return std::nullopt;
   std::string_view first = args[0];
 
-  if (first.size() >= 3 && first[0] == '+' && first[1] != '+') {
+  if (first.size() >= 2 && first[0] == '+' && first[1] != '+') {
     size_t suffix_pos = parse_decimal_prefix(first, 1);
     if (suffix_pos == 1) return std::nullopt;
 
@@ -272,7 +273,6 @@ auto is_tail_obsolete_count_arg(std::string_view arg) -> bool {
 
     size_t suffix_pos = parse_decimal_prefix(arg, 1);
     if (suffix_pos == 1) return false;
-    if (suffix_pos == arg.size()) return false;
     for (size_t i = suffix_pos; i < arg.size(); ++i) {
       if (arg[i] != 'l' && arg[i] != 'c' && arg[i] != 'b') return false;
     }
@@ -590,7 +590,13 @@ auto command_declares_option(std::span<const cmd::meta::OptionMeta> options,
     return option.short_name == name || option.long_name == name;
   });
 }
-
+auto command_declares_version_short(
+    std::span<const cmd::meta::OptionMeta> options, std::string_view name)
+    -> bool {
+  return std::ranges::any_of(options, [name](const auto &option) {
+    return option.short_name == name && option.long_name == "--version";
+  });
+}
 auto wants_standard_version(std::string_view cmdName,
                             std::span<std::string_view> args,
                             std::span<const cmd::meta::OptionMeta> options)
@@ -598,19 +604,23 @@ auto wants_standard_version(std::string_view cmdName,
   if (echo_posixly_correct_literal_mode(cmdName, args)) {
     return false;
   }
-
   for (const auto &arg : args) {
     if (arg == "--") {
       break;
     }
-    if (arg == "--version" || arg == "-V") {
-      return !command_declares_option(options, arg);
+    if (arg == "--version") {
+      return true;
+    }
+    if (arg == "-v" && command_declares_version_short(options, "-v")) {
+      return true;
+    }
+    if (arg == "-V") {
+      return !command_declares_option(options, arg) ||
+             command_declares_version_short(options, arg);
     }
   }
-
   return false;
 }
-
 auto rewrite_echo_posix_args(std::string_view cmdName,
                              std::span<std::string_view> args)
     -> std::optional<std::vector<std::string>> {
@@ -634,6 +644,7 @@ class RegistryImpl {
     return value != nullptr && value[0] != '\0';
   }
 
+ public:
   static auto parse_error_exit_code(std::string_view name) -> int {
     if (name == "env") return 125;
     if (name == "nice") return 125;
@@ -645,33 +656,15 @@ class RegistryImpl {
     return 1;
   }
 
- public:
   // Register a command with compile-time metadata
   template <size_t N>
   void add(std::string_view name, const cmd::meta::CommandMeta<N> &meta,
-           CommandFunc<N> handler) {
+           CommandInvoker handler) {
     // compile-time meta registry
     cmd::meta::Registry::register_command(name, meta);
 
-    // type erase
-    auto lambda = [meta, handler,
-                   name](std::span<std::string_view> args) -> int {
-      bool ok = true;
-      auto ctx = make_context<N>(args, meta.options(), ok);
-      if (!ok) {
-        if (!ctx.parse_error.empty()) {
-          safeErrorPrintLn(std::string(name) + ": " + ctx.parse_error);
-          safeErrorPrintLn("Try '" + std::string(name) +
-                           " --help' for more information.");
-        }
-        return parse_error_exit_code(name);
-      }
-      return handler(ctx);
-    };
-
     registry_.emplace(
-        name, CommandEntryErased{cmd::meta::CommandMetaHandle(meta), lambda,
-                                 meta.brief_desc()});
+        name, CommandEntryErased{meta.options(), handler, meta.brief_desc()});
   }
 
   // Dispatch command execution
@@ -755,8 +748,7 @@ class RegistryImpl {
     }
 
     // Get meta data from the command
-    const auto &meta = it->second.meta;
-    auto options = meta.options();  // std::span<const OptionMeta>
+    auto options = it->second.options;  // std::span<const OptionMeta>
 
     if (cmdName == "wpm") {
       for (const auto &arg : effective_args) {
@@ -838,7 +830,7 @@ class RegistryImpl {
   std::vector<OptionInfo> command_options(std::string_view cmdName) {
     auto it = registry_.find(cmdName);
     if (it == registry_.end()) return {};
-    auto opts = it->second.meta.options();
+    auto opts = it->second.options;
     std::vector<OptionInfo> result;
     result.reserve(opts.size());
     for (const auto &opt : opts) {
@@ -862,8 +854,12 @@ export class CommandRegistry {
   template <size_t N>
   static void registerCommand(std::string_view name,
                               const cmd::meta::CommandMeta<N> &meta,
-                              CommandFunc<N> handler) {
+                              CommandInvoker handler) {
     getImpl().add<N>(name, meta, handler);
+  }
+
+  static int parseErrorExitCode(std::string_view name) noexcept {
+    return RegistryImpl::parse_error_exit_code(name);
   }
 
   // Dispatch command execution (public interface)

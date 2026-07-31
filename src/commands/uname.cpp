@@ -130,7 +130,7 @@ auto run(const Config& cfg) -> int {
     DWORD size = 256;
     if (GetComputerNameW(hostname, &size)) {
       std::wstring ws(hostname);
-      std::string host(ws.begin(), ws.end());
+      std::string host = wstring_to_utf8(ws);
       outputs.push_back(host);
     } else {
       outputs.push_back("unknown");

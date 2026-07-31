@@ -40,6 +40,7 @@ import core;
 import utils;
 import container;
 
+using cmd::meta::option_matches;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
@@ -186,6 +187,64 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
   return read_all(in);
 }
 
+auto bytes_look_utf16(std::string_view bytes) -> bool {
+  if (bytes.size() >= 2) {
+    const auto b0 = static_cast<std::uint8_t>(bytes[0]);
+    const auto b1 = static_cast<std::uint8_t>(bytes[1]);
+    if ((b0 == 0xFF && b1 == 0xFE) || (b0 == 0xFE && b1 == 0xFF)) {
+      return true;
+    }
+  }
+
+  const size_t sample_size = std::min<size_t>(bytes.size(), 4096);
+  if (sample_size < 2) return false;
+
+  size_t even_nul = 0;
+  size_t odd_nul = 0;
+  for (size_t i = 0; i < sample_size; ++i) {
+    if (bytes[i] != '\0') continue;
+    if ((i & 1U) == 0U)
+      ++even_nul;
+    else
+      ++odd_nul;
+  }
+
+  const size_t threshold = sample_size / 4;
+  return (odd_nul > threshold && odd_nul > even_nul * 2) ||
+         (even_nul > threshold && even_nul > odd_nul * 2);
+}
+
+auto read_simple_lexical_source(std::string_view path)
+    -> cp::Result<std::string> {
+  if (path == "-") return read_source(path);
+
+  std::ifstream in(std::string(path), std::ios::binary | std::ios::ate);
+  if (!in.is_open()) {
+    return std::unexpected("cannot read: " + std::string(path) + ": " +
+                           describe_input_open_failure(path));
+  }
+
+  const auto end = in.tellg();
+  if (end < 0) return read_source(path);
+
+  std::string bytes(static_cast<size_t>(end), '\0');
+  in.seekg(0, std::ios::beg);
+  if (!bytes.empty()) {
+    in.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    if (!in && !in.eof()) return read_source(path);
+    bytes.resize(static_cast<size_t>(in.gcount()));
+  }
+
+  if (bytes_look_utf16(bytes)) return read_source(path);
+
+  if (bytes.size() >= 3 && static_cast<std::uint8_t>(bytes[0]) == 0xEF &&
+      static_cast<std::uint8_t>(bytes[1]) == 0xBB &&
+      static_cast<std::uint8_t>(bytes[2]) == 0xBF) {
+    bytes.erase(0, 3);
+  }
+  return bytes;
+}
+
 auto read_binary_source(std::string_view path) -> cp::Result<std::string> {
   if (path == "-") {
     return std::string{std::istreambuf_iterator<char>{std::cin},
@@ -217,9 +276,21 @@ auto read_files0_from(const std::string& path)
 
   std::vector<std::string> paths;
   std::string name;
+  size_t file_number = 1;
   while (std::getline(*input, name, '\0')) {
-    if (!name.empty()) paths.push_back(name);
+    if (name.empty()) {
+      return std::unexpected(path + ":" + std::to_string(file_number) +
+                             ": invalid zero-length file name");
+    }
+    if (name == "-") {
+      return std::unexpected(
+          "when reading file names from standard input, "
+          "no file name of '-' allowed");
+    }
+    paths.push_back(name);
+    ++file_number;
   }
+  if (paths.empty()) return std::unexpected("no input from " + path);
   return paths;
 }
 
@@ -246,21 +317,6 @@ auto split_records(std::string_view content, char delimiter)
   return out;
 }
 
-auto to_lower_ascii(std::string_view s) -> std::string {
-  std::string out;
-  out.reserve(s.size());
-  for (unsigned char c : s) {
-    out.push_back(static_cast<char>(std::tolower(c)));
-  }
-  return out;
-}
-
-auto option_matches(const OptionMeta& meta, std::string_view short_name,
-                    std::string_view long_name) -> bool {
-  return (!short_name.empty() && meta.short_name == short_name) ||
-         (!long_name.empty() && meta.long_name == long_name);
-}
-
 auto normalize_text_key(std::string_view s, bool dictionary_order,
                         bool ignore_nonprinting, bool ignore_case)
     -> std::string {
@@ -276,7 +332,7 @@ auto normalize_text_key(std::string_view s, bool dictionary_order,
     out.push_back(static_cast<char>(c));
   }
   if (ignore_case) {
-    out = to_lower_ascii(out);
+    out = ascii_lower_copy(out);
   }
   return out;
 }
@@ -966,7 +1022,7 @@ void apply_global_sort_mode(Config& cfg, SortMode mode) {
 }
 
 auto parse_sort_mode_word(std::string_view text) -> std::optional<SortMode> {
-  auto lowered = to_lower_ascii(text);
+  auto lowered = ascii_lower_copy(text);
   if (lowered == "general-numeric" || lowered == "g") {
     return SortMode::GeneralNumeric;
   }
@@ -1247,6 +1303,15 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
 
   cfg.output_file = ctx.get<std::string>("--output", "");
   if (cfg.output_file.empty()) cfg.output_file = ctx.get<std::string>("-o", "");
+  if (cfg.mode != OperationMode::Sort && !cfg.output_file.empty()) {
+    return std::unexpected("options '-co' are incompatible");
+  }
+  if (cfg.debug && cfg.mode != OperationMode::Sort) {
+    return std::unexpected("options '-c --debug' are incompatible");
+  }
+  if (cfg.debug && !cfg.output_file.empty()) {
+    return std::unexpected("options '-o --debug' are incompatible");
+  }
   cfg.files0_from = ctx.get<std::string>("--files0-from", "");
   cfg.batch_size_hint = ctx.get<std::string>("--batch-size", "");
   cfg.compress_program_hint = ctx.get<std::string>("--compress-program", "");
@@ -1341,13 +1406,19 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
     if (cfg.files.empty()) cfg.files.push_back("-");
   }
 
+  if (cfg.mode != OperationMode::Sort && cfg.files.size() > 1) {
+    return std::unexpected("extra operand '" + cfg.files[1] +
+                           "' not allowed with check mode");
+  }
+
   return cfg;
 }
 
 auto load_records(const Config& cfg) -> cp::Result<std::vector<std::string>> {
   std::vector<std::string> records;
   for (size_t i = 0; i < cfg.files.size(); ++i) {
-    auto content = read_source(cfg.files[i]);
+    auto content = (cfg.delimiter == '\0') ? read_binary_source(cfg.files[i])
+                                           : read_source(cfg.files[i]);
     if (!content) {
       return std::unexpected(content.error());
     }
@@ -1383,8 +1454,170 @@ auto check_sorted(const std::vector<std::string>& records, const Config& cfg)
   return std::nullopt;
 }
 
+auto can_use_simple_lexical_compare(const Config& cfg) -> bool {
+  return cfg.keys.empty() && !cfg.ignore_leading_blanks &&
+         !cfg.dictionary_order && !cfg.ignore_case && !cfg.ignore_nonprinting &&
+         !cfg.numeric_sort && !cfg.version_sort && !cfg.human_numeric &&
+         !cfg.month_sort && !cfg.general_numeric && !cfg.random_sort;
+}
+
+auto write_records_to_file(std::ostream& out,
+                           const std::vector<std::string>& records,
+                           char delimiter) -> void {
+  std::string output;
+  output.reserve(1024 * 1024);
+
+  auto flush = [&]() {
+    if (output.empty()) return;
+    out.write(output.data(), static_cast<std::streamsize>(output.size()));
+    output.clear();
+  };
+
+  for (const auto& rec : records) {
+    if (output.size() + rec.size() + 1 > output.capacity()) {
+      flush();
+    }
+    output.append(rec);
+    output.push_back(delimiter);
+  }
+  flush();
+  out.flush();
+}
+
+auto write_records_to_stdout(const std::vector<std::string>& records,
+                             char delimiter) -> void {
+  std::string output;
+  output.reserve(1024 * 1024);
+
+  auto flush = [&]() {
+    if (output.empty()) return;
+    safePrint(std::string_view(output.data(), output.size()));
+    output.clear();
+  };
+
+  for (const auto& rec : records) {
+    if (output.size() + rec.size() + 1 > output.capacity()) {
+      flush();
+      if (is_stdout_pipe_closed()) return;
+    }
+    output.append(rec);
+    output.push_back(delimiter);
+  }
+  flush();
+}
+
+auto split_record_views(std::string_view content, char delimiter)
+    -> std::vector<std::string_view> {
+  std::vector<std::string_view> out;
+  out.reserve(content.size() / 20);
+
+  const auto trim_record = [delimiter](std::string_view record) {
+    if (delimiter == '\n' && !record.empty() && record.back() == '\r') {
+      record.remove_suffix(1);
+    }
+    return record;
+  };
+
+  size_t start = 0;
+  for (size_t i = 0; i < content.size(); ++i) {
+    if (content[i] == delimiter) {
+      out.emplace_back(trim_record(content.substr(start, i - start)));
+      start = i + 1;
+    }
+  }
+  if (start < content.size()) {
+    out.emplace_back(trim_record(content.substr(start)));
+  }
+  return out;
+}
+
+void write_record_views_to_file(std::ostream& out,
+                                const std::vector<std::string_view>& records,
+                                char delimiter) {
+  std::string output;
+  output.reserve(1024 * 1024);
+
+  auto flush = [&]() {
+    if (output.empty()) return;
+    out.write(output.data(), static_cast<std::streamsize>(output.size()));
+    output.clear();
+  };
+
+  for (const auto rec : records) {
+    if (output.size() + rec.size() + 1 > output.capacity()) {
+      flush();
+    }
+    output.append(rec);
+    output.push_back(delimiter);
+  }
+  flush();
+  out.flush();
+}
+
+void write_record_views_to_stdout(const std::vector<std::string_view>& records,
+                                  char delimiter) {
+  std::string output;
+  output.reserve(1024 * 1024);
+
+  auto flush = [&]() {
+    if (output.empty()) return;
+    safePrint(std::string_view(output.data(), output.size()));
+    output.clear();
+  };
+
+  for (const auto rec : records) {
+    if (output.size() + rec.size() + 1 > output.capacity()) {
+      flush();
+      if (is_stdout_pipe_closed()) return;
+    }
+    output.append(rec);
+    output.push_back(delimiter);
+  }
+  flush();
+}
+
+auto try_run_simple_lexical_block_sort(const Config& cfg)
+    -> std::optional<int> {
+  if (cfg.mode != OperationMode::Sort || !can_use_simple_lexical_compare(cfg) ||
+      cfg.merge || cfg.stable || cfg.unique || cfg.files.size() != 1) {
+    return std::nullopt;
+  }
+
+  auto content = (cfg.delimiter == '\0')
+                     ? read_binary_source(cfg.files[0])
+                     : read_simple_lexical_source(cfg.files[0]);
+  if (!content) {
+    cp::report_custom_error(L"sort", utf8_to_wstring(content.error()));
+    return 2;
+  }
+
+  auto records = split_record_views(*content, cfg.delimiter);
+  if (cfg.reverse) {
+    std::sort(records.begin(), records.end(), std::greater<>{});
+  } else {
+    std::sort(records.begin(), records.end());
+  }
+
+  std::ofstream file_out;
+  if (!cfg.output_file.empty()) {
+    file_out.open(cfg.output_file, std::ios::binary | std::ios::trunc);
+    if (!file_out.is_open()) {
+      cp::report_custom_error(L"sort", L"cannot open output file");
+      return 2;
+    }
+    write_record_views_to_file(file_out, records, cfg.delimiter);
+  } else {
+    write_record_views_to_stdout(records, cfg.delimiter);
+  }
+  return 0;
+}
+
 auto run(const Config& cfg) -> int {
   emit_debug_diagnostics(cfg);
+
+  if (auto fast_result = try_run_simple_lexical_block_sort(cfg)) {
+    return *fast_result;
+  }
 
   auto loaded = load_records(cfg);
   if (!loaded) {
@@ -1398,25 +1631,42 @@ auto run(const Config& cfg) -> int {
     auto disorder = check_sorted(records, cfg);
     if (disorder) {
       if (cfg.mode == OperationMode::Check) {
-        cp::report_custom_error(L"sort", L"input is not sorted");
+        const std::string input_name =
+            cfg.files.empty() ? "-" : cfg.files.front();
+        const size_t line_number = *disorder + 1;
+        std::string message = input_name + ":" + std::to_string(line_number) +
+                              ": disorder: " + records[*disorder];
+        cp::report_custom_error(L"sort", utf8_to_wstring(message));
       }
       return 1;
     }
     return 0;
   }
 
-  if (cfg.merge) {
-    // -m: merge mode. Inputs are assumed pre-sorted; use std::merge to
-    // combine them efficiently rather than a full re-sort.
-    // Since load_records() already concatenated all inputs, we perform
-    // a stable_sort which is O(n) on already-sorted data.
-    std::stable_sort(
-        records.begin(), records.end(),
-        [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+  const bool simple_lexical = can_use_simple_lexical_compare(cfg);
+  if (simple_lexical) {
+    auto lexical_before = [&](const std::string& a, const std::string& b) {
+      return cfg.reverse ? a > b : a < b;
+    };
+    if (cfg.merge || cfg.stable || cfg.unique) {
+      std::stable_sort(records.begin(), records.end(), lexical_before);
+    } else {
+      std::sort(records.begin(), records.end(), lexical_before);
+    }
   } else {
-    std::stable_sort(
-        records.begin(), records.end(),
-        [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+    if (cfg.merge || cfg.stable || cfg.unique) {
+      // -m: merge mode. Inputs are assumed pre-sorted; use std::merge to
+      // combine them efficiently rather than a full re-sort.  We keep a stable
+      // ordering for merge, -s, and -u because GNU/uutils preserve the first
+      // line selected from equal sort keys for those modes.
+      std::stable_sort(
+          records.begin(), records.end(),
+          [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+    } else {
+      std::sort(
+          records.begin(), records.end(),
+          [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
+    }
   }
 
   if (cfg.unique) {
@@ -1427,14 +1677,17 @@ auto run(const Config& cfg) -> int {
         unique_records.push_back(rec);
         continue;
       }
-      if (compare_records_by_sort_key(unique_records.back(), rec, cfg) != 0) {
+      const bool distinct = simple_lexical
+                                ? unique_records.back() != rec
+                                : compare_records_by_sort_key(
+                                      unique_records.back(), rec, cfg) != 0;
+      if (distinct) {
         unique_records.push_back(rec);
       }
     }
     records = std::move(unique_records);
   }
 
-  std::ostream* out = &std::cout;
   std::ofstream file_out;
   if (!cfg.output_file.empty()) {
     file_out.open(cfg.output_file, std::ios::binary | std::ios::trunc);
@@ -1442,14 +1695,10 @@ auto run(const Config& cfg) -> int {
       cp::report_custom_error(L"sort", L"cannot open output file");
       return 2;
     }
-    out = &file_out;
+    write_records_to_file(file_out, records, cfg.delimiter);
+  } else {
+    write_records_to_stdout(records, cfg.delimiter);
   }
-
-  for (const auto& rec : records) {
-    (*out) << rec;
-    (*out) << cfg.delimiter;
-  }
-  out->flush();
   return 0;
 }
 

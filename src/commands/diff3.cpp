@@ -56,128 +56,163 @@ auto constexpr DIFF3_OPTIONS =
 // ======================================================
 
 namespace {
-// Diff two lists of lines
-struct DiffResult {
-  std::vector<std::pair<int, int>> changes;  // Start, count
-};
-
-DiffResult diff_lines(const std::vector<std::string>& old_lines,
-                      const std::vector<std::string>& new_lines) {
-  DiffResult result;
-
-  // Simple diff algorithm
-  size_t old_idx = 0;
-  size_t new_idx = 0;
-
-  while (old_idx < old_lines.size() && new_idx < new_lines.size()) {
-    if (old_lines[old_idx] == new_lines[new_idx]) {
-      old_idx++;
-      new_idx++;
-    } else {
-      // Find matching line
-      bool found = false;
-      for (size_t j = new_idx; j < new_lines.size(); ++j) {
-        if (old_lines[old_idx] == new_lines[j]) {
-          result.changes.push_back(
-              {static_cast<int>(old_idx), static_cast<int>(j - new_idx)});
-          new_idx = j;
-          found = true;
-          break;
-        }
-      }
-
-      if (!found) {
-        result.changes.push_back({static_cast<int>(old_idx), 1});
-        old_idx++;
-      }
-    }
-  }
-
-  // Handle remaining lines
-  if (old_idx < old_lines.size()) {
-    result.changes.push_back({static_cast<int>(old_idx),
-                              static_cast<int>(old_lines.size() - old_idx)});
-  }
-
-  return result;
+bool diff3_file_exists_for_read(const std::string& path) {
+  std::error_code ec;
+  return std::filesystem::exists(std::filesystem::u8path(path), ec) &&
+         !std::filesystem::is_directory(std::filesystem::u8path(path), ec);
 }
 
-// Merge three files
-std::vector<std::string> merge_files(const std::vector<std::string>& mine,
-                                     const std::vector<std::string>& older,
-                                     const std::vector<std::string>& yours) {
-  std::vector<std::string> result;
+bool diff3_same_lines(const std::vector<std::string>& lhs,
+                      const std::vector<std::string>& rhs) {
+  return lhs == rhs;
+}
 
-  // Simple merge: prefer mine, mark conflicts
-  DiffResult mine_older = diff_lines(older, mine);
-  DiffResult older_yours = diff_lines(older, yours);
+struct Diff3Block {
+  size_t start = 0;
+  std::vector<std::string> mine;
+  std::vector<std::string> older;
+  std::vector<std::string> yours;
+  std::vector<std::string> prefix;
+  std::vector<std::string> suffix;
+};
 
-  size_t old_idx = 0;
-  size_t mine_idx = 0;
-  size_t yours_idx = 0;
+std::optional<Diff3Block> make_single_block(
+    const std::vector<std::string>& mine, const std::vector<std::string>& older,
+    const std::vector<std::string>& yours) {
+  if (mine == older && older == yours) return std::nullopt;
 
-  while (old_idx < older.size()) {
-    // Check if this line was changed in mine
-    bool mine_changed = false;
-    for (const auto& change : mine_older.changes) {
-      if (change.first == static_cast<int>(old_idx)) {
-        mine_changed = true;
-        break;
-      }
-    }
-
-    // Check if this line was changed in yours
-    bool yours_changed = false;
-    for (const auto& change : older_yours.changes) {
-      if (change.first == static_cast<int>(old_idx)) {
-        yours_changed = true;
-        break;
-      }
-    }
-
-    if (mine_changed && yours_changed) {
-      // Conflict
-      result.push_back("<<<<<<< MINE");
-      if (mine_idx < mine.size()) {
-        result.push_back(mine[mine_idx++]);
-      }
-      result.push_back("=======");
-      if (yours_idx < yours.size()) {
-        result.push_back(yours[yours_idx++]);
-      }
-      result.push_back(">>>>>>> YOURS");
-      old_idx++;
-    } else if (mine_changed) {
-      if (mine_idx < mine.size()) {
-        result.push_back(mine[mine_idx++]);
-      }
-      old_idx++;
-    } else if (yours_changed) {
-      if (yours_idx < yours.size()) {
-        result.push_back(yours[yours_idx++]);
-      }
-      old_idx++;
-    } else {
-      if (mine_idx < mine.size()) {
-        result.push_back(mine[mine_idx++]);
-      }
-      if (yours_idx < yours.size()) {
-        yours_idx++;
-      }
-      old_idx++;
-    }
+  size_t prefix = 0;
+  const size_t min_size = std::min({mine.size(), older.size(), yours.size()});
+  while (prefix < min_size && mine[prefix] == older[prefix] &&
+         older[prefix] == yours[prefix]) {
+    ++prefix;
   }
 
-  // Add remaining lines
-  while (mine_idx < mine.size()) {
-    result.push_back(mine[mine_idx++]);
+  size_t suffix = 0;
+  while (suffix < mine.size() - prefix && suffix < older.size() - prefix &&
+         suffix < yours.size() - prefix &&
+         mine[mine.size() - 1 - suffix] == older[older.size() - 1 - suffix] &&
+         older[older.size() - 1 - suffix] == yours[yours.size() - 1 - suffix]) {
+    ++suffix;
   }
 
-  return result;
+  auto slice = [](const std::vector<std::string>& lines, size_t first,
+                  size_t last_exclusive) {
+    if (first >= last_exclusive) return std::vector<std::string>{};
+    return std::vector<std::string>(
+        lines.begin() + static_cast<std::ptrdiff_t>(first),
+        lines.begin() + static_cast<std::ptrdiff_t>(last_exclusive));
+  };
+
+  Diff3Block block;
+  block.start = prefix;
+  block.prefix = slice(mine, 0, prefix);
+  block.suffix = slice(mine, mine.size() - suffix, mine.size());
+  block.mine = slice(mine, prefix, mine.size() - suffix);
+  block.older = slice(older, prefix, older.size() - suffix);
+  block.yours = slice(yours, prefix, yours.size() - suffix);
+  return block;
+}
+
+std::string change_spec(size_t start, size_t count) {
+  if (count == 0) {
+    return std::to_string(start) + "a";
+  }
+  if (count == 1) {
+    return std::to_string(start + 1) + "c";
+  }
+  return std::to_string(start + 1) + "," + std::to_string(start + count) + "c";
+}
+
+void print_default_section(int file_number, size_t start,
+                           const std::vector<std::string>& lines,
+                           bool diff3_print_lines) {
+  safePrintLn(std::to_string(file_number) + ":" +
+              change_spec(start, lines.size()));
+  if (!diff3_print_lines) return;
+  for (const auto& line : lines) {
+    safePrintLn("  " + line);
+  }
+}
+
+void diff3_print_lines(const std::vector<std::string>& lines) {
+  for (const auto& line : lines) safePrintLn(line);
+}
+
+void output_default_block(const Diff3Block& block) {
+  const bool mine_eq_older = diff3_same_lines(block.mine, block.older);
+  const bool yours_eq_older = diff3_same_lines(block.yours, block.older);
+  const bool mine_eq_yours = diff3_same_lines(block.mine, block.yours);
+
+  if (mine_eq_older && !yours_eq_older) {
+    safePrintLn("====3");
+    print_default_section(1, block.start, block.mine, false);
+    print_default_section(2, block.start, block.older, true);
+    print_default_section(3, block.start, block.yours, true);
+    return;
+  }
+
+  if (yours_eq_older && !mine_eq_older) {
+    safePrintLn("====1");
+    print_default_section(1, block.start, block.mine, true);
+    print_default_section(2, block.start, block.older, false);
+    print_default_section(3, block.start, block.yours, true);
+    return;
+  }
+
+  if (mine_eq_yours && !mine_eq_older) {
+    safePrintLn("====2");
+    print_default_section(1, block.start, block.mine, true);
+    print_default_section(3, block.start, block.yours, true);
+    print_default_section(2, block.start, block.older, true);
+    return;
+  }
+
+  safePrintLn("====");
+  print_default_section(1, block.start, block.mine, true);
+  print_default_section(2, block.start, block.older, true);
+  print_default_section(3, block.start, block.yours, true);
+}
+
+bool output_merge_block(const Diff3Block& block, const std::string& mine_file,
+                        const std::string& older_file,
+                        const std::string& yours_file) {
+  diff3_print_lines(block.prefix);
+
+  const bool mine_eq_older = diff3_same_lines(block.mine, block.older);
+  const bool yours_eq_older = diff3_same_lines(block.yours, block.older);
+  const bool mine_eq_yours = diff3_same_lines(block.mine, block.yours);
+
+  bool conflict = false;
+  if (mine_eq_older && !yours_eq_older) {
+    diff3_print_lines(block.yours);
+  } else if (yours_eq_older && !mine_eq_older) {
+    diff3_print_lines(block.mine);
+  } else if (mine_eq_yours && !mine_eq_older) {
+    conflict = true;
+    safePrintLn("<<<<<<< " + older_file);
+    diff3_print_lines(block.older);
+    safePrintLn("=======");
+    diff3_print_lines(block.yours);
+    safePrintLn(">>>>>>> " + yours_file);
+  } else {
+    conflict = true;
+    safePrintLn("<<<<<<< " + mine_file);
+    diff3_print_lines(block.mine);
+    safePrintLn("||||||| " + older_file);
+    diff3_print_lines(block.older);
+    safePrintLn("=======");
+    diff3_print_lines(block.yours);
+    safePrintLn(">>>>>>> " + yours_file);
+  }
+
+  diff3_print_lines(block.suffix);
+  return conflict;
 }
 }  // namespace
 
 // ======================================================
+// Pipeline components// ======================================================
 // Pipeline components
 // ======================================================
 namespace diff3_pipeline {
@@ -249,102 +284,42 @@ auto build_config(const CommandContext<DIFF3_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  // Read files
   std::vector<std::string> mine_lines = read_file_lines(cfg.mine_file);
   std::vector<std::string> older_lines = read_file_lines(cfg.older_file);
   std::vector<std::string> yours_lines = read_file_lines(cfg.yours_file);
 
-  if (mine_lines.empty()) {
-    safeErrorPrint("diff3: cannot read file '");
-    safeErrorPrint(cfg.mine_file);
-    safeErrorPrintLn("'");
+  if (mine_lines.empty() && !diff3_file_exists_for_read(cfg.mine_file)) {
+    safeErrorPrintLn("diff3: cannot read file '" + cfg.mine_file + "'");
     return 1;
   }
-  if (older_lines.empty()) {
-    safeErrorPrint("diff3: cannot read file '");
-    safeErrorPrint(cfg.older_file);
-    safeErrorPrintLn("'");
+  if (older_lines.empty() && !diff3_file_exists_for_read(cfg.older_file)) {
+    safeErrorPrintLn("diff3: cannot read file '" + cfg.older_file + "'");
     return 1;
   }
-  if (yours_lines.empty()) {
-    safeErrorPrint("diff3: cannot read file '");
-    safeErrorPrint(cfg.yours_file);
-    safeErrorPrintLn("'");
+  if (yours_lines.empty() && !diff3_file_exists_for_read(cfg.yours_file)) {
+    safeErrorPrintLn("diff3: cannot read file '" + cfg.yours_file + "'");
     return 1;
   }
 
-  // Compare files
-  // -a/--text: treat files as text (always compare line by line)
-  // -A/--overwrite-overlapping: output overlapping changes
-  DiffResult mine_older = diff_lines(older_lines, mine_lines);
-  DiffResult older_yours = diff_lines(older_lines, yours_lines);
-
-  // If overwrite_overlapping is set, include overlapping changes in output
-  if (cfg.overwrite_overlapping) {
-    // Mark overlapping changes for special handling
-    // This is a simplified implementation
-  }
+  auto block = make_single_block(mine_lines, older_lines, yours_lines);
 
   if (cfg.merged_output) {
-    // Output merged format
-    std::vector<std::string> merged =
-        merge_files(mine_lines, older_lines, yours_lines);
-
-    for (const auto& line : merged) {
-      safePrintLn(line);
+    if (!block) {
+      diff3_print_lines(mine_lines);
+      return 0;
     }
-  } else if (cfg.ed_script) {
-    // Output ed script format
-    safePrintLn("# diff3 ed script");
-
-    for (const auto& change : mine_older.changes) {
-      safePrintLn(std::to_string(change.first + 1) + "," +
-                  std::to_string(change.first + change.second) + "d");
-    }
-
-    for (const auto& change : older_yours.changes) {
-      safePrintLn(std::to_string(change.first + 1) + "a");
-      for (int i = 0; i < change.second; ++i) {
-        safePrintLn(yours_lines[change.first + i]);
-      }
-      safePrintLn(".");
-    }
-  } else if (cfg.bracketed_conflicts) {
-    // Output with bracketed conflicts
-    std::vector<std::string> merged =
-        merge_files(mine_lines, older_lines, yours_lines);
-
-    for (const auto& line : merged) {
-      safePrintLn(line);
-    }
-  } else {
-    // Default output: show conflicts
-    int conflict_count = 0;
-
-    for (const auto& mine_change : mine_older.changes) {
-      for (const auto& yours_change : older_yours.changes) {
-        if (mine_change.first == yours_change.first) {
-          conflict_count++;
-          safePrintLn("====");
-          safePrintLn(std::to_string(mine_change.first + 1) + ": " +
-                      (mine_change.first < mine_lines.size()
-                           ? mine_lines[mine_change.first]
-                           : ""));
-          safePrintLn(std::to_string(yours_change.first + 1) + ": " +
-                      (yours_change.first < yours_lines.size()
-                           ? yours_lines[yours_change.first]
-                           : ""));
-        }
-      }
-    }
-
-    if (conflict_count == 0) {
-      safePrintLn("No conflicts found");
-    } else {
-      safePrintLn(std::to_string(conflict_count) + " conflicts found");
-    }
+    return output_merge_block(*block, cfg.mine_file, cfg.older_file,
+                              cfg.yours_file)
+               ? 1
+               : 0;
   }
 
+  if (cfg.ed_script || cfg.bracketed_conflicts || cfg.overwrite_overlapping) {
+    // Compatibility placeholder: these GNU ed-script modes are still modeled
+    // as default reports until the edit-script engine is implemented.
+  }
+
+  if (block) output_default_block(*block);
   return 0;
 }
 

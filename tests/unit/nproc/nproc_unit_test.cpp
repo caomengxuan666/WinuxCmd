@@ -75,3 +75,47 @@ TEST(nproc, nproc_ignore) {
   int num = std::stoi(r.stdout_text);
   EXPECT_TRUE(num >= 1);
 }
+
+TEST(nproc, nproc_ignore_subtracts_processing_units) {
+  Pipeline base;
+  base.add(L"nproc.exe", {});
+  auto base_result = base.run();
+  EXPECT_EQ(base_result.exit_code, 0);
+  if (base_result.exit_code != 0) return;
+  int base_count = std::stoi(base_result.stdout_text);
+
+  Pipeline ignored;
+  ignored.add(L"nproc.exe", {L"--ignore", L"1"});
+  auto ignored_result = ignored.run();
+
+  EXPECT_EQ(ignored_result.exit_code, 0);
+  int ignored_count = std::stoi(ignored_result.stdout_text);
+  EXPECT_EQ(ignored_count, std::max(1, base_count - 1));
+}
+
+TEST(nproc, nproc_ignore_equals_form_subtracts_processing_units) {
+  Pipeline base;
+  base.add(L"nproc.exe", {});
+  auto base_result = base.run();
+  EXPECT_EQ(base_result.exit_code, 0);
+  if (base_result.exit_code != 0) return;
+  int base_count = std::stoi(base_result.stdout_text);
+
+  Pipeline ignored;
+  ignored.add(L"nproc.exe", {L"--ignore=1"});
+  auto ignored_result = ignored.run();
+
+  EXPECT_EQ(ignored_result.exit_code, 0);
+  int ignored_count = std::stoi(ignored_result.stdout_text);
+  EXPECT_EQ(ignored_count, std::max(1, base_count - 1));
+}
+
+TEST(nproc, nproc_rejects_extra_operand_like_gnu) {
+  Pipeline p;
+  p.add(L"nproc.exe", {L"extra"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.find("extra operand") != std::string::npos);
+}

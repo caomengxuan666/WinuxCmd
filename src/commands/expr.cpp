@@ -11,8 +11,7 @@
  *  The above copyright notice and this permission notice shall be included in
  *  all copies or substantial portions of the Software.
  *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF MERCHANTABILITY,
  *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
@@ -25,13 +24,12 @@
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
 /// @Description: Implementation for expr command.
-/// @Version: 0.1.0
+/// @Version: 0.2.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "pch/pch.h"
-// include other header after pch.h
 #include "core/command_macros.h"
+#include "pch/pch.h"
 import std;
 import core;
 import utils;
@@ -42,109 +40,532 @@ using cmd::meta::OptionType;
 auto constexpr EXPR_OPTIONS =
     std::array{OPTION("", "", "evaluate expressions", STRING_TYPE)};
 
-// Simple expression evaluator for basic arithmetic
 namespace {
-auto evaluate_expr(std::span<const std::string_view> args)
-    -> std::expected<long long, std::string> {
-  if (args.empty()) {
-    return std::unexpected("expr: missing operand");
+
+struct ExprError {
+  std::string message;
+};
+
+struct Value {
+  enum class Kind { Integer, String };
+
+  Kind kind = Kind::String;
+  long long integer = 0;
+  std::string text;
+
+  static auto make_integer(long long value) -> Value {
+    Value v;
+    v.kind = Kind::Integer;
+    v.integer = value;
+    return v;
   }
 
-  if (args.size() == 1) {
-    try {
-      return std::stoll(std::string(args[0]));
-    } catch (...) {
-      return std::unexpected("expr: non-numeric argument");
+  static auto make_string(std::string_view value) -> Value {
+    Value v;
+    v.kind = Kind::String;
+    v.text.assign(value.begin(), value.end());
+    return v;
+  }
+
+  [[nodiscard]] auto as_string() const -> std::string {
+    if (kind == Kind::Integer) return std::to_string(integer);
+    return text;
+  }
+};
+
+[[nodiscard]] auto looks_like_integer(std::string_view text) -> bool {
+  if (text.empty()) return false;
+  size_t pos = text[0] == '-' ? 1 : 0;
+  if (pos == text.size()) return false;
+  for (; pos < text.size(); ++pos) {
+    if (!std::isdigit(static_cast<unsigned char>(text[pos]))) return false;
+  }
+  return true;
+}
+
+[[nodiscard]] auto parse_integer(std::string_view text)
+    -> std::optional<long long> {
+  if (!looks_like_integer(text)) return std::nullopt;
+  long long value = 0;
+  auto first = text.data();
+  auto last = text.data() + text.size();
+  auto [ptr, ec] = std::from_chars(first, last, value, 10);
+  if (ec != std::errc{} || ptr != last) return std::nullopt;
+  return value;
+}
+
+auto coerce_integer(const Value& value) -> long long {
+  if (value.kind == Value::Kind::Integer) return value.integer;
+  auto parsed = parse_integer(value.text);
+  if (!parsed) {
+    throw ExprError{"non-integer argument"};
+  }
+  return *parsed;
+}
+
+[[nodiscard]] auto is_null(const Value& value) -> bool {
+  if (value.kind == Value::Kind::Integer) return value.integer == 0;
+
+  std::string_view s = value.text;
+  if (s.empty()) return true;
+  size_t pos = s[0] == '-' ? 1 : 0;
+  if (pos == s.size()) return false;
+  for (; pos < s.size(); ++pos) {
+    if (s[pos] != '0') return false;
+  }
+  return true;
+}
+
+[[nodiscard]] auto trim_integer_zeros(std::string_view digits)
+    -> std::string_view {
+  size_t first_non_zero = 0;
+  while (first_non_zero < digits.size() && digits[first_non_zero] == '0') {
+    ++first_non_zero;
+  }
+  if (first_non_zero == digits.size()) return std::string_view{"0", 1};
+  return digits.substr(first_non_zero);
+}
+
+[[nodiscard]] auto compare_integer_text(std::string_view lhs,
+                                        std::string_view rhs) -> int {
+  bool lhs_neg = !lhs.empty() && lhs[0] == '-';
+  bool rhs_neg = !rhs.empty() && rhs[0] == '-';
+  lhs.remove_prefix(lhs_neg ? 1 : 0);
+  rhs.remove_prefix(rhs_neg ? 1 : 0);
+  lhs = trim_integer_zeros(lhs);
+  rhs = trim_integer_zeros(rhs);
+  if (lhs == "0") lhs_neg = false;
+  if (rhs == "0") rhs_neg = false;
+  if (lhs_neg != rhs_neg) return lhs_neg ? -1 : 1;
+
+  int magnitude = 0;
+  if (lhs.size() != rhs.size()) {
+    magnitude = lhs.size() < rhs.size() ? -1 : 1;
+  } else {
+    int cmp = lhs.compare(rhs);
+    magnitude = cmp < 0 ? -1 : (cmp > 0 ? 1 : 0);
+  }
+  return lhs_neg ? -magnitude : magnitude;
+}
+
+[[nodiscard]] auto utf8_logical_length(std::string_view text) -> size_t {
+  if (text.empty()) return 0;
+  auto wide = utf8_to_wstring(text);
+  return wide.empty() ? text.size() : wide.size();
+}
+
+[[nodiscard]] auto utf8_logical_substr(std::string_view text, long long pos,
+                                       long long length) -> std::string {
+  if (pos <= 0 || length <= 0) return {};
+
+  auto wide = utf8_to_wstring(text);
+  if (wide.empty() && !text.empty()) {
+    size_t begin = static_cast<size_t>(pos - 1);
+    if (begin >= text.size()) return {};
+    size_t count = std::min(static_cast<size_t>(length), text.size() - begin);
+    return std::string(text.substr(begin, count));
+  }
+
+  size_t begin = static_cast<size_t>(pos - 1);
+  if (begin >= wide.size()) return {};
+  size_t count = std::min(static_cast<size_t>(length), wide.size() - begin);
+  return wstring_to_utf8(std::wstring_view(wide).substr(begin, count));
+}
+
+[[nodiscard]] auto utf8_index_any(std::string_view text, std::string_view chars)
+    -> long long {
+  if (text.empty() || chars.empty()) return 0;
+
+  auto wide_text = utf8_to_wstring(text);
+  auto wide_chars = utf8_to_wstring(chars);
+  if (wide_text.empty() || wide_chars.empty()) {
+    auto pos = text.find_first_of(chars);
+    return pos == std::string_view::npos ? 0 : static_cast<long long>(pos + 1);
+  }
+
+  auto pos = wide_text.find_first_of(wide_chars);
+  return pos == std::wstring::npos ? 0 : static_cast<long long>(pos + 1);
+}
+
+auto checked_add(long long lhs, long long rhs) -> long long {
+  if ((rhs > 0 && lhs > std::numeric_limits<long long>::max() - rhs) ||
+      (rhs < 0 && lhs < std::numeric_limits<long long>::min() - rhs)) {
+    throw ExprError{"integer overflow"};
+  }
+  return lhs + rhs;
+}
+
+auto checked_sub(long long lhs, long long rhs) -> long long {
+  if ((rhs < 0 && lhs > std::numeric_limits<long long>::max() + rhs) ||
+      (rhs > 0 && lhs < std::numeric_limits<long long>::min() + rhs)) {
+    throw ExprError{"integer overflow"};
+  }
+  return lhs - rhs;
+}
+
+auto checked_mul(long long lhs, long long rhs) -> long long {
+  if (lhs == 0 || rhs == 0) return 0;
+  if ((lhs == -1 && rhs == std::numeric_limits<long long>::min()) ||
+      (rhs == -1 && lhs == std::numeric_limits<long long>::min())) {
+    throw ExprError{"integer overflow"};
+  }
+  if (lhs > 0) {
+    if (rhs > 0) {
+      if (lhs > std::numeric_limits<long long>::max() / rhs) {
+        throw ExprError{"integer overflow"};
+      }
+    } else if (rhs < std::numeric_limits<long long>::min() / lhs) {
+      throw ExprError{"integer overflow"};
+    }
+  } else {
+    if (rhs > 0) {
+      if (lhs < std::numeric_limits<long long>::min() / rhs) {
+        throw ExprError{"integer overflow"};
+      }
+    } else if (lhs < std::numeric_limits<long long>::max() / rhs) {
+      throw ExprError{"integer overflow"};
+    }
+  }
+  return lhs * rhs;
+}
+
+auto checked_div(long long lhs, long long rhs) -> long long {
+  if (rhs == 0) throw ExprError{"division by zero"};
+  if (lhs == std::numeric_limits<long long>::min() && rhs == -1) {
+    throw ExprError{"integer overflow"};
+  }
+  return lhs / rhs;
+}
+
+auto checked_mod(long long lhs, long long rhs) -> long long {
+  if (rhs == 0) throw ExprError{"division by zero"};
+  if (lhs == std::numeric_limits<long long>::min() && rhs == -1) return 0;
+  return lhs % rhs;
+}
+
+auto do_colon(const Value& lhs, const Value& rhs) -> Value {
+  std::string text = lhs.as_string();
+  std::string pattern = rhs.as_string();
+  auto compiled =
+      portable_regex::compile(portable_regex::Syntax::Basic, pattern);
+  if (!compiled) {
+    throw ExprError{compiled.error.empty() ? "invalid regular expression"
+                                           : compiled.error};
+  }
+
+  auto match = compiled.pattern.find_first(text, 0);
+  const bool has_capture = compiled.pattern.capture_count() > 0;
+  if (!match || match->begin != 0) {
+    return has_capture ? Value::make_string("") : Value::make_integer(0);
+  }
+
+  if (has_capture) {
+    auto group = match->group(1);
+    if (!group) return Value::make_string("");
+    return Value::make_string(
+        std::string_view(text).substr(group->begin, group->end - group->begin));
+  }
+
+  return Value::make_integer(static_cast<long long>(
+      utf8_logical_length(std::string_view(text).substr(0, match->end))));
+}
+
+class Parser {
+ public:
+  explicit Parser(std::span<const std::string_view> args) : args_(args) {}
+
+  auto parse() -> Value {
+    if (args_.empty()) throw ExprError{"missing operand"};
+    Value value = eval_or(true);
+    if (!at_end()) {
+      throw ExprError{"syntax error: unexpected argument " +
+                      std::string(args_[pos_])};
+    }
+    return value;
+  }
+
+ private:
+  std::span<const std::string_view> args_;
+  size_t pos_ = 0;
+
+  [[nodiscard]] auto at_end() const -> bool { return pos_ >= args_.size(); }
+
+  [[nodiscard]] auto previous_token() const -> std::string {
+    if (pos_ == 0 || pos_ - 1 >= args_.size()) return {};
+    return std::string(args_[pos_ - 1]);
+  }
+
+  auto require_more_args() -> void {
+    if (!at_end()) return;
+    auto previous = previous_token();
+    if (previous.empty()) {
+      throw ExprError{"missing operand"};
+    }
+    throw ExprError{"syntax error: missing argument after " + previous};
+  }
+
+  auto next(std::string_view token) -> bool {
+    if (at_end() || args_[pos_] != token) return false;
+    ++pos_;
+    return true;
+  }
+
+  auto eval_or(bool evaluate) -> Value {
+    Value lhs = eval_and(evaluate);
+    while (next("|")) {
+      Value rhs = eval_and(evaluate && is_null(lhs));
+      if (!evaluate) continue;
+      if (is_null(lhs)) {
+        lhs = std::move(rhs);
+        if (is_null(lhs)) lhs = Value::make_integer(0);
+      }
+    }
+    return lhs;
+  }
+
+  auto eval_and(bool evaluate) -> Value {
+    Value lhs = eval_compare(evaluate);
+    while (next("&")) {
+      Value rhs = eval_compare(evaluate && !is_null(lhs));
+      if (!evaluate) continue;
+      if (is_null(lhs) || is_null(rhs)) {
+        lhs = Value::make_integer(0);
+      }
+    }
+    return lhs;
+  }
+
+  auto eval_compare(bool evaluate) -> Value {
+    Value lhs = eval_add(evaluate);
+    while (true) {
+      enum class Cmp { None, Lt, Le, Eq, Ne, Ge, Gt };
+      Cmp op = Cmp::None;
+      if (next("<")) {
+        op = Cmp::Lt;
+      } else if (next("<=")) {
+        op = Cmp::Le;
+      } else if (next("=") || next("==")) {
+        op = Cmp::Eq;
+      } else if (next("!=")) {
+        op = Cmp::Ne;
+      } else if (next(">=")) {
+        op = Cmp::Ge;
+      } else if (next(">")) {
+        op = Cmp::Gt;
+      } else {
+        return lhs;
+      }
+
+      Value rhs = eval_add(evaluate);
+      if (!evaluate) continue;
+
+      std::string left = lhs.as_string();
+      std::string right = rhs.as_string();
+      int cmp = looks_like_integer(left) && looks_like_integer(right)
+                    ? compare_integer_text(left, right)
+                    : left.compare(right);
+      bool result = false;
+      switch (op) {
+        case Cmp::Lt:
+          result = cmp < 0;
+          break;
+        case Cmp::Le:
+          result = cmp <= 0;
+          break;
+        case Cmp::Eq:
+          result = cmp == 0;
+          break;
+        case Cmp::Ne:
+          result = cmp != 0;
+          break;
+        case Cmp::Ge:
+          result = cmp >= 0;
+          break;
+        case Cmp::Gt:
+          result = cmp > 0;
+          break;
+        case Cmp::None:
+          break;
+      }
+      lhs = Value::make_integer(result ? 1 : 0);
     }
   }
 
-  // Basic support for: a + b, a - b, a * b, a / b, a % b
-  if (args.size() != 3) {
-    return std::unexpected("expr: syntax error");
-  }
-
-  try {
-    auto left = std::stoll(std::string(args[0]));
-    auto op = args[1];
-    auto right = std::stoll(std::string(args[2]));
-
-    if (op == "+") {
-      return left + right;
-    } else if (op == "-") {
-      return left - right;
-    } else if (op == "*") {
-      return left * right;
-    } else if (op == "/") {
-      if (right == 0) {
-        return std::unexpected("expr: division by zero");
+  auto eval_add(bool evaluate) -> Value {
+    Value lhs = eval_mul(evaluate);
+    while (true) {
+      enum class Add { None, Plus, Minus };
+      Add op = Add::None;
+      if (next("+")) {
+        op = Add::Plus;
+      } else if (next("-")) {
+        op = Add::Minus;
+      } else {
+        return lhs;
       }
-      return left / right;
-    } else if (op == "%") {
-      if (right == 0) {
-        return std::unexpected("expr: division by zero");
-      }
-      return left % right;
-    } else if (op == "<") {
-      return left < right ? 1 : 0;
-    } else if (op == "<=") {
-      return left <= right ? 1 : 0;
-    } else if (op == "=") {
-      return left == right ? 1 : 0;
-    } else if (op == "!=") {
-      return left != right ? 1 : 0;
-    } else if (op == ">=") {
-      return left >= right ? 1 : 0;
-    } else if (op == ">") {
-      return left > right ? 1 : 0;
-    } else if (op == "&") {
-      return (left != 0 && right != 0) ? 1 : 0;
-    } else if (op == "|") {
-      return (left != 0 || right != 0) ? 1 : 0;
-    } else {
-      return std::unexpected("expr: invalid operator");
+
+      Value rhs = eval_mul(evaluate);
+      if (!evaluate) continue;
+      long long left = coerce_integer(lhs);
+      long long right = coerce_integer(rhs);
+      lhs = Value::make_integer(op == Add::Plus ? checked_add(left, right)
+                                                : checked_sub(left, right));
     }
-  } catch (const std::exception&) {
-    return std::unexpected("expr: non-numeric argument");
   }
+
+  auto eval_mul(bool evaluate) -> Value {
+    Value lhs = eval_colon(evaluate);
+    while (true) {
+      enum class Mul { None, Multiply, Divide, Mod };
+      Mul op = Mul::None;
+      if (next("*")) {
+        op = Mul::Multiply;
+      } else if (next("/")) {
+        op = Mul::Divide;
+      } else if (next("%")) {
+        op = Mul::Mod;
+      } else {
+        return lhs;
+      }
+
+      Value rhs = eval_colon(evaluate);
+      if (!evaluate) continue;
+      long long left = coerce_integer(lhs);
+      long long right = coerce_integer(rhs);
+      switch (op) {
+        case Mul::Multiply:
+          lhs = Value::make_integer(checked_mul(left, right));
+          break;
+        case Mul::Divide:
+          lhs = Value::make_integer(checked_div(left, right));
+          break;
+        case Mul::Mod:
+          lhs = Value::make_integer(checked_mod(left, right));
+          break;
+        case Mul::None:
+          break;
+      }
+    }
+  }
+
+  auto eval_colon(bool evaluate) -> Value {
+    Value lhs = eval_keyword(evaluate);
+    while (next(":")) {
+      Value rhs = eval_keyword(evaluate);
+      if (evaluate) lhs = do_colon(lhs, rhs);
+    }
+    return lhs;
+  }
+
+  auto eval_keyword(bool evaluate) -> Value {
+    if (next("+")) {
+      require_more_args();
+      return Value::make_string(args_[pos_++]);
+    }
+
+    if (next("length")) {
+      Value value = eval_keyword(evaluate);
+      return Value::make_integer(
+          static_cast<long long>(utf8_logical_length(value.as_string())));
+    }
+
+    if (next("match")) {
+      Value lhs = eval_keyword(evaluate);
+      Value rhs = eval_keyword(evaluate);
+      return evaluate ? do_colon(lhs, rhs) : lhs;
+    }
+
+    if (next("index")) {
+      Value lhs = eval_keyword(evaluate);
+      Value rhs = eval_keyword(evaluate);
+      return Value::make_integer(
+          utf8_index_any(lhs.as_string(), rhs.as_string()));
+    }
+
+    if (next("substr")) {
+      Value source = eval_keyword(evaluate);
+      Value pos = eval_keyword(evaluate);
+      Value len = eval_keyword(evaluate);
+      auto pos_int = pos.kind == Value::Kind::Integer
+                         ? std::optional<long long>{pos.integer}
+                         : parse_integer(pos.text);
+      auto len_int = len.kind == Value::Kind::Integer
+                         ? std::optional<long long>{len.integer}
+                         : parse_integer(len.text);
+      if (!pos_int || !len_int) return Value::make_string("");
+      return Value::make_string(
+          utf8_logical_substr(source.as_string(), *pos_int, *len_int));
+    }
+
+    return eval_primary(evaluate);
+  }
+
+  auto eval_primary(bool evaluate) -> Value {
+    (void)evaluate;
+    require_more_args();
+    if (next("(")) {
+      Value value = eval_or(evaluate);
+      if (at_end()) {
+        throw ExprError{"syntax error: expecting ')' after " +
+                        previous_token()};
+      }
+      if (!next(")")) {
+        throw ExprError{"syntax error: expecting ')' instead of " +
+                        std::string(args_[pos_])};
+      }
+      return value;
+    }
+    if (next(")")) throw ExprError{"syntax error: unexpected ')'"};
+    return Value::make_string(args_[pos_++]);
+  }
+};
+
+[[nodiscard]] auto display_value(const Value& value) -> std::string {
+  return value.as_string();
 }
 
 }  // namespace
 
-REGISTER_COMMAND(expr_cmd,
-                 /* name */
-                 "expr",
+REGISTER_COMMAND(
+    expr_cmd,
+    /* name */
+    "expr",
 
-                 /* synopsis */
-                 "expr EXPRESSION",
-                 "Evaluate expressions.\n"
-                 "\n"
-                 "Print the value of EXPRESSION to standard output.\n"
-                 "\n"
-                 "Supported operators:\n"
-                 "  +, -      Addition, subtraction\n"
-                 "  *, /, %   Multiplication, division, modulus\n"
-                 "  <, <=, =, !=, >=, >  Comparison\n"
-                 "  &, |      Logical AND, OR\n"
-                 "\n"
-                 "Note: This is a basic implementation supporting simple "
-                 "two-operand expressions.",
-                 "  expr 2 + 3\n"
-                 "  expr 5 \\* 10\n"
-                 "  expr 10 / 2\n"
-                 "  expr 5 % 3\n"
-                 "  expr 2 \\\< 5",
+    /* synopsis */
+    "expr EXPRESSION",
+    "Evaluate expressions.\n"
+    "\n"
+    "Print the value of EXPRESSION to standard output.\n"
+    "\n"
+    "Supported GNU-style operators and keywords:\n"
+    "  ARG1 | ARG2, ARG1 & ARG2\n"
+    "  ARG1 < ARG2, <=, =, ==, !=, >=, >\n"
+    "  ARG1 + ARG2, ARG1 - ARG2, ARG1 * ARG2, ARG1 / ARG2, ARG1 % ARG2\n"
+    "  STRING : REGEXP, match STRING REGEXP\n"
+    "  substr STRING POS LENGTH, index STRING CHARS, length STRING\n"
+    "  + TOKEN, ( EXPRESSION )\n"
+    "\n"
+    "Regex matching uses WinuxCmd's POSIX basic regex module and is anchored "
+    "at "
+    "the start of STRING. Numeric arithmetic currently uses signed 64-bit "
+    "integers rather than GNU expr's arbitrary precision integers.",
+    "  expr 2 + 3 \\* 4\n"
+    "  expr \\( 2 + 3 \\) \\* 4\n"
+    "  expr abc123 : '[a-z]*\\\\([0-9]*\\\\)'\n"
+    "  expr length hello",
 
-                 /* see also */
-                 "test(1), let(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
-                 EXPR_OPTIONS) {
-  auto result = evaluate_expr(ctx.positionals);
-  if (!result) {
-    safeErrorPrintLn(result.error());
-    return 1;
+    /* see also */
+    "test(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd", EXPR_OPTIONS) {
+  try {
+    Parser parser(ctx.positionals);
+    Value value = parser.parse();
+    safePrintLn(display_value(value));
+    return is_null(value) ? 1 : 0;
+  } catch (const ExprError& error) {
+    safeErrorPrintLn("expr: " + error.message);
+    return 2;
+  } catch (const std::exception& error) {
+    safeErrorPrintLn(std::string("expr: ") + error.what());
+    return 3;
   }
-
-  safePrintLn(std::to_string(*result));
-
-  // Return non-zero if result is 0 (for logical expressions)
-  return *result == 0 ? 1 : 0;
 }

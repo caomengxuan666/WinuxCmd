@@ -453,9 +453,17 @@ macro(create_command_executable CMD)
             src/utils/utils.cppm
             src/utils/console.cppm
             src/utils/text_io.cppm
+            src/utils/string.cppm
+            src/utils/wildcard.cppm
+            src/utils/path.cppm
             src/utils/utf8.cppm
+            src/utils/win32.cppm
             src/utils/json.cppm
+            src/utils/file_io.cppm
+            src/utils/cppbar.cppm
             src/utils/encoding.cppm
+            src/utils/regex.cppm
+            src/utils/digest.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
@@ -537,11 +545,17 @@ if(BUILD_STANDALONE)
         src/utils/utils.cppm
         src/utils/console.cppm
         src/utils/text_io.cppm
+        src/utils/string.cppm
         src/utils/path.cppm
         src/utils/utf8.cppm
+        src/utils/win32.cppm
         src/utils/wildcard.cppm
         src/utils/json.cppm
+        src/utils/file_io.cppm
+        src/utils/cppbar.cppm
         src/utils/encoding.cppm
+        src/utils/regex.cppm
+        src/utils/digest.cppm
         src/container/container.cppm
         src/container/small_vector.cppm
         src/container/constexpr_map.cppm
@@ -615,11 +629,17 @@ if(BUILD_STANDALONE)
             src/utils/utils.cppm
             src/utils/console.cppm
             src/utils/text_io.cppm
+            src/utils/string.cppm
             src/utils/path.cppm
             src/utils/utf8.cppm
+            src/utils/win32.cppm
             src/utils/wildcard.cppm
             src/utils/json.cppm
+            src/utils/file_io.cppm
+            src/utils/cppbar.cppm
             src/utils/encoding.cppm
+            src/utils/regex.cppm
+            src/utils/digest.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm

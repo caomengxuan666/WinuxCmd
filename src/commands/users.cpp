@@ -70,7 +70,7 @@ auto run(const Config& cfg) -> int {
   }
 
   std::wstring ws(username);
-  std::string user_str(ws.begin(), ws.end());
+  std::string user_str = wstring_to_utf8(ws);
 
   safePrintLn(user_str);
 

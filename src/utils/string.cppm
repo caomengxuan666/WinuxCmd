@@ -1,0 +1,51 @@
+/*
+ *  Copyright © 2026 [caomengxuan666]
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the “Software”), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ */
+export module utils:string;
+
+import std;
+
+export auto ascii_lower_copy(std::string_view text) -> std::string {
+  std::string out;
+  out.reserve(text.size());
+  for (unsigned char ch : text) {
+    out.push_back(static_cast<char>(std::tolower(ch)));
+  }
+  return out;
+}
+
+export auto ascii_iequals(std::string_view lhs, std::string_view rhs) -> bool {
+  if (lhs.size() != rhs.size()) return false;
+  for (size_t i = 0; i < lhs.size(); ++i) {
+    auto l = static_cast<unsigned char>(lhs[i]);
+    auto r = static_cast<unsigned char>(rhs[i]);
+    if (std::tolower(l) != std::tolower(r)) return false;
+  }
+  return true;
+}
+
+export auto ascii_starts_with_ci(std::string_view text, std::string_view prefix)
+    -> bool {
+  return text.size() >= prefix.size() &&
+         ascii_iequals(text.substr(0, prefix.size()), prefix);
+}
+
+export auto ascii_contains_ci(std::string_view text, std::string_view needle)
+    -> bool {
+  if (needle.empty()) return true;
+  if (needle.size() > text.size()) return false;
+
+  const auto lowered_text = ascii_lower_copy(text);
+  const auto lowered_needle = ascii_lower_copy(needle);
+  return lowered_text.find(lowered_needle) != std::string::npos;
+}

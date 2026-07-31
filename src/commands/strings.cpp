@@ -44,17 +44,34 @@ using cmd::meta::OptionType;
 
 auto constexpr STRINGS_OPTIONS = std::array{
     OPTION("-a", "--all", "scan each file in its entirety (default)"),
+    OPTION("-d", "--data",
+           "scan only object data sections (placeholder/no-op: BFD section "
+           "parsing is not linked in this Windows build)"),
+    OPTION("-f", "--print-file-name", "print the file name before each string"),
     OPTION("-n", "--bytes",
            "print sequences of at least MIN printable characters (default 4)",
            STRING_TYPE),
+    OPTION("-NUM", "", "same as --bytes=MIN", INT_TYPE),
     OPTION("-t", "--radix",
            "print the offset within the file before each string", STRING_TYPE),
+    OPTION("-w", "--include-all-whitespace",
+           "include all whitespace as valid string characters"),
     OPTION("-e", "--encoding",
            "select character encoding: s=7-bit-ascii, S=8-bit-UTF8, "
            "b=16-bit-big-endian, l=16-bit-little-endian, B=32-bit-big-endian, "
            "L=32-bit-little-endian",
            STRING_TYPE),
-    OPTION("-o", "", "print offset before each string (alias for -t o)")};
+    OPTION("-o", "", "print offset before each string (alias for -t o)"),
+    OPTION("-s", "--output-separator",
+           "string used to separate parsed strings in output", STRING_TYPE),
+    OPTION("-T", "--target",
+           "specify binary file format (placeholder/no-op: BFD target "
+           "selection is not linked in this Windows build)",
+           STRING_TYPE),
+    OPTION("-U", "--unicode",
+           "unicode display mode (placeholder/no-op except non-default modes "
+           "select UTF-8 scanning)",
+           STRING_TYPE)};
 
 namespace strings_pipeline {
 namespace cp = core::pipeline;
@@ -74,6 +91,12 @@ struct Config {
   Radix radix = Radix::None;
   Encoding encoding = Encoding::ASCII;
   bool all = false;
+  bool data_only = false;
+  bool print_filenames = false;
+  bool include_all_whitespace = false;
+  std::string output_separator = "\n";
+  std::string target;
+  std::string unicode_mode = "default";
   SmallVector<std::string, 64> files;
 };
 
@@ -82,6 +105,16 @@ auto build_config(const CommandContext<STRINGS_OPTIONS.size()>& ctx)
   Config cfg;
 
   cfg.all = ctx.get<bool>("-a", false) || ctx.get<bool>("--all", false);
+  cfg.data_only = ctx.get<bool>("-d", false) || ctx.get<bool>("--data", false);
+  cfg.print_filenames =
+      ctx.get<bool>("-f", false) || ctx.get<bool>("--print-file-name", false);
+  cfg.include_all_whitespace = ctx.get<bool>("-w", false) ||
+                               ctx.get<bool>("--include-all-whitespace", false);
+
+  int numeric_min = ctx.get<int>("-NUM", 0);
+  if (numeric_min > 0) {
+    cfg.min_length = static_cast<size_t>(numeric_min);
+  }
 
   auto bytes_opt = ctx.get<std::string>("--bytes", "");
   if (bytes_opt.empty()) {
@@ -138,6 +171,34 @@ auto build_config(const CommandContext<STRINGS_OPTIONS.size()>& ctx)
       return std::unexpected("invalid encoding");
   }
 
+  if (ctx.has("--output-separator") || ctx.has("-s")) {
+    auto sep_opt = ctx.get<std::string>("--output-separator", "");
+    if (sep_opt.empty()) {
+      sep_opt = ctx.get<std::string>("-s", "");
+    }
+    cfg.output_separator = sep_opt;
+  }
+
+  cfg.target = ctx.get<std::string>("--target", "");
+  if (cfg.target.empty()) cfg.target = ctx.get<std::string>("-T", "");
+
+  auto unicode_opt = ctx.get<std::string>("--unicode", "");
+  if (unicode_opt.empty()) unicode_opt = ctx.get<std::string>("-U", "");
+  if (!unicode_opt.empty()) {
+    if (unicode_opt == "default" || unicode_opt == "d") {
+      cfg.unicode_mode = "default";
+    } else if (unicode_opt == "locale" || unicode_opt == "l" ||
+               unicode_opt == "escape" || unicode_opt == "e" ||
+               unicode_opt == "invalid" || unicode_opt == "i" ||
+               unicode_opt == "hex" || unicode_opt == "x" ||
+               unicode_opt == "highlight" || unicode_opt == "h") {
+      cfg.unicode_mode = unicode_opt;
+      cfg.encoding = Encoding::UTF8;
+    } else {
+      return std::unexpected("invalid unicode mode");
+    }
+  }
+
   for (const auto& pos : ctx.positionals) {
     cfg.files.push_back(std::string(pos));
   }
@@ -148,67 +209,128 @@ auto build_config(const CommandContext<STRINGS_OPTIONS.size()>& ctx)
 auto print_offset(size_t offset, Radix radix) -> void {
   switch (radix) {
     case Radix::Octal:
-      safePrint(std::format("{:7o}  ", offset));
+      safePrint(std::format("{:7o} ", offset));
       break;
     case Radix::Decimal:
-      safePrint(std::format("{:7d}  ", offset));
+      safePrint(std::format("{:7d} ", offset));
       break;
     case Radix::Hex:
-      safePrint(std::format("{:7x}  ", offset));
+      safePrint(std::format("{:7x} ", offset));
       break;
     case Radix::None:
       break;
   }
 }
 
-auto is_printable(unsigned char ch) -> bool { return ch >= 32 && ch <= 126; }
-
-auto extract_strings_ascii(const std::vector<uint8_t>& data, size_t min_length,
-                           Radix radix) -> void {
-  std::string current;
-  size_t start_offset = 0;
-
-  for (size_t i = 0; i < data.size(); ++i) {
-    if (is_printable(data[i])) {
-      if (current.empty()) start_offset = i;
-      current.push_back(static_cast<char>(data[i]));
-    } else {
-      if (current.size() >= min_length) {
-        print_offset(start_offset, radix);
-        safePrintLn(current);
-      }
-      current.clear();
-    }
+auto encoding_width(Encoding encoding) -> size_t {
+  switch (encoding) {
+    case Encoding::ASCII:
+    case Encoding::UTF8:
+      return 1;
+    case Encoding::BigEndian16:
+    case Encoding::LittleEndian16:
+      return 2;
+    case Encoding::BigEndian32:
+    case Encoding::LittleEndian32:
+      return 4;
   }
-
-  if (current.size() >= min_length) {
-    print_offset(start_offset, radix);
-    safePrintLn(current);
-  }
+  return 1;
 }
 
-auto extract_strings_utf8(const std::vector<uint8_t>& data, size_t min_length,
-                          Radix radix) -> void {
-  std::string current;
-  size_t start_offset = 0;
-
-  for (size_t i = 0; i < data.size(); ++i) {
-    unsigned char ch = data[i];
-    if (ch >= 32) {
-      if (current.empty()) start_offset = i;
-      current.push_back(static_cast<char>(ch));
-    } else {
-      if (current.size() >= min_length) {
-        print_offset(start_offset, radix);
-        safePrintLn(current);
-      }
-      current.clear();
-    }
+auto read_encoded_char(const std::vector<uint8_t>& data, size_t offset,
+                       Encoding encoding) -> std::optional<uint32_t> {
+  size_t width = encoding_width(encoding);
+  if (offset + width > data.size()) {
+    return std::nullopt;
   }
 
-  if (current.size() >= min_length) {
-    print_offset(start_offset, radix);
-    safePrintLn(current);
+  uint32_t value = 0;
+  switch (encoding) {
+    case Encoding::ASCII:
+    case Encoding::UTF8:
+      return data[offset];
+    case Encoding::BigEndian16:
+      return (static_cast<uint32_t>(data[offset]) << 8) |
+             static_cast<uint32_t>(data[offset + 1]);
+    case Encoding::LittleEndian16:
+      return (static_cast<uint32_t>(data[offset + 1]) << 8) |
+             static_cast<uint32_t>(data[offset]);
+    case Encoding::BigEndian32:
+      for (size_t i = 0; i < 4; ++i) {
+        value = (value << 8) | static_cast<uint32_t>(data[offset + i]);
+      }
+      return value;
+    case Encoding::LittleEndian32:
+      for (size_t i = 0; i < 4; ++i) {
+        value |= static_cast<uint32_t>(data[offset + i]) << (8 * i);
+      }
+      return value;
+  }
+  return std::nullopt;
+}
+
+auto is_graphic_char(uint32_t ch, const Config& cfg) -> bool {
+  if (ch > 255) return false;
+  unsigned char byte = static_cast<unsigned char>(ch);
+  if (byte == '\t') return true;
+  if (cfg.include_all_whitespace && std::isspace(byte)) return true;
+  if (byte >= 32 && byte <= 126) return true;
+  return cfg.encoding == Encoding::UTF8 && byte > 127;
+}
+
+auto output_char(uint32_t ch) -> char { return static_cast<char>(ch & 0xff); }
+
+auto print_string_record(const Config& cfg, const std::string& filename,
+                         size_t offset, std::string_view text) -> void {
+  if (cfg.print_filenames) {
+    safePrint(filename);
+    safePrint(": ");
+  }
+  print_offset(offset, cfg.radix);
+  safePrint(text);
+  safePrint(cfg.output_separator);
+}
+
+auto extract_strings_buffer(const std::vector<uint8_t>& data,
+                            const std::string& filename, const Config& cfg)
+    -> void {
+  size_t pos = 0;
+  const size_t width = encoding_width(cfg.encoding);
+
+  while (pos < data.size()) {
+    size_t scan = pos;
+    std::string current;
+    bool enough = true;
+
+    for (size_t i = 0; i < cfg.min_length; ++i) {
+      auto ch = read_encoded_char(data, scan, cfg.encoding);
+      if (!ch || !is_graphic_char(*ch, cfg)) {
+        enough = false;
+        break;
+      }
+      current.push_back(output_char(*ch));
+      scan += width;
+    }
+
+    if (!enough) {
+      ++pos;
+      continue;
+    }
+
+    bool stopped_on_graphic_boundary = false;
+    while (true) {
+      auto ch = read_encoded_char(data, scan, cfg.encoding);
+      if (!ch) break;
+      if (!is_graphic_char(*ch, cfg)) {
+        stopped_on_graphic_boundary = true;
+        break;
+      }
+      current.push_back(output_char(*ch));
+      scan += width;
+    }
+
+    print_string_record(cfg, filename, pos, current);
+    pos = stopped_on_graphic_boundary ? scan + 1 : scan;
   }
 }
 
@@ -238,16 +360,9 @@ auto extract_strings_from_file(const std::string& filename, const Config& cfg)
                 std::istreambuf_iterator<char>());
   }
 
-  switch (cfg.encoding) {
-    case Encoding::ASCII:
-    case Encoding::UTF8:
-      extract_strings_ascii(data, cfg.min_length, cfg.radix);
-      break;
-    default:
-      // For other encodings, treat as ASCII
-      extract_strings_ascii(data, cfg.min_length, cfg.radix);
-      break;
-  }
+  std::string display_name =
+      filename.empty() || filename == "-" ? "{standard input}" : filename;
+  extract_strings_buffer(data, display_name, cfg);
 
   return 0;
 }

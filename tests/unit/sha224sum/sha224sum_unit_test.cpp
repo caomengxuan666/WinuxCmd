@@ -276,7 +276,7 @@ TEST(sha224sum, sha224sum_check_accepts_binary_marker_lines) {
   tmp.write("test.txt", "hello");
   tmp.write(
       "check.sha224",
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362 *test.txt");
+      "ea09ae9cc6768c50fcee903ed054556e5bfc8347907f12598aa24193 *test.txt");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -293,7 +293,7 @@ TEST(sha224sum, sha224sum_check_warn_reports_malformed_line_locations) {
   tmp.write(
       "check.sha224",
       "not-a-checksum\n"
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362  test.txt\n");
+      "ea09ae9cc6768c50fcee903ed054556e5bfc8347907f12598aa24193  test.txt\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
@@ -332,7 +332,7 @@ TEST(sha224sum, sha224sum_check_strict_rejects_malformed_lines) {
   tmp.write("test.txt", "hello");
   tmp.write(
       "check.sha224",
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362  test.txt\n"
+      "ea09ae9cc6768c50fcee903ed054556e5bfc8347907f12598aa24193  test.txt\n"
       "bad-line\n");
 
   Pipeline p;
@@ -372,7 +372,7 @@ TEST(sha224sum, sha224sum_short_zero_alias_uses_nul_terminator) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(
       r.stdout_text,
-      std::string("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362"
-                  "  test.txt\0",
+      std::string("ea09ae9cc6768c50fcee903ed054556e5bfc8347907f12598aa24193"
+                  " *test.txt\0",
                   67));
 }

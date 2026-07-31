@@ -38,6 +38,10 @@ TEST(column, column_table_mode) {
   TEST_LOG("column table output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "name   age  city\n"
+                 "Alice  30   NY\n"
+                 "Bob    25   LA\n");
 }
 
 TEST(column, column_custom_separator) {
@@ -53,6 +57,23 @@ TEST(column, column_custom_separator) {
   TEST_LOG("column custom separator output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "name   age  city\n"
+                 "Alice  30   NY\n"
+                 "Bob    25   LA\n");
+}
+
+TEST(column, column_table_separator_preserves_empty_fields) {
+  Pipeline p;
+  p.set_stdin("a,,c\nlong,b,\n");
+  p.add(L"column.exe", {L"-t", L"-s", L","});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "a        c\n"
+                 "long  b  \n");
 }
 
 TEST(column, column_file_input) {
@@ -158,8 +179,9 @@ TEST(column, column_table_mode_trims_trailing_cr_from_crlf_records) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find('\r') == std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("name  age\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("Alice 30") != std::string::npos);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "name   age\n"
+                 "Alice  30\n");
 }
 
 TEST(column, column_missing_input_reports_no_such_file) {

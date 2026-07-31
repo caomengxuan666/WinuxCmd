@@ -100,38 +100,11 @@ auto constexpr DIR_OPTIONS = std::array{
 namespace dir_pipeline {
 namespace cp = core::pipeline;
 
-auto quote_dir_windows_arg(const std::wstring& arg) -> std::wstring {
-  if (arg.empty()) return L"\"\"";
-
-  bool need_quote = arg.find_first_of(L" \t\"") != std::wstring::npos;
-  if (!need_quote) return arg;
-
-  std::wstring out = L"\"";
-  size_t backslashes = 0;
-  for (wchar_t c : arg) {
-    if (c == L'\\') {
-      ++backslashes;
-    } else if (c == L'"') {
-      out.append(backslashes * 2 + 1, L'\\');
-      out.push_back(L'"');
-      backslashes = 0;
-    } else {
-      out.append(backslashes, L'\\');
-      backslashes = 0;
-      out.push_back(c);
-    }
-  }
-  out.append(backslashes * 2, L'\\');
-  out.push_back(L'"');
-  return out;
-}
-
 auto build_dir_command_line(std::span<const std::wstring> args)
     -> std::wstring {
   std::wstring cmd_line = L"ls.exe";
   for (const auto& arg : args) {
-    cmd_line.push_back(L' ');
-    cmd_line += quote_dir_windows_arg(arg);
+    append_windows_command_arg(cmd_line, arg);
   }
   return cmd_line;
 }
