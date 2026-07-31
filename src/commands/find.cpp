@@ -162,6 +162,10 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-print0", "",
            "print the full file name on the standard output, followed by a "
            "null character"),
+    OPTION("-fprint", "", "print the full file name into FILE", STRING_TYPE),
+    OPTION("-fprint0", "",
+           "print the full file name into FILE, followed by a null character",
+           STRING_TYPE),
     OPTION("-L", "", "follow symbolic links"),
     OPTION("-H", "",
            "do not follow symbolic links, except while processing command line "
@@ -311,6 +315,8 @@ enum class ExprKind {
   SameFile,
   Print,
   Print0,
+  FPrint,
+  FPrint0,
   Printf,
   False,
   Exec,
@@ -364,6 +370,7 @@ struct Config {
   bool delete_action = false;
   bool depth_first = false;
   std::vector<ExecAction> exec_actions;
+  std::unordered_map<std::string, std::unique_ptr<std::ofstream>> output_files;
   bool follow_symlinks = false;
   bool follow_arg_symlinks = false;
   std::string files0_from;
@@ -778,9 +785,10 @@ auto is_path_option(std::string_view arg) -> bool {
          arg == "-mmin" || arg == "-newer" || is_newerxy_option(arg) ||
          arg == "-samefile" || arg == "-files0-from" || arg == "-mindepth" ||
          arg == "-maxdepth" || arg == "-print" || arg == "-print0" ||
-         arg == "-delete" || arg == "-exec" || arg == "-ok" ||
-         arg == "-printf" || arg == "-prune" || arg == "-quit" ||
-         arg == "-true" || arg == "-false" || arg == "-depth" || arg == "-d" ||
+         arg == "-fprint" || arg == "-fprint0" || arg == "-delete" ||
+         arg == "-exec" || arg == "-ok" || arg == "-printf" ||
+         arg == "-prune" || arg == "-quit" || arg == "-true" ||
+         arg == "-false" || arg == "-depth" || arg == "-d" ||
          arg == "-follow" || arg == "-mount" || arg == "-xdev" ||
          arg == "-noleaf" || arg == "-daystart" || arg == "-regextype" ||
          arg == "-O" || arg == "!" || arg == "-not" || arg == "-a" ||
@@ -992,10 +1000,11 @@ class ExpressionParser {
            is_newerxy_option(token) || token == "-samefile" ||
            token == "-files0-from" || token == "-mindepth" ||
            token == "-maxdepth" || token == "-print" || token == "-print0" ||
-           token == "-printf" || token == "-prune" || token == "-quit" ||
-           token == "-true" || token == "-false" || token == "-depth" ||
-           token == "-d" || token == "-follow" || token == "-mount" ||
-           token == "-xdev" || token == "-noleaf" || token == "-daystart" ||
+           token == "-fprint" || token == "-fprint0" || token == "-printf" ||
+           token == "-prune" || token == "-quit" || token == "-true" ||
+           token == "-false" || token == "-depth" || token == "-d" ||
+           token == "-follow" || token == "-mount" || token == "-xdev" ||
+           token == "-noleaf" || token == "-daystart" ||
            token == "-regextype" || token == "-O" || token == "-delete" ||
            token == "-exec" || token == "-ok" || token == "-L" ||
            token == "-P" || token == "-H";
@@ -1284,6 +1293,15 @@ class ExpressionParser {
       return make_expr(ExprKind::Print0);
     }
 
+    if (option == "-fprint" || option == "-fprint0") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto node =
+          make_expr(option == "-fprint" ? ExprKind::FPrint : ExprKind::FPrint0);
+      node->text = std::move(*value);
+      return node;
+    }
+
     if (option == "-quit") {
       return make_expr(ExprKind::Quit);
     }
@@ -1313,6 +1331,39 @@ auto parse_expression(std::span<const std::string_view> raw_args)
   size_t start = expression_start_index(raw_args);
   ExpressionParser parser(raw_args.subspan(start));
   return parser.parse();
+}
+
+auto prepare_find_output_file(Config& cfg, const std::string& path)
+    -> cp::Result<void> {
+  if (cfg.output_files.contains(path)) return {};
+  auto out = std::make_unique<std::ofstream>(
+      std::filesystem::path(utf8_to_wstring(path)),
+      std::ios::binary | std::ios::trunc);
+  if (!out->is_open()) {
+    return std::unexpected("cannot open output file " + path);
+  }
+  cfg.output_files.emplace(path, std::move(out));
+  return {};
+}
+
+auto prepare_file_output_actions(const ExprNode& expr, Config& cfg)
+    -> cp::Result<void> {
+  if (expr.kind == ExprKind::FPrint || expr.kind == ExprKind::FPrint0) {
+    if (auto ok = prepare_find_output_file(cfg, expr.text); !ok) {
+      return std::unexpected(ok.error());
+    }
+  }
+  if (expr.left) {
+    if (auto ok = prepare_file_output_actions(*expr.left, cfg); !ok) {
+      return std::unexpected(ok.error());
+    }
+  }
+  if (expr.right) {
+    if (auto ok = prepare_file_output_actions(*expr.right, cfg); !ok) {
+      return std::unexpected(ok.error());
+    }
+  }
+  return {};
 }
 
 auto load_roots_from_files0(std::string_view source)
@@ -1437,8 +1488,13 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
   if (!expression) return std::unexpected(expression.error());
   cfg.expression = std::move(*expression);
 
-  bool has_print_action = ctx.get<bool>("-print", false) ||
-                          ctx.get<bool>("-print0", false) || ctx.has("-printf");
+  if (auto ok = prepare_file_output_actions(*cfg.expression, cfg); !ok) {
+    return std::unexpected(ok.error());
+  }
+
+  bool has_print_action =
+      ctx.get<bool>("-print", false) || ctx.get<bool>("-print0", false) ||
+      ctx.has("-fprint") || ctx.has("-fprint0") || ctx.has("-printf");
   if (!has_print_action && !cfg.delete_action && cfg.exec_actions.empty()) {
     cfg.has_print = true;  // default action
   }
@@ -1470,9 +1526,6 @@ auto path_display(const std::filesystem::path& p) -> std::string {
   auto s = p.generic_string();
   if (s.empty()) return ".";
   std::replace(s.begin(), s.end(), '\\', '/');
-  if (s.size() >= 2 && s[0] == '.' && s[1] == '/') {
-    s[1] = '\\';
-  }
   return s;
 }
 
@@ -1546,6 +1599,8 @@ auto modification_age_units(const std::filesystem::directory_entry& e,
 }
 
 auto print_path(std::string_view path, bool null_terminated) -> void;
+auto write_find_output_file(Config& cfg, const std::string& path,
+                            std::string_view text) -> bool;
 auto printf_path(std::string_view format, const std::filesystem::path& p,
                  const std::filesystem::directory_entry& e, int depth,
                  const std::filesystem::path& root) -> void;
@@ -1677,6 +1732,18 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       print_path(path_display(p), true);
       return true;
 
+    case ExprKind::FPrint: {
+      std::string text(path_display(p));
+      text.push_back(char{10});
+      return write_find_output_file(cfg, expr.text, text);
+    }
+
+    case ExprKind::FPrint0: {
+      std::string text(path_display(p));
+      text.push_back(char{0});
+      return write_find_output_file(cfg, expr.text, text);
+    }
+
     case ExprKind::Printf:
       printf_path(expr.text, p, e, depth, root);
       return true;
@@ -1775,6 +1842,32 @@ auto entry_matches(Config& cfg, const std::filesystem::path& p,
     if (!age || !numeric_matches(*cfg.mmin_filter, *age)) return false;
   }
 
+  return true;
+}
+
+auto write_find_output_file(Config& cfg, const std::string& path,
+                            std::string_view text) -> bool {
+  auto it = cfg.output_files.find(path);
+  if (it == cfg.output_files.end()) {
+    if (auto ok = prepare_find_output_file(cfg, path); !ok) {
+      safeErrorPrint("find: cannot open output file " + path + "\n");
+      cfg.had_error = true;
+      return false;
+    }
+    it = cfg.output_files.find(path);
+  }
+  if (it == cfg.output_files.end() || !it->second || !it->second->is_open()) {
+    safeErrorPrint("find: cannot open output file " + path + "\n");
+    cfg.had_error = true;
+    return false;
+  }
+  auto& out = *it->second;
+  out.write(text.data(), static_cast<std::streamsize>(text.size()));
+  if (!out.good()) {
+    safeErrorPrint("find: cannot write output file " + path + "\n");
+    cfg.had_error = true;
+    return false;
+  }
   return true;
 }
 

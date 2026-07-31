@@ -147,6 +147,7 @@ PROBES = [
     Probe("find", "empty predicate printf", ["tree", "-empty", "-printf", "%P|%y\\n"], "tree"),
     Probe("find", "prune or branch", ["tree", "-name", "dir_010", "-prune", "-o", "-type", "f", "-name", "*.txt", "-printf", "%P\\n"], "tree"),
     Probe("find", "xtype regular predicate", ["tree", "-xtype", "f", "-name", "*.txt"], "tree"),
+    Probe("find", "fprint0 action state", [".", "-type", "f", "-name", "*.txt", "-fprint0", "find-fprint0.out"], "tree", isolated=True, compare_stdout=False),
     Probe("ls", "recursive tree listing", ["-R", "tree"], "tree"),
     Probe("tee", "stdin to stdout and literal dash file", ["-"], "text", stdin_file="big.txt"),
     Probe(
@@ -1111,11 +1112,20 @@ def write_sort_fixture(root: Path) -> None:
 def write_tree_fixture(root: Path) -> None:
     tree = root / "tree"
     marker = tree / ".fixture-complete"
+    def ensure_template() -> None:
+        template = root / "tree-template"
+        template_marker = template / ".fixture-complete"
+        if template_marker.is_file():
+            return
+        if template.exists():
+            remove_tree(template)
+        shutil.copytree(tree, template)
     if marker.is_file():
         (tree / "empty_dir").mkdir(parents=True, exist_ok=True)
         empty_file = tree / "empty.txt"
         if not empty_file.is_file() or empty_file.stat().st_size != 0:
             empty_file.write_bytes(b"")
+        ensure_template()
         return
     if tree.exists():
         remove_tree(tree)
@@ -1132,6 +1142,7 @@ def write_tree_fixture(root: Path) -> None:
     (tree / "empty_dir").mkdir(parents=True, exist_ok=True)
     (tree / "empty.txt").write_bytes(b"")
     marker.write_text("ok\n", encoding="utf-8")
+    ensure_template()
 
 
 def write_xargs_fixture(root: Path) -> None:

@@ -1159,7 +1159,7 @@ TEST(find, find_print0_uses_nul_separator) {
   EXPECT_EQ(r.stdout_text, std::string("a/with space.txt\0", 17));
 }
 
-TEST(find, find_default_print_uses_microsoft_style_current_dir_prefix) {
+TEST(find, find_default_print_uses_gnu_style_current_dir_prefix) {
   TempDir tmp;
   tmp.write("sample.txt", "x");
   tmp.write("sortable.txt", "y");
@@ -1170,8 +1170,8 @@ TEST(find, find_default_print_uses_microsoft_style_current_dir_prefix) {
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find(".\\sample.txt\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find(".\\sortable.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("./sample.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("./sortable.txt\n") != std::string::npos);
 }
 
 TEST(find, find_printf_formats_common_file_fields) {
@@ -1810,6 +1810,33 @@ TEST(find, find_expression_scopes_print0_to_branch) {
   EXPECT_EQ(r.stdout_text, std::string("a.txt\0", 6));
 }
 
+TEST(find, find_fprint_actions_write_to_file_and_suppress_default_print) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/a.txt", "a");
+  tmp.write("src/b.log", "b");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"src", L"-type", L"f", L"-name", L"*.txt", L"-fprint", L"out.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "");
+  EXPECT_EQ_TEXT(tmp.read("out.txt"), "src/a.txt\n");
+}
+TEST(find, find_fprint0_writes_nul_separated_paths) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/a.txt", "a");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"src", L"-type", L"f", L"-name", L"*.txt", L"-fprint0", L"out.bin"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "");
+  EXPECT_EQ(tmp.read("out.bin"), std::string("src/a.txt\0", 10));
+}
 TEST(find, find_expression_scopes_printf_to_branch) {
   TempDir tmp;
   tmp.write("a.txt", "x");
