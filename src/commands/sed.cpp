@@ -81,6 +81,7 @@ struct Script {
   bool global = false;              // for Subst
   size_t occurrence = 0;            // for Subst; 0 means first/all
   bool print_on_match = false;      // for Subst
+  std::string subst_write_file;     // for s///w FILE
   int quit_exit_code = 0;           // for q/Q
   size_t list_line_length = std::numeric_limits<size_t>::max();  // for l
   bool invert_address = false;                                   // for address!
@@ -270,6 +271,7 @@ auto parse_subst(std::string_view expr, portable_regex::Syntax syntax,
 
   bool g = false, pflag = false, ignore_case = false;
   size_t occurrence = 0;
+  std::string write_file;
   for (; i < expr.size(); ++i) {
     char f = expr[i];
     if (f == 'g') {
@@ -278,6 +280,13 @@ auto parse_subst(std::string_view expr, portable_regex::Syntax syntax,
       pflag = true;
     } else if (f == 'I' || f == 'i') {
       ignore_case = true;
+    } else if (f == 'w') {
+      std::string_view path = trim_left_space(expr.substr(i + 1));
+      if (path.empty()) {
+        return std::unexpected("missing filename in s command w flag");
+      }
+      write_file = std::string(path);
+      break;
     } else if (std::isdigit(static_cast<unsigned char>(f)) != 0) {
       size_t start = i;
       while (i < expr.size() &&
@@ -327,6 +336,7 @@ auto parse_subst(std::string_view expr, portable_regex::Syntax syntax,
   s.global = g;
   s.occurrence = occurrence;
   s.print_on_match = pflag;
+  s.subst_write_file = std::move(write_file);
   if (!effective_ignore_case && is_literal_substitution_pattern(pat, syntax) &&
       is_literal_replacement(repl)) {
     s.literal_pattern = std::move(pat);
@@ -1634,6 +1644,13 @@ auto run_scripts_for_cycle(ExecutionContext& ctx) -> void {
           if (s.print_on_match && changed) {
             append_output(ctx, ctx.current, true);
           }
+          if (!s.subst_write_file.empty() && changed) {
+            std::string text = pattern_with_terminator(
+                ctx.current, ctx.current_had_delimiter, ctx.cfg.delimiter);
+            ctx.runtime.io_error = !write_file_once_truncated(
+                                       ctx.runtime, s.subst_write_file, text) ||
+                                   ctx.runtime.io_error;
+          }
         }
         break;
       }
@@ -1843,6 +1860,7 @@ auto can_use_literal_stream_fast_path(const Config& cfg) -> bool {
   const auto& script = cfg.scripts.front();
   return script.kind == Script::Kind::Subst && script.literal_substitution &&
          !script.print_on_match && !script.invert_address &&
+         script.subst_write_file.empty() &&
          script.addr1.kind == Script::Address::Kind::None &&
          script.addr2.kind == Script::Address::Kind::None;
 }

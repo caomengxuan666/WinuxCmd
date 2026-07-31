@@ -1022,6 +1022,18 @@ TEST(sed, write_file_commands_write_pattern_and_first_segment) {
   EXPECT_EQ_TEXT(tmp.read("first.txt"), "a\n");
 }
 
+TEST(sed, substitution_write_flag_writes_replaced_pattern_space) {
+  TempDir tmp;
+  tmp.write("a.txt", "foo\nbar\nfoo\n");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"s/foo/baz/w hits.txt", L"a.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "baz\nbar\nbaz\n");
+  EXPECT_EQ_TEXT(tmp.read("hits.txt"), "baz\nbaz\n");
+}
+
 TEST(sed, read_file_line_command_consumes_external_file_across_cycles) {
   TempDir tmp;
   tmp.write("a.txt", "a\nb\nc\n");

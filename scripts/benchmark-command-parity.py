@@ -119,6 +119,7 @@ PROBES = [
     Probe("sed", "global literal substitution", ["s/needle/NEEDLE/g", "big.txt"], "text"),
     Probe("sed", "zero address regex range", ["0,/foo/s/foo/XX/", "sed-zero-range.txt"], "text"),
     Probe("sed", "filename command", ["-n", "F", "sed-file-a.txt", "sed-file-b.txt"], "text"),
+    Probe("sed", "substitution write flag", ["s/needle/NEEDLE/w sed-subst-write.out", "sed-subst-write.txt"], "textops", isolated=True),
     Probe("wc", "line byte word counts", ["-lwm", "big.txt"], "text"),
     Probe("wc", "byte count fast path", ["-c", "big.txt"], "text"),
     Probe("wc", "line and byte fast path", ["-lc", "big.txt"], "text"),
@@ -1225,7 +1226,7 @@ def write_textops_fixture(root: Path) -> None:
 
     template = root / "textops-template"
     marker = template / ".fixture-complete"
-    if marker.is_file():
+    if marker.is_file() and (template / "sed-subst-write.txt").is_file():
         return
     if template.exists():
         remove_tree(template)
@@ -1242,6 +1243,9 @@ def write_textops_fixture(root: Path) -> None:
         "intro one\nintro two\nMARK first\nbody one\nMARK second\nbody two\n",
         encoding="utf-8",
         newline="\n",
+    )
+    (template / "sed-subst-write.txt").write_text(
+        "needle one\nother\nneedle two\n", encoding="utf-8", newline="\n"
     )
     marker.write_text("ok\n", encoding="utf-8", newline="\n")
 
