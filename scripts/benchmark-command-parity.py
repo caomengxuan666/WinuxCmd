@@ -112,6 +112,7 @@ class ProbeResult:
 PROBES = [
     Probe("cat", "large file passthrough", ["big.txt"], "text"),
     Probe("cat", "number final unterminated line", ["-n", "cat-no-newline.txt"], "text"),
+    Probe("cat", "show all visible transform", ["-A", "cat-visible.bin"], "text"),
     Probe("grep", "fixed literal search", ["-F", "needle_999", "big.txt"], "text"),
     Probe("grep", "fixed pattern file many literals", ["-F", "-f", "grep-many-patterns.txt", "big.txt"], "text"),
     Probe("grep", "extended regex alternation", ["-E", "needle_(123|999)", "big.txt"], "text"),
@@ -1020,6 +1021,11 @@ def detect_cmake_build_type(build_dir: Path) -> str:
 
 
 def write_text_fixture(root: Path) -> None:
+    visible_path = root / "cat-visible.bin"
+    expected_visible = b"A\tB\r\n\x7f\x80\xff\n\n\nZ\n" * 8192
+    if not visible_path.is_file() or visible_path.read_bytes() != expected_visible:
+        visible_path.write_bytes(expected_visible)
+
     path = root / "big.txt"
     if not path.is_file() or path.stat().st_size <= 1_000_000:
         lines = []
