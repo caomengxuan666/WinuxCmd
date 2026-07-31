@@ -149,6 +149,10 @@ PROBES = [
     Probe("find", "xtype regular predicate", ["tree", "-xtype", "f", "-name", "*.txt"], "tree"),
     Probe("find", "fprint0 action state", [".", "-type", "f", "-name", "*.txt", "-fprint0", "find-fprint0.out"], "tree", isolated=True, compare_stdout=False),
     Probe("ls", "recursive tree listing", ["-R", "tree"], "tree"),
+    Probe("ls", "size sort single-column", ["-1S", "ls-fixture"], "ls"),
+    Probe("ls", "mtime sort single-column", ["-1t", "ls-fixture"], "ls"),
+    Probe("ls", "comma format wrapping", ["-m", "-w", "40", "ls-fixture"], "ls"),
+    Probe("ls", "horizontal format wrapping", ["-x", "-w", "40", "ls-fixture"], "ls"),
     Probe("tee", "stdin to stdout and literal dash file", ["-"], "text", stdin_file="big.txt"),
     Probe(
         "tee",
@@ -1145,6 +1149,25 @@ def write_tree_fixture(root: Path) -> None:
     ensure_template()
 
 
+def write_ls_fixture(root: Path) -> None:
+    ls_dir = root / "ls-fixture"
+    marker = ls_dir / ".fixture-complete"
+    expected = {
+        "alpha.txt": (b"a", 1_700_000_000),
+        "beta.log": (b"b" * 200, 1_710_000_000),
+        "gamma.bin": (b"g" * 20, 1_720_000_000),
+        "README": (b"readme", 1_705_000_000),
+    }
+    if marker.is_file() and all((ls_dir / name).is_file() for name in expected):
+        return
+    if ls_dir.exists():
+        remove_tree(ls_dir)
+    ls_dir.mkdir(parents=True, exist_ok=True)
+    for name, (payload, ts) in expected.items():
+        path = ls_dir / name
+        path.write_bytes(payload)
+        os.utime(path, (ts, ts))
+    marker.write_text("ok\n", encoding="utf-8", newline="\n")
 def write_xargs_fixture(root: Path) -> None:
     item_count = 5_000
     words = root / "xargs-words.txt"
@@ -1491,6 +1514,7 @@ FIXTURE_WRITERS: dict[str, Callable[[Path], None]] = {
     "table": write_table_fixture,
     "sort": write_sort_fixture,
     "tree": write_tree_fixture,
+    "ls": write_ls_fixture,
     "xargs": write_xargs_fixture,
     "rev": write_rev_fixture,
     "textops": write_textops_fixture,
