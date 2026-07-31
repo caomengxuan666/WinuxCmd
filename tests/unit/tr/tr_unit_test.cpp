@@ -273,3 +273,19 @@ TEST(tr, tr_reverse_range_reports_gnu_shaped_diagnostic) {
       r.stderr_text,
       "tr: range-endpoints of 'z-a' are in reverse collating sequence order\n");
 }
+
+TEST(tr, tr_delete_carriage_returns_from_binary_stdin) {
+  Pipeline p;
+  p.set_stdin("a\rb\r\nc");
+  p.add(L"tr.exe", {L"-d", L"\\r"});
+
+  TEST_LOG_CMD_LIST("tr.exe", L"-d", L"\\r");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("tr delete CR output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "ab\nc");
+}

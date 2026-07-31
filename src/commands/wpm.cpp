@@ -561,7 +561,8 @@ auto remove_links(const fs::path& root, bool dry_run) -> int {
 
 auto allow_progress_bar_output() -> bool {
   auto terminal = get_terminal_info();
-  return terminal.is_tty || GetEnvironmentVariableA("WT_SESSION", nullptr, 0) > 0 ||
+  return terminal.is_tty ||
+         GetEnvironmentVariableA("WT_SESSION", nullptr, 0) > 0 ||
          GetEnvironmentVariableA("WINUXSH_WPM_PROGRESS", nullptr, 0) > 0;
 }
 
@@ -743,8 +744,7 @@ auto response_header(HINTERNET request, DWORD query)
   DWORD size = 0;
   SetLastError(ERROR_SUCCESS);
   WinHttpQueryHeaders(request, query, WINHTTP_HEADER_NAME_BY_INDEX,
-                      WINHTTP_NO_OUTPUT_BUFFER, &size,
-                      WINHTTP_NO_HEADER_INDEX);
+                      WINHTTP_NO_OUTPUT_BUFFER, &size, WINHTTP_NO_HEADER_INDEX);
   if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || size == 0) {
     return std::nullopt;
   }
@@ -759,8 +759,8 @@ auto response_header(HINTERNET request, DWORD query)
   return value;
 }
 
-auto redirect_url(std::wstring_view location, bool https, std::wstring_view host,
-                  INTERNET_PORT port) -> std::string {
+auto redirect_url(std::wstring_view location, bool https,
+                  std::wstring_view host, INTERNET_PORT port) -> std::string {
   auto location_utf8 = wstring_to_utf8(location);
   if (starts_with_ci(location_utf8, "http://") ||
       starts_with_ci(location_utf8, "https://")) {
@@ -773,9 +773,8 @@ auto redirect_url(std::wstring_view location, bool https, std::wstring_view host
   } else {
     absolute += L"//";
     absolute += host;
-    bool default_port =
-        (https && port == INTERNET_DEFAULT_HTTPS_PORT) ||
-        (!https && port == INTERNET_DEFAULT_HTTP_PORT);
+    bool default_port = (https && port == INTERNET_DEFAULT_HTTPS_PORT) ||
+                        (!https && port == INTERNET_DEFAULT_HTTP_PORT);
     if (!default_port) absolute += L":" + std::to_wstring(port);
     if (!location.empty() && location.front() != L'/') absolute += L"/";
     absolute += std::wstring(location);
@@ -953,11 +952,9 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     }
     result.data.resize(old_size + read);
     if (progress && expected_bytes) {
-      auto percent = static_cast<int>(
-          std::min<unsigned long long>(
-              100, (static_cast<unsigned long long>(result.data.size()) *
-                    100) /
-                       *expected_bytes));
+      auto percent = static_cast<int>(std::min<unsigned long long>(
+          100, (static_cast<unsigned long long>(result.data.size()) * 100) /
+                   *expected_bytes));
       if (percent != last_percent) {
         progress->update(percent);
         last_percent = percent;
@@ -1241,8 +1238,8 @@ auto download_artifact(const fs::path& root, const std::string& package,
 }
 
 auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
-                          const nlohmann::json& artifact, bool force,
-                          bool dry_run) -> bool {
+                         const nlohmann::json& artifact, bool force,
+                         bool dry_run) -> bool {
   if (!artifact.contains("files") || !artifact["files"].is_array()) {
     safeErrorPrintLn("wpm: artifact has no files mapping");
     return false;
@@ -1429,11 +1426,9 @@ auto install_package(const Options& opts, std::string_view package_name)
 
   auto artifact = artifact_for_current_arch(*pkg);
   if (!artifact) return 1;
-  auto preflight =
-      preflight_install_destinations(opts.root, *artifact,
-                                     pkg->value("name",
-                                                std::string(package_name)),
-                                     opts.force);
+  auto preflight = preflight_install_destinations(
+      opts.root, *artifact, pkg->value("name", std::string(package_name)),
+      opts.force);
   if (preflight) return *preflight;
 
   auto downloaded = download_artifact(opts.root, pkg->value("name", ""),
@@ -1926,8 +1921,7 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return 1;
   }
   if (args[0] == "update" || args[0] == "upgrade") {
-    if (args.size() >= 2 &&
-        (args[1] == "winuxcmd" || args[1] == "coreutils")) {
+    if (args.size() >= 2 && (args[1] == "winuxcmd" || args[1] == "coreutils")) {
       return update_winuxcmd(opts);
     }
     safeErrorPrintLn("wpm: usage: wpm update winuxcmd");

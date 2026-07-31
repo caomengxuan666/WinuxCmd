@@ -25,6 +25,30 @@
  */
 #include "framework/winuxtest.h"
 
+namespace {
+
+auto slash_drive_path(const std::filesystem::path& path) -> std::wstring {
+  auto text = path.generic_wstring();
+  if (text.size() >= 3 && text[1] == L':' &&
+      (text[2] == L'/' || text[2] == L'\\') &&
+      ((text[0] >= L'A' && text[0] <= L'Z') ||
+       (text[0] >= L'a' && text[0] <= L'z'))) {
+    std::wstring out;
+    out.reserve(text.size());
+    out.push_back(L'/');
+    wchar_t drive = text[0];
+    if (drive >= L'A' && drive <= L'Z') {
+      drive = static_cast<wchar_t>(drive - L'A' + L'a');
+    }
+    out.push_back(drive);
+    out.append(text.substr(2));
+    return out;
+  }
+  return text;
+}
+
+}  // namespace
+
 TEST(mktemp, mktemp_basic) {
   TempDir tmp;
 
@@ -180,4 +204,24 @@ TEST(mktemp, mktemp_template_with_directory_prints_relative_path) {
               created.starts_with("nested/"));
   EXPECT_TRUE(
       std::filesystem::exists(tmp.path / std::filesystem::u8path(created)));
+}
+
+TEST(mktemp, mktemp_slash_drive_template_outputs_native_path) {
+  TempDir tmp;
+  auto out_dir = tmp.path / "out";
+  std::filesystem::create_directory(out_dir);
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"mktemp.exe", {slash_drive_path(out_dir) + L"/file-XXXX"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+  std::string created = r.stdout_text;
+  if (!created.empty() && created.back() == '\n') {
+    created.pop_back();
+  }
+  EXPECT_FALSE(created.starts_with("/c/"));
+  EXPECT_TRUE(created.size() >= 3 && created[1] == ':' && created[2] == '/');
+  EXPECT_TRUE(created.find("/file-") != std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(std::filesystem::u8path(created)));
 }
