@@ -110,6 +110,56 @@ auto getenv_path(std::wstring_view name) -> std::optional<std::string> {
   return normalize_win_shell_path(wstring_to_utf8(value));
 }
 
+auto long_existing_prefix_path(std::filesystem::path path)
+    -> std::filesystem::path {
+  std::vector<std::filesystem::path> suffix;
+  std::error_code ec;
+  while (!path.empty() && !std::filesystem::exists(path, ec)) {
+    suffix.push_back(path.filename());
+    auto parent = path.parent_path();
+    if (parent == path) break;
+    path = parent;
+    ec.clear();
+  }
+
+  if (!path.empty()) {
+    std::wstring base = path.wstring();
+    DWORD needed = GetLongPathNameW(base.c_str(), nullptr, 0);
+    if (needed > 0) {
+      std::wstring buffer(needed, wchar_t{});
+      DWORD written = GetLongPathNameW(base.c_str(), buffer.data(), needed);
+      if (written > 0 && written < needed) {
+        buffer.resize(written);
+        path = std::filesystem::path(buffer);
+      }
+    }
+  }
+
+  for (auto it = suffix.rbegin(); it != suffix.rend(); ++it) {
+    path /= *it;
+  }
+  return path;
+}
+
+auto native_display_path(const std::filesystem::path& path) -> std::string {
+  return long_existing_prefix_path(path).generic_string();
+}
+
+auto random_index(size_t limit) -> size_t {
+  static thread_local std::mt19937 rng([] {
+    std::array<std::uint32_t, 8> seed_data{};
+    std::random_device rd;
+    for (auto& value : seed_data) {
+      value = rd();
+    }
+    seed_data[6] ^= static_cast<std::uint32_t>(GetCurrentProcessId());
+    seed_data[7] ^= static_cast<std::uint32_t>(GetTickCount());
+    std::seed_seq seed(seed_data.begin(), seed_data.end());
+    return std::mt19937(seed);
+  }());
+  std::uniform_int_distribution<size_t> dist(0, limit - 1);
+  return dist(rng);
+}
 auto default_temporary_directory() -> cp::Result<std::string> {
   if (auto tmpdir = getenv_path(L"TMPDIR")) {
     return *tmpdir;
@@ -132,7 +182,7 @@ auto default_temporary_directory() -> cp::Result<std::string> {
   if (buffer.empty()) {
     return std::unexpected("failed to get temporary directory");
   }
-  return wstring_to_utf8(buffer);
+  return native_display_path(std::filesystem::path(buffer));
 }
 
 auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
@@ -252,14 +302,14 @@ auto run(const Config& cfg) -> int {
     const char charset[] = "abcdefghijklmnopqrstuvwxyz0123456789";
 
     for (size_t i = 0; i < xxx_len; ++i) {
-      filename[xxx_pos + i] = charset[rand() % (sizeof(charset) - 1)];
+      filename[xxx_pos + i] = charset[random_index(sizeof(charset) - 1)];
     }
 
     // Build full path
     std::filesystem::path candidate_path =
         base_dir.empty() ? std::filesystem::path(filename)
                          : (base_dir / std::filesystem::path(filename));
-    temp_file = candidate_path.generic_string();
+    temp_file = native_display_path(candidate_path);
 
     // Check if file/directory already exists
     DWORD attrs = GetFileAttributesA(temp_file.c_str());
