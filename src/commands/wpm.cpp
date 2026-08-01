@@ -1491,31 +1491,19 @@ auto launch_apply_update(const fs::path& staged_exe, const fs::path& root,
 }
 
 auto update_winuxcmd(const Options& opts) -> int {
+  if (!refresh_index_once(opts,
+                          "checking for latest winuxcmd package metadata")) {
+    return 1;
+  }
+
   auto index = load_index(opts.root);
   auto pkg = find_package(index, "winuxcmd");
-  bool refreshed = false;
-  if (!pkg) {
-    refreshed = refresh_index_once(opts, "winuxcmd missing from local index");
-    if (refreshed) {
-      index = load_index(opts.root);
-      pkg = find_package(index, "winuxcmd");
-    }
-  }
   if (!pkg) {
     safeErrorPrintLn("wpm: winuxcmd package missing after index update");
     return 1;
   }
 
   auto state = artifact_install_state(*pkg);
-  if (state != "ready" && !refreshed) {
-    refreshed =
-        refresh_index_once(opts, "winuxcmd metadata is not installable");
-    if (refreshed) {
-      index = load_index(opts.root);
-      pkg = find_package(index, "winuxcmd");
-      if (pkg) state = artifact_install_state(*pkg);
-    }
-  }
   if (state != "ready") {
     safeErrorPrintLn("wpm: winuxcmd is not installable for " +
                      detect_arch_key() + ": " + state);
@@ -1600,13 +1588,24 @@ auto apply_update(std::span<const std::string_view> args) -> int {
     }
   }
 
-  remove_links(root, false);
+  if (remove_links(root, false) != 0) {
+    safeErrorPrintLn("wpm: failed to remove existing command links");
+    rebuild_links(root, true, false, false);
+    return 1;
+  }
   fs::copy_file(payload, target, fs::copy_options::overwrite_existing, ec);
   if (ec) {
     safeErrorPrintLn("wpm: failed to replace winuxcmd.exe: " + ec.message());
+    std::error_code restore_ec;
     if (fs::exists(backup, ec)) {
-      fs::copy_file(backup, target, fs::copy_options::overwrite_existing, ec);
+      fs::copy_file(backup, target, fs::copy_options::overwrite_existing,
+                    restore_ec);
+      if (restore_ec) {
+        safeErrorPrintLn("wpm: failed to restore backup winuxcmd.exe: " +
+                         restore_ec.message());
+      }
     }
+    rebuild_links(root, true, false, false);
     return 1;
   }
   return rebuild_links(root, true, false, false);
