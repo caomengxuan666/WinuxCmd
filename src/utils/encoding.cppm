@@ -66,51 +66,95 @@ constexpr int8_t DECODE_TABLE[256] = {
  * @param wrap Line wrap width (0 for no wrapping)
  * @return Base64 encoded string
  */
-inline std::string base64_encode(std::span<const uint8_t> data, int wrap = 0) {
-  std::string result;
-  result.reserve(((data.size() + 2) / 3) * 4);
+inline size_t wrapped_encoded_size(size_t encoded_size, int wrap) {
+  if (encoded_size == 0 || wrap <= 0) return encoded_size;
+  return encoded_size + ((encoded_size - 1) / static_cast<size_t>(wrap));
+}
 
-  for (size_t i = 0; i < data.size(); i += 3) {
-    uint32_t triple = 0;
-    int padding = 0;
+/**
+ * @brief Encode data to base64 with a caller-provided alphabet
+ * @param data Input data to encode
+ * @param alphabet 64-character encoding alphabet
+ * @param wrap Line wrap width (0 for no wrapping)
+ * @return Base64 encoded string
+ */
+inline std::string base64_encode(std::span<const uint8_t> data,
+                                 std::string_view alphabet, int wrap = 0) {
+  const size_t encoded_size = ((data.size() + 2) / 3) * 4;
+  const size_t wrap_width = wrap > 0 ? static_cast<size_t>(wrap) : 0;
+  const char* alpha = alphabet.data();
+  std::string result(wrapped_encoded_size(encoded_size, wrap), '\0');
+  size_t out = 0;
+  size_t column = 0;
 
-    for (int j = 0; j < 3; ++j) {
-      if (i + j < data.size()) {
-        triple |= static_cast<uint32_t>(data[i + j]) << (16 - 8 * j);
-      } else {
-        padding++;
-      }
+  const size_t full_size = (data.size() / 3) * 3;
+  if (wrap_width == 0) {
+    for (size_t i = 0; i < full_size; i += 3) {
+      const uint8_t b0 = data[i];
+      const uint8_t b1 = data[i + 1];
+      const uint8_t b2 = data[i + 2];
+      result[out++] = alpha[b0 >> 2];
+      result[out++] = alpha[((b0 & 0x03) << 4) | (b1 >> 4)];
+      result[out++] = alpha[((b1 & 0x0f) << 2) | (b2 >> 6)];
+      result[out++] = alpha[b2 & 0x3f];
     }
-
-    result += base64_detail::ENCODE_TABLE[(triple >> 18) & 0x3F];
-    result += base64_detail::ENCODE_TABLE[(triple >> 12) & 0x3F];
-
-    if (padding >= 2) {
-      result += '=';
-      result += '=';
-    } else {
-      result += base64_detail::ENCODE_TABLE[(triple >> 6) & 0x3F];
-      if (padding >= 1) {
-        result += '=';
-      } else {
-        result += base64_detail::ENCODE_TABLE[triple & 0x3F];
+  } else if ((wrap_width % 4) == 0) {
+    for (size_t i = 0; i < full_size; i += 3) {
+      if (column == wrap_width) {
+        result[out++] = '\n';
+        column = 0;
+      }
+      const uint8_t b0 = data[i];
+      const uint8_t b1 = data[i + 1];
+      const uint8_t b2 = data[i + 2];
+      result[out++] = alpha[b0 >> 2];
+      result[out++] = alpha[((b0 & 0x03) << 4) | (b1 >> 4)];
+      result[out++] = alpha[((b1 & 0x0f) << 2) | (b2 >> 6)];
+      result[out++] = alpha[b2 & 0x3f];
+      column += 4;
+    }
+  } else {
+    for (size_t i = 0; i < full_size; i += 3) {
+      const uint8_t b0 = data[i];
+      const uint8_t b1 = data[i + 1];
+      const uint8_t b2 = data[i + 2];
+      char quartet[4] = {
+          alpha[b0 >> 2],
+          alpha[((b0 & 0x03) << 4) | (b1 >> 4)],
+          alpha[((b1 & 0x0f) << 2) | (b2 >> 6)],
+          alpha[b2 & 0x3f],
+      };
+      for (char c : quartet) {
+        if (column == wrap_width) {
+          result[out++] = '\n';
+          column = 0;
+        }
+        result[out++] = c;
+        ++column;
       }
     }
   }
 
-  // Add line wrapping if requested
-  if (wrap > 0) {
-    std::string wrapped;
-    for (size_t i = 0; i < result.size(); i += static_cast<size_t>(wrap)) {
-      if (!wrapped.empty()) {
-        wrapped += '\n';
-      }
-      wrapped += result.substr(i, static_cast<size_t>(wrap));
+  const size_t remaining = data.size() - full_size;
+  if (remaining > 0) {
+    if (wrap_width > 0 && column == wrap_width) {
+      result[out++] = '\n';
+      column = 0;
     }
-    return wrapped;
+    const uint8_t b0 = data[full_size];
+    const uint8_t b1 = remaining == 2 ? data[full_size + 1] : 0;
+    result[out++] = alpha[b0 >> 2];
+    result[out++] = alpha[((b0 & 0x03) << 4) | (b1 >> 4)];
+    result[out++] = remaining == 2 ? alpha[(b1 & 0x0f) << 2] : '=';
+    result[out++] = '=';
   }
 
+  result.resize(out);
   return result;
+}
+inline std::string base64_encode(std::span<const uint8_t> data, int wrap = 0) {
+  return base64_encode(data, std::string_view(base64_detail::ENCODE_TABLE, 64),
+                       wrap);
 }
 
 /**
@@ -181,76 +225,125 @@ constexpr signed char DECODE_TABLE[256] = {
  * @param wrap Line wrap width (0 for no wrapping)
  * @return Base32 encoded string
  */
-inline std::string base32_encode(std::span<const uint8_t> data, int wrap = 0) {
-  std::string result;
-  size_t i = 0;
+inline std::string base32_encode(std::span<const uint8_t> data,
+                                 std::string_view alphabet, int wrap = 0) {
+  const size_t encoded_size = ((data.size() + 4) / 5) * 8;
+  const size_t wrap_width = wrap > 0 ? static_cast<size_t>(wrap) : 0;
+  const char* alpha = alphabet.data();
+  const char pad = char{61};
+  const char nl = char{10};
+  std::string result(wrapped_encoded_size(encoded_size, wrap), char{0});
+  size_t out = 0;
+  size_t column = 0;
 
-  while (i < data.size()) {
-    // Process 5 bytes at a time
-    uint8_t block[5] = {0};
-    size_t block_size = 0;
-
-    for (size_t j = 0; j < 5 && i < data.size(); ++j, ++i) {
-      block[j] = data[i];
-      block_size++;
+  const size_t full_size = (data.size() / 5) * 5;
+  if (wrap_width == 0) {
+    for (size_t i = 0; i < full_size; i += 5) {
+      const uint8_t b0 = data[i];
+      const uint8_t b1 = data[i + 1];
+      const uint8_t b2 = data[i + 2];
+      const uint8_t b3 = data[i + 3];
+      const uint8_t b4 = data[i + 4];
+      result[out++] = alpha[(b0 >> 3) & 0x1f];
+      result[out++] = alpha[((b0 & 0x07) << 2) | (b1 >> 6)];
+      result[out++] = alpha[(b1 >> 1) & 0x1f];
+      result[out++] = alpha[((b1 & 0x01) << 4) | (b2 >> 4)];
+      result[out++] = alpha[((b2 & 0x0f) << 1) | (b3 >> 7)];
+      result[out++] = alpha[(b3 >> 2) & 0x1f];
+      result[out++] = alpha[((b3 & 0x03) << 3) | (b4 >> 5)];
+      result[out++] = alpha[b4 & 0x1f];
     }
-
-    // Encode to 8 characters
-    uint8_t b0 = block[0];
-    uint8_t b1 = block[1];
-    uint8_t b2 = block[2];
-    uint8_t b3 = block[3];
-    uint8_t b4 = block[4];
-
-    if (block_size >= 1) {
-      result += base32_detail::ALPHABET[(b0 >> 3) & 0x1F];
-      result += base32_detail::ALPHABET[((b0 & 0x07) << 2) |
-                                        (block_size >= 2 ? (b1 >> 6) : 0)];
-    }
-    if (block_size >= 2) {
-      result += base32_detail::ALPHABET[(b1 >> 1) & 0x1F];
-      result += base32_detail::ALPHABET[((b1 & 0x01) << 4) |
-                                        (block_size >= 3 ? (b2 >> 4) : 0)];
-    }
-    if (block_size >= 3) {
-      result += base32_detail::ALPHABET[((b2 & 0x0F) << 1) |
-                                        (block_size >= 4 ? (b3 >> 7) : 0)];
-      result +=
-          base32_detail::ALPHABET[(block_size >= 4) ? ((b3 >> 2) & 0x1F) : '='];
-    }
-    if (block_size >= 4) {
-      result += base32_detail::ALPHABET[((b3 & 0x03) << 3) |
-                                        (block_size >= 5 ? (b4 >> 5) : 0)];
-      result += base32_detail::ALPHABET[(block_size >= 5) ? (b4 & 0x1F) : '='];
-    }
-
-    // Add padding if needed
-    if (block_size == 1) {
-      result.append(6, '=');
-    } else if (block_size == 2) {
-      result.append(4, '=');
-    } else if (block_size == 3) {
-      result.append(3, '=');
-    } else if (block_size == 4) {
-      result.append(1, '=');
-    }
-  }
-
-  // Add line wrapping if requested
-  if (wrap > 0) {
-    std::string wrapped;
-    for (size_t j = 0; j < result.size(); j += static_cast<size_t>(wrap)) {
-      if (!wrapped.empty()) {
-        wrapped += '\n';
+  } else if ((wrap_width % 8) == 0) {
+    for (size_t i = 0; i < full_size; i += 5) {
+      if (column == wrap_width) {
+        result[out++] = nl;
+        column = 0;
       }
-      wrapped += result.substr(j, static_cast<size_t>(wrap));
+      const uint8_t b0 = data[i];
+      const uint8_t b1 = data[i + 1];
+      const uint8_t b2 = data[i + 2];
+      const uint8_t b3 = data[i + 3];
+      const uint8_t b4 = data[i + 4];
+      result[out++] = alpha[(b0 >> 3) & 0x1f];
+      result[out++] = alpha[((b0 & 0x07) << 2) | (b1 >> 6)];
+      result[out++] = alpha[(b1 >> 1) & 0x1f];
+      result[out++] = alpha[((b1 & 0x01) << 4) | (b2 >> 4)];
+      result[out++] = alpha[((b2 & 0x0f) << 1) | (b3 >> 7)];
+      result[out++] = alpha[(b3 >> 2) & 0x1f];
+      result[out++] = alpha[((b3 & 0x03) << 3) | (b4 >> 5)];
+      result[out++] = alpha[b4 & 0x1f];
+      column += 8;
     }
-    return wrapped;
+  } else {
+    for (size_t i = 0; i < full_size; i += 5) {
+      const uint8_t b0 = data[i];
+      const uint8_t b1 = data[i + 1];
+      const uint8_t b2 = data[i + 2];
+      const uint8_t b3 = data[i + 3];
+      const uint8_t b4 = data[i + 4];
+      char octet[8] = {
+          alpha[(b0 >> 3) & 0x1f],
+          alpha[((b0 & 0x07) << 2) | (b1 >> 6)],
+          alpha[(b1 >> 1) & 0x1f],
+          alpha[((b1 & 0x01) << 4) | (b2 >> 4)],
+          alpha[((b2 & 0x0f) << 1) | (b3 >> 7)],
+          alpha[(b3 >> 2) & 0x1f],
+          alpha[((b3 & 0x03) << 3) | (b4 >> 5)],
+          alpha[b4 & 0x1f],
+      };
+      for (char c : octet) {
+        if (column == wrap_width) {
+          result[out++] = nl;
+          column = 0;
+        }
+        result[out++] = c;
+        ++column;
+      }
+    }
   }
 
+  const size_t remaining = data.size() - full_size;
+  if (remaining > 0) {
+    if (wrap_width > 0 && column == wrap_width) {
+      result[out++] = nl;
+      column = 0;
+    }
+    const uint8_t b0 = data[full_size];
+    const uint8_t b1 = remaining > 1 ? data[full_size + 1] : 0;
+    const uint8_t b2 = remaining > 2 ? data[full_size + 2] : 0;
+    const uint8_t b3 = remaining > 3 ? data[full_size + 3] : 0;
+    char octet[8] = {
+        alpha[(b0 >> 3) & 0x1f],
+        alpha[((b0 & 0x07) << 2) | (b1 >> 6)],
+        remaining > 1 ? alpha[(b1 >> 1) & 0x1f] : pad,
+        remaining > 1 ? alpha[((b1 & 0x01) << 4) | (b2 >> 4)] : pad,
+        remaining > 2 ? alpha[((b2 & 0x0f) << 1) | (b3 >> 7)] : pad,
+        remaining > 3 ? alpha[(b3 >> 2) & 0x1f] : pad,
+        remaining > 3 ? alpha[(b3 & 0x03) << 3] : pad,
+        pad,
+    };
+    if (wrap_width == 0 || (wrap_width % 8) == 0) {
+      for (char c : octet) result[out++] = c;
+    } else {
+      for (char c : octet) {
+        if (column == wrap_width) {
+          result[out++] = nl;
+          column = 0;
+        }
+        result[out++] = c;
+        ++column;
+      }
+    }
+  }
+
+  result.resize(out);
   return result;
 }
 
+inline std::string base32_encode(std::span<const uint8_t> data, int wrap = 0) {
+  return base32_encode(data, std::string_view(base32_detail::ALPHABET, 32),
+                       wrap);
+}
 /**
  * @brief Decode base32 to data
  * @param encoded Base32 encoded string

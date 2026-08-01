@@ -133,34 +133,22 @@ auto read_input(std::string_view filename)
 auto apply_wrap(std::string_view input, int wrap) -> std::string {
   if (wrap <= 0 || input.empty()) return std::string(input);
 
+  const auto width = static_cast<size_t>(wrap);
   std::string wrapped;
-  for (size_t i = 0; i < input.size(); i += static_cast<size_t>(wrap)) {
+  wrapped.reserve(input.size() + ((input.size() - 1) / width));
+  for (size_t i = 0; i < input.size(); i += width) {
     if (!wrapped.empty()) wrapped.push_back('\n');
-    wrapped.append(input.substr(i, static_cast<size_t>(wrap)));
+    wrapped.append(input.data() + i, std::min(width, input.size() - i));
   }
   return wrapped;
 }
 
 auto encode_base64(std::string_view input, std::string_view alphabet, int wrap)
     -> std::string {
-  std::string result;
-  result.reserve(((input.size() + 2) / 3) * 4);
-
-  for (size_t i = 0; i < input.size(); i += 3) {
-    const size_t block_size = std::min<size_t>(3, input.size() - i);
-    uint32_t triple = static_cast<uint8_t>(input[i]) << 16;
-    if (block_size > 1) triple |= static_cast<uint8_t>(input[i + 1]) << 8;
-    if (block_size > 2) triple |= static_cast<uint8_t>(input[i + 2]);
-
-    result.push_back(alphabet[(triple >> 18) & 0x3f]);
-    result.push_back(alphabet[(triple >> 12) & 0x3f]);
-    result.push_back(block_size > 1 ? alphabet[(triple >> 6) & 0x3f] : '=');
-    result.push_back(block_size > 2 ? alphabet[triple & 0x3f] : '=');
-  }
-
-  return apply_wrap(result, wrap);
+  auto data = std::span<const uint8_t>(
+      reinterpret_cast<const uint8_t*>(input.data()), input.size());
+  return encoding::base64_encode(data, alphabet, wrap);
 }
-
 auto decode_base64(std::string_view input, std::string_view alphabet,
                    bool ignore_garbage)
     -> std::expected<std::string, std::string> {
@@ -228,35 +216,10 @@ auto decode_base64(std::string_view input, std::string_view alphabet,
 
 auto encode_base32(std::string_view input, std::string_view alphabet, int wrap)
     -> std::string {
-  std::string result;
-  result.reserve(((input.size() + 4) / 5) * 8);
-
-  for (size_t i = 0; i < input.size(); i += 5) {
-    uint8_t block[5] = {0};
-    const size_t block_size = std::min<size_t>(5, input.size() - i);
-    for (size_t j = 0; j < block_size; ++j) {
-      block[j] = static_cast<uint8_t>(input[i + j]);
-    }
-
-    result.push_back(alphabet[(block[0] >> 3) & 0x1f]);
-    result.push_back(alphabet[((block[0] & 0x07) << 2) | (block[1] >> 6)]);
-    result.push_back(block_size > 1 ? alphabet[(block[1] >> 1) & 0x1f] : '=');
-    result.push_back(block_size > 1
-                         ? alphabet[((block[1] & 0x01) << 4) | (block[2] >> 4)]
-                         : '=');
-    result.push_back(block_size > 2
-                         ? alphabet[((block[2] & 0x0f) << 1) | (block[3] >> 7)]
-                         : '=');
-    result.push_back(block_size > 3 ? alphabet[(block[3] >> 2) & 0x1f] : '=');
-    result.push_back(block_size > 3
-                         ? alphabet[((block[3] & 0x03) << 3) | (block[4] >> 5)]
-                         : '=');
-    result.push_back(block_size > 4 ? alphabet[block[4] & 0x1f] : '=');
-  }
-
-  return apply_wrap(result, wrap);
+  auto data = std::span<const uint8_t>(
+      reinterpret_cast<const uint8_t*>(input.data()), input.size());
+  return encoding::base32_encode(data, alphabet, wrap);
 }
-
 auto decode_base32(std::string_view input, std::string_view alphabet,
                    bool ignore_garbage)
     -> std::expected<std::string, std::string> {
