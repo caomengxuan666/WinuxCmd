@@ -279,9 +279,95 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  update-wpm-source-index:
+    runs-on: ubuntu-latest
+    needs: release
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+
+    steps:
+      - name: Verify wpm-source token
+        shell: bash
+        env:
+          WPM_SOURCE_TOKEN: ${{ secrets.WPM_SOURCE_TOKEN }}
+        run: |
+          if [ -z "${WPM_SOURCE_TOKEN}" ]; then
+            echo "::error::Set WPM_SOURCE_TOKEN to a token with write access to unixwin/wpm-source."
+            exit 1
+          fi
+
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Checkout WPM Source
+        uses: actions/checkout@v6
+        with:
+          repository: unixwin/wpm-source
+          token: ${{ secrets.WPM_SOURCE_TOKEN }}
+          path: wpm-source
+          fetch-depth: 1
+
+      - name: Download x64 Packages
+        uses: actions/download-artifact@v8
+        with:
+          name: WinuxCmd-${{ needs.release.outputs.version }}-x64
+          path: artifacts/x64
+
+      - name: Download ARM64 Packages
+        uses: actions/download-artifact@v8
+        with:
+          name: WinuxCmd-${{ needs.release.outputs.version }}-arm64
+          path: artifacts/arm64
+
+      - name: Update WPM source index
+        shell: pwsh
+        run: |
+          ./.github/scripts/update-wpm-source-index.ps1 `
+            -IndexPath "wpm-source/index.json" `
+            -Version "${{ needs.release.outputs.version }}" `
+            -X64ZipPath "artifacts/x64/WinuxCmd-${{ needs.release.outputs.version }}-win-x64.zip" `
+            -Arm64ZipPath "artifacts/arm64/WinuxCmd-${{ needs.release.outputs.version }}-win-arm64.zip" `
+            -ReleaseTag "${{ github.ref_name }}"
+
+      - name: Create and merge wpm-source PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.WPM_SOURCE_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          cd wpm-source
+          if git diff --quiet -- index.json; then
+            echo "wpm-source index already matches WinuxCmd ${VERSION}."
+            exit 0
+          fi
+
+          branch="automation/winuxcmd-${VERSION}-index"
+          title="Update WinuxCmd package index to ${VERSION}"
+          body="Automated update from unixwin/WinuxCmd release v${VERSION}."
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${branch}"
+          git add index.json
+          git commit -m "${title}"
+          git push --force-with-lease origin "${branch}"
+
+          pr_url="$(gh pr list --repo unixwin/wpm-source --head "${branch}" --state open --json url --jq '.[0].url')"
+          if [ -z "${pr_url}" ]; then
+            pr_url="$(gh pr create --repo unixwin/wpm-source --base main --head "${branch}" --title "${title}" --body "${body}")"
+          fi
+
+          gh pr merge "${pr_url}" --repo unixwin/wpm-source --squash --delete-branch ||
+            gh pr merge "${pr_url}" --repo unixwin/wpm-source --squash --delete-branch --auto
+
   cache-and-notify:
     runs-on: windows-2025
-    needs: release  # Depends on release job
+    needs:
+      - release
+      - update-wpm-source-index
     if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')  # Only run on tag releases
 
     steps:
