@@ -806,6 +806,14 @@ def iter_commands(repo: Path) -> Iterable[CommandInfo]:
             )
 
 
+def is_p0_thin_vs_upstream(c: CommandInfo) -> bool:
+    if c.priority != "P0" or c.source_line_count >= 150:
+        return False
+    if c.upstream_source_line_count <= 0:
+        return True
+    return c.source_line_count < c.upstream_source_line_count
+
+
 def render_md(commands: list[CommandInfo]) -> str:
     total = len(commands)
     by_priority = {
@@ -814,9 +822,7 @@ def render_md(commands: list[CommandInfo]) -> str:
     unsupported = sum(c.unsupported_count for c in commands)
     placeholders = sum(c.placeholder_count for c in commands)
     untested = sum(1 for c in commands if c.test_count == 0)
-    thin_hot = sum(
-        1 for c in commands if c.priority == "P0" and c.source_line_count < 150
-    )
+    thin_hot = sum(1 for c in commands if is_p0_thin_vs_upstream(c))
     upstream_mapped = sum(1 for c in commands if c.upstream_source_line_count > 0)
     perf_probed = sum(1 for c in commands if c.perf_probe_count > 0)
     perf_failures = sum(c.perf_failure_count for c in commands)
@@ -826,7 +832,7 @@ def render_md(commands: list[CommandInfo]) -> str:
         if c.perf_worst_ratio is not None and c.perf_worst_ratio >= 5.0
     )
     p0_thin_commands = sorted(
-        [c for c in commands if c.priority == "P0" and c.source_line_count < 150],
+        [c for c in commands if is_p0_thin_vs_upstream(c)],
         key=lambda c: c.command,
     )
     untested_commands = sorted(
@@ -860,7 +866,7 @@ def render_md(commands: list[CommandInfo]) -> str:
         f"| Declared unsupported options | {unsupported} |",
         f"| Declared placeholder/no-op options | {placeholders} |",
         f"| Commands without direct unit tests | {untested} |",
-        f"| P0 commands under 150 source lines | {thin_hot} |",
+        f"| P0 commands thin vs upstream | {thin_hot} |",
         f"| Commands with mapped local upstream source | {upstream_mapped} |",
         f"| Commands with performance probes | {perf_probed} |",
         f"| Performance/parity probe failures | {perf_failures} |",
@@ -875,7 +881,7 @@ def render_md(commands: list[CommandInfo]) -> str:
         "",
         "## Focus Lists",
         "",
-        f"- P0 commands under 150 source lines: {format_command_list(p0_thin_commands)}.",
+        f"- P0 commands thin vs upstream: {format_command_list(p0_thin_commands)}.",
         f"- Commands without direct unit tests: {format_command_list(untested_commands)}.",
         f"- Commands with unsupported or placeholder options: {format_command_list(placeholder_commands)}.",
         f"- P0 commands without performance probes yet: {format_command_list(p0_without_perf)}.",

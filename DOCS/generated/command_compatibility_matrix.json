@@ -13,7 +13,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.452,
+    "perf_worst_ratio": 0.393,
     "options": [
       {
         "short": "",
@@ -41,7 +41,7 @@
     "test_count": 24,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.159,
+    "perf_worst_ratio": 1.7,
     "options": [
       {
         "short": "-l",
@@ -128,7 +128,7 @@
   {
     "command": "base32",
     "source_file": "src/commands/base32.cpp",
-    "source_line_count": 253,
+    "source_line_count": 218,
     "upstream_source_line_count": 1556,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -139,7 +139,7 @@
     "test_count": 12,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.38,
+    "perf_worst_ratio": 4.306,
     "options": [
       {
         "short": "-d",
@@ -181,7 +181,7 @@
     "test_count": 11,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.448,
+    "perf_worst_ratio": 4.512,
     "options": [
       {
         "short": "-d",
@@ -223,7 +223,7 @@
     "test_count": 16,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.046,
+    "perf_worst_ratio": 0.973,
     "options": [
       {
         "short": "-a",
@@ -275,7 +275,7 @@
   {
     "command": "basenc",
     "source_file": "src/commands/basenc.cpp",
-    "source_line_count": 508,
+    "source_line_count": 479,
     "upstream_source_line_count": 1556,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -286,7 +286,7 @@
     "test_count": 16,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.321,
+    "perf_worst_ratio": 4.886,
     "options": [
       {
         "short": "-d",
@@ -398,7 +398,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.891,
+    "perf_worst_ratio": 1.041,
     "options": [
       {
         "short": "",
@@ -415,7 +415,7 @@
   {
     "command": "cat",
     "source_file": "src/commands/cat.cpp",
-    "source_line_count": 315,
+    "source_line_count": 333,
     "upstream_source_line_count": 834,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -423,10 +423,10 @@
     "option_count": 10,
     "placeholder_count": 1,
     "unsupported_count": 0,
-    "test_count": 15,
-    "perf_probe_count": 2,
+    "test_count": 16,
+    "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.008,
+    "perf_worst_ratio": 1.584,
     "options": [
       {
         "short": "-A",
@@ -501,7 +501,7 @@
     ],
     "notes": [
       "Has compatibility placeholder/no-op option(s).",
-      "Performance probes: 2."
+      "Performance probes: 3."
     ]
   },
   {
@@ -518,7 +518,7 @@
     "test_count": 6,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.969,
+    "perf_worst_ratio": 1.007,
     "options": [
       {
         "short": "",
@@ -637,7 +637,7 @@
     "test_count": 16,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.898,
+    "perf_worst_ratio": 0.861,
     "options": [
       {
         "short": "-c",
@@ -756,7 +756,7 @@
     "test_count": 20,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.921,
+    "perf_worst_ratio": 1.246,
     "options": [
       {
         "short": "-c",
@@ -861,7 +861,7 @@
     "test_count": 23,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.739,
+    "perf_worst_ratio": 1.023,
     "options": [
       {
         "short": "-c",
@@ -980,7 +980,7 @@
     "test_count": 5,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.219,
+    "perf_worst_ratio": 0.935,
     "options": [
       {
         "short": "",
@@ -1022,7 +1022,7 @@
     "test_count": 20,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.832,
+    "perf_worst_ratio": 1.459,
     "options": [
       {
         "short": "-a",
@@ -1141,7 +1141,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.906,
+    "perf_worst_ratio": 1.202,
     "options": [
       {
         "short": "",
@@ -1169,7 +1169,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.444,
+    "perf_worst_ratio": 0.555,
     "options": [
       {
         "short": "-b",
@@ -1225,7 +1225,7 @@
     "test_count": 6,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.871,
+    "perf_worst_ratio": 0.912,
     "options": [
       {
         "short": "-b",
@@ -1281,7 +1281,7 @@
     "test_count": 14,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.921,
+    "perf_worst_ratio": 1.096,
     "options": [
       {
         "short": "-c",
@@ -1498,7 +1498,7 @@
     "test_count": 16,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.937,
+    "perf_worst_ratio": 0.889,
     "options": [
       {
         "short": "-1",
@@ -1575,7 +1575,7 @@
     "test_count": 20,
     "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.947,
+    "perf_worst_ratio": 1.42,
     "options": [
       {
         "short": "-a",
@@ -1838,7 +1838,7 @@
     "option_count": 6,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 1,
+    "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
     "perf_worst_ratio": null,
@@ -1904,7 +1904,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.911,
+    "perf_worst_ratio": 1.236,
     "options": [
       {
         "short": "-f",
@@ -1982,7 +1982,7 @@
     "test_count": 29,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.378,
+    "perf_worst_ratio": 1.659,
     "options": [
       {
         "short": "-b",
@@ -2080,7 +2080,7 @@
     "test_count": 8,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.832,
+    "perf_worst_ratio": 1.262,
     "options": [
       {
         "short": "-u",
@@ -2262,7 +2262,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.706,
+    "perf_worst_ratio": 0.66,
     "options": [
       {
         "short": "-v",
@@ -2290,7 +2290,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.887,
+    "perf_worst_ratio": 1.025,
     "options": [
       {
         "short": "-d",
@@ -2367,7 +2367,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.989,
+    "perf_worst_ratio": 0.95,
     "options": [
       {
         "short": "if",
@@ -2465,7 +2465,7 @@
     "test_count": 17,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.942,
+    "perf_worst_ratio": 0.961,
     "options": [
       {
         "short": "-a",
@@ -2591,7 +2591,7 @@
     "test_count": 13,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.382,
+    "perf_worst_ratio": 0.327,
     "options": [
       {
         "short": "-q",
@@ -2647,7 +2647,7 @@
     "test_count": 13,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.118,
+    "perf_worst_ratio": 0.163,
     "options": [
       {
         "short": "-e",
@@ -2703,7 +2703,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.926,
+    "perf_worst_ratio": 2.134,
     "options": [
       {
         "short": "-a",
@@ -2976,7 +2976,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.933,
+    "perf_worst_ratio": 0.967,
     "options": [
       {
         "short": "-b",
@@ -3014,7 +3014,7 @@
   {
     "command": "dirname",
     "source_file": "src/commands/dirname.cpp",
-    "source_line_count": 130,
+    "source_line_count": 145,
     "upstream_source_line_count": 110,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -3022,10 +3022,10 @@
     "option_count": 1,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 7,
-    "perf_probe_count": 1,
+    "test_count": 9,
+    "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.905,
+    "perf_worst_ratio": 1.314,
     "options": [
       {
         "short": "-z",
@@ -3036,7 +3036,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 1."
+      "Performance probes: 2."
     ]
   },
   {
@@ -3053,7 +3053,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.776,
+    "perf_worst_ratio": 0.535,
     "options": [
       {
         "short": "-v",
@@ -3081,7 +3081,7 @@
     "test_count": 36,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.645,
+    "perf_worst_ratio": 0.884,
     "options": [
       {
         "short": "-a",
@@ -3277,7 +3277,7 @@
     "test_count": 29,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.95,
+    "perf_worst_ratio": 1.093,
     "options": [
       {
         "short": "-n",
@@ -3322,7 +3322,7 @@
   {
     "command": "env",
     "source_file": "src/commands/env.cpp",
-    "source_line_count": 695,
+    "source_line_count": 839,
     "upstream_source_line_count": 800,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -3330,10 +3330,10 @@
     "option_count": 12,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 34,
-    "perf_probe_count": 1,
+    "test_count": 36,
+    "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.961,
+    "perf_worst_ratio": 1.114,
     "options": [
       {
         "short": "-i",
@@ -3421,7 +3421,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 1."
+      "Performance probes: 2."
     ]
   },
   {
@@ -3438,7 +3438,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.891,
+    "perf_worst_ratio": 1.095,
     "options": [
       {
         "short": "-t",
@@ -3473,7 +3473,7 @@
     "test_count": 11,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.958,
+    "perf_worst_ratio": 1.074,
     "options": [
       {
         "short": "",
@@ -3501,7 +3501,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.914,
+    "perf_worst_ratio": 0.978,
     "options": [
       {
         "short": "",
@@ -3529,7 +3529,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.911,
+    "perf_worst_ratio": 1.108,
     "options": [
       {
         "short": "",
@@ -3557,7 +3557,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.112,
+    "perf_worst_ratio": 0.102,
     "options": [
       {
         "short": "-b",
@@ -3595,18 +3595,18 @@
   {
     "command": "find",
     "source_file": "src/commands/find.cpp",
-    "source_line_count": 2769,
+    "source_line_count": 2855,
     "upstream_source_line_count": 4965,
     "family": "gnu-findutils",
     "reference_url": "https://www.gnu.org/software/findutils/manual/",
     "priority": "P0",
-    "option_count": 77,
+    "option_count": 79,
     "placeholder_count": 2,
     "unsupported_count": 0,
-    "test_count": 99,
-    "perf_probe_count": 4,
+    "test_count": 101,
+    "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.833,
+    "perf_worst_ratio": 3.655,
     "options": [
       {
         "short": "-name",
@@ -3788,6 +3788,20 @@
         "long": "",
         "description": "print the full file name on the standard output, followed by a  null character",
         "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-fprint",
+        "long": "",
+        "description": "print the full file name into FILE",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-fprint0",
+        "long": "",
+        "description": "print the full file name into FILE, followed by a null character",
+        "value_type": "STRING_TYPE",
         "status": "declared"
       },
       {
@@ -4151,7 +4165,7 @@
     "notes": [
       "Regex behavior is command-owned, not shell-owned.",
       "Has compatibility placeholder/no-op option(s).",
-      "Performance probes: 4."
+      "Performance probes: 5."
     ]
   },
   {
@@ -4168,7 +4182,7 @@
     "test_count": 19,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.929,
+    "perf_worst_ratio": 1.081,
     "options": [
       {
         "short": "-c",
@@ -4273,7 +4287,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.886,
+    "perf_worst_ratio": 0.658,
     "options": [
       {
         "short": "-b",
@@ -4413,7 +4427,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.036,
+    "perf_worst_ratio": 1.197,
     "options": [
       {
         "short": "-a",
@@ -4437,7 +4451,7 @@
   {
     "command": "grep",
     "source_file": "src/commands/grep.cpp",
-    "source_line_count": 1981,
+    "source_line_count": 2312,
     "upstream_source_line_count": 2686,
     "family": "gnu-grep",
     "reference_url": "https://www.gnu.org/software/grep/manual/",
@@ -4445,10 +4459,10 @@
     "option_count": 49,
     "placeholder_count": 0,
     "unsupported_count": 1,
-    "test_count": 81,
-    "perf_probe_count": 3,
+    "test_count": 82,
+    "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.291,
+    "perf_worst_ratio": 1.782,
     "options": [
       {
         "short": "-E",
@@ -4797,13 +4811,13 @@
     "notes": [
       "Regex behavior is command-owned, not shell-owned.",
       "Has explicitly unsupported declared option(s).",
-      "Performance probes: 3."
+      "Performance probes: 6."
     ]
   },
   {
     "command": "egrep",
     "source_file": "src/commands/grep.cpp",
-    "source_line_count": 1981,
+    "source_line_count": 2312,
     "upstream_source_line_count": 2686,
     "family": "gnu-grep",
     "reference_url": "https://www.gnu.org/software/grep/manual/",
@@ -4814,7 +4828,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.355,
+    "perf_worst_ratio": 1.867,
     "options": [
       {
         "short": "-E",
@@ -5169,7 +5183,7 @@
   {
     "command": "fgrep",
     "source_file": "src/commands/grep.cpp",
-    "source_line_count": 1981,
+    "source_line_count": 2312,
     "upstream_source_line_count": 2686,
     "family": "gnu-grep",
     "reference_url": "https://www.gnu.org/software/grep/manual/",
@@ -5180,7 +5194,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.952,
+    "perf_worst_ratio": 1.5,
     "options": [
       {
         "short": "-E",
@@ -5546,7 +5560,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.97,
+    "perf_worst_ratio": 1.015,
     "options": [
       {
         "short": "",
@@ -5574,7 +5588,7 @@
     "test_count": 28,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.018,
+    "perf_worst_ratio": 1.071,
     "options": [
       {
         "short": "-c",
@@ -5637,7 +5651,7 @@
     "test_count": 10,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.894,
+    "perf_worst_ratio": 1.103,
     "options": [
       {
         "short": "-b",
@@ -5735,7 +5749,7 @@
     "test_count": 1,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.049,
+    "perf_worst_ratio": 4.481,
     "options": [
       {
         "short": "",
@@ -5763,7 +5777,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.947,
+    "perf_worst_ratio": 1.136,
     "options": [
       {
         "short": "",
@@ -5791,7 +5805,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.745,
+    "perf_worst_ratio": 0.826,
     "options": [
       {
         "short": "-i",
@@ -5883,7 +5897,7 @@
     "test_count": 13,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.088,
+    "perf_worst_ratio": 1.332,
     "options": [
       {
         "short": "-a",
@@ -5960,7 +5974,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.908,
+    "perf_worst_ratio": 1.028,
     "options": [
       {
         "short": "",
@@ -5988,7 +6002,7 @@
     "test_count": 19,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.938,
+    "perf_worst_ratio": 1.0,
     "options": [
       {
         "short": "-b",
@@ -6143,7 +6157,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.881,
+    "perf_worst_ratio": 0.908,
     "options": [
       {
         "short": "-1",
@@ -6255,7 +6269,7 @@
     "test_count": 24,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.054,
+    "perf_worst_ratio": 1.148,
     "options": [
       {
         "short": "-s",
@@ -6880,7 +6894,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.849,
+    "perf_worst_ratio": 3.118,
     "options": [
       {
         "short": "-e",
@@ -7001,7 +7015,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.852,
+    "perf_worst_ratio": 0.738,
     "options": [
       {
         "short": "",
@@ -7029,7 +7043,7 @@
     "test_count": 13,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.035,
+    "perf_worst_ratio": 0.725,
     "options": [
       {
         "short": "-s",
@@ -7155,7 +7169,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.859,
+    "perf_worst_ratio": 0.951,
     "options": [
       {
         "short": "-a",
@@ -7197,7 +7211,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.985,
+    "perf_worst_ratio": 1.028,
     "options": [
       {
         "short": "",
@@ -7214,7 +7228,7 @@
   {
     "command": "ls",
     "source_file": "src/commands/ls.cpp",
-    "source_line_count": 2995,
+    "source_line_count": 3014,
     "upstream_source_line_count": 4888,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -7222,10 +7236,10 @@
     "option_count": 60,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 131,
-    "perf_probe_count": 1,
+    "test_count": 132,
+    "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.191,
+    "perf_worst_ratio": 1.639,
     "options": [
       {
         "short": "-a",
@@ -7649,7 +7663,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 1."
+      "Performance probes: 5."
     ]
   },
   {
@@ -7764,7 +7778,7 @@
     "test_count": 22,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.326,
+    "perf_worst_ratio": 1.279,
     "options": [
       {
         "short": "-b",
@@ -7855,7 +7869,7 @@
     "test_count": 8,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.251,
+    "perf_worst_ratio": 1.784,
     "options": [
       {
         "short": "-m",
@@ -7904,7 +7918,7 @@
     "test_count": 5,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.943,
+    "perf_worst_ratio": 1.076,
     "options": [
       {
         "short": "-m",
@@ -7946,7 +7960,7 @@
     "test_count": 6,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.928,
+    "perf_worst_ratio": 1.505,
     "options": [
       {
         "short": "-m",
@@ -7977,7 +7991,7 @@
   {
     "command": "mktemp",
     "source_file": "src/commands/mktemp.cpp",
-    "source_line_count": 237,
+    "source_line_count": 348,
     "upstream_source_line_count": 321,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -7985,10 +7999,10 @@
     "option_count": 6,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 8,
+    "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.914,
+    "perf_worst_ratio": 1.122,
     "options": [
       {
         "short": "-d",
@@ -8051,7 +8065,7 @@
     "test_count": 10,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.996,
+    "perf_worst_ratio": 1.002,
     "options": [
       {
         "short": "-d",
@@ -8144,7 +8158,7 @@
     "test_count": 2,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.072,
+    "perf_worst_ratio": 1.255,
     "options": [
       {
         "short": "",
@@ -8193,7 +8207,7 @@
     "test_count": 15,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.89,
+    "perf_worst_ratio": 0.957,
     "options": [
       {
         "short": "-b",
@@ -8361,7 +8375,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.949,
+    "perf_worst_ratio": 0.991,
     "options": [
       {
         "short": "-n",
@@ -8389,7 +8403,7 @@
     "test_count": 13,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.859,
+    "perf_worst_ratio": 1.316,
     "options": [
       {
         "short": "-b",
@@ -8488,7 +8502,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.157,
+    "perf_worst_ratio": 1.136,
     "options": [
       {
         "short": "",
@@ -8516,7 +8530,7 @@
     "test_count": 6,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.884,
+    "perf_worst_ratio": 0.7,
     "options": [
       {
         "short": "",
@@ -8558,7 +8572,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.969,
+    "perf_worst_ratio": 1.199,
     "options": [
       {
         "short": "-d",
@@ -8631,7 +8645,7 @@
   {
     "command": "od",
     "source_file": "src/commands/od.cpp",
-    "source_line_count": 577,
+    "source_line_count": 607,
     "upstream_source_line_count": 1792,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -8639,10 +8653,10 @@
     "option_count": 13,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 14,
+    "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.194,
+    "perf_worst_ratio": 1.035,
     "options": [
       {
         "short": "-A",
@@ -8754,7 +8768,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.842,
+    "perf_worst_ratio": 0.955,
     "options": [
       {
         "short": "-d",
@@ -8796,7 +8810,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.824,
+    "perf_worst_ratio": 0.842,
     "options": [
       {
         "short": "-p",
@@ -8859,7 +8873,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.937,
+    "perf_worst_ratio": 1.22,
     "options": [
       {
         "short": "-p",
@@ -8894,7 +8908,7 @@
     "test_count": 3,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.941,
+    "perf_worst_ratio": 1.15,
     "options": [
       {
         "short": "-l",
@@ -8985,7 +8999,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.872,
+    "perf_worst_ratio": 1.001,
     "options": [
       {
         "short": "+PAGE",
@@ -9188,7 +9202,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.997,
+    "perf_worst_ratio": 1.116,
     "options": [
       {
         "short": "-0",
@@ -9216,7 +9230,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.986,
+    "perf_worst_ratio": 1.022,
     "options": [
       {
         "short": "",
@@ -9244,7 +9258,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 3.594,
+    "perf_worst_ratio": 3.584,
     "options": [
       {
         "short": "-e",
@@ -9342,7 +9356,7 @@
     "test_count": 11,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.951,
+    "perf_worst_ratio": 1.031,
     "options": [
       {
         "short": "-A",
@@ -9489,7 +9503,7 @@
     "test_count": 20,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.046,
+    "perf_worst_ratio": 0.587,
     "options": [
       {
         "short": "-L",
@@ -9524,7 +9538,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.991,
+    "perf_worst_ratio": 0.922,
     "options": [
       {
         "short": "-f",
@@ -9601,7 +9615,7 @@
     "test_count": 19,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.985,
+    "perf_worst_ratio": 1.115,
     "options": [
       {
         "short": "-e",
@@ -9699,7 +9713,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.907,
+    "perf_worst_ratio": 1.018,
     "options": [
       {
         "short": "-I",
@@ -9762,7 +9776,7 @@
     "test_count": 8,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.97,
+    "perf_worst_ratio": 2.297,
     "options": [
       {
         "short": "-0",
@@ -9790,7 +9804,7 @@
     "test_count": 21,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.982,
+    "perf_worst_ratio": 1.521,
     "options": [
       {
         "short": "-f",
@@ -9888,7 +9902,7 @@
     "test_count": 10,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.922,
+    "perf_worst_ratio": 1.41,
     "options": [
       {
         "short": "",
@@ -9930,7 +9944,7 @@
     "test_count": 5,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.835,
+    "perf_worst_ratio": 0.981,
     "options": [
       {
         "short": "-c",
@@ -9986,7 +10000,7 @@
     "test_count": 10,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.203,
+    "perf_worst_ratio": 0.201,
     "options": [
       {
         "short": "-o",
@@ -10052,7 +10066,7 @@
   {
     "command": "sed",
     "source_file": "src/commands/sed.cpp",
-    "source_line_count": 1942,
+    "source_line_count": 1960,
     "upstream_source_line_count": 2885,
     "family": "gnu-sed",
     "reference_url": "https://www.gnu.org/software/sed/manual/",
@@ -10060,10 +10074,10 @@
     "option_count": 13,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 85,
-    "perf_probe_count": 3,
+    "test_count": 86,
+    "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.933,
+    "perf_worst_ratio": 1.183,
     "options": [
       {
         "short": "-n",
@@ -10159,7 +10173,7 @@
     ],
     "notes": [
       "Regex behavior is command-owned, not shell-owned.",
-      "Performance probes: 3."
+      "Performance probes: 4."
     ]
   },
   {
@@ -10176,7 +10190,7 @@
     "test_count": 20,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.773,
+    "perf_worst_ratio": 2.053,
     "options": [
       {
         "short": "-f",
@@ -10421,7 +10435,7 @@
     "test_count": 17,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.183,
+    "perf_worst_ratio": 1.198,
     "options": [
       {
         "short": "-b",
@@ -10512,7 +10526,7 @@
     "test_count": 21,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.12,
+    "perf_worst_ratio": 4.945,
     "options": [
       {
         "short": "-b",
@@ -10603,7 +10617,7 @@
     "test_count": 16,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.677,
+    "perf_worst_ratio": 0.81,
     "options": [
       {
         "short": "-b",
@@ -10694,7 +10708,7 @@
     "test_count": 21,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.11,
+    "perf_worst_ratio": 4.135,
     "options": [
       {
         "short": "-b",
@@ -10785,7 +10799,7 @@
     "test_count": 21,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.055,
+    "perf_worst_ratio": 1.15,
     "options": [
       {
         "short": "-b",
@@ -10876,7 +10890,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.576,
+    "perf_worst_ratio": 0.675,
     "options": [
       {
         "short": "-f",
@@ -10960,7 +10974,7 @@
     "test_count": 22,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.944,
+    "perf_worst_ratio": 0.894,
     "options": [
       {
         "short": "-e",
@@ -11037,7 +11051,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.902,
+    "perf_worst_ratio": 0.992,
     "options": [
       {
         "short": "",
@@ -11054,7 +11068,7 @@
   {
     "command": "sort",
     "source_file": "src/commands/sort.cpp",
-    "source_line_count": 1537,
+    "source_line_count": 1606,
     "upstream_source_line_count": 4462,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -11062,10 +11076,10 @@
     "option_count": 29,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 64,
-    "perf_probe_count": 4,
+    "test_count": 66,
+    "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.885,
+    "perf_worst_ratio": 2.771,
     "options": [
       {
         "short": "-b",
@@ -11272,7 +11286,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 4."
+      "Performance probes: 6."
     ]
   },
   {
@@ -11289,7 +11303,7 @@
     "test_count": 19,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.73,
+    "perf_worst_ratio": 1.348,
     "options": [
       {
         "short": "-b",
@@ -11401,7 +11415,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.968,
+    "perf_worst_ratio": 1.215,
     "options": [
       {
         "short": "-L",
@@ -11465,7 +11479,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.256,
+    "perf_worst_ratio": 1.325,
     "options": [
       {
         "short": "-i",
@@ -11507,7 +11521,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.311,
+    "perf_worst_ratio": 1.169,
     "options": [
       {
         "short": "-a",
@@ -11613,7 +11627,7 @@
     "test_count": 9,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.965,
+    "perf_worst_ratio": 1.184,
     "options": [
       {
         "short": "-a",
@@ -11644,7 +11658,7 @@
   {
     "command": "sum",
     "source_file": "src/commands/sum.cpp",
-    "source_line_count": 181,
+    "source_line_count": 194,
     "upstream_source_line_count": 190,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -11655,7 +11669,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.732,
+    "perf_worst_ratio": 1.036,
     "options": [
       {
         "short": "-r",
@@ -11690,7 +11704,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.967,
+    "perf_worst_ratio": 0.936,
     "options": [
       {
         "short": "-d",
@@ -11725,7 +11739,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.057,
+    "perf_worst_ratio": 1.09,
     "options": [
       {
         "short": "-b",
@@ -11768,7 +11782,7 @@
     "test_count": 42,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.956,
+    "perf_worst_ratio": 1.096,
     "options": [
       {
         "short": "-c",
@@ -11894,7 +11908,7 @@
     "test_count": 10,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.018,
+    "perf_worst_ratio": 1.503,
     "options": [
       {
         "short": "-a",
@@ -11943,7 +11957,7 @@
     "test_count": 2,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.92,
+    "perf_worst_ratio": 1.034,
     "options": [
       {
         "short": "-n",
@@ -12237,7 +12251,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.007,
+    "perf_worst_ratio": 0.997,
     "options": [
       {
         "short": "-n",
@@ -12531,7 +12545,7 @@
     "test_count": 2,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.956,
+    "perf_worst_ratio": 1.136,
     "options": [
       {
         "short": "-V",
@@ -12594,7 +12608,7 @@
     "test_count": 22,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.802,
+    "perf_worst_ratio": 0.812,
     "options": [
       {
         "short": "-s",
@@ -12650,7 +12664,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.945,
+    "perf_worst_ratio": 1.169,
     "options": [
       {
         "short": "-a",
@@ -12837,9 +12851,9 @@
     "placeholder_count": 1,
     "unsupported_count": 0,
     "test_count": 12,
-    "perf_probe_count": 2,
+    "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.024,
+    "perf_worst_ratio": 1.032,
     "options": [
       {
         "short": "-a",
@@ -12907,7 +12921,7 @@
     ],
     "notes": [
       "Has compatibility placeholder/no-op option(s).",
-      "Performance probes: 2."
+      "Performance probes: 3."
     ]
   },
   {
@@ -12924,7 +12938,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.859,
+    "perf_worst_ratio": 0.995,
     "options": [
       {
         "short": "",
@@ -12949,10 +12963,10 @@
     "option_count": 5,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 15,
+    "test_count": 16,
     "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.161,
+    "perf_worst_ratio": 1.43,
     "options": [
       {
         "short": "-c",
@@ -13099,7 +13113,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.871,
+    "perf_worst_ratio": 1.132,
     "options": [
       {
         "short": "",
@@ -13127,7 +13141,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.025,
+    "perf_worst_ratio": 0.961,
     "options": [
       {
         "short": "-c",
@@ -13176,7 +13190,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.991,
+    "perf_worst_ratio": 1.114,
     "options": [
       {
         "short": "",
@@ -13204,7 +13218,7 @@
     "test_count": 6,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.922,
+    "perf_worst_ratio": 1.195,
     "options": [
       {
         "short": "-s",
@@ -13239,7 +13253,7 @@
     "test_count": 2,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.988,
+    "perf_worst_ratio": 1.113,
     "options": [
       {
         "short": "-h",
@@ -13274,7 +13288,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.802,
+    "perf_worst_ratio": 0.934,
     "options": [
       {
         "short": "-v",
@@ -13302,7 +13316,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.481,
+    "perf_worst_ratio": 0.537,
     "options": [
       {
         "short": "-a",
@@ -13386,7 +13400,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.923,
+    "perf_worst_ratio": 1.114,
     "options": [
       {
         "short": "-t",
@@ -13435,7 +13449,7 @@
     "test_count": 15,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.006,
+    "perf_worst_ratio": 1.097,
     "options": [
       {
         "short": "-c",
@@ -13526,7 +13540,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.101,
+    "perf_worst_ratio": 0.825,
     "options": [
       {
         "short": "-v",
@@ -13554,7 +13568,7 @@
     "test_count": 10,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.917,
+    "perf_worst_ratio": 1.192,
     "options": [
       {
         "short": "",
@@ -13617,7 +13631,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.892,
+    "perf_worst_ratio": 1.141,
     "options": [
       {
         "short": "",
@@ -13645,7 +13659,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.861,
+    "perf_worst_ratio": 2.377,
     "options": [
       {
         "short": "-a",
@@ -13988,7 +14002,7 @@
     "test_count": 24,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.948,
+    "perf_worst_ratio": 1.565,
     "options": [
       {
         "short": "-c",
@@ -14065,7 +14079,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.968,
+    "perf_worst_ratio": 1.2,
     "options": [
       {
         "short": "-a",
@@ -14121,7 +14135,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.911,
+    "perf_worst_ratio": 1.099,
     "options": [
       {
         "short": "-a",
@@ -14247,7 +14261,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.997,
+    "perf_worst_ratio": 0.697,
     "options": [
       {
         "short": "",
@@ -14275,7 +14289,7 @@
     "test_count": 79,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.007,
+    "perf_worst_ratio": 0.011,
     "options": [
       {
         "short": "-n",
@@ -14443,7 +14457,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.942,
+    "perf_worst_ratio": 0.947,
     "options": [
       {
         "short": "-r",
@@ -14471,7 +14485,7 @@
     "test_count": 5,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.833,
+    "perf_worst_ratio": 0.994,
     "options": [
       {
         "short": "",

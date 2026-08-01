@@ -176,6 +176,12 @@ PROBES = [
     Probe("xargs", "null-delimited echo batches", ["-0", "-n", "40"], "xargs", stdin_file="xargs-nul.txt"),
     Probe("echo", "escape interpretation", ["-e", "alpha\\nbeta", "tail"], "text"),
     Probe("dirname", "multiple operands", ["alpha/beta/file.txt", "plain", "."], "text"),
+    Probe(
+        "dirname",
+        "drive and unc roots",
+        ["//", "//server", "//server/share", "C:/", "C:foo"],
+        "text",
+    ),
     Probe("pwd", "physical current directory", ["-P"], "text", compare_stdout=False),
     Probe("cal", "fixed month layout", ["7", "2026"], "text"),
     Probe("date", "fixed epoch utc format", ["-u", "-d", "@0", "+%Y-%m-%dT%H:%M:%S%z"], "text"),

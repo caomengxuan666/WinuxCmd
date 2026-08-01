@@ -8,19 +8,19 @@ This is a black-box smoke benchmark against a local GNU/MSYS reference when one 
 
 | Metric | Value |
 | --- | ---: |
-| Probes | 240 |
-| Passing probes | 240 |
-| Stdout-compared probes | 204 |
-| Stdout matches | 204 |
-| Raw stdout matches | 173 |
+| Probes | 255 |
+| Passing probes | 255 |
+| Stdout-compared probes | 217 |
+| Stdout matches | 217 |
+| Raw stdout matches | 186 |
 | Newline-normalized-only matches | 4 |
-| Filesystem-state-compared probes | 44 |
-| Filesystem state matches | 44 |
+| Filesystem-state-compared probes | 47 |
+| Filesystem state matches | 47 |
 | >=5x slower probes | 0 |
 
-Build dir: `build-vs-release`
+Build dir: `build-vs`
 
-Build type: `Release`
+Build type: `Debug`
 
 Reference root: `auto-detected`
 
@@ -28,243 +28,258 @@ Reference root: `auto-detected`
 
 | Command | Probe | Status | Winux ms | Reference ms | Ratio | Stdout | Raw | Normalized | State | Args | Note |
 | --- | --- | --- | ---: | ---: | ---: | --- | --- | --- | --- | --- | --- |
-| `cat` | large file passthrough | ok | 40.982 | 40.676 | 1.008x | match | match | match | n/a | `big.txt` |  |
-| `cat` | number final unterminated line | ok | 20.160 | 22.126 | 0.911x | match | match | match | n/a | `-n cat-no-newline.txt` |  |
-| `grep` | fixed literal search | ok | 41.298 | 43.434 | 0.951x | match | match | match | n/a | `-F needle_999 big.txt` |  |
-| `grep` | fixed pattern file many literals | ok | 42.145 | 47.784 | 0.882x | match | match | match | n/a | `-F -f grep-many-patterns.txt big.txt` |  |
-| `grep` | extended regex alternation | ok | 43.611 | 33.787 | 1.291x | match | match | match | n/a | `-E needle_(123\|999) big.txt` |  |
-| `sed` | global literal substitution | ok | 68.208 | 207.650 | 0.328x | match | match | match | n/a | `s/needle/NEEDLE/g big.txt` |  |
-| `sed` | zero address regex range | ok | 21.286 | 27.606 | 0.771x | match | match | match | n/a | `0,/foo/s/foo/XX/ sed-zero-range.txt` |  |
-| `sed` | filename command | ok | 27.699 | 29.693 | 0.933x | match | match | match | n/a | `-n F sed-file-a.txt sed-file-b.txt` |  |
-| `wc` | line byte word counts | ok | 45.295 | 47.759 | 0.948x | match | match | match | n/a | `-lwm big.txt` |  |
-| `wc` | byte count fast path | ok | 20.713 | 22.161 | 0.935x | match | match | match | n/a | `-c big.txt` |  |
-| `wc` | line and byte fast path | ok | 27.898 | 29.648 | 0.941x | match | match | match | n/a | `-lc big.txt` |  |
-| `head` | first 1000 lines | ok | 22.449 | 22.048 | 1.018x | match | match | match | n/a | `-n 1000 big.txt` |  |
-| `head` | all but last 4096 bytes | ok | 41.640 | 77.276 | 0.539x | match | match | match | n/a | `-c -4096 big.txt` |  |
-| `head` | all but last 200 lines | ok | 42.807 | 60.503 | 0.708x | match | match | match | n/a | `-n -200 big.txt` |  |
-| `tail` | last 1000 lines | ok | 22.791 | 23.831 | 0.956x | match | match | match | n/a | `-n 1000 big.txt` |  |
-| `tail` | last 4096 bytes | ok | 23.546 | 26.390 | 0.892x | match | match | match | n/a | `-c 4096 big.txt` |  |
-| `tail` | bytes from start | ok | 41.176 | 66.231 | 0.622x | match | match | match | n/a | `-c +4096 big.txt` |  |
-| `tail` | obsolete from-start line shorthand | ok | 44.644 | 56.578 | 0.789x | match | match | match | n/a | `+1000 big.txt` |  |
-| `cut` | delimited field selection | ok | 44.903 | 118.944 | 0.378x | match | match | match | n/a | `-d , -f 2,4 table.csv` |  |
-| `sort` | large lexical sort | ok | 52.183 | 63.811 | 0.818x | match | match | match | n/a | `words.txt` |  |
-| `sort` | zero-terminated records | ok | 35.754 | 55.328 | 0.646x | match | match | match | n/a | `-z sort-zero.bin` |  |
-| `sort` | field numeric key sort | ok | 24.721 | 27.948 | 0.885x | match | match | match | n/a | `-t , -k 2,2n sort-fields.csv` |  |
-| `sort` | check unsorted diagnostic shape | ok | 25.303 | 31.197 | 0.811x | n/a | n/a | n/a | n/a | `-c sort-check-bad.txt` | stderr shape matched regex |
-| `find` | recursive name predicate | ok | 134.831 | 101.646 | 1.326x | match | match | match | n/a | `tree -type f -name *.txt` |  |
-| `find` | empty predicate printf | ok | 38.651 | 234.424 | 0.165x | match | match | match | n/a | `tree -empty -printf %P\|%y\n` |  |
-| `find` | prune or branch | ok | 219.562 | 77.499 | 2.833x | match | match | match | n/a | `tree -name dir_010 -prune -o -type f -name *.txt -printf %P\n` |  |
-| `find` | xtype regular predicate | ok | 103.540 | 298.976 | 0.346x | match | match | match | n/a | `tree -xtype f -name *.txt` |  |
-| `ls` | recursive tree listing | ok | 59.442 | 49.919 | 1.191x | match | match | match | n/a | `-R tree` |  |
-| `tee` | stdin to stdout and literal dash file | ok | 60.569 | 123.124 | 0.492x | match | match | match | n/a | `-` |  |
-| `tee` | bare output-error keeps file operand | ok | 24.747 | 24.317 | 1.018x | match | match | match | match | `--output-error tee-out.txt` |  |
-| `tr` | translate lowercase to uppercase | ok | 37.150 | 53.218 | 0.698x | match | match | match | n/a | `a-z A-Z` |  |
-| `tr` | delete digits | ok | 35.321 | 49.334 | 0.716x | match | match | match | n/a | `-d 0-9` |  |
-| `tr` | squeeze spaces | ok | 41.499 | 74.271 | 0.559x | match | match | match | n/a | `-s  ` |  |
-| `tr` | complement squeeze words | ok | 21.237 | 23.837 | 0.891x | match | match | match | n/a | `-cs [:alpha:] \n` |  |
-| `tr` | truncate set1 translation | ok | 30.098 | 25.926 | 1.161x | match | match | match | n/a | `-t abc X` |  |
-| `xargs` | default echo batches | ok | 36.028 | 4908.945 | 0.007x | match | match | match | n/a | `-n 50` |  |
-| `xargs` | null-delimited echo batches | ok | 29.689 | 8969.458 | 0.003x | match | match | match | n/a | `-0 -n 40` |  |
-| `echo` | escape interpretation | ok | 19.616 | 20.655 | 0.950x | match | match | match | n/a | `-e alpha\nbeta tail` |  |
-| `dirname` | multiple operands | ok | 19.104 | 21.111 | 0.905x | match | match | match | n/a | `alpha/beta/file.txt plain .` |  |
-| `pwd` | physical current directory | ok | 21.766 | 20.801 | 1.046x | n/a | n/a | n/a | n/a | `-P` |  |
-| `cal` | fixed month layout | ok | 21.220 | 23.817 | 0.891x | match | match | match | n/a | `7 2026` |  |
-| `date` | fixed epoch utc format | ok | 18.605 | 20.965 | 0.887x | match | match | match | n/a | `-u -d @0 +%Y-%m-%dT%H:%M:%S%z` |  |
-| `hostname` | current host name | ok | 26.311 | 35.298 | 0.745x | match | match | match | n/a | `` |  |
-| `id` | numeric user id | ok | 22.796 | 21.570 | 1.057x | match | match | match | n/a | `-u` |  |
-| `id` | user name only | ok | 22.060 | 21.682 | 1.017x | match | match | match | n/a | `-un` |  |
-| `id` | numeric group id | ok | 23.440 | 21.545 | 1.088x | match | match | match | n/a | `-g` |  |
-| `nice` | current niceness | ok | 20.129 | 21.214 | 0.949x | match | match | match | n/a | `` |  |
-| `arch` | machine hardware name | ok | 18.450 | 40.792 | 0.452x | match | match | match | n/a | `` |  |
-| `uname` | machine hardware name | ok | 20.141 | 41.865 | 0.481x | match | match | match | n/a | `-m` |  |
-| `nproc` | ignore one processing unit | ok | 19.836 | 22.449 | 0.884x | match | match | match | n/a | `--ignore=1` |  |
-| `tty` | non tty diagnostic | ok | 20.395 | 22.505 | 0.906x | match | match | match | n/a | `` |  |
-| `tty` | silent non tty status | ok | 19.011 | 20.622 | 0.922x | match | match | match | n/a | `-s` |  |
-| `stty` | non tty default diagnostic | ok | 18.819 | 20.524 | 0.917x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `stty` | non tty all diagnostic | ok | 19.291 | 20.466 | 0.943x | n/a | n/a | n/a | n/a | `-a` | stderr shape matched regex |
-| `stty` | non tty save diagnostic | ok | 20.516 | 22.679 | 0.905x | n/a | n/a | n/a | n/a | `-g` | stderr shape matched regex |
-| `stty` | invalid setting diagnostic | ok | 21.035 | 21.809 | 0.965x | n/a | n/a | n/a | n/a | `invalidxyz` | stderr shape matched regex |
-| `stty` | missing value diagnostic | ok | 19.138 | 21.786 | 0.878x | n/a | n/a | n/a | n/a | `rows` | stderr shape matched regex |
-| `stty` | missing file device diagnostic | ok | 19.517 | 21.275 | 0.917x | n/a | n/a | n/a | n/a | `-F missing-device` | stderr shape matched regex |
-| `ptx` | fixed width kwic shape | ok | 20.069 | 22.276 | 0.901x | match | n/a | n/a | n/a | `-w 40 ptx-basic.txt` | stdout shape matched regex |
-| `ptx` | ignore file kwic shape | ok | 21.160 | 22.243 | 0.951x | match | n/a | n/a | n/a | `-w 40 -i ptx-ignore.txt ptx-basic.txt` | stdout shape matched regex |
-| `ptx` | auto reference kwic shape | ok | 19.687 | 21.899 | 0.899x | match | n/a | n/a | n/a | `-A -w 60 ptx-basic.txt` | stdout shape matched regex |
-| `reset` | ncurses version | ok | 18.862 | 20.802 | 0.907x | match | match | match | n/a | `-V` |  |
-| `tic` | ncurses version | ok | 18.805 | 20.443 | 0.920x | match | match | match | n/a | `-V` |  |
-| `tic` | missing source file diagnostic | ok | 20.830 | 21.779 | 0.956x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `toe` | ncurses version | ok | 18.448 | 19.518 | 0.945x | match | match | match | n/a | `-V` |  |
-| `tzset` | current POSIX timezone | ok | 20.406 | 20.798 | 0.981x | match | match | match | n/a | `` |  |
-| `tzset` | short help shape | ok | 21.701 | 24.609 | 0.882x | match | n/a | n/a | n/a | `-h` | stdout shape matched regex |
-| `tzset` | version output shape | ok | 19.850 | 20.098 | 0.988x | match | n/a | n/a | n/a | `-V` | stdout shape matched regex |
-| `tzset` | reject positional timezone | ok | 20.681 | 21.264 | 0.973x | n/a | n/a | n/a | n/a | `UTC` | stderr shape matched regex |
-| `whoami` | current user name | ok | 19.922 | 19.980 | 0.997x | match | match | match | n/a | `` |  |
-| `logname` | login name | ok | 21.771 | 22.108 | 0.985x | match | match | match | n/a | `` |  |
-| `cpio` | newc archive create shape | ok | 21.267 |  |  | match | n/a | n/a | n/a | `-o` | stdout shape matched regex; reference not required |
-| `free` | megabytes memory table shape | ok | 19.307 |  |  | match | n/a | n/a | n/a | `-m` | stdout shape matched regex; reference not required |
-| `lsof` | field output prefix shape | ok | 8235.701 |  |  | match | n/a | n/a | n/a | `--no-headers -F -t 50` | stdout shape matched regex; reference not required |
-| `man` | command index shape | ok | 20.656 |  |  | match | n/a | n/a | n/a | `--list` | stdout shape matched regex; reference not required |
-| `top` | batch prefix shape | ok | 630.977 |  |  | match | n/a | n/a | n/a | `-b --rows 8` | stdout shape matched regex; reference not required |
-| `tree` | depth one tree shape | ok | 22.028 |  |  | match | n/a | n/a | n/a | `-L 1 tree` | stdout shape matched regex; reference not required |
-| `uptime` | windows uptime shape | ok | 21.565 |  |  | match | n/a | n/a | n/a | `` | stdout shape matched regex; reference not required |
-| `watch` | single iteration command shape | ok | 98.236 |  |  | match | n/a | n/a | n/a | `-n 0 -c 1 -t {winux:printf} watch-ok` | stdout shape matched regex; reference not required |
-| `hostid` | hex host id shape | ok | 19.629 | 20.717 | 0.947x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
-| `groups` | current memberships shape | ok | 19.390 | 19.991 | 0.970x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
-| `who` | quiet user count shape | ok | 20.804 | 22.846 | 0.911x | match | n/a | n/a | n/a | `-q` | stdout shape matched regex |
-| `users` | logged-in users shape | ok | 21.898 | 24.553 | 0.892x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
-| `ps` | default process list shape | ok | 82.879 | 23.058 | 3.594x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
-| `infocmp` | clear capability shape | ok | 19.759 | 21.755 | 0.908x | match | n/a | n/a | n/a | `xterm` | stdout shape matched regex |
-| `getconf` | online processor count | ok | 21.994 | 21.220 | 1.036x | match | match | match | n/a | `_NPROCESSORS_ONLN` |  |
-| `locale` | current locale categories shape | ok | 20.434 | 23.778 | 0.859x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
-| `dircolors` | bourne shell output shape | ok | 19.449 | 20.837 | 0.933x | match | n/a | n/a | n/a | `-b` | stdout shape matched regex |
-| `file` | ascii text classification shape | ok | 23.477 | 210.482 | 0.112x | match | n/a | n/a | n/a | `big.txt` | stdout shape matched regex |
-| `which` | path lookup true shape | ok | 19.943 | 20.609 | 0.968x | match | n/a | n/a | n/a | `true` | stdout shape matched regex |
-| `yes` | capped repeated arguments | ok-normalized-newlines | 19.005 | 22.806 | 0.833x | match | DIFF | match | n/a | `alpha beta` | stdout differs only by CRLF/LF normalization |
-| `clear` | xterm clear sequence | ok | 21.041 | 23.236 | 0.906x | match | match | match | n/a | `` |  |
-| `tput` | clear capability sequence | ok | 18.135 | 21.101 | 0.859x | match | match | match | n/a | `clear` |  |
-| `sleep` | zero interval | ok | 19.168 | 21.257 | 0.902x | match | match | match | n/a | `0` |  |
-| `sync` | global flush no operands | ok | 25.332 | 26.187 | 0.967x | match | match | match | n/a | `` |  |
-| `printenv` | known LC_ALL variable | ok | 19.360 | 19.426 | 0.997x | match | match | match | n/a | `LC_ALL` |  |
-| `true` | successful no-op | ok | 20.062 | 23.033 | 0.871x | match | match | match | n/a | `` |  |
-| `false` | failing no-op | ok | 19.077 | 20.939 | 0.911x | match | match | match | n/a | `` |  |
-| `env` | empty environment assignments | ok | 21.216 | 22.086 | 0.961x | match | match | match | n/a | `-i BAR=2 FOO=1` |  |
-| `expr` | arithmetic precedence | ok | 19.016 | 21.232 | 0.896x | match | match | match | n/a | `2 + 3 * 4` |  |
-| `factor` | medium composite factors | ok | 19.799 | 21.666 | 0.914x | match | match | match | n/a | `1234567890` |  |
-| `numfmt` | from iec stdin | ok | 20.367 | 21.013 | 0.969x | match | match | match | n/a | `--from=iec` |  |
-| `pathchk` | portable valid path | ok | 19.165 | 20.455 | 0.937x | match | match | match | n/a | `-p portable/name` |  |
-| `tsort` | simple dependency chain | ok | 21.703 | 21.903 | 0.991x | match | match | match | n/a | `tsort-chain.txt` |  |
-| `expr` | anchored basic regex capture | ok | 19.379 | 20.228 | 0.958x | match | match | match | n/a | `abc123 : [a-z]*\([0-9][0-9]*\)` |  |
-| `rev` | large file line reversal | ok | 291.461 | 589.810 | 0.494x | match | match | match | n/a | `big.txt` |  |
-| `rev` | nul separated records | ok | 27.831 | 28.701 | 0.970x | match | match | match | n/a | `-0` |  |
-| `test` | numeric true expression | ok | 19.124 | 20.980 | 0.912x | match | match | match | n/a | `123 -gt 45` |  |
-| `test` | numeric false expression | ok | 20.181 | 21.942 | 0.920x | match | match | match | n/a | `12 -eq 13` |  |
-| `[` | numeric true expression | ok | 20.579 | 20.442 | 1.007x | match | match | match | n/a | `123 -gt 45 ]` |  |
-| `less` | non-tty passthrough | ok | 67.765 | 79.857 | 0.849x | match | match | match | n/a | `big.txt` |  |
-| `more` | non-tty passthrough | ok | 40.214 | 41.988 | 0.958x | match | match | match | n/a | `big.txt` |  |
-| `more` | clean-print passthrough | ok | 20.412 | 20.499 | 0.996x | match | match | match | n/a | `-p more-small.txt` |  |
-| `more` | start at line number | ok | 20.674 | 22.851 | 0.905x | match | match | match | n/a | `+3 more-small.txt` |  |
-| `egrep` | extended regex alias | ok | 39.333 | 29.025 | 1.355x | match | match | match | n/a | `needle_(123\|999) big.txt` |  |
-| `fgrep` | fixed string alias | ok | 40.199 | 42.233 | 0.952x | match | match | match | n/a | `needle_999 big.txt` |  |
-| `xxd` | default hex dump | ok | 20.810 | 22.101 | 0.942x | match | match | match | n/a | `hexdump.bin` |  |
-| `od` | hex byte limit without addresses | ok | 49.519 | 22.568 | 2.194x | match | match | match | n/a | `-An -tx1 -N16 big.txt` |  |
-| `base64` | large encode default wrap | ok | 84.925 | 58.656 | 1.448x | match | match | match | n/a | `big.txt` |  |
-| `base64` | decode wrapped payload | ok | 19.602 | 21.961 | 0.893x | match | match | match | n/a | `-d base64-wrapped.txt` |  |
-| `base32` | large encode default wrap | ok | 104.434 | 75.650 | 1.380x | match | match | match | n/a | `big.txt` |  |
-| `base32` | decode wrapped payload | ok | 19.210 | 19.594 | 0.980x | match | match | match | n/a | `-d base32-wrapped.txt` |  |
-| `basenc` | base64url encode default wrap | ok | 82.576 | 62.528 | 1.321x | match | match | match | n/a | `--base64url big.txt` |  |
-| `basenc` | base16 decode payload | ok | 20.064 | 22.124 | 0.907x | match | match | match | n/a | `--base16 -d basenc-base16.txt` |  |
-| `expand` | custom tab expansion | ok | 19.992 | 22.449 | 0.891x | match | match | match | n/a | `-t 4 expand-tabs.txt` |  |
-| `unexpand` | all spaces to tabs | ok | 19.020 | 20.601 | 0.923x | match | match | match | n/a | `-a -t 4 unexpand-spaces.txt` |  |
-| `fold` | space-aware wrapping | ok | 18.938 | 21.370 | 0.886x | match | match | match | n/a | `-s -w 20 fold-long.txt` |  |
-| `fmt` | width paragraph refill | ok | 19.150 | 20.609 | 0.929x | match | match | match | n/a | `-w 40 fmt-basic.txt` |  |
-| `hexdump` | canonical first bytes exact | ok | 20.982 | 23.465 | 0.894x | match | match | match | n/a | `-C -n 32 hexdump.bin` |  |
-| `hexdump` | default two-byte hex exact | ok | 20.811 | 24.839 | 0.838x | match | match | match | n/a | `hexdump.bin` |  |
-| `column` | table default whitespace | ok | 21.007 | 22.812 | 0.921x | match | match | match | n/a | `-t column-basic.txt` |  |
-| `col` | backspace overstrike suppression | ok | 18.898 | 21.696 | 0.871x | match | match | match | n/a | `-b` |  |
-| `column` | table separator empty fields | ok | 19.502 | 22.133 | 0.881x | match | match | match | n/a | `-t -s , column-empty.csv` |  |
-| `pr` | omit header passthrough | ok | 19.939 | 22.875 | 0.872x | match | match | match | n/a | `-t -w 40 pr-basic.txt` |  |
-| `chmod` | numeric owner write removal state | ok | 20.461 | 22.466 | 0.911x | n/a | n/a | n/a | match | `444 f.txt` |  |
-| `chmod` | group other write removal keeps owner writable | ok | 19.765 | 21.453 | 0.921x | n/a | n/a | n/a | match | `go-w f.txt` |  |
-| `install` | mode 444 compare reapplies state | ok | 26.166 | 27.908 | 0.938x | n/a | n/a | n/a | match | `-C -m 444 source.txt dest.txt` |  |
-| `install` | mode 644 copy state | ok | 22.894 | 28.231 | 0.811x | n/a | n/a | n/a | match | `-m 644 source.txt out.txt` |  |
-| `chgrp` | reference group no-op | ok | 24.222 | 26.961 | 0.898x | match | match | match | match | `--reference=reference.txt target.txt` |  |
-| `chown` | reference ownership no-op | ok | 22.856 | 30.945 | 0.739x | match | match | match | match | `--reference=reference.txt target.txt` |  |
-| `mktemp` | dry run template shape | ok | 21.288 | 23.303 | 0.914x | match | n/a | n/a | n/a | `-u bench-XXXXXX` | stdout shape matched regex |
-| `dir` | single column directory listing | ok | 42.424 | 22.025 | 1.926x | match | match | match | n/a | `-1 tree/dir_000/nested_0` |  |
-| `vdir` | single column directory listing | ok | 42.479 | 22.828 | 1.861x | match | match | match | n/a | `--format=single-column tree/dir_000/nested_0` |  |
-| `df` | posix output shape | ok | 22.749 | 24.139 | 0.942x | match | n/a | n/a | n/a | `-P .` | stdout shape matched regex |
-| `df` | custom output field shape | ok | 21.574 | 23.993 | 0.899x | match | n/a | n/a | n/a | `--output=source,size,used,avail,pcent,target .` | stdout shape matched regex |
-| `dd` | block copy state | ok | 28.287 | 28.591 | 0.989x | match | match | match | match | `if=dd-input.bin of=dd-output.bin bs=4 count=3 status=none` |  |
-| `nl` | pattern body numbering | ok | 23.001 | 26.769 | 0.859x | match | match | match | n/a | `-b p^ERR -w 1 -s : nl-pattern.txt` |  |
-| `tac` | literal colon separator | ok | 28.125 | 26.607 | 1.057x | match | match | match | n/a | `-s : tac-colon.txt` |  |
-| `stat` | format name and size | ok | 25.501 | 26.357 | 0.968x | match | match | match | n/a | `-c %n:%s stat-file.txt` |  |
-| `strings` | utf16le with filename and separator | ok | 25.817 | 19.690 | 1.311x | match | match | match | n/a | `-a -f -e l --output-separator=\| strings-utf16le.bin` |  |
-| `kill` | signal name conversion | ok | 23.453 | 25.396 | 0.923x | match | match | match | n/a | `-lHUP` |  |
-| `kill` | realtime signal number conversion | ok | 26.718 | 25.358 | 1.054x | match | match | match | n/a | `-l34` |  |
-| `realpath` | relative path output | ok | 24.923 | 25.306 | 0.985x | n/a | n/a | n/a | n/a | `--relative-to=realpath realpath/a/file.txt` |  |
-| `readlink` | canonicalize existing path | ok | 25.071 | 25.300 | 0.991x | n/a | n/a | n/a | n/a | `-e realpath/a/file.txt` |  |
-| `join` | default sorted join | ok | 24.077 | 27.343 | 0.881x | match | match | match | n/a | `join-left.txt join-right.txt` |  |
-| `diff3` | default overlapping conflict | ok | 26.288 | 278.402 | 0.094x | match | match | match | n/a | `diff3-mine.txt diff3-base.txt diff3-yours.txt` |  |
-| `diff3` | merge overlapping conflict | ok | 31.139 | 264.628 | 0.118x | match | match | match | n/a | `-m diff3-mine.txt diff3-base.txt diff3-yours.txt` |  |
-| `sdiff` | side by side width 80 | ok | 27.615 | 136.274 | 0.203x | match | match | match | n/a | `-w 80 sdiff-left.txt sdiff-right.txt` |  |
-| `shuf` | deterministic random source head | ok | 24.635 | 26.102 | 0.944x | match | match | match | n/a | `--random-source=shuf-random.bin -n 3 shuf.txt` |  |
-| `nohup` | non tty child stdout | ok | 52.533 | 45.413 | 1.157x | match | match | match | n/a | `{ref:printf} hi` |  |
-| `stdbuf` | unbuffered stdout child | ok | 54.533 | 43.421 | 1.256x | match | match | match | n/a | `-o0 {ref:printf} hi` |  |
-| `timeout` | quick command success | ok | 51.957 | 64.819 | 0.802x | match | match | match | n/a | `5 {ref:true}` |  |
-| `cygpath` | default windows to unix | ok | 22.105 | 26.555 | 0.832x | match | match | match | n/a | `C:\Users\Alice\Documents` |  |
-| `cygpath` | path list windows to unix | ok | 21.666 | 26.510 | 0.817x | match | match | match | n/a | `-p -u C:\A;D:\B` |  |
-| `cygpath` | path list posix to mixed | ok | 20.509 | 24.719 | 0.830x | match | match | match | n/a | `-p -m /c/A:/d/B` |  |
-| `split` | line chunks state | ok | 59.831 | 81.940 | 0.730x | match | match | match | match | `-l 1000 split-lines.txt part` |  |
-| `csplit` | regex split state | ok | 24.431 | 26.831 | 0.911x | match | match | match | match | `-s csplit-input.txt /^MARK/` |  |
-| `unlink` | single file removal state | ok | 24.803 | 27.040 | 0.917x | match | match | match | match | `unlink-target.txt` |  |
-| `shred` | one pass zero remove state | ok | 32.671 | 56.674 | 0.576x | match | match | match | match | `-n 1 -z -u shred-target.txt` |  |
-| `dos2unix` | in-place CRLF to LF state | ok | 31.058 | 40.024 | 0.776x | n/a | n/a | n/a | match | `crlf.txt` |  |
-| `d2u` | alias in-place CRLF to LF state | ok | 29.722 | 42.078 | 0.706x | n/a | n/a | n/a | match | `crlf.txt` |  |
-| `unix2dos` | in-place LF to CRLF state | ok | 37.597 | 34.162 | 1.101x | n/a | n/a | n/a | match | `lf.txt` |  |
-| `u2d` | alias in-place LF to CRLF state | ok | 28.113 | 35.042 | 0.802x | n/a | n/a | n/a | match | `lf.txt` |  |
-| `diff` | brief differing files | ok | 31.614 | 82.750 | 0.382x | match | match | match | match | `-q diff-a.txt diff-b.txt` |  |
-| `du` | apparent bytes single file | ok | 23.448 | 47.087 | 0.498x | match | match | match | match | `-b du-file.txt` |  |
-| `du` | files0 total bytes | ok | 29.182 | 45.240 | 0.645x | match | match | match | match | `-b -c --files0-from du-list0.bin` |  |
-| `truncate` | shrink existing file state | ok | 29.624 | 28.888 | 1.025x | n/a | n/a | n/a | match | `-s 1024 du-file.txt` |  |
-| `link` | hard link file state | ok | 25.773 | 30.237 | 0.852x | match | match | match | match | `link-src.txt link-created.txt` |  |
-| `cp` | recursive directory copy | ok | 35.800 | 37.808 | 0.947x | match | match | match | match | `-R copy-src copy-out` |  |
-| `cp` | no-clobber keeps destination | ok | 21.648 | 29.295 | 0.739x | match | match | match | match | `-n copy-new.txt copy-existing.txt` |  |
-| `cp` | update skips older source | ok | 22.297 | 27.620 | 0.807x | match | match | match | match | `-u copy-old-src.txt copy-newer-dst.txt` |  |
-| `cp` | backup custom suffix | ok | 23.598 | 29.592 | 0.797x | match | match | match | match | `-b -S .bak copy-new.txt copy-existing.txt` |  |
-| `cp` | parents path copy | ok | 28.168 | 32.290 | 0.872x | match | match | match | match | `--parents copy-src/nested/gamma.txt parents-out` |  |
-| `mkdir` | parents creation | ok | 32.353 | 31.346 | 1.032x | match | match | match | match | `-p new/a/b` |  |
-| `mkdir` | verbose parents | ok | 37.109 | 29.663 | 1.251x | match | n/a | n/a | match | `-v -p newv/a/b` | stdout shape matched regex |
-| `touch` | create missing file | ok | 28.790 | 28.114 | 1.024x | match | match | match | match | `touch-new.txt` |  |
-| `touch` | fixed utc directory timestamp | ok | 27.235 | 33.158 | 0.821x | n/a | n/a | n/a | match | `-d 2024-04-05 06:07:08 UTC touch-dir` |  |
-| `ln` | hard link file | ok | 24.913 | 31.953 | 0.780x | match | match | match | match | `link-src.txt link-dst.txt` |  |
-| `ln` | verbose hard link | ok | 29.615 | 28.619 | 1.035x | match | match | match | match | `-v link-src.txt link-verbose.txt` |  |
-| `ln` | backup custom suffix | ok | 27.237 | 33.723 | 0.808x | match | match | match | match | `-b -S .bak link-src.txt link-existing.txt` |  |
-| `mv` | rename file | ok | 23.131 | 26.004 | 0.890x | match | match | match | match | `move-src.txt move-dst.txt` |  |
-| `mv` | no-clobber keeps destination | ok | 22.509 | 27.283 | 0.825x | match | match | match | match | `-n move-new.txt move-existing.txt` |  |
-| `mv` | update skips older source | ok | 22.724 | 28.099 | 0.809x | match | match | match | match | `-u move-old-src.txt move-newer-dst.txt` |  |
-| `mv` | backup custom suffix | ok | 27.209 | 33.769 | 0.806x | match | match | match | match | `-b -S .bak move-new.txt move-existing.txt` |  |
-| `rm` | recursive removal | ok | 26.333 | 36.161 | 0.728x | match | match | match | match | `-r remove-tree` |  |
-| `rm` | force missing succeeds | ok | 29.787 | 30.324 | 0.982x | match | match | match | match | `-f missing-file.txt` |  |
-| `rm` | dir removes empty directory | ok | 22.691 | 28.964 | 0.783x | match | match | match | match | `-d remove-empty-dir` |  |
-| `rm` | verbose single file removal | ok | 28.515 | 40.704 | 0.701x | match | match | match | match | `-v remove-verbose.txt` |  |
-| `rmdir` | remove empty parents | ok | 25.396 | 27.548 | 0.922x | match | match | match | match | `-p empty/a/b` |  |
-| `rmdir` | ignore nonempty succeeds | ok | 23.448 | 26.975 | 0.869x | match | match | match | match | `--ignore-fail-on-non-empty remove-nonempty-dir` |  |
-| `basename` | multiple suffix stripping | ok | 27.166 | 25.975 | 1.046x | match | match | match | n/a | `-a -s .txt /tmp/alpha.txt beta.txt` |  |
-| `cmp` | quiet equal large files | ok | 31.396 | 70.722 | 0.444x | match | match | match | n/a | `-s big.txt big-copy.txt` |  |
-| `comm` | three-column sorted comparison | ok | 21.140 | 24.406 | 0.866x | match | match | match | n/a | `comm-a.txt comm-b.txt` |  |
-| `comm` | default unsorted warning | ok | 24.627 | 26.278 | 0.937x | match | match | match | n/a | `comm-unsorted-a.txt comm-unsorted-b.txt` | stderr shape matched regex |
-| `paste` | parallel two files | ok | 20.422 | 24.253 | 0.842x | match | match | match | n/a | `paste-left.txt paste-right.txt` |  |
-| `printf` | format reuse | ok | 20.452 | 20.750 | 0.986x | match | match | match | n/a | `%s:%04d\n alpha 7 beta 42` |  |
-| `seq` | integer fast path | ok | 40.335 | 22.753 | 1.773x | match | match | match | n/a | `1 10000` |  |
-| `uniq` | count adjacent duplicates | ok-normalized-newlines | 20.593 | 21.990 | 0.936x | match | DIFF | match | n/a | `-c dupes.txt` | stdout differs only by CRLF/LF normalization |
-| `uniq` | duplicate and unique flags suppress all | ok | 22.278 | 22.150 | 1.006x | match | match | match | n/a | `-d -u dupes.txt` |  |
-| `uniq` | all repeated with unique flag emits later repeats | ok-normalized-newlines | 21.032 | 21.351 | 0.985x | match | DIFF | match | n/a | `-D -u dupes.txt` | stdout differs only by CRLF/LF normalization |
-| `uniq` | count all repeated conflict | ok | 19.510 | 23.027 | 0.847x | n/a | n/a | n/a | n/a | `-c -D dupes.txt` |  |
-| `sum` | sysv large file | ok | 57.298 | 33.078 | 1.732x | match | match | match | n/a | `-s big.txt` |  |
-| `cksum` | crc large file | ok-normalized-newlines | 35.242 | 42.370 | 0.832x | match | DIFF | match | n/a | `big.txt` | stdout differs only by CRLF/LF normalization |
-| `md5sum` | md5 large file | ok | 44.647 | 33.683 | 1.326x | match | match | match | n/a | `big.txt` |  |
-| `sha1sum` | sha1 large file | ok | 38.720 | 32.742 | 1.183x | match | match | match | n/a | `big.txt` |  |
-| `sha256sum` | sha256 large file | ok | 33.438 | 49.382 | 0.677x | match | match | match | n/a | `big.txt` |  |
-| `hmac256` | hmac sha256 large file | ok | 50.014 | 47.694 | 1.049x | match | match | match | n/a | `release-key big.txt` |  |
-| `hmac256` | hmac sha256 stdin | ok | 50.011 | 48.038 | 1.041x | match | match | match | n/a | `release-key` |  |
-| `patch` | unified diff file apply state | ok | 28.189 | 34.218 | 0.824x | n/a | n/a | n/a | match | `-p0 -i change.diff` |  |
-| `mpicalc` | hex rpn arithmetic stdin | ok | 23.282 | 28.153 | 0.827x | match | match | match | n/a | `` |  |
-| `mpicalc` | hex rpn modular stack stdin | ok | 30.829 | 28.771 | 1.072x | match | match | match | n/a | `` |  |
-| `pinky` | short heading no utmp | ok | 25.208 | 33.115 | 0.761x | match | match | match | n/a | `` |  |
-| `pinky` | short format omit heading | ok | 25.203 | 26.789 | 0.941x | match | match | match | n/a | `-f` |  |
-| `pinky` | long unknown user | ok | 27.105 | 28.917 | 0.937x | match | match | match | n/a | `-l nosuchuser` |  |
-| `chroot` | missing operand diagnostic | ok | 25.574 | 28.780 | 0.889x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `chroot` | missing directory diagnostic | ok | 35.906 | 29.464 | 1.219x | n/a | n/a | n/a | n/a | `definitely-missing-chroot-root` | stderr shape matched regex |
-| `runcon` | current context unsupported diagnostic | ok | 30.043 | 35.963 | 0.835x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `runcon` | missing command diagnostic | ok | 24.664 | 31.810 | 0.775x | n/a | n/a | n/a | n/a | `system_u:system_r:httpd_t:s0` | stderr shape matched regex |
-| `chcon` | missing operand diagnostic | ok | 27.568 | 29.321 | 0.940x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `chcon` | missing file operand after context | ok | 24.667 | 25.457 | 0.969x | n/a | n/a | n/a | n/a | `system_u:object_r:user_home_t:s0` | stderr shape matched regex |
-| `mkfifo` | missing operand diagnostic | ok | 22.255 | 26.214 | 0.849x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `mkfifo` | existing path diagnostic | ok | 24.360 | 25.841 | 0.943x | n/a | n/a | n/a | n/a | `cat-no-newline.txt` | stderr shape matched regex |
-| `mknod` | missing operand diagnostic | ok | 24.815 | 26.737 | 0.928x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
-| `mknod` | missing type diagnostic | ok | 21.938 | 29.346 | 0.748x | n/a | n/a | n/a | n/a | `nodeonly` | stderr shape matched regex |
-| `mknod` | fifo extra device numbers diagnostic | ok | 23.486 | 25.329 | 0.927x | n/a | n/a | n/a | n/a | `pnode p 1 2` | stderr shape matched regex |
-| `mknod` | existing path diagnostic | ok | 23.189 | 26.224 | 0.884x | n/a | n/a | n/a | n/a | `cat-no-newline.txt p` | stderr shape matched regex |
-| `sha224sum` | sha224 large file | ok | 47.439 | 42.368 | 1.120x | match | match | match | n/a | `big.txt` |  |
-| `sha384sum` | sha384 large file | ok | 38.349 | 34.550 | 1.110x | match | match | match | n/a | `big.txt` |  |
-| `sha512sum` | sha512 large file | ok | 35.841 | 33.971 | 1.055x | match | match | match | n/a | `big.txt` |  |
-| `b2sum` | blake2 large file | ok | 31.457 | 27.145 | 1.159x | match | match | match | n/a | `big.txt` |  |
+| `cat` | large file passthrough | ok | 39.903 | 38.710 | 1.031x | match | match | match | n/a | `big.txt` |  |
+| `cat` | number final unterminated line | ok | 27.024 | 21.018 | 1.286x | match | match | match | n/a | `-n cat-no-newline.txt` |  |
+| `cat` | show all visible transform | ok | 34.510 | 21.788 | 1.584x | match | match | match | n/a | `-A cat-visible.bin` |  |
+| `grep` | fixed literal search | ok | 57.729 | 42.181 | 1.369x | match | match | match | n/a | `-F needle_999 big.txt` |  |
+| `grep` | fixed pattern file many literals | ok | 63.441 | 43.393 | 1.462x | match | match | match | n/a | `-F -f grep-many-patterns.txt big.txt` |  |
+| `grep` | extended regex alternation | ok | 59.778 | 35.821 | 1.669x | match | match | match | n/a | `-E needle_(123\|999) big.txt` |  |
+| `grep` | only matching extended regex | ok | 342.147 | 192.048 | 1.782x | match | match | match | n/a | `-E -o needle_[0-9]+ big.txt` |  |
+| `grep` | context custom group separator | ok | 21.558 | 20.385 | 1.058x | match | match | match | n/a | `-C 1 --group-separator=@@ needle grep-context.txt` |  |
+| `grep` | recursive extended size alternation | ok | 23.530 | 21.596 | 1.090x | match | match | match | n/a | `-REIn 28x12\|12x10\|16x12 grep-recursive` |  |
+| `sed` | global literal substitution | ok | 224.433 | 200.838 | 1.117x | match | match | match | n/a | `s/needle/NEEDLE/g big.txt` |  |
+| `sed` | zero address regex range | ok | 22.517 | 24.002 | 0.938x | match | match | match | n/a | `0,/foo/s/foo/XX/ sed-zero-range.txt` |  |
+| `sed` | filename command | ok | 21.534 | 26.417 | 0.815x | match | match | match | n/a | `-n F sed-file-a.txt sed-file-b.txt` |  |
+| `sed` | substitution write flag | ok | 26.165 | 22.110 | 1.183x | match | match | match | match | `s/needle/NEEDLE/w sed-subst-write.out sed-subst-write.txt` |  |
+| `wc` | line byte word counts | ok | 70.187 | 44.842 | 1.565x | match | match | match | n/a | `-lwm big.txt` |  |
+| `wc` | byte count fast path | ok | 21.626 | 22.316 | 0.969x | match | match | match | n/a | `-c big.txt` |  |
+| `wc` | line and byte fast path | ok | 26.512 | 23.583 | 1.124x | match | match | match | n/a | `-lc big.txt` |  |
+| `head` | first 1000 lines | ok | 23.046 | 21.520 | 1.071x | match | match | match | n/a | `-n 1000 big.txt` |  |
+| `head` | all but last 4096 bytes | ok | 38.505 | 52.016 | 0.740x | match | match | match | n/a | `-c -4096 big.txt` |  |
+| `head` | all but last 200 lines | ok | 35.618 | 50.265 | 0.709x | match | match | match | n/a | `-n -200 big.txt` |  |
+| `tail` | last 1000 lines | ok | 23.720 | 22.286 | 1.064x | match | match | match | n/a | `-n 1000 big.txt` |  |
+| `tail` | last 4096 bytes | ok | 25.067 | 22.874 | 1.096x | match | match | match | n/a | `-c 4096 big.txt` |  |
+| `tail` | bytes from start | ok | 43.224 | 59.288 | 0.729x | match | match | match | n/a | `-c +4096 big.txt` |  |
+| `tail` | obsolete from-start line shorthand | ok | 48.946 | 58.607 | 0.835x | match | match | match | n/a | `+1000 big.txt` |  |
+| `cut` | delimited field selection | ok | 163.839 | 98.773 | 1.659x | match | match | match | n/a | `-d , -f 2,4 table.csv` |  |
+| `sort` | large lexical sort | ok | 87.331 | 54.685 | 1.597x | match | match | match | n/a | `words.txt` |  |
+| `sort` | zero-terminated records | ok | 23.286 | 28.058 | 0.830x | match | match | match | n/a | `-z sort-zero.bin` |  |
+| `sort` | field numeric key sort | ok | 40.817 | 26.020 | 1.569x | match | match | match | n/a | `-t , -k 2,2n sort-fields.csv` |  |
+| `sort` | merge sorted streams | ok | 81.539 | 29.427 | 2.771x | match | match | match | n/a | `-m sort-merge-left.txt sort-merge-right.txt` |  |
+| `sort` | merge preserves input stream order | ok | 24.420 | 25.160 | 0.971x | match | match | match | n/a | `-m sort-merge-single.txt` |  |
+| `sort` | check unsorted diagnostic shape | ok | 30.191 | 28.366 | 1.064x | n/a | n/a | n/a | n/a | `-c sort-check-bad.txt` | stderr shape matched regex |
+| `find` | recursive name predicate | ok | 123.005 | 93.254 | 1.319x | match | match | match | n/a | `tree -type f -name *.txt` |  |
+| `find` | empty predicate printf | ok | 43.441 | 294.853 | 0.147x | match | match | match | n/a | `tree -empty -printf %P\|%y\n` |  |
+| `find` | prune or branch | ok | 337.809 | 92.418 | 3.655x | match | match | match | n/a | `tree -name dir_010 -prune -o -type f -name *.txt -printf %P\n` |  |
+| `find` | xtype regular predicate | ok | 133.182 | 366.997 | 0.363x | match | match | match | n/a | `tree -xtype f -name *.txt` |  |
+| `find` | fprint0 action state | ok | 132.696 | 81.855 | 1.621x | n/a | n/a | n/a | match | `. -type f -name *.txt -fprint0 find-fprint0.out` |  |
+| `ls` | recursive tree listing | ok | 69.787 | 42.589 | 1.639x | match | match | match | n/a | `-R tree` |  |
+| `ls` | size sort single-column | ok | 21.594 | 21.320 | 1.013x | match | match | match | n/a | `-1S ls-fixture` |  |
+| `ls` | mtime sort single-column | ok | 21.927 | 23.015 | 0.953x | match | match | match | n/a | `-1t ls-fixture` |  |
+| `ls` | comma format wrapping | ok | 21.195 | 19.978 | 1.061x | match | match | match | n/a | `-m -w 40 ls-fixture` |  |
+| `ls` | horizontal format wrapping | ok | 20.793 | 20.158 | 1.032x | match | match | match | n/a | `-x -w 40 ls-fixture` |  |
+| `tee` | stdin to stdout and literal dash file | ok | 54.970 | 101.598 | 0.541x | match | match | match | n/a | `-` |  |
+| `tee` | bare output-error keeps file operand | ok | 37.935 | 25.242 | 1.503x | match | match | match | match | `--output-error tee-out.txt` |  |
+| `tr` | translate lowercase to uppercase | ok | 56.271 | 52.024 | 1.082x | match | match | match | n/a | `a-z A-Z` |  |
+| `tr` | delete digits | ok | 60.093 | 42.031 | 1.430x | match | match | match | n/a | `-d 0-9` |  |
+| `tr` | squeeze spaces | ok | 73.010 | 75.592 | 0.966x | match | match | match | n/a | `-s  ` |  |
+| `tr` | complement squeeze words | ok | 24.824 | 22.512 | 1.103x | match | match | match | n/a | `-cs [:alpha:] \n` |  |
+| `tr` | truncate set1 translation | ok | 22.455 | 22.189 | 1.012x | match | match | match | n/a | `-t abc X` |  |
+| `xargs` | default echo batches | ok | 52.539 | 4815.504 | 0.011x | match | match | match | n/a | `-n 50` |  |
+| `xargs` | null-delimited echo batches | ok | 54.938 | 9358.765 | 0.006x | match | match | match | n/a | `-0 -n 40` |  |
+| `echo` | escape interpretation | ok | 21.787 | 19.942 | 1.093x | match | match | match | n/a | `-e alpha\nbeta tail` |  |
+| `dirname` | multiple operands | ok | 24.180 | 18.408 | 1.314x | match | match | match | n/a | `alpha/beta/file.txt plain .` |  |
+| `dirname` | drive and unc roots | ok | 22.518 | 21.046 | 1.070x | match | match | match | n/a | `// //server //server/share C:/ C:foo` |  |
+| `pwd` | physical current directory | ok | 19.754 | 33.667 | 0.587x | n/a | n/a | n/a | n/a | `-P` |  |
+| `cal` | fixed month layout | ok | 24.438 | 23.482 | 1.041x | match | match | match | n/a | `7 2026` |  |
+| `date` | fixed epoch utc format | ok | 21.452 | 20.925 | 1.025x | match | match | match | n/a | `-u -d @0 +%Y-%m-%dT%H:%M:%S%z` |  |
+| `hostname` | current host name | ok | 29.112 | 35.265 | 0.826x | match | match | match | n/a | `` |  |
+| `id` | numeric user id | ok | 24.865 | 18.670 | 1.332x | match | match | match | n/a | `-u` |  |
+| `id` | user name only | ok | 23.519 | 20.014 | 1.175x | match | match | match | n/a | `-un` |  |
+| `id` | numeric group id | ok | 23.692 | 20.410 | 1.161x | match | match | match | n/a | `-g` |  |
+| `nice` | current niceness | ok | 19.695 | 19.878 | 0.991x | match | match | match | n/a | `` |  |
+| `arch` | machine hardware name | ok | 23.527 | 59.881 | 0.393x | match | match | match | n/a | `` |  |
+| `uname` | machine hardware name | ok | 21.359 | 39.743 | 0.537x | match | match | match | n/a | `-m` |  |
+| `nproc` | ignore one processing unit | ok | 22.275 | 31.800 | 0.700x | match | match | match | n/a | `--ignore=1` |  |
+| `tty` | non tty diagnostic | ok | 19.415 | 22.682 | 0.856x | match | match | match | n/a | `` |  |
+| `tty` | silent non tty status | ok | 23.028 | 19.269 | 1.195x | match | match | match | n/a | `-s` |  |
+| `stty` | non tty default diagnostic | ok | 20.216 | 19.791 | 1.021x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `stty` | non tty all diagnostic | ok | 22.904 | 19.346 | 1.184x | n/a | n/a | n/a | n/a | `-a` | stderr shape matched regex |
+| `stty` | non tty save diagnostic | ok | 20.295 | 22.171 | 0.915x | n/a | n/a | n/a | n/a | `-g` | stderr shape matched regex |
+| `stty` | invalid setting diagnostic | ok | 23.376 | 21.641 | 1.080x | n/a | n/a | n/a | n/a | `invalidxyz` | stderr shape matched regex |
+| `stty` | missing value diagnostic | ok | 23.280 | 21.762 | 1.070x | n/a | n/a | n/a | n/a | `rows` | stderr shape matched regex |
+| `stty` | missing file device diagnostic | ok | 21.061 | 22.694 | 0.928x | n/a | n/a | n/a | n/a | `-F missing-device` | stderr shape matched regex |
+| `ptx` | fixed width kwic shape | ok | 22.300 | 21.627 | 1.031x | match | n/a | n/a | n/a | `-w 40 ptx-basic.txt` | stdout shape matched regex |
+| `ptx` | ignore file kwic shape | ok | 20.400 | 33.193 | 0.615x | match | n/a | n/a | n/a | `-w 40 -i ptx-ignore.txt ptx-basic.txt` | stdout shape matched regex |
+| `ptx` | auto reference kwic shape | ok | 22.539 | 23.753 | 0.949x | match | n/a | n/a | n/a | `-A -w 60 ptx-basic.txt` | stdout shape matched regex |
+| `reset` | ncurses version | ok | 21.248 | 20.878 | 1.018x | match | match | match | n/a | `-V` |  |
+| `tic` | ncurses version | ok | 23.808 | 21.535 | 1.106x | match | match | match | n/a | `-V` |  |
+| `tic` | missing source file diagnostic | ok | 25.158 | 22.141 | 1.136x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `toe` | ncurses version | ok | 22.722 | 19.430 | 1.169x | match | match | match | n/a | `-V` |  |
+| `tzset` | current POSIX timezone | ok | 20.784 | 19.037 | 1.092x | match | match | match | n/a | `` |  |
+| `tzset` | short help shape | ok | 21.823 | 19.616 | 1.113x | match | n/a | n/a | n/a | `-h` | stdout shape matched regex |
+| `tzset` | version output shape | ok | 21.910 | 19.787 | 1.107x | match | n/a | n/a | n/a | `-V` | stdout shape matched regex |
+| `tzset` | reject positional timezone | ok | 20.923 | 19.032 | 1.099x | n/a | n/a | n/a | n/a | `UTC` | stderr shape matched regex |
+| `whoami` | current user name | ok | 24.315 | 34.861 | 0.697x | match | match | match | n/a | `` |  |
+| `logname` | login name | ok | 23.653 | 23.011 | 1.028x | match | match | match | n/a | `` |  |
+| `cpio` | newc archive create shape | ok | 27.292 |  |  | match | n/a | n/a | n/a | `-o` | stdout shape matched regex; reference not required |
+| `free` | megabytes memory table shape | ok | 23.274 |  |  | match | n/a | n/a | n/a | `-m` | stdout shape matched regex; reference not required |
+| `lsof` | field output prefix shape | ok | 8252.474 |  |  | match | n/a | n/a | n/a | `--no-headers -F -t 50` | stdout shape matched regex; reference not required |
+| `man` | command index shape | ok | 22.911 |  |  | match | n/a | n/a | n/a | `--list` | stdout shape matched regex; reference not required |
+| `top` | batch prefix shape | ok | 620.500 |  |  | match | n/a | n/a | n/a | `-b --rows 8` | stdout shape matched regex; reference not required |
+| `tree` | depth one tree shape | ok | 34.625 |  |  | match | n/a | n/a | n/a | `-L 1 tree` | stdout shape matched regex; reference not required |
+| `uptime` | windows uptime shape | ok | 21.078 |  |  | match | n/a | n/a | n/a | `` | stdout shape matched regex; reference not required |
+| `watch` | single iteration command shape | ok | 105.225 |  |  | match | n/a | n/a | n/a | `-n 0 -c 1 -t {winux:printf} watch-ok` | stdout shape matched regex; reference not required |
+| `hostid` | hex host id shape | ok | 22.747 | 20.031 | 1.136x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
+| `groups` | current memberships shape | ok | 21.574 | 21.264 | 1.015x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
+| `who` | quiet user count shape | ok | 26.076 | 23.733 | 1.099x | match | n/a | n/a | n/a | `-q` | stdout shape matched regex |
+| `users` | logged-in users shape | ok | 25.518 | 22.368 | 1.141x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
+| `ps` | default process list shape | ok | 89.767 | 25.046 | 3.584x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
+| `infocmp` | clear capability shape | ok | 20.981 | 20.404 | 1.028x | match | n/a | n/a | n/a | `xterm` | stdout shape matched regex |
+| `getconf` | online processor count | ok | 25.628 | 21.411 | 1.197x | match | match | match | n/a | `_NPROCESSORS_ONLN` |  |
+| `locale` | current locale categories shape | ok | 21.886 | 23.025 | 0.951x | match | n/a | n/a | n/a | `` | stdout shape matched regex |
+| `dircolors` | bourne shell output shape | ok | 22.063 | 22.817 | 0.967x | match | n/a | n/a | n/a | `-b` | stdout shape matched regex |
+| `file` | ascii text classification shape | ok | 21.251 | 208.610 | 0.102x | match | n/a | n/a | n/a | `big.txt` | stdout shape matched regex |
+| `which` | path lookup true shape | ok | 24.996 | 20.823 | 1.200x | match | n/a | n/a | n/a | `true` | stdout shape matched regex |
+| `yes` | capped repeated arguments | ok-normalized-newlines | 29.647 | 29.834 | 0.994x | match | DIFF | match | n/a | `alpha beta` | stdout differs only by CRLF/LF normalization |
+| `clear` | xterm clear sequence | ok | 22.174 | 18.454 | 1.202x | match | match | match | n/a | `` |  |
+| `tput` | clear capability sequence | ok | 21.193 | 21.308 | 0.995x | match | match | match | n/a | `clear` |  |
+| `sleep` | zero interval | ok | 22.298 | 22.485 | 0.992x | match | match | match | n/a | `0` |  |
+| `sync` | global flush no operands | ok | 27.116 | 28.957 | 0.936x | match | match | match | n/a | `` |  |
+| `printenv` | known LC_ALL variable | ok | 22.589 | 20.233 | 1.116x | match | match | match | n/a | `LC_ALL` |  |
+| `true` | successful no-op | ok | 23.387 | 20.657 | 1.132x | match | match | match | n/a | `` |  |
+| `false` | failing no-op | ok | 22.406 | 20.216 | 1.108x | match | match | match | n/a | `` |  |
+| `env` | empty environment assignments | ok | 21.982 | 21.016 | 1.046x | match | match | match | n/a | `-i BAR=2 FOO=1` |  |
+| `env` | split string reparsed assignments | ok | 21.784 | 19.561 | 1.114x | match | match | match | n/a | `-S -i BAR=2 FOO=1` |  |
+| `expr` | arithmetic precedence | ok | 21.035 | 19.580 | 1.074x | match | match | match | n/a | `2 + 3 * 4` |  |
+| `factor` | medium composite factors | ok | 20.595 | 21.048 | 0.978x | match | match | match | n/a | `1234567890` |  |
+| `numfmt` | from iec stdin | ok | 24.357 | 20.313 | 1.199x | match | match | match | n/a | `--from=iec` |  |
+| `pathchk` | portable valid path | ok | 24.019 | 19.695 | 1.220x | match | match | match | n/a | `-p portable/name` |  |
+| `tsort` | simple dependency chain | ok | 21.892 | 19.643 | 1.114x | match | match | match | n/a | `tsort-chain.txt` |  |
+| `expr` | anchored basic regex capture | ok | 21.768 | 20.453 | 1.064x | match | match | match | n/a | `abc123 : [a-z]*\([0-9][0-9]*\)` |  |
+| `rev` | large file line reversal | ok | 1354.262 | 589.631 | 2.297x | match | match | match | n/a | `big.txt` |  |
+| `rev` | nul separated records | ok | 48.814 | 27.166 | 1.797x | match | match | match | n/a | `-0` |  |
+| `test` | numeric true expression | ok | 21.171 | 20.665 | 1.024x | match | match | match | n/a | `123 -gt 45` |  |
+| `test` | numeric false expression | ok | 21.412 | 20.715 | 1.034x | match | match | match | n/a | `12 -eq 13` |  |
+| `[` | numeric true expression | ok | 20.131 | 20.183 | 0.997x | match | match | match | n/a | `123 -gt 45 ]` |  |
+| `less` | non-tty passthrough | ok | 226.942 | 72.783 | 3.118x | match | match | match | n/a | `big.txt` |  |
+| `more` | non-tty passthrough | ok | 36.277 | 43.398 | 0.836x | match | match | match | n/a | `big.txt` |  |
+| `more` | clean-print passthrough | ok | 22.532 | 22.835 | 0.987x | match | match | match | n/a | `-p more-small.txt` |  |
+| `more` | start at line number | ok | 20.892 | 20.853 | 1.002x | match | match | match | n/a | `+3 more-small.txt` |  |
+| `egrep` | extended regex alias | ok | 62.416 | 33.439 | 1.867x | match | match | match | n/a | `needle_(123\|999) big.txt` |  |
+| `fgrep` | fixed string alias | ok | 60.956 | 40.634 | 1.500x | match | match | match | n/a | `needle_999 big.txt` |  |
+| `xxd` | default hex dump | ok | 21.050 | 22.221 | 0.947x | match | match | match | n/a | `hexdump.bin` |  |
+| `od` | hex byte limit without addresses | ok | 22.627 | 21.866 | 1.035x | match | match | match | n/a | `-An -tx1 -N16 big.txt` |  |
+| `base64` | large encode default wrap | ok | 280.978 | 62.270 | 4.512x | match | match | match | n/a | `big.txt` |  |
+| `base64` | decode wrapped payload | ok | 21.551 | 19.646 | 1.097x | match | match | match | n/a | `-d base64-wrapped.txt` |  |
+| `base32` | large encode default wrap | ok | 283.053 | 65.728 | 4.306x | match | match | match | n/a | `big.txt` |  |
+| `base32` | decode wrapped payload | ok | 19.869 | 22.997 | 0.864x | match | match | match | n/a | `-d base32-wrapped.txt` |  |
+| `basenc` | base64url encode default wrap | ok | 298.488 | 61.096 | 4.886x | match | match | match | n/a | `--base64url big.txt` |  |
+| `basenc` | base16 decode payload | ok | 23.631 | 20.634 | 1.145x | match | match | match | n/a | `--base16 -d basenc-base16.txt` |  |
+| `expand` | custom tab expansion | ok | 22.516 | 20.554 | 1.095x | match | match | match | n/a | `-t 4 expand-tabs.txt` |  |
+| `unexpand` | all spaces to tabs | ok | 21.171 | 18.998 | 1.114x | match | match | match | n/a | `-a -t 4 unexpand-spaces.txt` |  |
+| `fold` | space-aware wrapping | ok | 22.182 | 33.716 | 0.658x | match | match | match | n/a | `-s -w 20 fold-long.txt` |  |
+| `fmt` | width paragraph refill | ok | 21.650 | 20.029 | 1.081x | match | match | match | n/a | `-w 40 fmt-basic.txt` |  |
+| `hexdump` | canonical first bytes exact | ok | 23.947 | 25.982 | 0.922x | match | match | match | n/a | `-C -n 32 hexdump.bin` |  |
+| `hexdump` | default two-byte hex exact | ok | 23.477 | 21.277 | 1.103x | match | match | match | n/a | `hexdump.bin` |  |
+| `column` | table default whitespace | ok | 20.683 | 20.553 | 1.006x | match | match | match | n/a | `-t column-basic.txt` |  |
+| `col` | backspace overstrike suppression | ok | 20.667 | 22.651 | 0.912x | match | match | match | n/a | `-b` |  |
+| `column` | table separator empty fields | ok | 20.129 | 18.370 | 1.096x | match | match | match | n/a | `-t -s , column-empty.csv` |  |
+| `pr` | omit header passthrough | ok | 21.997 | 21.971 | 1.001x | match | match | match | n/a | `-t -w 40 pr-basic.txt` |  |
+| `chmod` | numeric owner write removal state | ok | 26.053 | 20.914 | 1.246x | n/a | n/a | n/a | match | `444 f.txt` |  |
+| `chmod` | group other write removal keeps owner writable | ok | 20.963 | 22.264 | 0.942x | n/a | n/a | n/a | match | `go-w f.txt` |  |
+| `install` | mode 444 compare reapplies state | ok | 27.130 | 27.598 | 0.983x | n/a | n/a | n/a | match | `-C -m 444 source.txt dest.txt` |  |
+| `install` | mode 644 copy state | ok | 22.961 | 22.964 | 1.000x | n/a | n/a | n/a | match | `-m 644 source.txt out.txt` |  |
+| `chgrp` | reference group no-op | ok | 22.889 | 26.577 | 0.861x | match | match | match | match | `--reference=reference.txt target.txt` |  |
+| `chown` | reference ownership no-op | ok | 25.474 | 24.895 | 1.023x | match | match | match | match | `--reference=reference.txt target.txt` |  |
+| `mktemp` | dry run template shape | ok | 22.903 | 20.421 | 1.122x | match | n/a | n/a | n/a | `-u bench-XXXXXX` | stdout shape matched regex |
+| `dir` | single column directory listing | ok | 44.392 | 20.804 | 2.134x | match | match | match | n/a | `-1 tree/dir_000/nested_0` |  |
+| `vdir` | single column directory listing | ok | 45.647 | 19.203 | 2.377x | match | match | match | n/a | `--format=single-column tree/dir_000/nested_0` |  |
+| `df` | posix output shape | ok | 21.293 | 22.167 | 0.961x | match | n/a | n/a | n/a | `-P .` | stdout shape matched regex |
+| `df` | custom output field shape | ok | 22.590 | 24.891 | 0.908x | match | n/a | n/a | n/a | `--output=source,size,used,avail,pcent,target .` | stdout shape matched regex |
+| `dd` | block copy state | ok | 26.554 | 27.946 | 0.950x | match | match | match | match | `if=dd-input.bin of=dd-output.bin bs=4 count=3 status=none` |  |
+| `nl` | pattern body numbering | ok | 37.775 | 28.701 | 1.316x | match | match | match | n/a | `-b p^ERR -w 1 -s : nl-pattern.txt` |  |
+| `tac` | literal colon separator | ok | 27.019 | 24.777 | 1.090x | match | match | match | n/a | `-s : tac-colon.txt` |  |
+| `stat` | format name and size | ok | 25.781 | 21.218 | 1.215x | match | match | match | n/a | `-c %n:%s stat-file.txt` |  |
+| `strings` | utf16le with filename and separator | ok | 21.987 | 18.813 | 1.169x | match | match | match | n/a | `-a -f -e l --output-separator=\| strings-utf16le.bin` |  |
+| `kill` | signal name conversion | ok | 27.143 | 23.652 | 1.148x | match | match | match | n/a | `-lHUP` |  |
+| `kill` | realtime signal number conversion | ok | 23.397 | 23.450 | 0.998x | match | match | match | n/a | `-l34` |  |
+| `realpath` | relative path output | ok | 25.734 | 23.071 | 1.115x | n/a | n/a | n/a | n/a | `--relative-to=realpath realpath/a/file.txt` |  |
+| `readlink` | canonicalize existing path | ok | 23.473 | 25.462 | 0.922x | n/a | n/a | n/a | n/a | `-e realpath/a/file.txt` |  |
+| `join` | default sorted join | ok | 23.698 | 26.094 | 0.908x | match | match | match | n/a | `join-left.txt join-right.txt` |  |
+| `diff3` | default overlapping conflict | ok | 37.531 | 230.900 | 0.163x | match | match | match | n/a | `diff3-mine.txt diff3-base.txt diff3-yours.txt` |  |
+| `diff3` | merge overlapping conflict | ok | 34.291 | 259.920 | 0.132x | match | match | match | n/a | `-m diff3-mine.txt diff3-base.txt diff3-yours.txt` |  |
+| `sdiff` | side by side width 80 | ok | 24.664 | 122.674 | 0.201x | match | match | match | n/a | `-w 80 sdiff-left.txt sdiff-right.txt` |  |
+| `shuf` | deterministic random source head | ok | 23.219 | 25.960 | 0.894x | match | match | match | n/a | `--random-source=shuf-random.bin -n 3 shuf.txt` |  |
+| `nohup` | non tty child stdout | ok | 52.921 | 46.595 | 1.136x | match | match | match | n/a | `{ref:printf} hi` |  |
+| `stdbuf` | unbuffered stdout child | ok | 52.489 | 39.627 | 1.325x | match | match | match | n/a | `-o0 {ref:printf} hi` |  |
+| `timeout` | quick command success | ok | 51.222 | 63.075 | 0.812x | match | match | match | n/a | `5 {ref:true}` |  |
+| `cygpath` | default windows to unix | ok | 28.983 | 37.763 | 0.767x | match | match | match | n/a | `C:\Users\Alice\Documents` |  |
+| `cygpath` | path list windows to unix | ok | 36.095 | 28.598 | 1.262x | match | match | match | n/a | `-p -u C:\A;D:\B` |  |
+| `cygpath` | path list posix to mixed | ok | 31.023 | 27.677 | 1.121x | match | match | match | n/a | `-p -m /c/A:/d/B` |  |
+| `split` | line chunks state | ok | 113.013 | 83.815 | 1.348x | match | match | match | match | `-l 1000 split-lines.txt part` |  |
+| `csplit` | regex split state | ok | 42.366 | 34.277 | 1.236x | match | match | match | match | `-s csplit-input.txt /^MARK/` |  |
+| `unlink` | single file removal state | ok | 42.281 | 35.478 | 1.192x | match | match | match | match | `unlink-target.txt` |  |
+| `shred` | one pass zero remove state | ok | 30.465 | 45.131 | 0.675x | match | match | match | match | `-n 1 -z -u shred-target.txt` |  |
+| `dos2unix` | in-place CRLF to LF state | ok | 26.725 | 49.943 | 0.535x | n/a | n/a | n/a | match | `crlf.txt` |  |
+| `d2u` | alias in-place CRLF to LF state | ok | 30.054 | 45.527 | 0.660x | n/a | n/a | n/a | match | `crlf.txt` |  |
+| `unix2dos` | in-place LF to CRLF state | ok | 26.223 | 31.775 | 0.825x | n/a | n/a | n/a | match | `lf.txt` |  |
+| `u2d` | alias in-place LF to CRLF state | ok | 29.172 | 31.235 | 0.934x | n/a | n/a | n/a | match | `lf.txt` |  |
+| `diff` | brief differing files | ok | 27.459 | 83.869 | 0.327x | match | match | match | match | `-q diff-a.txt diff-b.txt` |  |
+| `du` | apparent bytes single file | ok | 27.358 | 30.956 | 0.884x | match | match | match | match | `-b du-file.txt` |  |
+| `du` | files0 total bytes | ok | 25.432 | 68.231 | 0.373x | match | match | match | match | `-b -c --files0-from du-list0.bin` |  |
+| `truncate` | shrink existing file state | ok | 25.007 | 26.012 | 0.961x | n/a | n/a | n/a | match | `-s 1024 du-file.txt` |  |
+| `link` | hard link file state | ok | 29.490 | 39.970 | 0.738x | match | match | match | match | `link-src.txt link-created.txt` |  |
+| `cp` | recursive directory copy | ok | 43.677 | 30.762 | 1.420x | match | match | match | match | `-R copy-src copy-out` |  |
+| `cp` | no-clobber keeps destination | ok | 38.696 | 28.362 | 1.364x | match | match | match | match | `-n copy-new.txt copy-existing.txt` |  |
+| `cp` | update skips older source | ok | 25.106 | 31.605 | 0.794x | match | match | match | match | `-u copy-old-src.txt copy-newer-dst.txt` |  |
+| `cp` | backup custom suffix | ok | 27.183 | 30.212 | 0.900x | match | match | match | match | `-b -S .bak copy-new.txt copy-existing.txt` |  |
+| `cp` | parents path copy | ok | 25.503 | 28.368 | 0.899x | match | match | match | match | `--parents copy-src/nested/gamma.txt parents-out` |  |
+| `mkdir` | parents creation | ok | 45.915 | 25.732 | 1.784x | match | match | match | match | `-p new/a/b` |  |
+| `mkdir` | verbose parents | ok | 24.239 | 25.046 | 0.968x | match | n/a | n/a | match | `-v -p newv/a/b` | stdout shape matched regex |
+| `touch` | create missing file | ok | 21.557 | 20.886 | 1.032x | match | match | match | match | `touch-new.txt` |  |
+| `touch` | fixed utc directory timestamp | ok | 24.269 | 33.365 | 0.727x | n/a | n/a | n/a | match | `-d 2024-04-05 06:07:08 UTC touch-dir` |  |
+| `touch` | reference relative date timestamp | ok | 26.813 | 27.658 | 0.969x | n/a | n/a | n/a | match | `-r touch-ref.txt -d +1 day touch-relative-target.txt` |  |
+| `ln` | hard link file | ok | 25.256 | 34.816 | 0.725x | match | match | match | match | `link-src.txt link-dst.txt` |  |
+| `ln` | verbose hard link | ok | 27.556 | 39.286 | 0.701x | match | match | match | match | `-v link-src.txt link-verbose.txt` |  |
+| `ln` | backup custom suffix | ok | 24.797 | 35.112 | 0.706x | match | match | match | match | `-b -S .bak link-src.txt link-existing.txt` |  |
+| `mv` | rename file | ok | 28.825 | 31.195 | 0.924x | match | match | match | match | `move-src.txt move-dst.txt` |  |
+| `mv` | no-clobber keeps destination | ok | 31.640 | 39.500 | 0.801x | match | match | match | match | `-n move-new.txt move-existing.txt` |  |
+| `mv` | update skips older source | ok | 26.439 | 27.631 | 0.957x | match | match | match | match | `-u move-old-src.txt move-newer-dst.txt` |  |
+| `mv` | backup custom suffix | ok | 26.304 | 34.308 | 0.767x | match | match | match | match | `-b -S .bak move-new.txt move-existing.txt` |  |
+| `rm` | recursive removal | ok | 26.372 | 29.543 | 0.893x | match | match | match | match | `-r remove-tree` |  |
+| `rm` | force missing succeeds | ok | 35.213 | 23.151 | 1.521x | match | match | match | match | `-f missing-file.txt` |  |
+| `rm` | dir removes empty directory | ok | 27.013 | 29.649 | 0.911x | match | match | match | match | `-d remove-empty-dir` |  |
+| `rm` | verbose single file removal | ok | 29.743 | 42.782 | 0.695x | match | match | match | match | `-v remove-verbose.txt` |  |
+| `rmdir` | remove empty parents | ok | 25.440 | 24.836 | 1.024x | match | match | match | match | `-p empty/a/b` |  |
+| `rmdir` | ignore nonempty succeeds | ok | 34.441 | 24.422 | 1.410x | match | match | match | match | `--ignore-fail-on-non-empty remove-nonempty-dir` |  |
+| `basename` | multiple suffix stripping | ok | 27.184 | 27.948 | 0.973x | match | match | match | n/a | `-a -s .txt /tmp/alpha.txt beta.txt` |  |
+| `cmp` | quiet equal large files | ok | 45.841 | 82.535 | 0.555x | match | match | match | n/a | `-s big.txt big-copy.txt` |  |
+| `comm` | three-column sorted comparison | ok | 24.019 | 28.448 | 0.844x | match | match | match | n/a | `comm-a.txt comm-b.txt` |  |
+| `comm` | default unsorted warning | ok | 26.642 | 29.960 | 0.889x | match | match | match | n/a | `comm-unsorted-a.txt comm-unsorted-b.txt` | stderr shape matched regex |
+| `paste` | parallel two files | ok | 26.904 | 28.178 | 0.955x | match | match | match | n/a | `paste-left.txt paste-right.txt` |  |
+| `printf` | format reuse | ok | 24.332 | 23.797 | 1.022x | match | match | match | n/a | `%s:%04d\n alpha 7 beta 42` |  |
+| `seq` | integer fast path | ok | 51.050 | 24.871 | 2.053x | match | match | match | n/a | `1 10000` |  |
+| `uniq` | count adjacent duplicates | ok-normalized-newlines | 28.790 | 26.238 | 1.097x | match | DIFF | match | n/a | `-c dupes.txt` | stdout differs only by CRLF/LF normalization |
+| `uniq` | duplicate and unique flags suppress all | ok | 24.925 | 25.193 | 0.989x | match | match | match | n/a | `-d -u dupes.txt` |  |
+| `uniq` | all repeated with unique flag emits later repeats | ok-normalized-newlines | 26.311 | 25.227 | 1.043x | match | DIFF | match | n/a | `-D -u dupes.txt` | stdout differs only by CRLF/LF normalization |
+| `uniq` | count all repeated conflict | ok | 23.059 | 23.211 | 0.993x | n/a | n/a | n/a | n/a | `-c -D dupes.txt` |  |
+| `sum` | sysv large file | ok | 31.708 | 30.618 | 1.036x | match | match | match | n/a | `-s big.txt` |  |
+| `cksum` | crc large file | ok-normalized-newlines | 58.190 | 39.893 | 1.459x | match | DIFF | match | n/a | `big.txt` | stdout differs only by CRLF/LF normalization |
+| `md5sum` | md5 large file | ok | 38.942 | 30.458 | 1.279x | match | match | match | n/a | `big.txt` |  |
+| `sha1sum` | sha1 large file | ok | 38.702 | 32.307 | 1.198x | match | match | match | n/a | `big.txt` |  |
+| `sha256sum` | sha256 large file | ok | 30.229 | 37.317 | 0.810x | match | match | match | n/a | `big.txt` |  |
+| `hmac256` | hmac sha256 large file | ok | 186.064 | 42.612 | 4.366x | match | match | match | n/a | `release-key big.txt` |  |
+| `hmac256` | hmac sha256 stdin | ok | 196.056 | 43.748 | 4.481x | match | match | match | n/a | `release-key` |  |
+| `patch` | unified diff file apply state | ok | 25.791 | 30.622 | 0.842x | n/a | n/a | n/a | match | `-p0 -i change.diff` |  |
+| `mpicalc` | hex rpn arithmetic stdin | ok | 33.714 | 26.870 | 1.255x | match | match | match | n/a | `` |  |
+| `mpicalc` | hex rpn modular stack stdin | ok | 25.683 | 26.256 | 0.978x | match | match | match | n/a | `` |  |
+| `pinky` | short heading no utmp | ok | 35.150 | 36.470 | 0.964x | match | match | match | n/a | `` |  |
+| `pinky` | short format omit heading | ok | 24.454 | 29.009 | 0.843x | match | match | match | n/a | `-f` |  |
+| `pinky` | long unknown user | ok | 29.492 | 25.637 | 1.150x | match | match | match | n/a | `-l nosuchuser` |  |
+| `chroot` | missing operand diagnostic | ok | 23.828 | 27.752 | 0.859x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `chroot` | missing directory diagnostic | ok | 24.173 | 25.867 | 0.935x | n/a | n/a | n/a | n/a | `definitely-missing-chroot-root` | stderr shape matched regex |
+| `runcon` | current context unsupported diagnostic | ok | 27.549 | 28.087 | 0.981x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `runcon` | missing command diagnostic | ok | 22.817 | 26.485 | 0.862x | n/a | n/a | n/a | n/a | `system_u:system_r:httpd_t:s0` | stderr shape matched regex |
+| `chcon` | missing operand diagnostic | ok | 25.161 | 25.438 | 0.989x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `chcon` | missing file operand after context | ok | 25.278 | 25.105 | 1.007x | n/a | n/a | n/a | n/a | `system_u:object_r:user_home_t:s0` | stderr shape matched regex |
+| `mkfifo` | missing operand diagnostic | ok | 25.520 | 25.631 | 0.996x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `mkfifo` | existing path diagnostic | ok | 27.086 | 25.180 | 1.076x | n/a | n/a | n/a | n/a | `cat-no-newline.txt` | stderr shape matched regex |
+| `mknod` | missing operand diagnostic | ok | 26.802 | 28.046 | 0.956x | n/a | n/a | n/a | n/a | `` | stderr shape matched regex |
+| `mknod` | missing type diagnostic | ok | 34.710 | 25.015 | 1.388x | n/a | n/a | n/a | n/a | `nodeonly` | stderr shape matched regex |
+| `mknod` | fifo extra device numbers diagnostic | ok | 24.904 | 23.667 | 1.052x | n/a | n/a | n/a | n/a | `pnode p 1 2` | stderr shape matched regex |
+| `mknod` | existing path diagnostic | ok | 42.706 | 28.370 | 1.505x | n/a | n/a | n/a | n/a | `cat-no-newline.txt p` | stderr shape matched regex |
+| `sha224sum` | sha224 large file | ok | 209.314 | 42.326 | 4.945x | match | match | match | n/a | `big.txt` |  |
+| `sha384sum` | sha384 large file | ok | 147.471 | 35.668 | 4.135x | match | match | match | n/a | `big.txt` |  |
+| `sha512sum` | sha512 large file | ok | 41.285 | 35.906 | 1.150x | match | match | match | n/a | `big.txt` |  |
+| `b2sum` | blake2 large file | ok | 73.014 | 42.962 | 1.700x | match | match | match | n/a | `big.txt` |  |
