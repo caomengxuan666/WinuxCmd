@@ -122,6 +122,39 @@ auto catalog_fixture_index_json() -> std::string {
          "}\n";
 }
 
+auto winuxcmd_update_fixture_index_json(
+    const std::filesystem::path& artifact_path) -> std::string {
+  return "{\n"
+         "  \"schema\": 1,\n"
+         "  \"name\": \"fixture\",\n"
+         "  \"version\": \"fixture-winuxcmd-update\",\n"
+         "  \"packages\": [\n"
+         "    {\n"
+         "      \"name\": \"winuxcmd\",\n"
+         "      \"version\": \"99.0.0\",\n"
+         "      \"description\": \"WinuxCmd update fixture\",\n"
+         "      \"kind\": \"external\",\n"
+         "      \"commands\": [\"winuxcmd\", \"wpm\"],\n"
+         "      \"artifacts\": {\n"
+         "        \"" +
+         current_arch_key() +
+         "\": {\n"
+         "          \"type\": \"exe\",\n"
+         "          \"sha256\": "
+         "\"5140f4f6bf8b5691b7bccc1c4f00a2027dae00b2110d38a1e090af291226f322\","
+         "\n"
+         "          \"urls\": [\"" +
+         file_url(artifact_path) +
+         "\"],\n"
+         "          \"files\": [{\"from\":\"winuxcmd.exe\","
+         "\"to\":\"winuxcmd.exe\"}]\n"
+         "        }\n"
+         "      }\n"
+         "    }\n"
+         "  ]\n"
+         "}\n";
+}
+
 auto same_file(const std::filesystem::path& a, const std::filesystem::path& b)
     -> bool {
   HANDLE ha =
@@ -511,6 +544,49 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
               std::string::npos);
   EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
   EXPECT_FALSE(same_file(root_exe, legacy_jq));
+}
+
+TEST(wpm, wpm_update_winuxcmd_refreshes_index_before_staging) {
+  TempDir tmp;
+  const auto artifact_path = tmp.path / L"source" / L"winuxcmd.exe";
+  const auto index_path = tmp.path / L"fixture-winuxcmd-index.json";
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("source/winuxcmd.exe", "external exe\n");
+  tmp.write("fixture-winuxcmd-index.json",
+            winuxcmd_update_fixture_index_json(artifact_path));
+
+  Pipeline add;
+  add.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"add", L"fixture",
+           widen_ascii(file_url(index_path)), L"--root", tmp.wpath()});
+  EXPECT_EQ(add.run().exit_code, 0);
+
+  Pipeline use;
+  use.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"use", L"fixture", L"--root", tmp.wpath()});
+  EXPECT_EQ(use.run().exit_code, 0);
+
+  Pipeline update;
+  update.add(L"winuxcmd.exe", {L"wpm", L"update", L"winuxcmd", L"--dry-run",
+                               L"--root", tmp.wpath()});
+  auto update_result = update.run();
+
+  EXPECT_EQ(update_result.exit_code, 0);
+  EXPECT_TRUE(update_result.stdout_text.find(
+                  "checking for latest winuxcmd package metadata") !=
+              std::string::npos);
+  EXPECT_TRUE(update_result.stdout_text.find("index updated from fixture") !=
+              std::string::npos);
+  EXPECT_TRUE(update_result.stdout_text.find("would apply update from") !=
+              std::string::npos);
+
+  Pipeline info;
+  info.add(L"winuxcmd.exe",
+           {L"wpm", L"info", L"winuxcmd", L"--root", tmp.wpath()});
+  auto info_result = info.run();
+  EXPECT_EQ(info_result.exit_code, 0);
+  EXPECT_TRUE(info_result.stdout_text.find("Version: 99.0.0") !=
+              std::string::npos);
 }
 
 TEST(wpm, wpm_install_existing_package_skips_download) {
