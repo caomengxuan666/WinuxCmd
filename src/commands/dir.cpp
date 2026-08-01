@@ -111,12 +111,26 @@ auto build_dir_command_line(std::span<const std::wstring> args)
 
 auto run(const CommandContext<DIR_OPTIONS.size()>& ctx) -> int {
   // Build ls arguments with -C (columns) as default
-  SmallVector<std::wstring, 32> ls_args;
-  ls_args.push_back(L"-C");  // Default to columns
+  std::vector<std::string> ls_arg_storage;
+  ls_arg_storage.push_back("-C");  // Default to columns
 
   // Preserve the original argv surface so GNU dir options actually reach ls.
   for (const auto& arg : ctx.raw_args) {
-    ls_args.push_back(utf8_to_wstring(std::string(arg)));
+    ls_arg_storage.emplace_back(arg);
+  }
+
+  if (CommandRegistry::hasCommand("ls")) {
+    std::vector<std::string_view> ls_arg_views;
+    ls_arg_views.reserve(ls_arg_storage.size());
+    for (const auto& arg : ls_arg_storage) {
+      ls_arg_views.emplace_back(arg);
+    }
+    return CommandRegistry::dispatch("ls", ls_arg_views);
+  }
+
+  SmallVector<std::wstring, 32> ls_args;
+  for (const auto& arg : ls_arg_storage) {
+    ls_args.push_back(utf8_to_wstring(arg));
   }
 
   std::wstring cmd_line = build_dir_command_line(ls_args);

@@ -120,6 +120,7 @@ auto clear_screen() -> void {
 auto run(const Config& cfg) -> int {
   std::string previous_output;
   int iteration = 0;
+  int last_exit_code = 0;
 
   while (true) {
     // Check count limit
@@ -168,6 +169,7 @@ auto run(const Config& cfg) -> int {
     }
 
     int exit_code = _pclose(pipe.release());
+    last_exit_code = exit_code < 0 ? 1 : exit_code;
 
     // Print output
     safePrint(output);
@@ -181,7 +183,7 @@ auto run(const Config& cfg) -> int {
     Sleep(cfg.interval * 1000);
   }
 
-  return 0;
+  return last_exit_code;
 }
 
 }  // namespace watch_pipeline

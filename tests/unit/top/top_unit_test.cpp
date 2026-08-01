@@ -32,6 +32,28 @@ TEST(top, top_basic) {
   EXPECT_TRUE(true);
 }
 
+TEST(top, top_batch_iterations_and_rows_exit) {
+  Pipeline p;
+  p.add(L"top.exe", {L"-b", L"-n", L"1", L"--rows", L"5"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("Tasks:") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("%Cpu(s):") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("PID USER") != std::string::npos);
+}
+
+TEST(top, top_attached_short_iterations_exit) {
+  Pipeline p;
+  p.add(L"top.exe", {L"-b", L"-n1", L"--rows", L"3"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("Tasks:") != std::string::npos);
+}
+
 /*
 TEST(top, top_batch_mode) {
   Pipeline p;

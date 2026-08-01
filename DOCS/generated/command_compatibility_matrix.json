@@ -13,7 +13,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.393,
+    "perf_worst_ratio": 0.447,
     "options": [
       {
         "short": "",
@@ -41,7 +41,7 @@
     "test_count": 24,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.7,
+    "perf_worst_ratio": 0.881,
     "options": [
       {
         "short": "-l",
@@ -139,7 +139,7 @@
     "test_count": 12,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 4.306,
+    "perf_worst_ratio": 0.983,
     "options": [
       {
         "short": "-d",
@@ -181,7 +181,7 @@
     "test_count": 11,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 4.512,
+    "perf_worst_ratio": 1.324,
     "options": [
       {
         "short": "-d",
@@ -223,7 +223,7 @@
     "test_count": 16,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.973,
+    "perf_worst_ratio": 1.51,
     "options": [
       {
         "short": "-a",
@@ -286,7 +286,7 @@
     "test_count": 16,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 4.886,
+    "perf_worst_ratio": 1.071,
     "options": [
       {
         "short": "-d",
@@ -398,7 +398,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.041,
+    "perf_worst_ratio": 0.524,
     "options": [
       {
         "short": "",
@@ -426,7 +426,7 @@
     "test_count": 16,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.584,
+    "perf_worst_ratio": 1.121,
     "options": [
       {
         "short": "-A",
@@ -518,7 +518,7 @@
     "test_count": 6,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.007,
+    "perf_worst_ratio": 1.489,
     "options": [
       {
         "short": "",
@@ -637,7 +637,7 @@
     "test_count": 16,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.861,
+    "perf_worst_ratio": 0.359,
     "options": [
       {
         "short": "-c",
@@ -756,7 +756,7 @@
     "test_count": 20,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.246,
+    "perf_worst_ratio": 0.968,
     "options": [
       {
         "short": "-c",
@@ -861,7 +861,7 @@
     "test_count": 23,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.023,
+    "perf_worst_ratio": 0.732,
     "options": [
       {
         "short": "-c",
@@ -980,7 +980,7 @@
     "test_count": 5,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.935,
+    "perf_worst_ratio": 1.392,
     "options": [
       {
         "short": "",
@@ -1022,7 +1022,7 @@
     "test_count": 20,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.459,
+    "perf_worst_ratio": 0.777,
     "options": [
       {
         "short": "-a",
@@ -1141,7 +1141,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.202,
+    "perf_worst_ratio": 1.139,
     "options": [
       {
         "short": "",
@@ -1169,7 +1169,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.555,
+    "perf_worst_ratio": 0.438,
     "options": [
       {
         "short": "-b",
@@ -1225,7 +1225,7 @@
     "test_count": 6,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.912,
+    "perf_worst_ratio": 0.571,
     "options": [
       {
         "short": "-b",
@@ -1281,7 +1281,7 @@
     "test_count": 14,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.096,
+    "perf_worst_ratio": 0.997,
     "options": [
       {
         "short": "-c",
@@ -1498,7 +1498,7 @@
     "test_count": 16,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.889,
+    "perf_worst_ratio": 1.437,
     "options": [
       {
         "short": "-1",
@@ -1575,7 +1575,7 @@
     "test_count": 20,
     "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.42,
+    "perf_worst_ratio": 1.734,
     "options": [
       {
         "short": "-a",
@@ -1904,7 +1904,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.236,
+    "perf_worst_ratio": 0.935,
     "options": [
       {
         "short": "-f",
@@ -1982,7 +1982,7 @@
     "test_count": 29,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.659,
+    "perf_worst_ratio": 0.414,
     "options": [
       {
         "short": "-b",
@@ -2080,7 +2080,7 @@
     "test_count": 8,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.262,
+    "perf_worst_ratio": 1.367,
     "options": [
       {
         "short": "-u",
@@ -2262,7 +2262,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.66,
+    "perf_worst_ratio": 0.942,
     "options": [
       {
         "short": "-v",
@@ -2290,7 +2290,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.025,
+    "perf_worst_ratio": 0.885,
     "options": [
       {
         "short": "-d",
@@ -2367,7 +2367,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.95,
+    "perf_worst_ratio": 0.883,
     "options": [
       {
         "short": "if",
@@ -2465,7 +2465,7 @@
     "test_count": 17,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.961,
+    "perf_worst_ratio": 1.163,
     "options": [
       {
         "short": "-a",
@@ -2591,7 +2591,7 @@
     "test_count": 13,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.327,
+    "perf_worst_ratio": 0.659,
     "options": [
       {
         "short": "-q",
@@ -2647,7 +2647,7 @@
     "test_count": 13,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.163,
+    "perf_worst_ratio": 0.146,
     "options": [
       {
         "short": "-e",
@@ -2692,7 +2692,7 @@
   {
     "command": "dir",
     "source_file": "src/commands/dir.cpp",
-    "source_line_count": 186,
+    "source_line_count": 198,
     "upstream_source_line_count": 4888,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -2703,7 +2703,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.134,
+    "perf_worst_ratio": 0.969,
     "options": [
       {
         "short": "-a",
@@ -2976,7 +2976,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.967,
+    "perf_worst_ratio": 1.313,
     "options": [
       {
         "short": "-b",
@@ -3025,7 +3025,7 @@
     "test_count": 9,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.314,
+    "perf_worst_ratio": 1.153,
     "options": [
       {
         "short": "-z",
@@ -3053,7 +3053,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.535,
+    "perf_worst_ratio": 0.896,
     "options": [
       {
         "short": "-v",
@@ -3081,7 +3081,7 @@
     "test_count": 36,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.884,
+    "perf_worst_ratio": 1.03,
     "options": [
       {
         "short": "-a",
@@ -3277,7 +3277,7 @@
     "test_count": 29,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.093,
+    "perf_worst_ratio": 0.712,
     "options": [
       {
         "short": "-n",
@@ -3333,7 +3333,7 @@
     "test_count": 36,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.114,
+    "perf_worst_ratio": 1.023,
     "options": [
       {
         "short": "-i",
@@ -3438,7 +3438,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.095,
+    "perf_worst_ratio": 0.836,
     "options": [
       {
         "short": "-t",
@@ -3473,7 +3473,7 @@
     "test_count": 11,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.074,
+    "perf_worst_ratio": 0.998,
     "options": [
       {
         "short": "",
@@ -3501,7 +3501,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.978,
+    "perf_worst_ratio": 0.862,
     "options": [
       {
         "short": "",
@@ -3529,7 +3529,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.108,
+    "perf_worst_ratio": 0.947,
     "options": [
       {
         "short": "",
@@ -3557,7 +3557,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.102,
+    "perf_worst_ratio": 0.13,
     "options": [
       {
         "short": "-b",
@@ -3595,18 +3595,18 @@
   {
     "command": "find",
     "source_file": "src/commands/find.cpp",
-    "source_line_count": 2855,
+    "source_line_count": 2915,
     "upstream_source_line_count": 4965,
     "family": "gnu-findutils",
     "reference_url": "https://www.gnu.org/software/findutils/manual/",
     "priority": "P0",
     "option_count": 79,
-    "placeholder_count": 2,
+    "placeholder_count": 1,
     "unsupported_count": 0,
-    "test_count": 101,
-    "perf_probe_count": 5,
+    "test_count": 104,
+    "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 3.655,
+    "perf_worst_ratio": 2.802,
     "options": [
       {
         "short": "-name",
@@ -4115,9 +4115,9 @@
       {
         "short": "-regextype",
         "long": "",
-        "description": "set regex syntax (currently ignored)",
+        "description": "set regex syntax for later -regex/-iregex",
         "value_type": "STRING_TYPE",
-        "status": "placeholder"
+        "status": "declared"
       },
       {
         "short": "!",
@@ -4165,7 +4165,7 @@
     "notes": [
       "Regex behavior is command-owned, not shell-owned.",
       "Has compatibility placeholder/no-op option(s).",
-      "Performance probes: 5."
+      "Performance probes: 6."
     ]
   },
   {
@@ -4182,7 +4182,7 @@
     "test_count": 19,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.081,
+    "perf_worst_ratio": 1.132,
     "options": [
       {
         "short": "-c",
@@ -4287,7 +4287,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.658,
+    "perf_worst_ratio": 0.649,
     "options": [
       {
         "short": "-b",
@@ -4427,7 +4427,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.197,
+    "perf_worst_ratio": 0.779,
     "options": [
       {
         "short": "-a",
@@ -4462,7 +4462,7 @@
     "test_count": 82,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.782,
+    "perf_worst_ratio": 1.469,
     "options": [
       {
         "short": "-E",
@@ -4828,7 +4828,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.867,
+    "perf_worst_ratio": 1.313,
     "options": [
       {
         "short": "-E",
@@ -5194,7 +5194,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.5,
+    "perf_worst_ratio": 0.919,
     "options": [
       {
         "short": "-E",
@@ -5560,7 +5560,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.015,
+    "perf_worst_ratio": 0.972,
     "options": [
       {
         "short": "",
@@ -5588,7 +5588,7 @@
     "test_count": 28,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.071,
+    "perf_worst_ratio": 1.22,
     "options": [
       {
         "short": "-c",
@@ -5651,7 +5651,7 @@
     "test_count": 10,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.103,
+    "perf_worst_ratio": 1.034,
     "options": [
       {
         "short": "-b",
@@ -5749,7 +5749,7 @@
     "test_count": 1,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 4.481,
+    "perf_worst_ratio": 1.449,
     "options": [
       {
         "short": "",
@@ -5777,7 +5777,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.136,
+    "perf_worst_ratio": 0.956,
     "options": [
       {
         "short": "",
@@ -5805,7 +5805,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.826,
+    "perf_worst_ratio": 0.676,
     "options": [
       {
         "short": "-i",
@@ -5897,7 +5897,7 @@
     "test_count": 13,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.332,
+    "perf_worst_ratio": 1.059,
     "options": [
       {
         "short": "-a",
@@ -5974,7 +5974,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.028,
+    "perf_worst_ratio": 1.02,
     "options": [
       {
         "short": "",
@@ -6002,7 +6002,7 @@
     "test_count": 19,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.0,
+    "perf_worst_ratio": 1.679,
     "options": [
       {
         "short": "-b",
@@ -6157,7 +6157,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.908,
+    "perf_worst_ratio": 1.128,
     "options": [
       {
         "short": "-1",
@@ -6269,7 +6269,7 @@
     "test_count": 24,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.148,
+    "perf_worst_ratio": 2.502,
     "options": [
       {
         "short": "-s",
@@ -6894,7 +6894,7 @@
     "test_count": 4,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 3.118,
+    "perf_worst_ratio": 0.906,
     "options": [
       {
         "short": "-e",
@@ -7015,7 +7015,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.738,
+    "perf_worst_ratio": 0.964,
     "options": [
       {
         "short": "",
@@ -7043,7 +7043,7 @@
     "test_count": 13,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.725,
+    "perf_worst_ratio": 1.691,
     "options": [
       {
         "short": "-s",
@@ -7169,7 +7169,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.951,
+    "perf_worst_ratio": 0.524,
     "options": [
       {
         "short": "-a",
@@ -7211,7 +7211,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.028,
+    "perf_worst_ratio": 0.768,
     "options": [
       {
         "short": "",
@@ -7239,7 +7239,7 @@
     "test_count": 132,
     "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.639,
+    "perf_worst_ratio": 1.125,
     "options": [
       {
         "short": "-a",
@@ -7669,7 +7669,7 @@
   {
     "command": "lsof",
     "source_file": "src/commands/lsof.cpp",
-    "source_line_count": 816,
+    "source_line_count": 818,
     "upstream_source_line_count": 5202,
     "family": "lsof",
     "reference_url": "https://github.com/lsof-org/lsof",
@@ -7677,8 +7677,8 @@
     "option_count": 7,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 6,
-    "perf_probe_count": 1,
+    "test_count": 7,
+    "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": null,
     "options": [
@@ -7700,7 +7700,7 @@
         "short": "-i",
         "long": "--internet",
         "description": "show internet connections; optional spec ':PORT', 'PROTO',  'PROTO:PORT'",
-        "value_type": "flag",
+        "value_type": "OPTIONAL_STRING_TYPE",
         "status": "declared"
       },
       {
@@ -7733,7 +7733,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 1."
+      "Performance probes: 2."
     ]
   },
   {
@@ -7778,7 +7778,7 @@
     "test_count": 22,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.279,
+    "perf_worst_ratio": 1.17,
     "options": [
       {
         "short": "-b",
@@ -7869,7 +7869,7 @@
     "test_count": 8,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.784,
+    "perf_worst_ratio": 1.301,
     "options": [
       {
         "short": "-m",
@@ -7918,7 +7918,7 @@
     "test_count": 5,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.076,
+    "perf_worst_ratio": 1.806,
     "options": [
       {
         "short": "-m",
@@ -7960,7 +7960,7 @@
     "test_count": 6,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.505,
+    "perf_worst_ratio": 1.35,
     "options": [
       {
         "short": "-m",
@@ -8002,7 +8002,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.122,
+    "perf_worst_ratio": 0.861,
     "options": [
       {
         "short": "-d",
@@ -8065,7 +8065,7 @@
     "test_count": 10,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.002,
+    "perf_worst_ratio": 1.098,
     "options": [
       {
         "short": "-d",
@@ -8158,7 +8158,7 @@
     "test_count": 2,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.255,
+    "perf_worst_ratio": 0.87,
     "options": [
       {
         "short": "",
@@ -8207,7 +8207,7 @@
     "test_count": 15,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.957,
+    "perf_worst_ratio": 0.994,
     "options": [
       {
         "short": "-b",
@@ -8375,7 +8375,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.991,
+    "perf_worst_ratio": 0.803,
     "options": [
       {
         "short": "-n",
@@ -8403,7 +8403,7 @@
     "test_count": 13,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.316,
+    "perf_worst_ratio": 1.216,
     "options": [
       {
         "short": "-b",
@@ -8502,7 +8502,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.136,
+    "perf_worst_ratio": 1.035,
     "options": [
       {
         "short": "",
@@ -8530,7 +8530,7 @@
     "test_count": 6,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.7,
+    "perf_worst_ratio": 0.845,
     "options": [
       {
         "short": "",
@@ -8572,7 +8572,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.199,
+    "perf_worst_ratio": 0.861,
     "options": [
       {
         "short": "-d",
@@ -8656,7 +8656,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.035,
+    "perf_worst_ratio": 0.72,
     "options": [
       {
         "short": "-A",
@@ -8768,7 +8768,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.955,
+    "perf_worst_ratio": 0.84,
     "options": [
       {
         "short": "-d",
@@ -8810,7 +8810,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.842,
+    "perf_worst_ratio": 0.627,
     "options": [
       {
         "short": "-p",
@@ -8873,7 +8873,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.22,
+    "perf_worst_ratio": 0.6,
     "options": [
       {
         "short": "-p",
@@ -8908,7 +8908,7 @@
     "test_count": 3,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.15,
+    "perf_worst_ratio": 1.265,
     "options": [
       {
         "short": "-l",
@@ -8999,7 +8999,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.001,
+    "perf_worst_ratio": 1.027,
     "options": [
       {
         "short": "+PAGE",
@@ -9202,7 +9202,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.116,
+    "perf_worst_ratio": 1.295,
     "options": [
       {
         "short": "-0",
@@ -9230,7 +9230,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.022,
+    "perf_worst_ratio": 0.709,
     "options": [
       {
         "short": "",
@@ -9258,7 +9258,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 3.584,
+    "perf_worst_ratio": 2.786,
     "options": [
       {
         "short": "-e",
@@ -9356,7 +9356,7 @@
     "test_count": 11,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.031,
+    "perf_worst_ratio": 0.973,
     "options": [
       {
         "short": "-A",
@@ -9503,7 +9503,7 @@
     "test_count": 20,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.587,
+    "perf_worst_ratio": 0.87,
     "options": [
       {
         "short": "-L",
@@ -9538,7 +9538,7 @@
     "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.922,
+    "perf_worst_ratio": 1.289,
     "options": [
       {
         "short": "-f",
@@ -9615,7 +9615,7 @@
     "test_count": 19,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.115,
+    "perf_worst_ratio": 0.677,
     "options": [
       {
         "short": "-e",
@@ -9713,7 +9713,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.018,
+    "perf_worst_ratio": 1.228,
     "options": [
       {
         "short": "-I",
@@ -9776,7 +9776,7 @@
     "test_count": 8,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.297,
+    "perf_worst_ratio": 1.021,
     "options": [
       {
         "short": "-0",
@@ -9804,7 +9804,7 @@
     "test_count": 21,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.521,
+    "perf_worst_ratio": 1.445,
     "options": [
       {
         "short": "-f",
@@ -9902,7 +9902,7 @@
     "test_count": 10,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.41,
+    "perf_worst_ratio": 1.207,
     "options": [
       {
         "short": "",
@@ -9944,7 +9944,7 @@
     "test_count": 5,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.981,
+    "perf_worst_ratio": 1.242,
     "options": [
       {
         "short": "-c",
@@ -10000,7 +10000,7 @@
     "test_count": 10,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.201,
+    "perf_worst_ratio": 0.211,
     "options": [
       {
         "short": "-o",
@@ -10077,7 +10077,7 @@
     "test_count": 86,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.183,
+    "perf_worst_ratio": 1.348,
     "options": [
       {
         "short": "-n",
@@ -10190,7 +10190,7 @@
     "test_count": 20,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.053,
+    "perf_worst_ratio": 1.432,
     "options": [
       {
         "short": "-f",
@@ -10435,7 +10435,7 @@
     "test_count": 17,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.198,
+    "perf_worst_ratio": 0.896,
     "options": [
       {
         "short": "-b",
@@ -10526,7 +10526,7 @@
     "test_count": 21,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 4.945,
+    "perf_worst_ratio": 1.139,
     "options": [
       {
         "short": "-b",
@@ -10617,7 +10617,7 @@
     "test_count": 16,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.81,
+    "perf_worst_ratio": 0.755,
     "options": [
       {
         "short": "-b",
@@ -10708,7 +10708,7 @@
     "test_count": 21,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 4.135,
+    "perf_worst_ratio": 1.004,
     "options": [
       {
         "short": "-b",
@@ -10799,7 +10799,7 @@
     "test_count": 21,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.15,
+    "perf_worst_ratio": 1.118,
     "options": [
       {
         "short": "-b",
@@ -10890,7 +10890,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.675,
+    "perf_worst_ratio": 0.745,
     "options": [
       {
         "short": "-f",
@@ -10974,7 +10974,7 @@
     "test_count": 22,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.894,
+    "perf_worst_ratio": 0.995,
     "options": [
       {
         "short": "-e",
@@ -11051,7 +11051,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.992,
+    "perf_worst_ratio": 0.804,
     "options": [
       {
         "short": "",
@@ -11079,7 +11079,7 @@
     "test_count": 66,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.771,
+    "perf_worst_ratio": 1.852,
     "options": [
       {
         "short": "-b",
@@ -11303,7 +11303,7 @@
     "test_count": 19,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.348,
+    "perf_worst_ratio": 1.12,
     "options": [
       {
         "short": "-b",
@@ -11415,7 +11415,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.215,
+    "perf_worst_ratio": 0.53,
     "options": [
       {
         "short": "-L",
@@ -11479,7 +11479,7 @@
     "test_count": 8,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.325,
+    "perf_worst_ratio": 1.194,
     "options": [
       {
         "short": "-i",
@@ -11521,7 +11521,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.169,
+    "perf_worst_ratio": 1.208,
     "options": [
       {
         "short": "-a",
@@ -11627,7 +11627,7 @@
     "test_count": 9,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.184,
+    "perf_worst_ratio": 1.373,
     "options": [
       {
         "short": "-a",
@@ -11669,7 +11669,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.036,
+    "perf_worst_ratio": 0.856,
     "options": [
       {
         "short": "-r",
@@ -11704,7 +11704,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.936,
+    "perf_worst_ratio": 0.323,
     "options": [
       {
         "short": "-d",
@@ -11739,7 +11739,7 @@
     "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.09,
+    "perf_worst_ratio": 1.492,
     "options": [
       {
         "short": "-b",
@@ -11782,7 +11782,7 @@
     "test_count": 42,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.096,
+    "perf_worst_ratio": 1.056,
     "options": [
       {
         "short": "-c",
@@ -11908,7 +11908,7 @@
     "test_count": 10,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.503,
+    "perf_worst_ratio": 1.657,
     "options": [
       {
         "short": "-a",
@@ -11957,7 +11957,7 @@
     "test_count": 2,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.034,
+    "perf_worst_ratio": 1.713,
     "options": [
       {
         "short": "-n",
@@ -12251,7 +12251,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.997,
+    "perf_worst_ratio": 0.893,
     "options": [
       {
         "short": "-n",
@@ -12545,7 +12545,7 @@
     "test_count": 2,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.136,
+    "perf_worst_ratio": 1.238,
     "options": [
       {
         "short": "-V",
@@ -12608,7 +12608,7 @@
     "test_count": 22,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.812,
+    "perf_worst_ratio": 1.201,
     "options": [
       {
         "short": "-s",
@@ -12664,7 +12664,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.169,
+    "perf_worst_ratio": 0.657,
     "options": [
       {
         "short": "-a",
@@ -12723,7 +12723,7 @@
   {
     "command": "top",
     "source_file": "src/commands/top.cpp",
-    "source_line_count": 1003,
+    "source_line_count": 993,
     "upstream_source_line_count": 7004,
     "family": "procps-ng",
     "reference_url": "https://gitlab.com/procps-ng/procps",
@@ -12731,7 +12731,7 @@
     "option_count": 14,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 13,
+    "test_count": 15,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
     "perf_worst_ratio": null,
@@ -12747,35 +12747,35 @@
         "short": "-d",
         "long": "--delay",
         "description": "delay between updates, in seconds",
-        "value_type": "flag",
+        "value_type": "INT_TYPE",
         "status": "declared"
       },
       {
         "short": "-n",
         "long": "--iterations",
         "description": "number of iterations before exiting",
-        "value_type": "flag",
+        "value_type": "INT_TYPE",
         "status": "declared"
       },
       {
         "short": "-p",
         "long": "--pid",
         "description": "monitor only processes with given PIDs",
-        "value_type": "flag",
+        "value_type": "STRING_TYPE",
         "status": "declared"
       },
       {
         "short": "-u",
         "long": "--user",
         "description": "monitor only processes with given user",
-        "value_type": "flag",
+        "value_type": "STRING_TYPE",
         "status": "declared"
       },
       {
         "short": "-U",
         "long": "--User",
         "description": "monitor only processes with real user ID/name",
-        "value_type": "flag",
+        "value_type": "STRING_TYPE",
         "status": "declared"
       },
       {
@@ -12803,14 +12803,14 @@
         "short": "-o",
         "long": "--field-sort",
         "description": "override sort field",
-        "value_type": "flag",
+        "value_type": "STRING_TYPE",
         "status": "declared"
       },
       {
         "short": "-w",
         "long": "--width",
         "description": "override output width",
-        "value_type": "flag",
+        "value_type": "INT_TYPE",
         "status": "declared"
       },
       {
@@ -12853,7 +12853,7 @@
     "test_count": 12,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.032,
+    "perf_worst_ratio": 2.651,
     "options": [
       {
         "short": "-a",
@@ -12938,7 +12938,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.995,
+    "perf_worst_ratio": 0.786,
     "options": [
       {
         "short": "",
@@ -12966,7 +12966,7 @@
     "test_count": 16,
     "perf_probe_count": 5,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.43,
+    "perf_worst_ratio": 1.16,
     "options": [
       {
         "short": "-c",
@@ -13113,7 +13113,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.132,
+    "perf_worst_ratio": 0.846,
     "options": [
       {
         "short": "",
@@ -13141,7 +13141,7 @@
     "test_count": 9,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.961,
+    "perf_worst_ratio": 0.405,
     "options": [
       {
         "short": "-c",
@@ -13190,7 +13190,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.114,
+    "perf_worst_ratio": 1.787,
     "options": [
       {
         "short": "",
@@ -13218,7 +13218,7 @@
     "test_count": 6,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.195,
+    "perf_worst_ratio": 1.19,
     "options": [
       {
         "short": "-s",
@@ -13253,7 +13253,7 @@
     "test_count": 2,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.113,
+    "perf_worst_ratio": 1.237,
     "options": [
       {
         "short": "-h",
@@ -13288,7 +13288,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.934,
+    "perf_worst_ratio": 0.803,
     "options": [
       {
         "short": "-v",
@@ -13316,7 +13316,7 @@
     "test_count": 3,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.537,
+    "perf_worst_ratio": 0.442,
     "options": [
       {
         "short": "-a",
@@ -13400,7 +13400,7 @@
     "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.114,
+    "perf_worst_ratio": 0.758,
     "options": [
       {
         "short": "-t",
@@ -13449,7 +13449,7 @@
     "test_count": 15,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.097,
+    "perf_worst_ratio": 1.599,
     "options": [
       {
         "short": "-c",
@@ -13540,7 +13540,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.825,
+    "perf_worst_ratio": 0.759,
     "options": [
       {
         "short": "-v",
@@ -13568,7 +13568,7 @@
     "test_count": 10,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.192,
+    "perf_worst_ratio": 0.828,
     "options": [
       {
         "short": "",
@@ -13594,7 +13594,7 @@
     "placeholder_count": 0,
     "unsupported_count": 0,
     "test_count": 1,
-    "perf_probe_count": 1,
+    "perf_probe_count": 3,
     "perf_failure_count": 0,
     "perf_worst_ratio": null,
     "options": [
@@ -13614,7 +13614,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 1."
+      "Performance probes: 3."
     ]
   },
   {
@@ -13631,7 +13631,7 @@
     "test_count": 1,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.141,
+    "perf_worst_ratio": 0.825,
     "options": [
       {
         "short": "",
@@ -13648,7 +13648,7 @@
   {
     "command": "vdir",
     "source_file": "src/commands/vdir.cpp",
-    "source_line_count": 196,
+    "source_line_count": 208,
     "upstream_source_line_count": 4888,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -13659,7 +13659,7 @@
     "test_count": 7,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 2.377,
+    "perf_worst_ratio": 1.105,
     "options": [
       {
         "short": "-a",
@@ -13935,7 +13935,7 @@
   {
     "command": "watch",
     "source_file": "src/commands/watch.cpp",
-    "source_line_count": 177,
+    "source_line_count": 179,
     "upstream_source_line_count": 1284,
     "family": "procps-ng",
     "reference_url": "https://gitlab.com/procps-ng/procps",
@@ -13943,8 +13943,8 @@
     "option_count": 5,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 2,
-    "perf_probe_count": 1,
+    "test_count": 3,
+    "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": null,
     "options": [
@@ -13985,7 +13985,7 @@
       }
     ],
     "notes": [
-      "Performance probes: 1."
+      "Performance probes: 2."
     ]
   },
   {
@@ -14002,7 +14002,7 @@
     "test_count": 24,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.565,
+    "perf_worst_ratio": 1.786,
     "options": [
       {
         "short": "-c",
@@ -14079,7 +14079,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.2,
+    "perf_worst_ratio": 0.959,
     "options": [
       {
         "short": "-a",
@@ -14135,7 +14135,7 @@
     "test_count": 14,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 1.099,
+    "perf_worst_ratio": 1.196,
     "options": [
       {
         "short": "-a",
@@ -14261,7 +14261,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.697,
+    "perf_worst_ratio": 2.129,
     "options": [
       {
         "short": "",
@@ -14289,7 +14289,7 @@
     "test_count": 79,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.011,
+    "perf_worst_ratio": 0.007,
     "options": [
       {
         "short": "-n",
@@ -14457,7 +14457,7 @@
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.947,
+    "perf_worst_ratio": 1.12,
     "options": [
       {
         "short": "-r",
@@ -14485,7 +14485,7 @@
     "test_count": 5,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
-    "perf_worst_ratio": 0.994,
+    "perf_worst_ratio": 1.911,
     "options": [
       {
         "short": "",

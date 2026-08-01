@@ -862,6 +862,73 @@ TEST(find, find_regex_and_iregex_match_whole_path) {
               std::string::npos);
 }
 
+TEST(find, find_regextype_before_root_controls_regex_syntax) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/alpha.txt", "");
+  tmp.write("src/gamma.txt", "");
+  tmp.write("src/beta.log", "");
+
+  Pipeline basic;
+  basic.set_cwd(tmp.wpath());
+  basic.add(L"find.exe", {L"-regextype", L"posix-basic", L".", L"-regex",
+                          L"./src/\\(alpha\\|gamma\\)\\.txt"});
+  auto basic_result = basic.run();
+
+  EXPECT_EQ(basic_result.exit_code, 0);
+  EXPECT_TRUE(basic_result.stdout_text.find("src/alpha.txt") !=
+              std::string::npos);
+  EXPECT_TRUE(basic_result.stdout_text.find("src/gamma.txt") !=
+              std::string::npos);
+  EXPECT_TRUE(basic_result.stdout_text.find("src/beta.log") ==
+              std::string::npos);
+
+  Pipeline literal_basic;
+  literal_basic.set_cwd(tmp.wpath());
+  literal_basic.add(L"find.exe", {L"-regextype", L"posix-basic", L".",
+                                  L"-regex", L"./src/(alpha|gamma)\\.txt"});
+  auto literal_result = literal_basic.run();
+
+  EXPECT_EQ(literal_result.exit_code, 0);
+  EXPECT_TRUE(literal_result.stdout_text.empty());
+}
+
+TEST(find, find_regextype_is_positional_for_later_regexes) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/basic.txt", "");
+  tmp.write("src/extended.txt", "");
+  tmp.write("src/skip.log", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L".", L"-regextype", L"posix-basic", L"-regex",
+         L"./src/\\(basic\\)\\.txt", L"-o", L"-regextype",
+         L"posix-extended", L"-regex", L"./src/(extended)\\.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("src/basic.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("src/extended.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("src/skip.log") == std::string::npos);
+}
+
+TEST(find, find_regextype_unknown_type_is_error) {
+  TempDir tmp;
+  tmp.write("a.txt", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L".", L"-regextype", L"not-a-type", L"-regex", L".*"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("Unknown regular expression type 'not-a-type'") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("posix-extended") != std::string::npos);
+}
+
 TEST(find, find_newer_matches_files_modified_after_reference) {
   TempDir tmp;
   tmp.write("old.txt", "old");

@@ -243,7 +243,7 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-mount", "", "do not descend into other file systems"),
     OPTION("-xdev", "", "same as -mount"),
     OPTION("-noleaf", "", "do not optimize by assuming 2+ hard links"),
-    OPTION("-regextype", "", "set regex syntax (currently ignored)",
+    OPTION("-regextype", "", "set regex syntax for later -regex/-iregex",
            STRING_TYPE),
     OPTION("!", "", "negate expression"),
     OPTION("-not", "", "negate expression"),
@@ -597,10 +597,47 @@ auto parse_literal_time_ticks(std::string_view text)
   return std::nullopt;
 }
 
-auto parse_regex(std::string_view pattern, bool case_insensitive)
+constexpr std::array<std::string_view, 13> kFindRegexTypeNames = {
+    "findutils-default",   "awk",         "ed",
+    "egrep",               "emacs",       "gnu-awk",
+    "grep",                "posix-awk",   "posix-basic",
+    "posix-egrep",         "posix-extended",
+    "posix-minimal-basic", "sed"};
+
+auto find_regex_type_names() -> std::string {
+  std::string names;
+  for (std::string_view name : kFindRegexTypeNames) {
+    if (!names.empty()) names += ", ";
+    names += name;
+  }
+  return names;
+}
+
+auto parse_find_regex_syntax(std::string_view type)
+    -> cp::Result<portable_regex::Syntax> {
+  // GNU findutils maps -regextype through lib/regextype.c. The local regex
+  // engine currently exposes BRE and ERE syntax classes, so accepted GNU names
+  // are folded into the closest supported class while staying positional.
+  if (type == "awk" || type == "egrep" || type == "gnu-awk" ||
+      type == "posix-awk" || type == "posix-egrep" ||
+      type == "posix-extended") {
+    return portable_regex::Syntax::Extended;
+  }
+  if (type == "findutils-default" || type == "ed" || type == "emacs" ||
+      type == "grep" || type == "posix-basic" ||
+      type == "posix-minimal-basic" || type == "sed") {
+    return portable_regex::Syntax::Basic;
+  }
+
+  return std::unexpected("Unknown regular expression type '" +
+                         std::string(type) + "'; valid types are: " +
+                         find_regex_type_names());
+}
+
+auto parse_regex(portable_regex::Syntax syntax, std::string_view pattern,
+                 bool case_insensitive)
     -> cp::Result<portable_regex::Pattern> {
-  auto parsed = portable_regex::compile(portable_regex::Syntax::Extended,
-                                        pattern, case_insensitive);
+  auto parsed = portable_regex::compile(syntax, pattern, case_insensitive);
   if (!parsed) {
     return std::unexpected("invalid regular expression");
   }
@@ -944,8 +981,9 @@ auto make_expr(ExprKind kind) -> std::unique_ptr<ExprNode> {
 
 class ExpressionParser {
  public:
-  explicit ExpressionParser(std::span<const std::string_view> tokens)
-      : tokens_(tokens) {}
+  explicit ExpressionParser(std::span<const std::string_view> tokens,
+                            portable_regex::Syntax regex_syntax)
+      : tokens_(tokens), regex_syntax_(regex_syntax) {}
 
   auto parse() -> cp::Result<std::unique_ptr<ExprNode>> {
     if (at_end()) {
@@ -964,6 +1002,7 @@ class ExpressionParser {
   std::span<const std::string_view> tokens_;
   size_t pos_ = 0;
   size_t exec_index_ = 0;
+  portable_regex::Syntax regex_syntax_ = portable_regex::Syntax::Extended;
 
   auto at_end() const -> bool { return pos_ >= tokens_.size(); }
 
@@ -1166,7 +1205,7 @@ class ExpressionParser {
     if (option == "-regex" || option == "-iregex") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
-      auto parsed = parse_regex(*value, option == "-iregex");
+      auto parsed = parse_regex(regex_syntax_, *value, option == "-iregex");
       if (!parsed) return std::unexpected(parsed.error());
       auto node =
           make_expr(option == "-regex" ? ExprKind::Regex : ExprKind::IRegex);
@@ -1242,8 +1281,17 @@ class ExpressionParser {
       return node;
     }
 
+    if (option == "-regextype") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto parsed = parse_find_regex_syntax(*value);
+      if (!parsed) return std::unexpected(parsed.error());
+      regex_syntax_ = *parsed;
+      return make_expr(ExprKind::Always);
+    }
+
     if (option == "-mindepth" || option == "-maxdepth" || option == "-O" ||
-        option == "-regextype" || option == "-files0-from") {
+        option == "-files0-from") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       return make_expr(ExprKind::Always);
@@ -1251,8 +1299,7 @@ class ExpressionParser {
 
     if (option == "-true" || option == "-depth" || option == "-d" ||
         option == "-follow" || option == "-mount" || option == "-xdev" ||
-        option == "-noleaf" || option == "-daystart" ||
-        option == "-regextype") {
+        option == "-noleaf" || option == "-daystart") {
       return make_expr(ExprKind::Always);
     }
 
@@ -1326,10 +1373,29 @@ class ExpressionParser {
   }
 };
 
+auto initial_regex_syntax(std::span<const std::string_view> raw_args,
+                          size_t expression_start)
+    -> cp::Result<portable_regex::Syntax> {
+  auto syntax = portable_regex::Syntax::Extended;
+  for (size_t i = 0; i < expression_start && i < raw_args.size(); ++i) {
+    if (raw_args[i] != "-regextype") continue;
+    if (i + 1 >= raw_args.size()) {
+      return std::unexpected("missing argument for -regextype");
+    }
+    auto parsed = parse_find_regex_syntax(raw_args[i + 1]);
+    if (!parsed) return std::unexpected(parsed.error());
+    syntax = *parsed;
+    ++i;
+  }
+  return syntax;
+}
+
 auto parse_expression(std::span<const std::string_view> raw_args)
     -> cp::Result<std::unique_ptr<ExprNode>> {
   size_t start = expression_start_index(raw_args);
-  ExpressionParser parser(raw_args.subspan(start));
+  auto syntax = initial_regex_syntax(raw_args, start);
+  if (!syntax) return std::unexpected(syntax.error());
+  ExpressionParser parser(raw_args.subspan(start), *syntax);
   return parser.parse();
 }
 

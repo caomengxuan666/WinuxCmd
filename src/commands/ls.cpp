@@ -1611,7 +1611,7 @@ auto render_inline_entry(const EntryInfo &entry,
     text += wstring_to_utf8(COLOR_RESET);
   }
 
-  return {std::move(text), prefix.size() + display_name.size()};
+  return {std::move(text), prefix.size() + string_display_width(display_name)};
 }
 
 auto build_rendered_entries(const std::vector<EntryInfo> &entries,
@@ -2397,15 +2397,6 @@ auto get_terminal_width() -> int {
     return csbi.srWindow.Right - csbi.srWindow.Left + 1;
   }
   return 80;  // Default to 80 columns if we can't get terminal width
-}
-
-/**
- * @brief Get string display width (simplified, assumes 1 character = 1 column)
- * @param str String to measure
- * @return Display width in columns
- */
-auto string_display_width(const std::wstring &str) -> size_t {
-  return str.length();
 }
 
 /**

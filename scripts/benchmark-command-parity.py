@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run black-box command parity and performance probes.
 
-The harness intentionally compares built WinuxCmd command executables against a
+The harness intentionally compares the built WinuxCmd dispatcher against a
 locally installed GNU/MSYS toolchain.  It is not a microbenchmark suite; it is a
 release-readiness smoke bench that answers three concrete questions:
 
@@ -152,6 +152,7 @@ PROBES = [
     Probe("find", "empty predicate printf", ["tree", "-empty", "-printf", "%P|%y\\n"], "tree"),
     Probe("find", "prune or branch", ["tree", "-name", "dir_010", "-prune", "-o", "-type", "f", "-name", "*.txt", "-printf", "%P\\n"], "tree"),
     Probe("find", "xtype regular predicate", ["tree", "-xtype", "f", "-name", "*.txt"], "tree"),
+    Probe("find", "posix extended regex predicate", ["tree", "-regextype", "posix-extended", "-regex", "tree/dir_(000|010)/nested_[0-9]/file_[0-9]{3}_[0-9]{2}\\.txt"], "tree"),
     Probe("find", "fprint0 action state", [".", "-type", "f", "-name", "*.txt", "-fprint0", "find-fprint0.out"], "tree", isolated=True, compare_stdout=False),
     Probe("ls", "recursive tree listing", ["-R", "tree"], "tree"),
     Probe("ls", "size sort single-column", ["-1S", "ls-fixture"], "ls"),
@@ -342,11 +343,15 @@ PROBES = [
     Probe("cpio", "newc archive create shape", ["-o"], "text", stdin="cat-no-newline.txt\n", compare_stdout=False, stdout_regex=r"(?s)070701.*TRAILER!+.*", reference_required=False),
     Probe("free", "megabytes memory table shape", ["-m"], "text", compare_stdout=False, stdout_regex=r"(?s)\s*total\s+used\s+free\s+available\nMem:\s+\d+\s+\d+\s+\d+\nSwap:\s+\d+\s+\d+\s+\d+\n", reference_required=False),
     Probe("lsof", "field output prefix shape", ["--no-headers", "-F", "-t", "50"], "text", compare_stdout=False, compare_exit=False, expected_exit=None, stdout_regex=r"(?s)(?:[pctn][^\n]*\n|\n)+", stderr_regex=r"(?s)(?:lsof: warning: [^\n]*\n)*", stdout_line_limit=12, reference_required=False),
+    Probe("lsof", "attached internet filter shape", ["-iTCP:80", "--no-headers", "-t", "50"], "text", compare_stdout=False, stdout_regex=r"(?s).*", stderr_regex=r"(?s)(?:lsof: warning: [^\n]*\n)*", reference_required=False),
     Probe("man", "command index shape", ["--list"], "text", compare_stdout=False, stdout_regex=r"(?s)Available commands:\n.*\b(?:cat|grep|ls)\b.*", reference_required=False),
-    Probe("top", "batch prefix shape", ["-b", "--rows", "8"], "text", compare_stdout=False, compare_exit=False, expected_exit=None, stdout_regex=r"(?s)top - .*Tasks:.*%Cpu\(s\):.*MiB Mem :.*PID USER.*", stdout_line_limit=12, reference_required=False),
+    Probe("top", "batch one iteration shape", ["-b", "-n", "1", "--rows", "8"], "text", compare_stdout=False, stdout_regex=r"(?s)top - .*Tasks:.*%Cpu\(s\):.*MiB Mem :.*PID USER.*", reference_required=False),
     Probe("tree", "depth one tree shape", ["-L", "1", "tree"], "tree", compare_stdout=False, stdout_regex=r"(?s).*tree\n.*(?:├──|\+--|`--).*(?:directories|files).*", reference_required=False),
     Probe("uptime", "windows uptime shape", [], "text", compare_stdout=False, stdout_regex=r"(?s)\s*\d{2}:\d{2}:\d{2} up .*,  load average: N/A, N/A, N/A\n", reference_required=False),
-    Probe("watch", "single iteration command shape", ["-n", "0", "-c", "1", "-t", "{winux:printf}", "watch-ok"], "text", compare_stdout=False, stdout_regex=r"(?s).*watch-ok.*", reference_required=False),
+    Probe("uptime", "pretty uptime shape", ["-p"], "text", compare_stdout=False, stdout_regex=r"(?s)up \d+ (?:day|days|hour|hours|minute|minutes).*\n", reference_required=False),
+    Probe("uptime", "since timestamp shape", ["-s"], "text", compare_stdout=False, stdout_regex=r"(?s)\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\n", reference_required=False),
+    Probe("watch", "single iteration command shape", ["-n", "0", "-c", "1", "-t", "cmd", "/c", "echo", "watch-ok"], "text", compare_stdout=False, stdout_regex=r"(?s).*watch-ok.*", reference_required=False),
+    Probe("watch", "failing child status", ["-n", "0", "-c", "1", "-t", "cmd", "/c", "exit", "1"], "text", compare_stdout=False, expected_exit=1, stdout_regex=r"(?s).*", reference_required=False),
     Probe("hostid", "hex host id shape", [], "text", compare_stdout=False, stdout_regex=r"[0-9a-f]{8}\n"),
     Probe(
         "groups",
@@ -1004,6 +1009,11 @@ def detect_reference_bin(command: str, preferred_root: Path | None) -> Path | No
 
 def command_exe(build_dir: Path, command: str) -> Path | None:
     candidate = build_dir / f"{command}.exe"
+    return candidate if candidate.is_file() else None
+
+
+def dispatcher_exe(build_dir: Path) -> Path | None:
+    candidate = build_dir / "winuxcmd.exe"
     return candidate if candidate.is_file() else None
 
 
@@ -1776,7 +1786,7 @@ def run_probe(
     iterations: int,
     warmups: int,
 ) -> ProbeResult:
-    winux = command_exe(build_dir, probe.command)
+    winux = dispatcher_exe(build_dir)
     reference_command = probe.reference_command or probe.command
     reference_argv = probe.reference_argv or probe.argv
     reference = detect_reference_bin(reference_command, reference_root) if probe.reference_required else None
@@ -1799,7 +1809,7 @@ def run_probe(
             None,
             None,
             None,
-            f"missing built executable for {probe.command}",
+            "missing built executable for winuxcmd",
         )
     if reference is None and probe.reference_required:
         return ProbeResult(
@@ -1822,7 +1832,7 @@ def run_probe(
             f"missing GNU/MSYS reference executable for {reference_command}",
         )
 
-    winux_argv = materialize_probe_argv(probe.argv, build_dir, reference_root)
+    winux_argv = [probe.command, *materialize_probe_argv(probe.argv, build_dir, reference_root)]
     reference_argv = materialize_probe_argv(reference_argv, build_dir, reference_root)
 
     env = os.environ.copy()

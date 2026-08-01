@@ -158,16 +158,20 @@ struct TopConfig {
 constexpr auto TOP_OPTIONS = std::array{
     OPTION("-b", "--batch",
            "batch mode: don't accept input, run until -n iterations"),
-    OPTION("-d", "--delay", "delay between updates, in seconds"),
-    OPTION("-n", "--iterations", "number of iterations before exiting"),
-    OPTION("-p", "--pid", "monitor only processes with given PIDs"),
-    OPTION("-u", "--user", "monitor only processes with given user"),
-    OPTION("-U", "--User", "monitor only processes with real user ID/name"),
+    OPTION("-d", "--delay", "delay between updates, in seconds", INT_TYPE),
+    OPTION("-n", "--iterations", "number of iterations before exiting",
+           INT_TYPE),
+    OPTION("-p", "--pid", "monitor only processes with given PIDs",
+           STRING_TYPE),
+    OPTION("-u", "--user", "monitor only processes with given user",
+           STRING_TYPE),
+    OPTION("-U", "--User", "monitor only processes with real user ID/name",
+           STRING_TYPE),
     OPTION("-s", "--secure-mode", "secure mode: disables some features"),
     OPTION("-c", "--command", "show command line instead of process name"),
     OPTION("-H", "--threads", "show threads as if they were processes"),
-    OPTION("-o", "--field-sort", "override sort field"),
-    OPTION("-w", "--width", "override output width"),
+    OPTION("-o", "--field-sort", "override sort field", STRING_TYPE),
+    OPTION("-w", "--width", "override output width", INT_TYPE),
     OPTION("", "--rows", "limit number of processes displayed", INT_TYPE),
     OPTION("-v", "--version", "print version information"),
     OPTION("-h", "--help", "display this help")};
@@ -827,24 +831,10 @@ auto parse_config(const CommandContext<TOP_OPTIONS.size()>& ctx)
   cfg.batch_mode =
       ctx.get<bool>("--batch", false) || ctx.get<bool>("-b", false);
 
-  std::string delay_str = ctx.get<std::string>("--delay", "");
-  if (delay_str.empty()) delay_str = ctx.get<std::string>("-d", "");
-  if (!delay_str.empty()) {
-    try {
-      cfg.delay = std::stoi(delay_str);
-    } catch (...) {
-    }
-    if (cfg.delay < 1) cfg.delay = 1;
-  }
+  cfg.delay = ctx.get<int>("--delay", cfg.delay);
+  if (cfg.delay < 1) cfg.delay = 1;
 
-  std::string iter_str = ctx.get<std::string>("--iterations", "");
-  if (iter_str.empty()) iter_str = ctx.get<std::string>("-n", "");
-  if (!iter_str.empty()) {
-    try {
-      cfg.max_iterations = std::stoi(iter_str);
-    } catch (...) {
-    }
-  }
+  cfg.max_iterations = ctx.get<int>("--iterations", cfg.max_iterations);
 
   std::string sort_str = ctx.get<std::string>("--field-sort", "");
   if (sort_str.empty()) sort_str = ctx.get<std::string>("-o", "");
