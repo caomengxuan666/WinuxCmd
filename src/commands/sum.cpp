@@ -100,57 +100,73 @@ auto build_config(const CommandContext<SUM_OPTIONS.size()>& ctx)
 
 auto calculate_checksum(const std::string& filename, uint32_t& block_count,
                         Config::Algorithm algorithm) -> cp::Result<uint16_t> {
-  std::vector<char> data;
   auto input_open_error = [](std::string_view path) -> std::string {
+    const std::string quote(1, char{39});
     std::error_code ec;
     if (std::filesystem::is_directory(std::filesystem::u8path(path), ec) &&
         !ec) {
-      return std::string("cannot open '") + std::string(path) +
-             "' for reading: Is a directory";
+      return std::string("cannot open ") + quote + std::string(path) + quote +
+             " for reading: Is a directory";
     }
 
-    return std::string("cannot open '") + std::string(path) +
-           "' for reading: No such file or directory";
+    return std::string("cannot open ") + quote + std::string(path) + quote +
+           " for reading: No such file or directory";
   };
 
-  if (filename == "-" || filename.empty()) {
-    data.assign(std::istreambuf_iterator<char>(std::cin),
-                std::istreambuf_iterator<char>());
-  } else {
-    std::ifstream f(filename, std::ios::binary);
-    if (!f) {
+  std::istream* input = &std::cin;
+  std::ifstream file;
+  if (filename != "-" && !filename.empty()) {
+    file.open(filename, std::ios::binary);
+    if (!file) {
       return std::unexpected(input_open_error(filename));
     }
-    data.assign(std::istreambuf_iterator<char>(f),
-                std::istreambuf_iterator<char>());
-    if (f.fail() && !f.eof()) {
-      return std::unexpected("error reading from file");
+    input = &file;
+  }
+
+  uint64_t total_bytes = 0;
+  uint32_t sysv_sum = 0;
+  uint32_t bsd_checksum = 0;
+  std::array<char, 32768> buffer{};
+
+  while (*input) {
+    input->read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    const std::streamsize read = input->gcount();
+    if (read <= 0) {
+      continue;
+    }
+
+    const auto bytes =
+        std::span<const char>(buffer.data(), static_cast<size_t>(read));
+    total_bytes += bytes.size();
+    if (algorithm == Config::Algorithm::Sysv) {
+      for (unsigned char byte : bytes) {
+        sysv_sum += byte;
+      }
+    } else {
+      for (unsigned char byte : bytes) {
+        bsd_checksum = (bsd_checksum >> 1) + ((bsd_checksum & 1U) << 15);
+        bsd_checksum += byte;
+        bsd_checksum &= 0xffffU;
+      }
     }
   }
 
-  // Calculate block count
-  int block_size = algorithm == Config::Algorithm::Sysv ? 512 : 1024;
+  if (input->bad()) {
+    return std::unexpected("error reading from file");
+  }
+
+  const uint32_t block_size =
+      algorithm == Config::Algorithm::Sysv ? 512U : 1024U;
   block_count =
-      (static_cast<uint32_t>(data.size()) + block_size - 1) / block_size;
+      static_cast<uint32_t>((total_bytes + block_size - 1U) / block_size);
 
   if (algorithm == Config::Algorithm::Sysv) {
-    uint32_t sum = 0;
-    for (unsigned char byte : data) {
-      sum += byte;
-    }
-    uint32_t folded = (sum & 0xffffU) + (sum >> 16U);
+    uint32_t folded = (sysv_sum & 0xffffU) + (sysv_sum >> 16U);
     folded = (folded & 0xffffU) + (folded >> 16U);
     return static_cast<uint16_t>(folded);
   }
 
-  uint32_t checksum = 0;
-  for (unsigned char byte : data) {
-    checksum = (checksum >> 1) + ((checksum & 1) << 15);
-    checksum += byte;
-    checksum &= 0xFFFF;
-  }
-
-  return static_cast<uint16_t>(checksum);
+  return static_cast<uint16_t>(bsd_checksum);
 }
 
 auto run(const Config& cfg) -> int {

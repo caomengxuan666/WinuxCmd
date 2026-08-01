@@ -25,6 +25,13 @@
 module;
 
 #include <cstdint>
+#if defined(_MSC_VER)
+#define WINUXCMD_DIGEST_FORCEINLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define WINUXCMD_DIGEST_FORCEINLINE inline __attribute__((always_inline))
+#else
+#define WINUXCMD_DIGEST_FORCEINLINE inline
+#endif
 
 export module utils:digest;
 import std;
@@ -62,13 +69,13 @@ auto to_hex(std::span<const uint8_t> bytes) -> std::string {
   return out;
 }
 
-auto load_be32(const uint8_t* p) -> uint32_t {
+WINUXCMD_DIGEST_FORCEINLINE auto load_be32(const uint8_t* p) -> uint32_t {
   return (static_cast<uint32_t>(p[0]) << 24) |
          (static_cast<uint32_t>(p[1]) << 16) |
          (static_cast<uint32_t>(p[2]) << 8) | static_cast<uint32_t>(p[3]);
 }
 
-auto load_be64(const uint8_t* p) -> uint64_t {
+WINUXCMD_DIGEST_FORCEINLINE auto load_be64(const uint8_t* p) -> uint64_t {
   return (static_cast<uint64_t>(p[0]) << 56) |
          (static_cast<uint64_t>(p[1]) << 48) |
          (static_cast<uint64_t>(p[2]) << 40) |
@@ -78,7 +85,7 @@ auto load_be64(const uint8_t* p) -> uint64_t {
          (static_cast<uint64_t>(p[6]) << 8) | static_cast<uint64_t>(p[7]);
 }
 
-auto load_le64(const uint8_t* p) -> uint64_t {
+WINUXCMD_DIGEST_FORCEINLINE auto load_le64(const uint8_t* p) -> uint64_t {
   return static_cast<uint64_t>(p[0]) | (static_cast<uint64_t>(p[1]) << 8) |
          (static_cast<uint64_t>(p[2]) << 16) |
          (static_cast<uint64_t>(p[3]) << 24) |
@@ -88,14 +95,14 @@ auto load_le64(const uint8_t* p) -> uint64_t {
          (static_cast<uint64_t>(p[7]) << 56);
 }
 
-auto store_be32(uint8_t* p, uint32_t v) -> void {
+WINUXCMD_DIGEST_FORCEINLINE auto store_be32(uint8_t* p, uint32_t v) -> void {
   p[0] = static_cast<uint8_t>(v >> 24);
   p[1] = static_cast<uint8_t>(v >> 16);
   p[2] = static_cast<uint8_t>(v >> 8);
   p[3] = static_cast<uint8_t>(v);
 }
 
-auto store_be64(uint8_t* p, uint64_t v) -> void {
+WINUXCMD_DIGEST_FORCEINLINE auto store_be64(uint8_t* p, uint64_t v) -> void {
   p[0] = static_cast<uint8_t>(v >> 56);
   p[1] = static_cast<uint8_t>(v >> 48);
   p[2] = static_cast<uint8_t>(v >> 40);
@@ -106,7 +113,7 @@ auto store_be64(uint8_t* p, uint64_t v) -> void {
   p[7] = static_cast<uint8_t>(v);
 }
 
-auto store_le64(uint8_t* p, uint64_t v) -> void {
+WINUXCMD_DIGEST_FORCEINLINE auto store_le64(uint8_t* p, uint64_t v) -> void {
   p[0] = static_cast<uint8_t>(v);
   p[1] = static_cast<uint8_t>(v >> 8);
   p[2] = static_cast<uint8_t>(v >> 16);
@@ -117,11 +124,13 @@ auto store_le64(uint8_t* p, uint64_t v) -> void {
   p[7] = static_cast<uint8_t>(v >> 56);
 }
 
-constexpr auto rotr32(uint32_t value, unsigned bits) -> uint32_t {
+WINUXCMD_DIGEST_FORCEINLINE auto rotr32(uint32_t value, unsigned bits)
+    -> uint32_t {
   return (value >> bits) | (value << (32 - bits));
 }
 
-constexpr auto rotr64(uint64_t value, unsigned bits) -> uint64_t {
+WINUXCMD_DIGEST_FORCEINLINE auto rotr64(uint64_t value, unsigned bits)
+    -> uint64_t {
   return (value >> bits) | (value << (64 - bits));
 }
 
@@ -444,21 +453,6 @@ class Blake2b {
       0xa54ff53a5f1d36f1ULL, 0x510e527fade682d1ULL, 0x9b05688c2b3e6c1fULL,
       0x1f83d9abfb41bd6bULL, 0x5be0cd19137e2179ULL};
 
-  static constexpr std::array<std::array<uint8_t, 16>, 12> kSigma{{
-      {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-      {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
-      {11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4},
-      {7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8},
-      {9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13},
-      {2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9},
-      {12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11},
-      {13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10},
-      {6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5},
-      {10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0},
-      {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-      {14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3},
-  }};
-
   auto increment_counter(size_t inc) -> void {
     uint64_t old = counter_[0];
     counter_[0] += static_cast<uint64_t>(inc);
@@ -467,48 +461,101 @@ class Blake2b {
     }
   }
 
-  static auto mix(std::array<uint64_t, 16>& v, uint64_t x, uint64_t y, size_t a,
-                  size_t b, size_t c, size_t d) -> void {
-    v[a] = v[a] + v[b] + x;
-    v[d] = rotr64(v[d] ^ v[a], 32);
-    v[c] += v[d];
-    v[b] = rotr64(v[b] ^ v[c], 24);
-    v[a] = v[a] + v[b] + y;
-    v[d] = rotr64(v[d] ^ v[a], 16);
-    v[c] += v[d];
-    v[b] = rotr64(v[b] ^ v[c], 63);
-  }
-
   auto compress(const uint8_t* block) -> void {
-    std::array<uint64_t, 16> m{};
-    std::array<uint64_t, 16> v{};
-    for (size_t i = 0; i < 16; ++i) {
-      m[i] = load_le64(block + i * 8);
-    }
-    for (size_t i = 0; i < 8; ++i) {
-      v[i] = state_[i];
-      v[i + 8] = kIv[i];
-    }
-    v[12] ^= counter_[0];
-    v[13] ^= counter_[1];
-    v[14] ^= final_flags_[0];
-    v[15] ^= final_flags_[1];
+    const uint64_t m0 = load_le64(block + 0);
+    const uint64_t m1 = load_le64(block + 8);
+    const uint64_t m2 = load_le64(block + 16);
+    const uint64_t m3 = load_le64(block + 24);
+    const uint64_t m4 = load_le64(block + 32);
+    const uint64_t m5 = load_le64(block + 40);
+    const uint64_t m6 = load_le64(block + 48);
+    const uint64_t m7 = load_le64(block + 56);
+    const uint64_t m8 = load_le64(block + 64);
+    const uint64_t m9 = load_le64(block + 72);
+    const uint64_t m10 = load_le64(block + 80);
+    const uint64_t m11 = load_le64(block + 88);
+    const uint64_t m12 = load_le64(block + 96);
+    const uint64_t m13 = load_le64(block + 104);
+    const uint64_t m14 = load_le64(block + 112);
+    const uint64_t m15 = load_le64(block + 120);
 
-    for (size_t round = 0; round < 12; ++round) {
-      const auto& s = kSigma[round];
-      mix(v, m[s[0]], m[s[1]], 0, 4, 8, 12);
-      mix(v, m[s[2]], m[s[3]], 1, 5, 9, 13);
-      mix(v, m[s[4]], m[s[5]], 2, 6, 10, 14);
-      mix(v, m[s[6]], m[s[7]], 3, 7, 11, 15);
-      mix(v, m[s[8]], m[s[9]], 0, 5, 10, 15);
-      mix(v, m[s[10]], m[s[11]], 1, 6, 11, 12);
-      mix(v, m[s[12]], m[s[13]], 2, 7, 8, 13);
-      mix(v, m[s[14]], m[s[15]], 3, 4, 9, 14);
-    }
+    uint64_t v0 = state_[0];
+    uint64_t v1 = state_[1];
+    uint64_t v2 = state_[2];
+    uint64_t v3 = state_[3];
+    uint64_t v4 = state_[4];
+    uint64_t v5 = state_[5];
+    uint64_t v6 = state_[6];
+    uint64_t v7 = state_[7];
+    uint64_t v8 = kIv[0];
+    uint64_t v9 = kIv[1];
+    uint64_t v10 = kIv[2];
+    uint64_t v11 = kIv[3];
+    uint64_t v12 = kIv[4] ^ counter_[0];
+    uint64_t v13 = kIv[5] ^ counter_[1];
+    uint64_t v14 = kIv[6] ^ final_flags_[0];
+    uint64_t v15 = kIv[7] ^ final_flags_[1];
 
-    for (size_t i = 0; i < 8; ++i) {
-      state_[i] ^= v[i] ^ v[i + 8];
-    }
+#define WINUXCMD_B2G(a, b, c, d, x, y) \
+  do {                                 \
+    a = a + b + x;                     \
+    d = rotr64(d ^ a, 32);             \
+    c += d;                            \
+    b = rotr64(b ^ c, 24);             \
+    a = a + b + y;                     \
+    d = rotr64(d ^ a, 16);             \
+    c += d;                            \
+    b = rotr64(b ^ c, 63);             \
+  } while (false)
+#define WINUXCMD_B2ROUND(s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, \
+                         s12, s13, s14, s15)                               \
+  do {                                                                     \
+    WINUXCMD_B2G(v0, v4, v8, v12, s0, s1);                                 \
+    WINUXCMD_B2G(v1, v5, v9, v13, s2, s3);                                 \
+    WINUXCMD_B2G(v2, v6, v10, v14, s4, s5);                                \
+    WINUXCMD_B2G(v3, v7, v11, v15, s6, s7);                                \
+    WINUXCMD_B2G(v0, v5, v10, v15, s8, s9);                                \
+    WINUXCMD_B2G(v1, v6, v11, v12, s10, s11);                              \
+    WINUXCMD_B2G(v2, v7, v8, v13, s12, s13);                               \
+    WINUXCMD_B2G(v3, v4, v9, v14, s14, s15);                               \
+  } while (false)
+
+    WINUXCMD_B2ROUND(m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13,
+                     m14, m15);
+    WINUXCMD_B2ROUND(m14, m10, m4, m8, m9, m15, m13, m6, m1, m12, m0, m2, m11,
+                     m7, m5, m3);
+    WINUXCMD_B2ROUND(m11, m8, m12, m0, m5, m2, m15, m13, m10, m14, m3, m6, m7,
+                     m1, m9, m4);
+    WINUXCMD_B2ROUND(m7, m9, m3, m1, m13, m12, m11, m14, m2, m6, m5, m10, m4,
+                     m0, m15, m8);
+    WINUXCMD_B2ROUND(m9, m0, m5, m7, m2, m4, m10, m15, m14, m1, m11, m12, m6,
+                     m8, m3, m13);
+    WINUXCMD_B2ROUND(m2, m12, m6, m10, m0, m11, m8, m3, m4, m13, m7, m5, m15,
+                     m14, m1, m9);
+    WINUXCMD_B2ROUND(m12, m5, m1, m15, m14, m13, m4, m10, m0, m7, m6, m3, m9,
+                     m2, m8, m11);
+    WINUXCMD_B2ROUND(m13, m11, m7, m14, m12, m1, m3, m9, m5, m0, m15, m4, m8,
+                     m6, m2, m10);
+    WINUXCMD_B2ROUND(m6, m15, m14, m9, m11, m3, m0, m8, m12, m2, m13, m7, m1,
+                     m4, m10, m5);
+    WINUXCMD_B2ROUND(m10, m2, m8, m4, m7, m6, m1, m5, m15, m11, m9, m14, m3,
+                     m12, m13, m0);
+    WINUXCMD_B2ROUND(m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13,
+                     m14, m15);
+    WINUXCMD_B2ROUND(m14, m10, m4, m8, m9, m15, m13, m6, m1, m12, m0, m2, m11,
+                     m7, m5, m3);
+
+#undef WINUXCMD_B2ROUND
+#undef WINUXCMD_B2G
+
+    state_[0] ^= v0 ^ v8;
+    state_[1] ^= v1 ^ v9;
+    state_[2] ^= v2 ^ v10;
+    state_[3] ^= v3 ^ v11;
+    state_[4] ^= v4 ^ v12;
+    state_[5] ^= v5 ^ v13;
+    state_[6] ^= v6 ^ v14;
+    state_[7] ^= v7 ^ v15;
   }
 
   std::array<uint64_t, 8> state_{};
@@ -518,7 +565,6 @@ class Blake2b {
   size_t buffered_ = 0;
   size_t out_bytes_ = 64;
 };
-
 template <typename Hasher>
 auto feed_stream(std::istream& in, Hasher& hasher) -> bool {
   std::array<char, 65536> buffer{};
