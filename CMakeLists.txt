@@ -536,6 +536,7 @@ if(BUILD_STANDALONE)
         TYPE CXX_MODULES
         BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
         FILES
+        src/version/version.cppm
         src/core/core.cppm
         src/core/cmd_meta.cppm
         src/core/command_context.cppm
@@ -602,24 +603,26 @@ if(BUILD_STANDALONE)
     foreach(CMD_NAME ${COMMANDS})
         set(CMD_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/${CMD_NAME}.cpp")
         set(CMD_EXE_NAME "${CMD_NAME}")
-        
+        set(CMD_TARGET_NAME "winuxcmd-standalone-${CMD_NAME}")
+
         # Create standalone executable
-        add_executable(${CMD_EXE_NAME})
-        
+        add_executable(${CMD_TARGET_NAME})
+
         # Add main.cpp and ONLY this command's .cpp file
-        target_sources(${CMD_EXE_NAME} PRIVATE
+        target_sources(${CMD_TARGET_NAME} PRIVATE
             src/Main/main.cpp
             ${CMD_FILE}
         )
 
         # Add core module interfaces directly for reliable module partition resolution
         # across standalone command targets on MSVC/CMake.
-        target_sources(${CMD_EXE_NAME}
+        target_sources(${CMD_TARGET_NAME}
             PUBLIC
             FILE_SET CXX_MODULES
             TYPE CXX_MODULES
             BASE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}"
             FILES
+            src/version/version.cppm
             src/core/core.cppm
             src/core/cmd_meta.cppm
             src/core/command_context.cppm
@@ -644,43 +647,43 @@ if(BUILD_STANDALONE)
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
         )
-        
+
         # Add PCH (same as core library)
-        target_precompile_headers(${CMD_EXE_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
-        
+        target_precompile_headers(${CMD_TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
+
         # Set minimal compile options
-        target_compile_options(${CMD_EXE_NAME} PRIVATE
+        target_compile_options(${CMD_TARGET_NAME} PRIVATE
             $<$<CONFIG:Release>:/O2 /Os>
             /GR-
             /EHsc-
         )
-        
-        target_compile_definitions(${CMD_EXE_NAME} PRIVATE
+
+        target_compile_definitions(${CMD_TARGET_NAME} PRIVATE
             _UNICODE
             UNICODE
             _CRT_DISABLE_PERFCRIT_LOCKS
             _HAS_RTTI=0
         )
-        
-        target_link_options(${CMD_EXE_NAME} PRIVATE
+
+        target_link_options(${CMD_TARGET_NAME} PRIVATE
             $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
         )
-        
+
         if (USE_STATIC_CRT AND MSVC)
-            target_compile_options(${CMD_EXE_NAME} PRIVATE /MT /Os /Oy /GS-)
+            target_compile_options(${CMD_TARGET_NAME} PRIVATE /MT /Os /Oy /GS-)
         endif ()
-        
+
         # Add include directories
-        target_include_directories(${CMD_EXE_NAME} PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
+        target_include_directories(${CMD_TARGET_NAME} PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
         if (MSVC)
-            target_include_directories(${CMD_EXE_NAME} PRIVATE "${MODULES_DIR}")
+            target_include_directories(${CMD_TARGET_NAME} PRIVATE "${MODULES_DIR}")
         endif ()
-        
+
         # Import std and enable C++23
-        target_compile_features(${CMD_EXE_NAME} PRIVATE cxx_std_23)
-        
+        target_compile_features(${CMD_TARGET_NAME} PRIVATE cxx_std_23)
+
         # Set output name
-        set_target_properties(${CMD_EXE_NAME} PROPERTIES
+        set_target_properties(${CMD_TARGET_NAME} PROPERTIES
             OUTPUT_NAME "${CMD_EXE_NAME}"
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
         )

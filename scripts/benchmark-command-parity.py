@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run black-box command parity and performance probes.
 
-The harness intentionally compares built WinuxCmd command executables against a
+The harness intentionally compares the built WinuxCmd dispatcher against a
 locally installed GNU/MSYS toolchain.  It is not a microbenchmark suite; it is a
 release-readiness smoke bench that answers three concrete questions:
 
@@ -112,12 +112,17 @@ class ProbeResult:
 PROBES = [
     Probe("cat", "large file passthrough", ["big.txt"], "text"),
     Probe("cat", "number final unterminated line", ["-n", "cat-no-newline.txt"], "text"),
+    Probe("cat", "show all visible transform", ["-A", "cat-visible.bin"], "text"),
     Probe("grep", "fixed literal search", ["-F", "needle_999", "big.txt"], "text"),
     Probe("grep", "fixed pattern file many literals", ["-F", "-f", "grep-many-patterns.txt", "big.txt"], "text"),
     Probe("grep", "extended regex alternation", ["-E", "needle_(123|999)", "big.txt"], "text"),
+    Probe("grep", "only matching extended regex", ["-E", "-o", "needle_[0-9]+", "big.txt"], "text"),
+    Probe("grep", "context custom group separator", ["-C", "1", "--group-separator=@@", "needle", "grep-context.txt"], "text"),
+    Probe("grep", "recursive extended size alternation", ["-REIn", "28x12|12x10|16x12", "grep-recursive"], "text"),
     Probe("sed", "global literal substitution", ["s/needle/NEEDLE/g", "big.txt"], "text"),
     Probe("sed", "zero address regex range", ["0,/foo/s/foo/XX/", "sed-zero-range.txt"], "text"),
     Probe("sed", "filename command", ["-n", "F", "sed-file-a.txt", "sed-file-b.txt"], "text"),
+    Probe("sed", "substitution write flag", ["s/needle/NEEDLE/w sed-subst-write.out", "sed-subst-write.txt"], "textops", isolated=True),
     Probe("wc", "line byte word counts", ["-lwm", "big.txt"], "text"),
     Probe("wc", "byte count fast path", ["-c", "big.txt"], "text"),
     Probe("wc", "line and byte fast path", ["-lc", "big.txt"], "text"),
@@ -132,6 +137,8 @@ PROBES = [
     Probe("sort", "large lexical sort", ["words.txt"], "sort"),
     Probe("sort", "zero-terminated records", ["-z", "sort-zero.bin"], "sort"),
     Probe("sort", "field numeric key sort", ["-t", ",", "-k", "2,2n", "sort-fields.csv"], "sort"),
+    Probe("sort", "merge sorted streams", ["-m", "sort-merge-left.txt", "sort-merge-right.txt"], "sort"),
+    Probe("sort", "merge preserves input stream order", ["-m", "sort-merge-single.txt"], "sort"),
     Probe(
         "sort",
         "check unsorted diagnostic shape",
@@ -145,7 +152,13 @@ PROBES = [
     Probe("find", "empty predicate printf", ["tree", "-empty", "-printf", "%P|%y\\n"], "tree"),
     Probe("find", "prune or branch", ["tree", "-name", "dir_010", "-prune", "-o", "-type", "f", "-name", "*.txt", "-printf", "%P\\n"], "tree"),
     Probe("find", "xtype regular predicate", ["tree", "-xtype", "f", "-name", "*.txt"], "tree"),
+    Probe("find", "posix extended regex predicate", ["tree", "-regextype", "posix-extended", "-regex", "tree/dir_(000|010)/nested_[0-9]/file_[0-9]{3}_[0-9]{2}\\.txt"], "tree"),
+    Probe("find", "fprint0 action state", [".", "-type", "f", "-name", "*.txt", "-fprint0", "find-fprint0.out"], "tree", isolated=True, compare_stdout=False),
     Probe("ls", "recursive tree listing", ["-R", "tree"], "tree"),
+    Probe("ls", "size sort single-column", ["-1S", "ls-fixture"], "ls"),
+    Probe("ls", "mtime sort single-column", ["-1t", "ls-fixture"], "ls"),
+    Probe("ls", "comma format wrapping", ["-m", "-w", "40", "ls-fixture"], "ls"),
+    Probe("ls", "horizontal format wrapping", ["-x", "-w", "40", "ls-fixture"], "ls"),
     Probe("tee", "stdin to stdout and literal dash file", ["-"], "text", stdin_file="big.txt"),
     Probe(
         "tee",
@@ -164,6 +177,12 @@ PROBES = [
     Probe("xargs", "null-delimited echo batches", ["-0", "-n", "40"], "xargs", stdin_file="xargs-nul.txt"),
     Probe("echo", "escape interpretation", ["-e", "alpha\\nbeta", "tail"], "text"),
     Probe("dirname", "multiple operands", ["alpha/beta/file.txt", "plain", "."], "text"),
+    Probe(
+        "dirname",
+        "drive and unc roots",
+        ["//", "//server", "//server/share", "C:/", "C:foo"],
+        "text",
+    ),
     Probe("pwd", "physical current directory", ["-P"], "text", compare_stdout=False),
     Probe("cal", "fixed month layout", ["7", "2026"], "text"),
     Probe("date", "fixed epoch utc format", ["-u", "-d", "@0", "+%Y-%m-%dT%H:%M:%S%z"], "text"),
@@ -324,11 +343,15 @@ PROBES = [
     Probe("cpio", "newc archive create shape", ["-o"], "text", stdin="cat-no-newline.txt\n", compare_stdout=False, stdout_regex=r"(?s)070701.*TRAILER!+.*", reference_required=False),
     Probe("free", "megabytes memory table shape", ["-m"], "text", compare_stdout=False, stdout_regex=r"(?s)\s*total\s+used\s+free\s+available\nMem:\s+\d+\s+\d+\s+\d+\nSwap:\s+\d+\s+\d+\s+\d+\n", reference_required=False),
     Probe("lsof", "field output prefix shape", ["--no-headers", "-F", "-t", "50"], "text", compare_stdout=False, compare_exit=False, expected_exit=None, stdout_regex=r"(?s)(?:[pctn][^\n]*\n|\n)+", stderr_regex=r"(?s)(?:lsof: warning: [^\n]*\n)*", stdout_line_limit=12, reference_required=False),
+    Probe("lsof", "attached internet filter shape", ["-iTCP:80", "--no-headers", "-t", "50"], "text", compare_stdout=False, stdout_regex=r"(?s).*", stderr_regex=r"(?s)(?:lsof: warning: [^\n]*\n)*", reference_required=False),
     Probe("man", "command index shape", ["--list"], "text", compare_stdout=False, stdout_regex=r"(?s)Available commands:\n.*\b(?:cat|grep|ls)\b.*", reference_required=False),
-    Probe("top", "batch prefix shape", ["-b", "--rows", "8"], "text", compare_stdout=False, compare_exit=False, expected_exit=None, stdout_regex=r"(?s)top - .*Tasks:.*%Cpu\(s\):.*MiB Mem :.*PID USER.*", stdout_line_limit=12, reference_required=False),
+    Probe("top", "batch one iteration shape", ["-b", "-n", "1", "--rows", "8"], "text", compare_stdout=False, stdout_regex=r"(?s)top - .*Tasks:.*%Cpu\(s\):.*MiB Mem :.*PID USER.*", reference_required=False),
     Probe("tree", "depth one tree shape", ["-L", "1", "tree"], "tree", compare_stdout=False, stdout_regex=r"(?s).*tree\n.*(?:├──|\+--|`--).*(?:directories|files).*", reference_required=False),
     Probe("uptime", "windows uptime shape", [], "text", compare_stdout=False, stdout_regex=r"(?s)\s*\d{2}:\d{2}:\d{2} up .*,  load average: N/A, N/A, N/A\n", reference_required=False),
-    Probe("watch", "single iteration command shape", ["-n", "0", "-c", "1", "-t", "{winux:printf}", "watch-ok"], "text", compare_stdout=False, stdout_regex=r"(?s).*watch-ok.*", reference_required=False),
+    Probe("uptime", "pretty uptime shape", ["-p"], "text", compare_stdout=False, stdout_regex=r"(?s)up \d+ (?:day|days|hour|hours|minute|minutes).*\n", reference_required=False),
+    Probe("uptime", "since timestamp shape", ["-s"], "text", compare_stdout=False, stdout_regex=r"(?s)\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\n", reference_required=False),
+    Probe("watch", "single iteration command shape", ["-n", "0", "-c", "1", "-t", "cmd", "/c", "echo", "watch-ok"], "text", compare_stdout=False, stdout_regex=r"(?s).*watch-ok.*", reference_required=False),
+    Probe("watch", "failing child status", ["-n", "0", "-c", "1", "-t", "cmd", "/c", "exit", "1"], "text", compare_stdout=False, expected_exit=1, stdout_regex=r"(?s).*", reference_required=False),
     Probe("hostid", "hex host id shape", [], "text", compare_stdout=False, stdout_regex=r"[0-9a-f]{8}\n"),
     Probe(
         "groups",
@@ -421,6 +444,7 @@ PROBES = [
     Probe("true", "successful no-op", [], "text"),
     Probe("false", "failing no-op", [], "text", expected_exit=1),
     Probe("env", "empty environment assignments", ["-i", "BAR=2", "FOO=1"], "text"),
+    Probe("env", "split string reparsed assignments", ["-S", "-i BAR=2 FOO=1"], "text"),
     Probe("expr", "arithmetic precedence", ["2", "+", "3", "*", "4"], "text"),
     Probe("factor", "medium composite factors", ["1234567890"], "text"),
     Probe("numfmt", "from iec stdin", ["--from=iec"], "textops", stdin_file="numfmt-iec.txt"),
@@ -718,6 +742,15 @@ PROBES = [
         isolated=True,
         time_paths=["touch-dir"],
     ),
+    Probe(
+        "touch",
+        "reference relative date timestamp",
+        ["-r", "touch-ref.txt", "-d", "+1 day", "touch-relative-target.txt"],
+        "fileops",
+        compare_stdout=False,
+        isolated=True,
+        time_paths=["touch-relative-target.txt"],
+    ),
     Probe("ln", "hard link file", ["link-src.txt", "link-dst.txt"], "fileops", isolated=True),
     Probe("ln", "verbose hard link", ["-v", "link-src.txt", "link-verbose.txt"], "fileops", isolated=True),
     Probe("ln", "backup custom suffix", ["-b", "-S", ".bak", "link-src.txt", "link-existing.txt"], "fileops", isolated=True),
@@ -979,6 +1012,11 @@ def command_exe(build_dir: Path, command: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+def dispatcher_exe(build_dir: Path) -> Path | None:
+    candidate = build_dir / "winuxcmd.exe"
+    return candidate if candidate.is_file() else None
+
+
 def materialize_probe_argv(
     argv: list[str], build_dir: Path, reference_root: Path | None
 ) -> list[str]:
@@ -1010,6 +1048,11 @@ def detect_cmake_build_type(build_dir: Path) -> str:
 
 
 def write_text_fixture(root: Path) -> None:
+    visible_path = root / "cat-visible.bin"
+    expected_visible = b"A\tB\r\n\x7f\x80\xff\n\n\nZ\n" * 8192
+    if not visible_path.is_file() or visible_path.read_bytes() != expected_visible:
+        visible_path.write_bytes(expected_visible)
+
     path = root / "big.txt"
     if not path.is_file() or path.stat().st_size <= 1_000_000:
         lines = []
@@ -1036,6 +1079,7 @@ def write_text_fixture(root: Path) -> None:
         "tr-truncate.txt": "abc cab\n",
         "more-small.txt": "one\ntwo\nthree\nfour\n",
         "cat-no-newline.txt": "tail",
+        "grep-context.txt": "pre1\nneedle one\npost1\ngap1\ngap2\npre2\nneedle two\npost2\n",
         "sed-file-a.txt": "one\n",
         "sed-file-b.txt": "two\n",
         "sed-zero-range.txt": "bar\nfoo\nfoo\n",
@@ -1056,6 +1100,17 @@ def write_text_fixture(root: Path) -> None:
         if not target.is_file() or target.read_text(encoding="utf-8") != content:
             target.write_text(content, encoding="utf-8", newline="\n")
 
+    grep_recursive = root / "grep-recursive"
+    grep_recursive_files: dict[str, str] = {
+        "root.txt": "hero 30x20\nplain 24x24\n",
+        "keep/a.txt": "sprite 28x12\ntile 16x12\n",
+        "keep/b.txt": "button 12x10\nlarge 40x40\n",
+    }
+    for name, content in grep_recursive_files.items():
+        target = grep_recursive / name
+        if not target.is_file() or target.read_text(encoding="utf-8") != content:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8", newline="\n")
 
 def write_table_fixture(root: Path) -> None:
     path = root / "table.csv"
@@ -1093,15 +1148,39 @@ def write_sort_fixture(root: Path) -> None:
     if not check_path.is_file() or check_path.read_text(encoding="utf-8") != expected_check:
         check_path.write_text(expected_check, encoding="utf-8", newline="\n")
 
+    merge_left_path = root / "sort-merge-left.txt"
+    expected_merge_left = "".join(f"{i}\n" for i in range(0, 60000, 2))
+    if not merge_left_path.is_file() or merge_left_path.read_text(encoding="utf-8") != expected_merge_left:
+        merge_left_path.write_text(expected_merge_left, encoding="utf-8", newline="\n")
+
+    merge_right_path = root / "sort-merge-right.txt"
+    expected_merge_right = "".join(f"{i}\n" for i in range(1, 60000, 2))
+    if not merge_right_path.is_file() or merge_right_path.read_text(encoding="utf-8") != expected_merge_right:
+        merge_right_path.write_text(expected_merge_right, encoding="utf-8", newline="\n")
+
+    merge_single_path = root / "sort-merge-single.txt"
+    expected_merge_single = "2\na\n1\nb\n"
+    if not merge_single_path.is_file() or merge_single_path.read_text(encoding="utf-8") != expected_merge_single:
+        merge_single_path.write_text(expected_merge_single, encoding="utf-8", newline="\n")
+
 
 def write_tree_fixture(root: Path) -> None:
     tree = root / "tree"
     marker = tree / ".fixture-complete"
+    def ensure_template() -> None:
+        template = root / "tree-template"
+        template_marker = template / ".fixture-complete"
+        if template_marker.is_file():
+            return
+        if template.exists():
+            remove_tree(template)
+        shutil.copytree(tree, template)
     if marker.is_file():
         (tree / "empty_dir").mkdir(parents=True, exist_ok=True)
         empty_file = tree / "empty.txt"
         if not empty_file.is_file() or empty_file.stat().st_size != 0:
             empty_file.write_bytes(b"")
+        ensure_template()
         return
     if tree.exists():
         remove_tree(tree)
@@ -1118,8 +1197,28 @@ def write_tree_fixture(root: Path) -> None:
     (tree / "empty_dir").mkdir(parents=True, exist_ok=True)
     (tree / "empty.txt").write_bytes(b"")
     marker.write_text("ok\n", encoding="utf-8")
+    ensure_template()
 
 
+def write_ls_fixture(root: Path) -> None:
+    ls_dir = root / "ls-fixture"
+    marker = ls_dir / ".fixture-complete"
+    expected = {
+        "alpha.txt": (b"a", 1_700_000_000),
+        "beta.log": (b"b" * 200, 1_710_000_000),
+        "gamma.bin": (b"g" * 20, 1_720_000_000),
+        "README": (b"readme", 1_705_000_000),
+    }
+    if marker.is_file() and all((ls_dir / name).is_file() for name in expected):
+        return
+    if ls_dir.exists():
+        remove_tree(ls_dir)
+    ls_dir.mkdir(parents=True, exist_ok=True)
+    for name, (payload, ts) in expected.items():
+        path = ls_dir / name
+        path.write_bytes(payload)
+        os.utime(path, (ts, ts))
+    marker.write_text("ok\n", encoding="utf-8", newline="\n")
 def write_xargs_fixture(root: Path) -> None:
     item_count = 5_000
     words = root / "xargs-words.txt"
@@ -1212,7 +1311,7 @@ def write_textops_fixture(root: Path) -> None:
 
     template = root / "textops-template"
     marker = template / ".fixture-complete"
-    if marker.is_file():
+    if marker.is_file() and (template / "sed-subst-write.txt").is_file():
         return
     if template.exists():
         remove_tree(template)
@@ -1229,6 +1328,9 @@ def write_textops_fixture(root: Path) -> None:
         "intro one\nintro two\nMARK first\nbody one\nMARK second\nbody two\n",
         encoding="utf-8",
         newline="\n",
+    )
+    (template / "sed-subst-write.txt").write_text(
+        "needle one\nother\nneedle two\n", encoding="utf-8", newline="\n"
     )
     marker.write_text("ok\n", encoding="utf-8", newline="\n")
 
@@ -1363,6 +1465,8 @@ def write_fileops_fixture(root: Path) -> None:
     marker = template / ".fixture-complete"
     required_paths = [
         template / "touch-dir",
+        template / "touch-ref.txt",
+        template / "touch-relative-target.txt",
         template / "copy-existing.txt",
         template / "copy-new.txt",
         template / "copy-old-src.txt",
@@ -1455,6 +1559,15 @@ def write_fileops_fixture(root: Path) -> None:
     )
     (template / "du-file.txt").write_bytes(b"x" * 16384)
     (template / "touch-dir").mkdir(parents=True, exist_ok=True)
+    (template / "touch-ref.txt").write_text(
+        "reference touch time\n", encoding="utf-8", newline="\n"
+    )
+    (template / "touch-relative-target.txt").write_text(
+        "relative target\n", encoding="utf-8", newline="\n"
+    )
+    ref_ts = 1_704_251_045
+    os.utime(template / "touch-ref.txt", (ref_ts, ref_ts))
+    os.utime(template / "touch-relative-target.txt", (old_ts, old_ts))
     marker.write_text("ok\n", encoding="utf-8", newline="\n")
 
 
@@ -1463,6 +1576,7 @@ FIXTURE_WRITERS: dict[str, Callable[[Path], None]] = {
     "table": write_table_fixture,
     "sort": write_sort_fixture,
     "tree": write_tree_fixture,
+    "ls": write_ls_fixture,
     "xargs": write_xargs_fixture,
     "rev": write_rev_fixture,
     "textops": write_textops_fixture,
@@ -1672,7 +1786,7 @@ def run_probe(
     iterations: int,
     warmups: int,
 ) -> ProbeResult:
-    winux = command_exe(build_dir, probe.command)
+    winux = dispatcher_exe(build_dir)
     reference_command = probe.reference_command or probe.command
     reference_argv = probe.reference_argv or probe.argv
     reference = detect_reference_bin(reference_command, reference_root) if probe.reference_required else None
@@ -1695,7 +1809,7 @@ def run_probe(
             None,
             None,
             None,
-            f"missing built executable for {probe.command}",
+            "missing built executable for winuxcmd",
         )
     if reference is None and probe.reference_required:
         return ProbeResult(
@@ -1718,7 +1832,7 @@ def run_probe(
             f"missing GNU/MSYS reference executable for {reference_command}",
         )
 
-    winux_argv = materialize_probe_argv(probe.argv, build_dir, reference_root)
+    winux_argv = [probe.command, *materialize_probe_argv(probe.argv, build_dir, reference_root)]
     reference_argv = materialize_probe_argv(reference_argv, build_dir, reference_root)
 
     env = os.environ.copy()

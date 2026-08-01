@@ -181,49 +181,67 @@ REGISTER_COMMAND(cat, "cat",
     return flags;
   };
 
-  auto print_line_number = [](size_t &line_num) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%6zu\t", line_num++);
-    safePrint(std::string_view(buf, static_cast<size_t>(len)));
+  constexpr size_t kTransformBufferSize = 64 * 1024;
+
+  auto flush_output_buffer = [](std::string &out) {
+    if (out.empty()) return;
+    safePrint(std::string_view(out.data(), out.size()));
+    out.clear();
   };
 
-  auto print_visible_byte = [](unsigned char c, const CatFlags &flags,
-                               std::istream &stream) {
+  auto append_output = [&](std::string &out, std::string_view text) {
+    out.append(text.data(), text.size());
+    if (out.size() >= kTransformBufferSize) flush_output_buffer(out);
+  };
+
+  auto append_output_char = [&](std::string &out, char ch) {
+    out.push_back(ch);
+    if (out.size() >= kTransformBufferSize) flush_output_buffer(out);
+  };
+
+  auto print_line_number = [&](size_t &line_num, std::string &out) {
+    char buf[32];
+    int len = snprintf(buf, sizeof(buf), "%6zu\t", line_num++);
+    append_output(out, std::string_view(buf, static_cast<size_t>(len)));
+  };
+
+  auto print_visible_byte = [&](unsigned char c, const CatFlags &flags,
+                                std::istream &stream, std::string &out) {
     if (flags.show_nonprinting) {
       if (c >= 0x20) {
         if (c < 0x7F) {
-          safePrint(static_cast<char>(c));
+          append_output_char(out, static_cast<char>(c));
         } else if (c == 0x7F) {
-          safePrint("^?");
+          append_output(out, "^?");
         } else {
-          safePrint("M-");
+          append_output(out, "M-");
           unsigned char low = static_cast<unsigned char>(c - 0x80);
           if (low >= 0x20) {
             if (low < 0x7F) {
-              safePrint(static_cast<char>(low));
+              append_output_char(out, static_cast<char>(low));
             } else {
-              safePrint("^?");
+              append_output(out, "^?");
             }
           } else {
-            safePrint('^');
-            safePrint(static_cast<char>(low + 0x40));
+            append_output_char(out, static_cast<char>(0x5E));
+            append_output_char(out, static_cast<char>(low + 0x40));
           }
         }
-      } else if (c == '\t' && !flags.show_tabs) {
-        safePrint('\t');
+      } else if (c == 0x09 && !flags.show_tabs) {
+        append_output_char(out, static_cast<char>(0x09));
       } else {
-        safePrint('^');
-        safePrint(static_cast<char>(c + 0x40));
+        append_output_char(out, static_cast<char>(0x5E));
+        append_output_char(out, static_cast<char>(c + 0x40));
       }
       return;
     }
 
-    if (c == '\t' && flags.show_tabs) {
-      safePrint("^I");
-    } else if (c == '\r' && flags.show_ends && stream.peek() == '\n') {
-      safePrint("^M");
+    if (c == 0x09 && flags.show_tabs) {
+      append_output(out, "^I");
+    } else if (c == 0x0D && flags.show_ends && stream.peek() == 0x0A) {
+      append_output(out, "^M");
     } else {
-      safePrint(static_cast<char>(c));
+      append_output_char(out, static_cast<char>(c));
     }
   };
 
@@ -243,41 +261,47 @@ REGISTER_COMMAND(cat, "cat",
     }
 
     CatFlags flags = cat_flags(ctx);
+    std::string out;
+    out.reserve(kTransformBufferSize);
+
     char raw = 0;
     while (stream.get(raw)) {
       unsigned char c = static_cast<unsigned char>(raw);
 
-      if (state.at_line_start && c == '\n') {
+      if (state.at_line_start && c == 0x0A) {
         if (flags.squeeze_blank && state.previous_line_empty) {
           continue;
         }
-        if (flags.number_all) print_line_number(state.line_num);
-        if (flags.show_ends) safePrint('$');
-        safePrint('\n');
+        if (flags.number_all) print_line_number(state.line_num, out);
+        if (flags.show_ends) append_output_char(out, static_cast<char>(0x24));
+        append_output_char(out, static_cast<char>(0x0A));
         state.previous_line_empty = true;
+        if (out.empty() && is_stdout_pipe_closed()) break;
         continue;
       }
 
       if (state.at_line_start) {
         state.previous_line_empty = false;
         if (flags.number_all || flags.number_nonblank) {
-          print_line_number(state.line_num);
+          print_line_number(state.line_num, out);
         }
         state.at_line_start = false;
       }
 
-      if (c == '\n') {
-        if (flags.show_ends) safePrint('$');
-        safePrint('\n');
+      if (c == 0x0A) {
+        if (flags.show_ends) append_output_char(out, static_cast<char>(0x24));
+        append_output_char(out, static_cast<char>(0x0A));
         state.at_line_start = true;
       } else {
-        print_visible_byte(c, flags, stream);
+        print_visible_byte(c, flags, stream, out);
       }
 
-      if (is_stdout_pipe_closed()) {
+      if (out.empty() && is_stdout_pipe_closed()) {
         break;
       }
     }
+
+    flush_output_buffer(out);
   };
 
   // ----------------------------------------------

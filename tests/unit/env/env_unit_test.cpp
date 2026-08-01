@@ -263,6 +263,27 @@ TEST(env, env_split_string_backslash_c_ignores_remaining_text) {
   EXPECT_TRUE(r.stdout_text.find("B=2") == std::string::npos);
 }
 
+TEST(env, env_split_string_reparses_options_and_multiple_assignments) {
+  Pipeline p;
+  p.add(L"env.exe", {L"-S", L"-i A=1 B=2"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(has_env_line(r.stdout_text, "A", "1"));
+  EXPECT_TRUE(has_env_line(r.stdout_text, "B", "2"));
+  EXPECT_TRUE(r.stdout_text.find("PATH=") == std::string::npos);
+}
+
+TEST(env, env_split_string_reparsed_command_receives_assignments) {
+  Pipeline p;
+  p.add(L"env.exe",
+        {L"-S", L"-i FOO=BAR", system_cmd(), L"/C", L"echo", L"%FOO%"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("BAR") != std::string::npos);
+}
+
 TEST(env, env_chdir_runs_command_in_directory) {
   TempDir tmp;
   std::filesystem::create_directories(tmp.path / "work");

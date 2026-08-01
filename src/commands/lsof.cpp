@@ -51,7 +51,8 @@ auto constexpr LSOF_OPTIONS = std::array{
     OPTION("-a", "--all", "include non-file handles and unnamed entries"),
     OPTION("-i", "--internet",
            "show internet connections; optional spec ':PORT', 'PROTO', "
-           "'PROTO:PORT'"),
+           "'PROTO:PORT'",
+           OPTIONAL_STRING_TYPE),
     OPTION("-F", "--field", "machine-readable field output"),
     OPTION("-n", "--numeric", "do not convert native paths to DOS paths"),
     OPTION("", "--no-headers", "print no header line"),
@@ -423,8 +424,7 @@ auto parse_config(const CommandContext<LSOF_OPTIONS.size()>& ctx)
   if (pid_opt >= 0) cfg.pid_filter = static_cast<DWORD>(pid_opt);
 
   cfg.show_all = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
-  cfg.internet_only =
-      ctx.get<bool>("--internet", false) || ctx.get<bool>("-i", false);
+  cfg.internet_only = ctx.has("--internet");
   cfg.field_mode =
       ctx.get<bool>("--field", false) || ctx.get<bool>("-F", false);
   cfg.numeric = ctx.get<bool>("--numeric", false) || ctx.get<bool>("-n", false);
@@ -434,10 +434,12 @@ auto parse_config(const CommandContext<LSOF_OPTIONS.size()>& ctx)
   if (timeout_opt < 0) timeout_opt = ctx.get<int>("-t", -1);
   if (timeout_opt > 0) cfg.timeout_ms = static_cast<DWORD>(timeout_opt);
 
-  // Parse inet spec from first positional when -i is set.
-  // Examples:  lsof -i :8080   lsof -i tcp   lsof -i tcp:8080
-  if (cfg.internet_only && !ctx.positionals.empty()) {
-    std::string_view spec = ctx.positionals[0];
+  // Examples: lsof -iTCP:80, lsof -i :8080, lsof --internet=tcp.
+  if (cfg.internet_only) {
+    std::string spec = ctx.get<std::string>("--internet", "");
+    if (spec.empty() && !ctx.positionals.empty()) {
+      spec = std::string(ctx.positionals[0]);
+    }
     if (!spec.empty() &&
         (spec.front() == ':' ||
          std::isalpha(static_cast<unsigned char>(spec.front())))) {

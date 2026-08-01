@@ -31,6 +31,20 @@ TEST(od, od_hex_bytes_address_none_honors_limit) {
                  " 30 30 30 30 30 30 20 61 6c 70 68 61 20 62 65 74\n");
 }
 
+TEST(od, od_file_hex_bytes_address_none_honors_limit) {
+  TempDir tmp;
+  tmp.write("big.txt", std::string(10000, 'A'));
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"od.exe", {L"-An", L"-tx1", L"-N4", L"big.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, " 41 41 41 41\n");
+}
+
 TEST(od, od_hex_short_pads_partial_final_field_like_gnu) {
   Pipeline p;
   p.set_stdin("abc");

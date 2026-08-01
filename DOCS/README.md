@@ -39,7 +39,7 @@ next to the workspace integration scripts.
 
 - Keep this folder focused on durable evidence: generated matrices, performance baselines, and source-led compatibility audit notes.
 - Track forward-looking implementation plans in GitHub issues instead of long-lived plan documents.
-- Follow-up coverage for `cpio`, `free`, `lsof`, `man`, `top`, `tree`, `uptime`, and `watch` is tracked in [issue #114](https://github.com/unixwin/WinuxCmd/issues/114).
+- The `cpio`, `free`, `lsof`, `man`, `top`, `tree`, `uptime`, and `watch` follow-up coverage from [issue #114](https://github.com/unixwin/WinuxCmd/issues/114) has landed; open new issues for the next deeper parity slice.
 - Refresh generated compatibility docs with `scripts/audit-command-compatibility.py` and `scripts/benchmark-command-parity.py` before each release PR.
 
 ## References

@@ -942,6 +942,19 @@ TEST(grep, grep_only_matching) {
   EXPECT_EQ_TEXT(r.stdout_text, "123\n123\n");
 }
 
+TEST(grep, grep_only_matching_extended_prefixed_class_repeat) {
+  TempDir tmp;
+  tmp.write("a.txt", "xx needle_123 yy NEEDLE_45 needle_abc needle_7\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-Eio", L"needle_[0-9]+", L"a.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "needle_123\nNEEDLE_45\nneedle_7\n");
+}
+
 TEST(grep, grep_strips_utf8_bom) {
   TempDir tmp;
   tmp.write("a.txt", "\xEF\xBB\xBFhello\n");

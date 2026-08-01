@@ -564,6 +564,19 @@ class Pattern {
 
   [[nodiscard]] auto capture_count() const -> size_t { return capture_count_; }
 
+  [[nodiscard]] auto match_at(std::string_view text, size_t start) const
+      -> std::optional<Match> {
+    if (!valid() || start > text.size()) return std::nullopt;
+
+    auto states = match_node(root_, text, make_initial_state(start));
+    if (states.empty()) return std::nullopt;
+
+    auto best = std::max_element(
+        states.begin(), states.end(),
+        [](const State& lhs, const State& rhs) { return lhs.pos < rhs.pos; });
+    return make_match(start, *best);
+  }
+
   [[nodiscard]] auto find_first(std::string_view text, size_t start = 0) const
       -> std::optional<Match> {
     if (!valid() || start > text.size()) return std::nullopt;

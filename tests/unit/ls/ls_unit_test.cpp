@@ -1608,6 +1608,19 @@ TEST(ls, ls_horizontal_layout_fits_boundary_width_like_gnu) {
   EXPECT_EQ_TEXT(r.stdout_text, "a  b  c\nd\n");
 }
 
+TEST(ls, ls_horizontal_layout_fits_variable_width_columns_like_gnu) {
+  TempDir tmp;
+  tmp.write("alpha.txt", "a");
+  tmp.write("beta.log", std::string(200, 'b'));
+  tmp.write("gamma.bin", std::string(20, 'g'));
+  tmp.write("README", "readme");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ls.exe", {L"-x", L"-w", L"40"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "README\talpha.txt  beta.log  gamma.bin\n");
+}
 TEST(ls, ls_horizontal_layout_uses_tab_stops_for_wide_columns) {
   TempDir tmp;
   tmp.write("aa", "aa");
@@ -1714,6 +1727,23 @@ TEST(ls, ls_column_layout_tabsize_last_occurrence_wins_across_aliases) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "aa  bb  cc  dd\t ee\n");
+}
+
+TEST(ls, ls_column_layout_counts_cjk_names_by_display_width) {
+  TempDir tmp;
+  tmp.write("aa", "aa");
+  tmp.write("bb", "bb");
+  tmp.write("cc", "cc");
+  std::ofstream(tmp.path / L"\u7B80\u5386") << "resume";
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ls.exe", {L"-C", L"-w", L"14", L"--color=never"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "aa  cc\nbb  \xE7\xAE\x80\xE5\x8E\x86\n");
 }
 
 TEST(ls, ls_format_options_last_occurrence_wins) {

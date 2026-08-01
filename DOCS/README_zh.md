@@ -37,7 +37,7 @@ release 包应同时附带 Windows binaries 和 `WinuxCmd-skill-v<version>.zip`�
 
 - 这个目录只保留长期证据：生成矩阵、性能基线和基于源码阅读的兼容性审计。
 - 后续实现计划放到 GitHub issue，不再维护单独的长期计划文档。
-- `cpio`、`free`、`lsof`、`man`、`top`、`tree`、`uptime`、`watch` 的下一小版本覆盖计划见 [issue #114](https://github.com/unixwin/WinuxCmd/issues/114)。
+- [issue #114](https://github.com/unixwin/WinuxCmd/issues/114) 中的 `cpio`、`free`、`lsof`、`man`、`top`、`tree`、`uptime`、`watch` 后续覆盖已落地；更深一轮 parity 工作请开新的 issue 跟踪。
 - 每次 release PR 前用 `scripts/audit-command-compatibility.py` 和 `scripts/benchmark-command-parity.py` 刷新生成文档。
 
 ## 入口索引

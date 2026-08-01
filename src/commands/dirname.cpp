@@ -69,47 +69,62 @@ auto build_config(const CommandContext<DIRNAME_OPTIONS.size()>& ctx)
   return cfg;
 }
 
+auto is_separator(char c) -> bool { return c == 47 || c == 92; }
+
+auto is_ascii_alpha(char c) -> bool {
+  return (65 <= c && c <= 90) || (97 <= c && c <= 122);
+}
+
+auto is_drive_prefix(std::string_view path) -> bool {
+  return path.size() >= 2 && is_ascii_alpha(path[0]) && path[1] == 58;
+}
+
+auto root_length(std::string_view path) -> size_t {
+  if (is_drive_prefix(path)) {
+    return 2;
+  }
+  if (path.size() >= 2 && is_separator(path[0]) && is_separator(path[1]) &&
+      (path.size() == 2 || !is_separator(path[2]))) {
+    return 2;
+  }
+  if (!path.empty() && is_separator(path[0])) {
+    return 1;
+  }
+  return 0;
+}
+
+auto trim_trailing_separators(std::string& path) -> void {
+  while (path.size() > root_length(path) && is_separator(path.back())) {
+    path.pop_back();
+  }
+}
+
 auto get_dirname(std::string_view path) -> std::string {
   if (path.empty()) {
     return ".";
   }
 
-  std::string result = std::string(path);
+  std::string result(path);
+  trim_trailing_separators(result);
+  const size_t root_len = root_length(result);
+  const size_t last_sep = result.find_last_of("/\\");
 
-  // Remove trailing slashes
-  while (result.size() > 1 && (result.back() == '/' || result.back() == '\\')) {
-    result.pop_back();
-  }
-
-  // If path is just "/" or "\\", return it
-  if (result.size() == 1 && (result[0] == '/' || result[0] == '\\')) {
-    return result;
-  }
-
-  // Find last separator
-  size_t last_sep = result.find_last_of("/\\");
   if (last_sep == std::string::npos) {
+    if (root_len != 0) {
+      return result.substr(0, root_len);
+    }
     return ".";
   }
 
-  // Preserve the root directory for absolute top-level paths like "/usr".
-  if (last_sep == 0) {
-    return std::string(1, result[0]);
+  if (last_sep <= root_len) {
+    return result.substr(0, root_len == 0 ? last_sep + 1 : root_len);
   }
 
-  // Get directory part
-  result = result.substr(0, last_sep);
-
-  // If result is empty (path was like "file"), return "."
+  result.resize(last_sep);
+  trim_trailing_separators(result);
   if (result.empty()) {
     return ".";
   }
-
-  // Remove trailing slashes from result
-  while (result.size() > 1 && (result.back() == '/' || result.back() == '\\')) {
-    result.pop_back();
-  }
-
   return result;
 }
 

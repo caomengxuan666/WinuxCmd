@@ -65,7 +65,39 @@ TEST(mktemp, mktemp_basic) {
   if (!filename.empty() && filename.back() == '\n') {
     filename.pop_back();
   }
-  EXPECT_TRUE(std::filesystem::exists(tmp.path / filename));
+  EXPECT_FALSE(filename.starts_with("/c/"));
+  EXPECT_TRUE(filename.size() >= 3 && filename[1] == 58 && filename[2] == 47);
+  EXPECT_EQ(filename.find("~"), std::string::npos);
+  auto created_path = std::filesystem::u8path(filename);
+  EXPECT_TRUE(std::filesystem::exists(created_path));
+  std::filesystem::remove(created_path);
+}
+
+TEST(mktemp, mktemp_default_template_uses_tmpdir_env_as_native_path) {
+  TempDir tmp;
+  auto out_dir = tmp.path / "out";
+  std::filesystem::create_directory(out_dir);
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"TMPDIR", slash_drive_path(out_dir));
+  p.add(L"mktemp.exe", {});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+  std::string created = r.stdout_text;
+  if (!created.empty() && created.back() == 10) {
+    created.pop_back();
+  }
+
+  EXPECT_FALSE(created.starts_with("/c/"));
+  EXPECT_TRUE(created.size() >= 3 && created[1] == 58 && created[2] == 47);
+  EXPECT_EQ(created.find("~"), std::string::npos);
+  auto created_path = std::filesystem::u8path(created);
+  EXPECT_TRUE(std::filesystem::exists(created_path));
+  EXPECT_TRUE(std::filesystem::equivalent(created_path.parent_path(), out_dir));
 }
 
 TEST(mktemp, mktemp_custom_prefix) {
@@ -124,6 +156,34 @@ TEST(mktemp, mktemp_dry_run) {
     filename.pop_back();
   }
   EXPECT_FALSE(std::filesystem::exists(tmp.path / filename));
+}
+
+TEST(mktemp, mktemp_dry_run_randomizes_across_processes) {
+  TempDir tmp;
+
+  auto run_once = [&tmp]() {
+    Pipeline p;
+    p.set_cwd(tmp.wpath());
+    p.add(L"mktemp.exe", {L"-u", L"probe-XXXXXXXXXX"});
+    auto r = p.run();
+    EXPECT_EQ(r.exit_code, 0);
+    std::string name = r.stdout_text;
+    if (!name.empty() && name.back() == 10) {
+      name.pop_back();
+    }
+    return name;
+  };
+
+  auto first = run_once();
+  bool saw_different = false;
+  for (int i = 0; i < 5; ++i) {
+    if (run_once() != first) {
+      saw_different = true;
+      break;
+    }
+  }
+
+  EXPECT_TRUE(saw_different);
 }
 
 TEST(mktemp, mktemp_suffix_appends_to_template) {

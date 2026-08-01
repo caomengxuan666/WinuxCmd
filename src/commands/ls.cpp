@@ -1611,7 +1611,7 @@ auto render_inline_entry(const EntryInfo &entry,
     text += wstring_to_utf8(COLOR_RESET);
   }
 
-  return {std::move(text), prefix.size() + display_name.size()};
+  return {std::move(text), prefix.size() + string_display_width(display_name)};
 }
 
 auto build_rendered_entries(const std::vector<EntryInfo> &entries,
@@ -1698,10 +1698,6 @@ auto print_grid(const std::vector<EntryInfo> &entries,
   if (entries.empty()) return;
 
   const auto rendered = build_rendered_entries(entries, ctx);
-  size_t max_visible_width = 0;
-  for (const auto &entry : rendered) {
-    max_visible_width = std::max(max_visible_width, entry.visible_width);
-  }
 
   int width = ctx.get<int>("-w", 0);
   if (width <= 0) {
@@ -1711,18 +1707,39 @@ auto print_grid(const std::vector<EntryInfo> &entries,
     width = get_terminal_width();
   }
 
-  int cols = (width + 2) / (static_cast<int>(max_visible_width) + 2);
-  if (cols < 1) cols = 1;
-  int rows = static_cast<int>((entries.size() + cols - 1) / cols);
-  std::vector<size_t> col_widths(static_cast<size_t>(cols), max_visible_width);
-  std::vector<size_t> col_starts(static_cast<size_t>(cols), 0);
-
-  for (size_t idx = 0; idx < rendered.size(); ++idx) {
-    size_t col = across_layout ? idx % static_cast<size_t>(cols)
-                               : idx / static_cast<size_t>(rows);
-    col_widths[col] = std::max(col_widths[col], rendered[idx].visible_width);
+  auto compute_column_widths = [&](int candidate_cols) {
+    int candidate_rows = static_cast<int>(
+        (entries.size() + candidate_cols - 1) / candidate_cols);
+    std::vector<size_t> widths(static_cast<size_t>(candidate_cols), 0);
+    for (size_t idx = 0; idx < rendered.size(); ++idx) {
+      size_t col = across_layout ? idx % static_cast<size_t>(candidate_cols)
+                                 : idx / static_cast<size_t>(candidate_rows);
+      widths[col] = std::max(widths[col], rendered[idx].visible_width);
+    }
+    return widths;
+  };
+  auto total_grid_width = [](const std::vector<size_t> &widths) -> size_t {
+    size_t total = 0;
+    for (size_t i = 0; i < widths.size(); ++i) {
+      total += widths[i];
+      if (i + 1 < widths.size()) total += 2;
+    }
+    return total;
+  };
+  int max_cols = static_cast<int>(std::min<size_t>(
+      entries.size(), static_cast<size_t>(std::max(width, 1))));
+  int cols = 1;
+  std::vector<size_t> col_widths = compute_column_widths(cols);
+  for (int candidate_cols = max_cols; candidate_cols >= 1; --candidate_cols) {
+    auto candidate_widths = compute_column_widths(candidate_cols);
+    if (total_grid_width(candidate_widths) <= static_cast<size_t>(width)) {
+      cols = candidate_cols;
+      col_widths = std::move(candidate_widths);
+      break;
+    }
   }
-
+  int rows = static_cast<int>((entries.size() + cols - 1) / cols);
+  std::vector<size_t> col_starts(static_cast<size_t>(cols), 0);
   for (int col = 1; col < cols; ++col) {
     col_starts[static_cast<size_t>(col)] =
         col_starts[static_cast<size_t>(col - 1)] +
@@ -2380,15 +2397,6 @@ auto get_terminal_width() -> int {
     return csbi.srWindow.Right - csbi.srWindow.Left + 1;
   }
   return 80;  // Default to 80 columns if we can't get terminal width
-}
-
-/**
- * @brief Get string display width (simplified, assumes 1 character = 1 column)
- * @param str String to measure
- * @return Display width in columns
- */
-auto string_display_width(const std::wstring &str) -> size_t {
-  return str.length();
 }
 
 /**

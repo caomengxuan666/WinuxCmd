@@ -238,12 +238,19 @@ struct MatchPiece {
   size_t end = 0;
 };
 
+struct FastClassRepeat {
+  std::array<bool, 256> members{};
+};
+
 struct Pattern {
   std::string raw;
   std::string lowered;
   std::optional<portable_regex::Pattern> regex;
   std::vector<std::string> fast_literals;
   std::vector<std::string> lowered_fast_literals;
+  std::string fast_prefix;
+  std::string lowered_fast_prefix;
+  std::optional<FastClassRepeat> fast_class_repeat;
 };
 struct FixedMatcherNode {
   std::array<int, 256> next{};
@@ -541,6 +548,203 @@ auto extended_regex_literal_candidates(std::string_view pattern)
   return expanded;
 }
 
+auto add_class_member(FastClassRepeat& repeat, unsigned char ch,
+                      bool ignore_case) -> void {
+  repeat.members[ch] = true;
+  if (!ignore_case) return;
+  repeat.members[static_cast<unsigned char>(std::tolower(ch))] = true;
+  repeat.members[static_cast<unsigned char>(std::toupper(ch))] = true;
+}
+
+auto add_posix_class(FastClassRepeat& repeat, std::string_view name,
+                     bool ignore_case) -> bool {
+  auto include_if = [&](auto pred) {
+    for (int ch = 0; ch < 256; ++ch) {
+      auto byte = static_cast<unsigned char>(ch);
+      if (pred(byte)) add_class_member(repeat, byte, ignore_case);
+    }
+  };
+
+  if (name == "digit") {
+    include_if([](unsigned char ch) { return std::isdigit(ch) != 0; });
+    return true;
+  }
+  if (name == "alnum") {
+    include_if([](unsigned char ch) { return std::isalnum(ch) != 0; });
+    return true;
+  }
+  if (name == "alpha") {
+    include_if([](unsigned char ch) { return std::isalpha(ch) != 0; });
+    return true;
+  }
+  if (name == "lower") {
+    include_if([](unsigned char ch) { return std::islower(ch) != 0; });
+    return true;
+  }
+  if (name == "upper") {
+    include_if([](unsigned char ch) { return std::isupper(ch) != 0; });
+    return true;
+  }
+  if (name == "xdigit") {
+    include_if([](unsigned char ch) { return std::isxdigit(ch) != 0; });
+    return true;
+  }
+  return false;
+}
+
+auto parse_simple_bracket_class(std::string_view pattern, size_t& pos,
+                                bool ignore_case)
+    -> std::optional<FastClassRepeat> {
+  if (pos >= pattern.size() || pattern[pos] != '[') return std::nullopt;
+  ++pos;
+  if (pos < pattern.size() && pattern[pos] == '^') return std::nullopt;
+
+  FastClassRepeat repeat;
+  bool saw_member = false;
+  while (pos < pattern.size()) {
+    if (pattern[pos] == ']' && saw_member) {
+      ++pos;
+      return repeat;
+    }
+
+    if (pattern[pos] == '[' && pos + 1 < pattern.size() &&
+        pattern[pos + 1] == ':') {
+      size_t end = pattern.find(":]", pos + 2);
+      if (end == std::string_view::npos) return std::nullopt;
+      if (!add_posix_class(repeat, pattern.substr(pos + 2, end - pos - 2),
+                           ignore_case)) {
+        return std::nullopt;
+      }
+      saw_member = true;
+      pos = end + 2;
+      continue;
+    }
+
+    unsigned char first = static_cast<unsigned char>(pattern[pos]);
+    if (pattern[pos] == '\\' && pos + 1 < pattern.size()) {
+      ++pos;
+      first = static_cast<unsigned char>(pattern[pos]);
+    }
+    ++pos;
+
+    if (pos + 1 < pattern.size() && pattern[pos] == '-' &&
+        pattern[pos + 1] != ']') {
+      ++pos;
+      unsigned char last = static_cast<unsigned char>(pattern[pos]);
+      if (pattern[pos] == '\\' && pos + 1 < pattern.size()) {
+        ++pos;
+        last = static_cast<unsigned char>(pattern[pos]);
+      }
+      ++pos;
+      if (last < first) return std::nullopt;
+      for (int ch = first; ch <= last; ++ch) {
+        add_class_member(repeat, static_cast<unsigned char>(ch), ignore_case);
+      }
+      saw_member = true;
+      continue;
+    }
+
+    add_class_member(repeat, first, ignore_case);
+    saw_member = true;
+  }
+  return std::nullopt;
+}
+
+auto extended_regex_prefixed_class_repeat(std::string_view pattern,
+                                          bool ignore_case)
+    -> std::optional<std::pair<std::string, FastClassRepeat>> {
+  std::string prefix;
+  size_t pos = 0;
+  while (pos < pattern.size()) {
+    const char ch = pattern[pos];
+    if (ch == '\\') {
+      size_t escaped_pos = pos;
+      if (!append_escaped_extended_literal(pattern, escaped_pos, prefix)) {
+        break;
+      }
+      pos = escaped_pos;
+      continue;
+    }
+    if (!is_extended_plain_literal(ch)) break;
+    prefix.push_back(ch);
+    ++pos;
+  }
+  if (prefix.empty()) return std::nullopt;
+
+  auto repeat = parse_simple_bracket_class(pattern, pos, ignore_case);
+  if (!repeat) return std::nullopt;
+  if (pos >= pattern.size() || pattern[pos] != '+') return std::nullopt;
+  ++pos;
+  if (pos != pattern.size()) return std::nullopt;
+
+  return std::pair{prefix, *repeat};
+}
+
+auto extended_regex_required_prefix(std::string_view pattern)
+    -> std::optional<std::string> {
+  std::string prefix;
+  size_t pos = 0;
+  while (pos < pattern.size()) {
+    const char ch = pattern[pos];
+    if (ch == static_cast<char>(0x5C)) {
+      size_t escaped_pos = pos;
+      if (!append_escaped_extended_literal(pattern, escaped_pos, prefix)) {
+        break;
+      }
+      pos = escaped_pos;
+      continue;
+    }
+    if (!is_extended_plain_literal(ch)) break;
+    prefix.push_back(ch);
+    ++pos;
+  }
+  if (prefix.empty()) return std::nullopt;
+
+  if (pos < pattern.size()) {
+    const char ch = pattern[pos];
+    if (ch == static_cast<char>(0x2A) || ch == static_cast<char>(0x3F) ||
+        ch == static_cast<char>(0x7B)) {
+      return std::nullopt;
+    }
+  }
+
+  bool escaped = false;
+  bool in_class = false;
+  int group_depth = 0;
+  for (size_t i = pos; i < pattern.size(); ++i) {
+    const char ch = pattern[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch == static_cast<char>(0x5C)) {
+      escaped = true;
+      continue;
+    }
+    if (in_class) {
+      if (ch == static_cast<char>(0x5D)) in_class = false;
+      continue;
+    }
+    if (ch == static_cast<char>(0x5B)) {
+      in_class = true;
+      continue;
+    }
+    if (ch == static_cast<char>(0x28)) {
+      ++group_depth;
+      continue;
+    }
+    if (ch == static_cast<char>(0x29)) {
+      if (group_depth > 0) --group_depth;
+      continue;
+    }
+    if (ch == static_cast<char>(0x7C) && group_depth == 0) {
+      return std::nullopt;
+    }
+  }
+
+  return prefix;
+}
+
 auto split_lines(std::string_view s) -> std::vector<std::string> {
   std::vector<std::string> parts;
   parts.reserve(s.size() / 40);  // Reserve for ~40 chars per line
@@ -689,6 +893,14 @@ auto compile_pattern(PatternMode mode, bool ignore_case, std::string_view raw)
   }
   p.regex.emplace(std::move(compiled.pattern));
   if (mode == PatternMode::ExtendedRegex) {
+    if (auto quick = extended_regex_prefixed_class_repeat(p.raw, ignore_case)) {
+      p.fast_prefix = quick->first;
+      p.lowered_fast_prefix = ascii_lower_copy(quick->first);
+      p.fast_class_repeat = quick->second;
+    } else if (auto prefix = extended_regex_required_prefix(p.raw)) {
+      p.fast_prefix = *prefix;
+      p.lowered_fast_prefix = ascii_lower_copy(*prefix);
+    }
     if (auto literals = extended_regex_literal_candidates(p.raw)) {
       p.fast_literals = std::move(*literals);
       p.lowered_fast_literals.reserve(p.fast_literals.size());
@@ -1042,6 +1254,134 @@ auto flush_if_line_buffered(const Config& cfg) -> void {
   }
 }
 
+auto collect_prefixed_regex_matches(std::string_view line, const Pattern& p,
+                                    const Config& cfg,
+                                    std::string& lowered_line)
+    -> std::vector<MatchPiece> {
+  std::vector<MatchPiece> matches;
+  if (!p.regex || p.fast_prefix.empty()) return matches;
+
+  std::string_view haystack = line;
+  std::string_view prefix = p.fast_prefix;
+  if (cfg.ignore_case) {
+    if (lowered_line.empty() && !line.empty()) {
+      lowered_line = ascii_lower_copy(line);
+    }
+    haystack = lowered_line;
+    prefix = p.lowered_fast_prefix;
+  }
+
+  size_t cursor = 0;
+  while (cursor <= haystack.size()) {
+    size_t pos = haystack.find(prefix, cursor);
+    if (pos == std::string_view::npos) break;
+
+    auto match = p.regex->match_at(line, pos);
+    if (match) {
+      MatchPiece m{match->begin, match->end};
+      if (!cfg.word_regexp || word_boundary_ok(line, m.begin, m.end)) {
+        matches.push_back(m);
+      }
+      cursor = m.end > m.begin ? m.end : m.begin + 1;
+    } else {
+      cursor = pos + 1;
+    }
+  }
+  return matches;
+}
+
+auto collect_prefixed_class_repeat_matches(std::string_view line,
+                                           const Pattern& p, const Config& cfg,
+                                           std::string& lowered_line)
+    -> std::vector<MatchPiece> {
+  std::vector<MatchPiece> matches;
+  if (!p.fast_class_repeat || p.fast_prefix.empty()) return matches;
+
+  std::string_view haystack = line;
+  std::string_view prefix = p.fast_prefix;
+  if (cfg.ignore_case) {
+    if (lowered_line.empty() && !line.empty()) {
+      lowered_line = ascii_lower_copy(line);
+    }
+    haystack = lowered_line;
+    prefix = p.lowered_fast_prefix;
+  }
+
+  size_t cursor = 0;
+  while (cursor <= haystack.size()) {
+    size_t pos = haystack.find(prefix, cursor);
+    if (pos == std::string_view::npos) break;
+
+    size_t end = pos + p.fast_prefix.size();
+    if (end >= line.size()) {
+      cursor = pos + 1;
+      continue;
+    }
+    size_t repeat_start = end;
+    while (
+        end < line.size() &&
+        p.fast_class_repeat->members[static_cast<unsigned char>(line[end])]) {
+      ++end;
+    }
+    if (end == repeat_start) {
+      cursor = pos + 1;
+      continue;
+    }
+
+    MatchPiece m{pos, end};
+    if (!cfg.word_regexp || word_boundary_ok(line, m.begin, m.end)) {
+      matches.push_back(m);
+    }
+    cursor = end;
+  }
+  return matches;
+}
+
+auto find_first_prefixed_regex_match(std::string_view line, const Pattern& p,
+                                     const Config& cfg,
+                                     std::string& lowered_line)
+    -> std::optional<MatchPiece> {
+  if (!p.regex || p.fast_prefix.empty()) return std::nullopt;
+
+  std::string_view haystack = line;
+  std::string_view prefix = p.fast_prefix;
+  if (cfg.ignore_case) {
+    if (lowered_line.empty() && !line.empty()) {
+      lowered_line = ascii_lower_copy(line);
+    }
+    haystack = lowered_line;
+    prefix = p.lowered_fast_prefix;
+  }
+
+  size_t cursor = 0;
+  while (cursor <= haystack.size()) {
+    size_t pos = haystack.find(prefix, cursor);
+    if (pos == std::string_view::npos) break;
+
+    auto match = p.regex->match_at(line, pos);
+    if (match) {
+      MatchPiece m{match->begin, match->end};
+      if (!cfg.word_regexp || word_boundary_ok(line, m.begin, m.end)) {
+        return m;
+      }
+      cursor = m.end > m.begin ? m.end : m.begin + 1;
+    } else {
+      cursor = pos + 1;
+    }
+  }
+  return std::nullopt;
+}
+
+auto find_first_prefixed_class_repeat_match(std::string_view line,
+                                            const Pattern& p, const Config& cfg,
+                                            std::string& lowered_line)
+    -> std::optional<MatchPiece> {
+  auto matches =
+      collect_prefixed_class_repeat_matches(line, p, cfg, lowered_line);
+  if (matches.empty()) return std::nullopt;
+  return matches.front();
+}
+
 auto collect_matches_in_line(std::string_view line, const Config& cfg)
     -> std::vector<MatchPiece> {
   std::vector<MatchPiece> out;
@@ -1092,6 +1432,19 @@ auto collect_matches_in_line(std::string_view line, const Config& cfg)
       if (p.regex->matches_entire(line)) {
         out.push_back(MatchPiece{0, line.size()});
       }
+      continue;
+    }
+
+    if (p.fast_class_repeat) {
+      auto matches =
+          collect_prefixed_class_repeat_matches(line, p, cfg, lowered_line);
+      out.insert(out.end(), matches.begin(), matches.end());
+      continue;
+    }
+
+    if (!p.fast_prefix.empty()) {
+      auto matches = collect_prefixed_regex_matches(line, p, cfg, lowered_line);
+      out.insert(out.end(), matches.begin(), matches.end());
       continue;
     }
 
@@ -1164,6 +1517,19 @@ auto find_first_match_in_line(std::string_view line, const Config& cfg)
 
     if (cfg.line_regexp) {
       if (p.regex->matches_entire(line)) return MatchPiece{0, line.size()};
+      continue;
+    }
+
+    if (p.fast_class_repeat) {
+      auto match =
+          find_first_prefixed_class_repeat_match(line, p, cfg, lowered_line);
+      if (match) return match;
+      continue;
+    }
+
+    if (!p.fast_prefix.empty()) {
+      auto match = find_first_prefixed_regex_match(line, p, cfg, lowered_line);
+      if (match) return match;
       continue;
     }
 

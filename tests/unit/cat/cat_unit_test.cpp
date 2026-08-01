@@ -292,3 +292,24 @@ TEST(cat, cat_u_is_ignored_compatibility_option) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "alpha\nbeta\n");
 }
+
+TEST(cat, cat_show_all_quotes_nonprinting_like_gnu) {
+  TempDir tmp;
+  tmp.write_bytes(
+      "visible.bin",
+      std::vector<char>{static_cast<char>(0x41), static_cast<char>(0x09),
+                        static_cast<char>(0x42), static_cast<char>(0x0D),
+                        static_cast<char>(0x0A), static_cast<char>(0x7F),
+                        static_cast<char>(0x80), static_cast<char>(0xFF),
+                        static_cast<char>(0x0A), static_cast<char>(0x0A),
+                        static_cast<char>(0x5A)});
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"-A", L"visible.bin"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "A^IB^M$\n^?M-^@M-^?$\n$\nZ");
+}

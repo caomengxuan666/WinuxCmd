@@ -98,49 +98,6 @@ auto read_input(std::string_view filename)
   return content;
 }
 
-auto encode_base32(std::string_view input, int wrap) -> std::string {
-  std::string result;
-  result.reserve(((input.size() + 4) / 5) * 8);
-
-  for (size_t i = 0; i < input.size(); i += 5) {
-    uint8_t block[5] = {0};
-    const size_t block_size = std::min<size_t>(5, input.size() - i);
-    for (size_t j = 0; j < block_size; ++j) {
-      block[j] = static_cast<uint8_t>(input[i + j]);
-    }
-
-    result.push_back(BASE32_ALPHABET[(block[0] >> 3) & 0x1f]);
-    result.push_back(
-        BASE32_ALPHABET[((block[0] & 0x07) << 2) | (block[1] >> 6)]);
-    result.push_back(block_size > 1 ? BASE32_ALPHABET[(block[1] >> 1) & 0x1f]
-                                    : '=');
-    result.push_back(
-        block_size > 1
-            ? BASE32_ALPHABET[((block[1] & 0x01) << 4) | (block[2] >> 4)]
-            : '=');
-    result.push_back(
-        block_size > 2
-            ? BASE32_ALPHABET[((block[2] & 0x0f) << 1) | (block[3] >> 7)]
-            : '=');
-    result.push_back(block_size > 3 ? BASE32_ALPHABET[(block[3] >> 2) & 0x1f]
-                                    : '=');
-    result.push_back(
-        block_size > 3
-            ? BASE32_ALPHABET[((block[3] & 0x03) << 3) | (block[4] >> 5)]
-            : '=');
-    result.push_back(block_size > 4 ? BASE32_ALPHABET[block[4] & 0x1f] : '=');
-  }
-
-  if (wrap <= 0 || result.empty()) return result;
-
-  std::string wrapped;
-  for (size_t i = 0; i < result.size(); i += static_cast<size_t>(wrap)) {
-    if (!wrapped.empty()) wrapped.push_back('\n');
-    wrapped.append(result.substr(i, static_cast<size_t>(wrap)));
-  }
-  return wrapped;
-}
-
 auto decode_base32(std::string_view input, bool ignore_garbage)
     -> std::expected<std::string, std::string> {
   std::string clean;
@@ -260,7 +217,10 @@ auto run(const Config& cfg) -> int {
     return 0;
   }
 
-  std::string output = encode_base32(*content_result, cfg.wrap);
+  auto data = std::span<const uint8_t>(
+      reinterpret_cast<const uint8_t*>(content_result->data()),
+      content_result->size());
+  std::string output = encoding::base32_encode(data, cfg.wrap);
   if (!output.empty()) output.push_back('\n');
   safePrint(output);
   return 0;

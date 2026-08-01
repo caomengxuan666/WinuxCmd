@@ -162,6 +162,10 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-print0", "",
            "print the full file name on the standard output, followed by a "
            "null character"),
+    OPTION("-fprint", "", "print the full file name into FILE", STRING_TYPE),
+    OPTION("-fprint0", "",
+           "print the full file name into FILE, followed by a null character",
+           STRING_TYPE),
     OPTION("-L", "", "follow symbolic links"),
     OPTION("-H", "",
            "do not follow symbolic links, except while processing command line "
@@ -239,7 +243,7 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-mount", "", "do not descend into other file systems"),
     OPTION("-xdev", "", "same as -mount"),
     OPTION("-noleaf", "", "do not optimize by assuming 2+ hard links"),
-    OPTION("-regextype", "", "set regex syntax (currently ignored)",
+    OPTION("-regextype", "", "set regex syntax for later -regex/-iregex",
            STRING_TYPE),
     OPTION("!", "", "negate expression"),
     OPTION("-not", "", "negate expression"),
@@ -311,6 +315,8 @@ enum class ExprKind {
   SameFile,
   Print,
   Print0,
+  FPrint,
+  FPrint0,
   Printf,
   False,
   Exec,
@@ -364,6 +370,7 @@ struct Config {
   bool delete_action = false;
   bool depth_first = false;
   std::vector<ExecAction> exec_actions;
+  std::unordered_map<std::string, std::unique_ptr<std::ofstream>> output_files;
   bool follow_symlinks = false;
   bool follow_arg_symlinks = false;
   std::string files0_from;
@@ -590,10 +597,47 @@ auto parse_literal_time_ticks(std::string_view text)
   return std::nullopt;
 }
 
-auto parse_regex(std::string_view pattern, bool case_insensitive)
+constexpr std::array<std::string_view, 13> kFindRegexTypeNames = {
+    "findutils-default",   "awk",         "ed",
+    "egrep",               "emacs",       "gnu-awk",
+    "grep",                "posix-awk",   "posix-basic",
+    "posix-egrep",         "posix-extended",
+    "posix-minimal-basic", "sed"};
+
+auto find_regex_type_names() -> std::string {
+  std::string names;
+  for (std::string_view name : kFindRegexTypeNames) {
+    if (!names.empty()) names += ", ";
+    names += name;
+  }
+  return names;
+}
+
+auto parse_find_regex_syntax(std::string_view type)
+    -> cp::Result<portable_regex::Syntax> {
+  // GNU findutils maps -regextype through lib/regextype.c. The local regex
+  // engine currently exposes BRE and ERE syntax classes, so accepted GNU names
+  // are folded into the closest supported class while staying positional.
+  if (type == "awk" || type == "egrep" || type == "gnu-awk" ||
+      type == "posix-awk" || type == "posix-egrep" ||
+      type == "posix-extended") {
+    return portable_regex::Syntax::Extended;
+  }
+  if (type == "findutils-default" || type == "ed" || type == "emacs" ||
+      type == "grep" || type == "posix-basic" ||
+      type == "posix-minimal-basic" || type == "sed") {
+    return portable_regex::Syntax::Basic;
+  }
+
+  return std::unexpected("Unknown regular expression type '" +
+                         std::string(type) + "'; valid types are: " +
+                         find_regex_type_names());
+}
+
+auto parse_regex(portable_regex::Syntax syntax, std::string_view pattern,
+                 bool case_insensitive)
     -> cp::Result<portable_regex::Pattern> {
-  auto parsed = portable_regex::compile(portable_regex::Syntax::Extended,
-                                        pattern, case_insensitive);
+  auto parsed = portable_regex::compile(syntax, pattern, case_insensitive);
   if (!parsed) {
     return std::unexpected("invalid regular expression");
   }
@@ -778,9 +822,10 @@ auto is_path_option(std::string_view arg) -> bool {
          arg == "-mmin" || arg == "-newer" || is_newerxy_option(arg) ||
          arg == "-samefile" || arg == "-files0-from" || arg == "-mindepth" ||
          arg == "-maxdepth" || arg == "-print" || arg == "-print0" ||
-         arg == "-delete" || arg == "-exec" || arg == "-ok" ||
-         arg == "-printf" || arg == "-prune" || arg == "-quit" ||
-         arg == "-true" || arg == "-false" || arg == "-depth" || arg == "-d" ||
+         arg == "-fprint" || arg == "-fprint0" || arg == "-delete" ||
+         arg == "-exec" || arg == "-ok" || arg == "-printf" ||
+         arg == "-prune" || arg == "-quit" || arg == "-true" ||
+         arg == "-false" || arg == "-depth" || arg == "-d" ||
          arg == "-follow" || arg == "-mount" || arg == "-xdev" ||
          arg == "-noleaf" || arg == "-daystart" || arg == "-regextype" ||
          arg == "-O" || arg == "!" || arg == "-not" || arg == "-a" ||
@@ -936,8 +981,9 @@ auto make_expr(ExprKind kind) -> std::unique_ptr<ExprNode> {
 
 class ExpressionParser {
  public:
-  explicit ExpressionParser(std::span<const std::string_view> tokens)
-      : tokens_(tokens) {}
+  explicit ExpressionParser(std::span<const std::string_view> tokens,
+                            portable_regex::Syntax regex_syntax)
+      : tokens_(tokens), regex_syntax_(regex_syntax) {}
 
   auto parse() -> cp::Result<std::unique_ptr<ExprNode>> {
     if (at_end()) {
@@ -956,6 +1002,7 @@ class ExpressionParser {
   std::span<const std::string_view> tokens_;
   size_t pos_ = 0;
   size_t exec_index_ = 0;
+  portable_regex::Syntax regex_syntax_ = portable_regex::Syntax::Extended;
 
   auto at_end() const -> bool { return pos_ >= tokens_.size(); }
 
@@ -992,10 +1039,11 @@ class ExpressionParser {
            is_newerxy_option(token) || token == "-samefile" ||
            token == "-files0-from" || token == "-mindepth" ||
            token == "-maxdepth" || token == "-print" || token == "-print0" ||
-           token == "-printf" || token == "-prune" || token == "-quit" ||
-           token == "-true" || token == "-false" || token == "-depth" ||
-           token == "-d" || token == "-follow" || token == "-mount" ||
-           token == "-xdev" || token == "-noleaf" || token == "-daystart" ||
+           token == "-fprint" || token == "-fprint0" || token == "-printf" ||
+           token == "-prune" || token == "-quit" || token == "-true" ||
+           token == "-false" || token == "-depth" || token == "-d" ||
+           token == "-follow" || token == "-mount" || token == "-xdev" ||
+           token == "-noleaf" || token == "-daystart" ||
            token == "-regextype" || token == "-O" || token == "-delete" ||
            token == "-exec" || token == "-ok" || token == "-L" ||
            token == "-P" || token == "-H";
@@ -1157,7 +1205,7 @@ class ExpressionParser {
     if (option == "-regex" || option == "-iregex") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
-      auto parsed = parse_regex(*value, option == "-iregex");
+      auto parsed = parse_regex(regex_syntax_, *value, option == "-iregex");
       if (!parsed) return std::unexpected(parsed.error());
       auto node =
           make_expr(option == "-regex" ? ExprKind::Regex : ExprKind::IRegex);
@@ -1233,8 +1281,17 @@ class ExpressionParser {
       return node;
     }
 
+    if (option == "-regextype") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto parsed = parse_find_regex_syntax(*value);
+      if (!parsed) return std::unexpected(parsed.error());
+      regex_syntax_ = *parsed;
+      return make_expr(ExprKind::Always);
+    }
+
     if (option == "-mindepth" || option == "-maxdepth" || option == "-O" ||
-        option == "-regextype" || option == "-files0-from") {
+        option == "-files0-from") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       return make_expr(ExprKind::Always);
@@ -1242,8 +1299,7 @@ class ExpressionParser {
 
     if (option == "-true" || option == "-depth" || option == "-d" ||
         option == "-follow" || option == "-mount" || option == "-xdev" ||
-        option == "-noleaf" || option == "-daystart" ||
-        option == "-regextype") {
+        option == "-noleaf" || option == "-daystart") {
       return make_expr(ExprKind::Always);
     }
 
@@ -1284,6 +1340,15 @@ class ExpressionParser {
       return make_expr(ExprKind::Print0);
     }
 
+    if (option == "-fprint" || option == "-fprint0") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto node =
+          make_expr(option == "-fprint" ? ExprKind::FPrint : ExprKind::FPrint0);
+      node->text = std::move(*value);
+      return node;
+    }
+
     if (option == "-quit") {
       return make_expr(ExprKind::Quit);
     }
@@ -1308,11 +1373,63 @@ class ExpressionParser {
   }
 };
 
+auto initial_regex_syntax(std::span<const std::string_view> raw_args,
+                          size_t expression_start)
+    -> cp::Result<portable_regex::Syntax> {
+  auto syntax = portable_regex::Syntax::Extended;
+  for (size_t i = 0; i < expression_start && i < raw_args.size(); ++i) {
+    if (raw_args[i] != "-regextype") continue;
+    if (i + 1 >= raw_args.size()) {
+      return std::unexpected("missing argument for -regextype");
+    }
+    auto parsed = parse_find_regex_syntax(raw_args[i + 1]);
+    if (!parsed) return std::unexpected(parsed.error());
+    syntax = *parsed;
+    ++i;
+  }
+  return syntax;
+}
+
 auto parse_expression(std::span<const std::string_view> raw_args)
     -> cp::Result<std::unique_ptr<ExprNode>> {
   size_t start = expression_start_index(raw_args);
-  ExpressionParser parser(raw_args.subspan(start));
+  auto syntax = initial_regex_syntax(raw_args, start);
+  if (!syntax) return std::unexpected(syntax.error());
+  ExpressionParser parser(raw_args.subspan(start), *syntax);
   return parser.parse();
+}
+
+auto prepare_find_output_file(Config& cfg, const std::string& path)
+    -> cp::Result<void> {
+  if (cfg.output_files.contains(path)) return {};
+  auto out = std::make_unique<std::ofstream>(
+      std::filesystem::path(utf8_to_wstring(path)),
+      std::ios::binary | std::ios::trunc);
+  if (!out->is_open()) {
+    return std::unexpected("cannot open output file " + path);
+  }
+  cfg.output_files.emplace(path, std::move(out));
+  return {};
+}
+
+auto prepare_file_output_actions(const ExprNode& expr, Config& cfg)
+    -> cp::Result<void> {
+  if (expr.kind == ExprKind::FPrint || expr.kind == ExprKind::FPrint0) {
+    if (auto ok = prepare_find_output_file(cfg, expr.text); !ok) {
+      return std::unexpected(ok.error());
+    }
+  }
+  if (expr.left) {
+    if (auto ok = prepare_file_output_actions(*expr.left, cfg); !ok) {
+      return std::unexpected(ok.error());
+    }
+  }
+  if (expr.right) {
+    if (auto ok = prepare_file_output_actions(*expr.right, cfg); !ok) {
+      return std::unexpected(ok.error());
+    }
+  }
+  return {};
 }
 
 auto load_roots_from_files0(std::string_view source)
@@ -1437,8 +1554,13 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
   if (!expression) return std::unexpected(expression.error());
   cfg.expression = std::move(*expression);
 
-  bool has_print_action = ctx.get<bool>("-print", false) ||
-                          ctx.get<bool>("-print0", false) || ctx.has("-printf");
+  if (auto ok = prepare_file_output_actions(*cfg.expression, cfg); !ok) {
+    return std::unexpected(ok.error());
+  }
+
+  bool has_print_action =
+      ctx.get<bool>("-print", false) || ctx.get<bool>("-print0", false) ||
+      ctx.has("-fprint") || ctx.has("-fprint0") || ctx.has("-printf");
   if (!has_print_action && !cfg.delete_action && cfg.exec_actions.empty()) {
     cfg.has_print = true;  // default action
   }
@@ -1470,9 +1592,6 @@ auto path_display(const std::filesystem::path& p) -> std::string {
   auto s = p.generic_string();
   if (s.empty()) return ".";
   std::replace(s.begin(), s.end(), '\\', '/');
-  if (s.size() >= 2 && s[0] == '.' && s[1] == '/') {
-    s[1] = '\\';
-  }
   return s;
 }
 
@@ -1546,6 +1665,8 @@ auto modification_age_units(const std::filesystem::directory_entry& e,
 }
 
 auto print_path(std::string_view path, bool null_terminated) -> void;
+auto write_find_output_file(Config& cfg, const std::string& path,
+                            std::string_view text) -> bool;
 auto printf_path(std::string_view format, const std::filesystem::path& p,
                  const std::filesystem::directory_entry& e, int depth,
                  const std::filesystem::path& root) -> void;
@@ -1677,6 +1798,18 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       print_path(path_display(p), true);
       return true;
 
+    case ExprKind::FPrint: {
+      std::string text(path_display(p));
+      text.push_back(char{10});
+      return write_find_output_file(cfg, expr.text, text);
+    }
+
+    case ExprKind::FPrint0: {
+      std::string text(path_display(p));
+      text.push_back(char{0});
+      return write_find_output_file(cfg, expr.text, text);
+    }
+
     case ExprKind::Printf:
       printf_path(expr.text, p, e, depth, root);
       return true;
@@ -1775,6 +1908,32 @@ auto entry_matches(Config& cfg, const std::filesystem::path& p,
     if (!age || !numeric_matches(*cfg.mmin_filter, *age)) return false;
   }
 
+  return true;
+}
+
+auto write_find_output_file(Config& cfg, const std::string& path,
+                            std::string_view text) -> bool {
+  auto it = cfg.output_files.find(path);
+  if (it == cfg.output_files.end()) {
+    if (auto ok = prepare_find_output_file(cfg, path); !ok) {
+      safeErrorPrint("find: cannot open output file " + path + "\n");
+      cfg.had_error = true;
+      return false;
+    }
+    it = cfg.output_files.find(path);
+  }
+  if (it == cfg.output_files.end() || !it->second || !it->second->is_open()) {
+    safeErrorPrint("find: cannot open output file " + path + "\n");
+    cfg.had_error = true;
+    return false;
+  }
+  auto& out = *it->second;
+  out.write(text.data(), static_cast<std::streamsize>(text.size()));
+  if (!out.good()) {
+    safeErrorPrint("find: cannot write output file " + path + "\n");
+    cfg.had_error = true;
+    return false;
+  }
   return true;
 }
 

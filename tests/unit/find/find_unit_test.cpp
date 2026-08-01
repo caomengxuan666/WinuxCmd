@@ -862,6 +862,73 @@ TEST(find, find_regex_and_iregex_match_whole_path) {
               std::string::npos);
 }
 
+TEST(find, find_regextype_before_root_controls_regex_syntax) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/alpha.txt", "");
+  tmp.write("src/gamma.txt", "");
+  tmp.write("src/beta.log", "");
+
+  Pipeline basic;
+  basic.set_cwd(tmp.wpath());
+  basic.add(L"find.exe", {L"-regextype", L"posix-basic", L".", L"-regex",
+                          L"./src/\\(alpha\\|gamma\\)\\.txt"});
+  auto basic_result = basic.run();
+
+  EXPECT_EQ(basic_result.exit_code, 0);
+  EXPECT_TRUE(basic_result.stdout_text.find("src/alpha.txt") !=
+              std::string::npos);
+  EXPECT_TRUE(basic_result.stdout_text.find("src/gamma.txt") !=
+              std::string::npos);
+  EXPECT_TRUE(basic_result.stdout_text.find("src/beta.log") ==
+              std::string::npos);
+
+  Pipeline literal_basic;
+  literal_basic.set_cwd(tmp.wpath());
+  literal_basic.add(L"find.exe", {L"-regextype", L"posix-basic", L".",
+                                  L"-regex", L"./src/(alpha|gamma)\\.txt"});
+  auto literal_result = literal_basic.run();
+
+  EXPECT_EQ(literal_result.exit_code, 0);
+  EXPECT_TRUE(literal_result.stdout_text.empty());
+}
+
+TEST(find, find_regextype_is_positional_for_later_regexes) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/basic.txt", "");
+  tmp.write("src/extended.txt", "");
+  tmp.write("src/skip.log", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L".", L"-regextype", L"posix-basic", L"-regex",
+         L"./src/\\(basic\\)\\.txt", L"-o", L"-regextype",
+         L"posix-extended", L"-regex", L"./src/(extended)\\.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("src/basic.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("src/extended.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("src/skip.log") == std::string::npos);
+}
+
+TEST(find, find_regextype_unknown_type_is_error) {
+  TempDir tmp;
+  tmp.write("a.txt", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe", {L".", L"-regextype", L"not-a-type", L"-regex", L".*"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("Unknown regular expression type 'not-a-type'") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("posix-extended") != std::string::npos);
+}
+
 TEST(find, find_newer_matches_files_modified_after_reference) {
   TempDir tmp;
   tmp.write("old.txt", "old");
@@ -1159,7 +1226,7 @@ TEST(find, find_print0_uses_nul_separator) {
   EXPECT_EQ(r.stdout_text, std::string("a/with space.txt\0", 17));
 }
 
-TEST(find, find_default_print_uses_microsoft_style_current_dir_prefix) {
+TEST(find, find_default_print_uses_gnu_style_current_dir_prefix) {
   TempDir tmp;
   tmp.write("sample.txt", "x");
   tmp.write("sortable.txt", "y");
@@ -1170,8 +1237,8 @@ TEST(find, find_default_print_uses_microsoft_style_current_dir_prefix) {
 
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.find(".\\sample.txt\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find(".\\sortable.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("./sample.txt\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("./sortable.txt\n") != std::string::npos);
 }
 
 TEST(find, find_printf_formats_common_file_fields) {
@@ -1810,6 +1877,33 @@ TEST(find, find_expression_scopes_print0_to_branch) {
   EXPECT_EQ(r.stdout_text, std::string("a.txt\0", 6));
 }
 
+TEST(find, find_fprint_actions_write_to_file_and_suppress_default_print) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/a.txt", "a");
+  tmp.write("src/b.log", "b");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"src", L"-type", L"f", L"-name", L"*.txt", L"-fprint", L"out.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "");
+  EXPECT_EQ_TEXT(tmp.read("out.txt"), "src/a.txt\n");
+}
+TEST(find, find_fprint0_writes_nul_separated_paths) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "src");
+  tmp.write("src/a.txt", "a");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L"src", L"-type", L"f", L"-name", L"*.txt", L"-fprint0", L"out.bin"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "");
+  EXPECT_EQ(tmp.read("out.bin"), std::string("src/a.txt\0", 10));
+}
 TEST(find, find_expression_scopes_printf_to_branch) {
   TempDir tmp;
   tmp.write("a.txt", "x");

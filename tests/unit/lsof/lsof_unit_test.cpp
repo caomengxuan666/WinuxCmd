@@ -103,3 +103,16 @@ TEST(lsof, lsof_internet_filter_runs) {
 
   EXPECT_EQ(r.exit_code, 0);
 }
+
+TEST(lsof, lsof_attached_internet_filter_runs) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"winuxcmd.exe", {L"lsof", L"-iTCP:80", L"--no-headers", L"-t", L"50"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find("unrecognized option") == std::string::npos);
+}
