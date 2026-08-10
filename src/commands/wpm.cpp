@@ -1061,6 +1061,16 @@ auto verify_sha256(const fs::path& file, std::string expected) -> bool {
   return true;
 }
 
+auto cached_artifact_is_valid(const fs::path& file, std::string expected)
+    -> bool {
+  if (expected.empty()) return false;
+  std::error_code ec;
+  if (!fs::is_regular_file(file, ec)) return false;
+  expected = lower_ascii(expected);
+  auto actual = sha256_file(file);
+  return actual && *actual == expected;
+}
+
 auto run_process(const std::wstring& command, const fs::path& cwd = {}) -> int {
   std::wstring mutable_cmd = command;
   STARTUPINFOW si{};
@@ -1214,6 +1224,15 @@ auto download_artifact(const fs::path& root, const std::string& package,
 
   std::string type = artifact.value("type", "exe");
   fs::path out = cache_dir(root) / (package + "." + type);
+  std::string expected_sha = artifact.value("sha256", "");
+  if (cached_artifact_is_valid(out, expected_sha)) {
+    if (verbose) safePrintLn("wpm: using cached " + out.string());
+    return out;
+  }
+  if (fs::exists(out)) {
+    std::error_code ec;
+    fs::remove(out, ec);
+  }
   for (const auto& url : urls) {
     if (verbose) safePrintLn("wpm: downloading " + url);
     auto result = http_get(url, "wpm: downloading " + package);
@@ -1226,7 +1245,7 @@ auto download_artifact(const fs::path& root, const std::string& package,
       safeErrorPrintLn("wpm: failed to write cache file " + out.string());
       continue;
     }
-    if (!verify_sha256(out, artifact.value("sha256", ""))) {
+    if (!verify_sha256(out, expected_sha)) {
       std::error_code ec;
       fs::remove(out, ec);
       continue;
