@@ -611,6 +611,28 @@ TEST(wpm, wpm_install_existing_package_skips_download) {
   EXPECT_EQ(tmp.read("jq.exe"), "already here\n");
 }
 
+TEST(wpm, wpm_install_uses_valid_cached_artifact_before_downloading) {
+  TempDir tmp;
+  const auto missing_artifact_path = tmp.path / L"source" / L"jq.exe";
+  tmp.write(".wpm/indexes/official.json",
+            install_fixture_index_json(missing_artifact_path));
+  tmp.write(".wpm/cache/jq.exe", "external exe\n");
+
+  Pipeline install;
+  install.add(L"winuxcmd.exe",
+              {L"wpm", L"install", L"jq", L"--root", tmp.wpath()});
+  auto install_result = install.run();
+
+  EXPECT_EQ(install_result.exit_code, 0);
+  EXPECT_TRUE(install_result.stdout_text.find("installed jq") !=
+              std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("downloading jq") ==
+              std::string::npos);
+  EXPECT_TRUE(install_result.stderr_text.find("download failed") ==
+              std::string::npos);
+  EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
+}
+
 TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
   TempDir tmp;
   const auto artifact_path = tmp.path / L"source" / L"jq.exe";
