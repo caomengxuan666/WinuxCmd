@@ -105,7 +105,24 @@ export auto strip_trailing_separators(std::string_view path)
 }
 
 export auto normalize_api_operand_w(std::wstring_view path) -> std::wstring {
-  return std::wstring(strip_trailing_separators(path));
+  std::wstring normalized(strip_trailing_separators(path));
+  if (normalized.size() >= 2 && is_separator(normalized[0]) &&
+      ((normalized[1] >= L'a' && normalized[1] <= L'z') ||
+       (normalized[1] >= L'A' && normalized[1] <= L'Z')) &&
+      (normalized.size() == 2 || is_separator(normalized[2]))) {
+    std::wstring drive_path;
+    wchar_t drive = normalized[1];
+    if (drive >= L'a' && drive <= L'z') {
+      drive = static_cast<wchar_t>(drive - L'a' + L'A');
+    }
+    drive_path.push_back(drive);
+    drive_path.append(L":\\");
+    if (normalized.size() > 3) {
+      drive_path.append(normalized.substr(3));
+    }
+    return normalize_separators(std::move(drive_path));
+  }
+  return normalized;
 }
 
 export auto normalize_api_operand(std::string_view path) -> std::string {

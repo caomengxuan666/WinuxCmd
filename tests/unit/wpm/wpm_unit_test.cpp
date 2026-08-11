@@ -349,6 +349,23 @@ TEST(wpm, wpm_list_all_shows_index_only_placeholders) {
               std::string::npos);
 }
 
+TEST(wpm, wpm_installed_lists_only_present_package_files) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("jq.exe", "installed jq\n");
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"wpm", L"installed", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("[installed] jq 1.8.2 [jq]") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("[installed] ripgrep") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("[installed] fd") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("[index-only]") == std::string::npos);
+}
+
 TEST(wpm, wpm_info_marks_common_packages_installable_on_windows_x64) {
   if (current_arch_key() != "windows-x64") return;
 
