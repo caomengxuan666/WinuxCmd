@@ -237,6 +237,12 @@ struct SearchState {
   bool forward = true;
 };
 
+struct MatchLocation {
+  size_t line = 0;
+  size_t begin = 0;
+  size_t end = 0;
+};
+
 auto redraw_search_text(wchar_t prompt, std::wstring_view text) -> void {
   safePrint("\r\033[K");
   safePrint(std::wstring_view(&prompt, 1));
@@ -264,6 +270,7 @@ auto read_search_text(HANDLE input, wchar_t prompt, bool quit_on_intr,
   std::wstring text;
   std::optional<std::wstring> draft;
   size_t history_index = history.size();
+  safePrint("\r\033[K");
   safePrint(std::wstring_view(&prompt, 1));
 
   INPUT_RECORD record{};
@@ -323,6 +330,7 @@ auto read_search_text(HANDLE input, wchar_t prompt, bool quit_on_intr,
 auto read_colon_command(HANDLE input, bool quit_on_intr, size_t number = 0)
     -> PagerCommand {
   std::wstring text;
+  safePrint("\r\033[K");
   safePrint(":");
 
   INPUT_RECORD record{};
@@ -496,36 +504,41 @@ auto compile_search(const Config& cfg, std::string_view text, bool forward)
 }
 
 auto find_search_match(const PagerDocument& doc, const SearchState& search,
-                       size_t top_line, bool forward) -> std::optional<size_t> {
+                       size_t anchor_line,
+                       bool forward) -> std::optional<MatchLocation> {
   if (doc.line_count() == 0) return std::nullopt;
 
-  auto line_matches = [&](size_t index) -> bool {
+  auto line_match = [&](size_t index) -> std::optional<MatchLocation> {
     auto line = doc.line_at(index);
-    return line && search.pattern.find_first(*line).has_value();
+    if (!line) return std::nullopt;
+    auto match = search.pattern.find_first(*line);
+    if (!match) return std::nullopt;
+    return MatchLocation{index, match->begin, match->end};
   };
 
   if (forward) {
-    size_t start = std::min(top_line + 1, doc.line_count());
+    size_t start = std::min(anchor_line + 1, doc.line_count());
     for (size_t i = start; i < doc.line_count(); ++i) {
-      if (line_matches(i)) return i;
+      if (auto match = line_match(i)) return match;
     }
     for (size_t i = 0; i < start; ++i) {
-      if (line_matches(i)) return i;
+      if (auto match = line_match(i)) return match;
     }
   } else {
-    size_t start = top_line == 0 ? doc.line_count() - 1 : top_line - 1;
+    size_t start = anchor_line == 0 ? doc.line_count() - 1 : anchor_line - 1;
     for (size_t i = start + 1; i-- > 0;) {
-      if (line_matches(i)) return i;
+      if (auto match = line_match(i)) return match;
       if (i == 0) break;
     }
     for (size_t i = doc.line_count(); i-- > start + 1;) {
-      if (line_matches(i)) return i;
+      if (auto match = line_match(i)) return match;
     }
   }
   return std::nullopt;
 }
 
-auto highlight_matches(std::string_view text, const SearchState* search)
+auto highlight_matches(std::string_view text, const SearchState* search,
+                       std::optional<std::pair<size_t, size_t>> current_range)
     -> std::string {
   if (!search || !shouldUseAnsiColorStdout()) return std::string(text);
 
@@ -544,7 +557,10 @@ auto highlight_matches(std::string_view text, const SearchState* search)
     }
 
     out.append(text.substr(cursor, match->begin - cursor));
-    out += "\033[7m";
+    const bool is_current =
+        current_range && current_range->first == match->begin &&
+        current_range->second == match->end;
+    out += is_current ? "\033[1;30;43m" : "\033[7m";
     out.append(text.substr(match->begin, match->end - match->begin));
     out += ANSI_RESET;
     cursor = match->end;
@@ -554,23 +570,41 @@ auto highlight_matches(std::string_view text, const SearchState* search)
 
 auto print_pager_line(const Config& cfg, size_t line_index,
                       std::string_view line, int width,
-                      const SearchState* search) -> void {
+                      const SearchState* search,
+                      const MatchLocation* current_match) -> void {
   std::string rendered;
+  size_t content_offset = 0;
   if (cfg.show_line_numbers) {
-    rendered += std::format("{:>6}\t", line_index + 1);
+    auto prefix = std::format("{:>6}\t", line_index + 1);
+    content_offset = prefix.size();
+    rendered += prefix;
   }
   rendered.append(line);
+
+  std::optional<std::pair<size_t, size_t>> current_range;
+  if (current_match && current_match->line == line_index) {
+    current_range = std::pair{current_match->begin + content_offset,
+                              current_match->end + content_offset};
+  }
 
   if (cfg.chop_long_lines && width > 0 &&
       rendered.size() > static_cast<size_t>(width)) {
     rendered.resize(static_cast<size_t>(width));
+    if (current_range &&
+        current_range->first >= static_cast<size_t>(rendered.size())) {
+      current_range.reset();
+    } else if (current_range) {
+      current_range->second =
+          std::min(current_range->second, static_cast<size_t>(rendered.size()));
+    }
   }
 
-  safePrintLn(highlight_matches(rendered, search));
+  safePrintLn(highlight_matches(rendered, search, current_range));
 }
 
 auto render_page(const Config& cfg, const PagerDocument& doc, size_t top_line,
-                 int page_size, int width, const SearchState* search) -> void {
+                 int page_size, int width, const SearchState* search,
+                 const MatchLocation* current_match) -> void {
   clear_console();
   for (int i = 0; i < page_size; ++i) {
     size_t line_index = top_line + static_cast<size_t>(i);
@@ -583,7 +617,7 @@ auto render_page(const Config& cfg, const PagerDocument& doc, size_t top_line,
       safePrintLn(line.error());
       continue;
     }
-    print_pager_line(cfg, line_index, *line, width, search);
+    print_pager_line(cfg, line_index, *line, width, search, current_match);
   }
 }
 
@@ -621,6 +655,13 @@ auto page_size_for(const Config& cfg, int height) -> int {
   return std::clamp(cfg.window_size, 1, visible_rows);
 }
 
+auto top_line_for_match(size_t match_line, size_t max_top, int page_size)
+    -> size_t {
+  size_t context = page_size > 4 ? static_cast<size_t>(page_size / 3) : 0;
+  size_t target = match_line > context ? match_line - context : 0;
+  return std::min(target, max_top);
+}
+
 struct PagerResult {
   int code = 0;
   PagerAction action = PagerAction::Quit;
@@ -637,7 +678,7 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
     for (size_t i = 0; i < doc.line_count(); ++i) {
       auto line = doc.line_at(i);
       if (!line) return {1, PagerAction::Quit};
-      print_pager_line(cfg, i, *line, width, nullptr);
+      print_pager_line(cfg, i, *line, width, nullptr, nullptr);
     }
     return {0, PagerAction::Quit};
   }
@@ -655,6 +696,7 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
   size_t top_line = 0;
   int eof_count = 0;
   std::optional<SearchState> last_search;
+  std::optional<MatchLocation> last_match;
   std::vector<std::wstring> search_history;
 
   while (true) {
@@ -670,7 +712,8 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
 
     bool at_eof = top_line + static_cast<size_t>(page_size) >= doc.line_count();
     render_page(cfg, doc, top_line, page_size, width,
-                last_search ? &*last_search : nullptr);
+                last_search ? &*last_search : nullptr,
+                last_match ? &*last_match : nullptr);
     print_prompt(doc, file_index, file_count, top_line, doc.line_count(),
                  static_cast<size_t>(page_size), at_eof);
 
@@ -684,21 +727,25 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
     switch (action) {
       case PagerAction::FirstLine:
         top_line = 0;
+        last_match.reset();
         eof_count = 0;
         break;
       case PagerAction::LastLine:
         top_line = max_top;
+        last_match.reset();
         eof_count = 0;
         break;
       case PagerAction::GoToLine:
         top_line =
             command.number > 0 ? std::min(command.number - 1, max_top) : 0;
+        last_match.reset();
         eof_count = 0;
         break;
       case PagerAction::GoToPercent:
         top_line =
             std::min(max_top, doc.line_count() *
                                   std::min<size_t>(command.number, 100) / 100);
+        last_match.reset();
         eof_count = 0;
         break;
       case PagerAction::NextFile:
@@ -711,6 +758,7 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
         } else {
           top_line =
               std::min(max_top, top_line + static_cast<size_t>(page_size));
+          last_match.reset();
           eof_count = 0;
         }
         break;
@@ -720,6 +768,7 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
           if (cfg.quit_at_eof && eof_count >= 2) return {0, PagerAction::Quit};
         } else {
           ++top_line;
+          last_match.reset();
           eof_count = 0;
         }
         break;
@@ -730,6 +779,7 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
         } else {
           top_line = std::min(max_top, top_line + static_cast<size_t>(std::max(
                                                       page_size / 2, 1)));
+          last_match.reset();
           eof_count = 0;
         }
         break;
@@ -737,15 +787,18 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
         top_line = top_line > static_cast<size_t>(page_size)
                        ? top_line - static_cast<size_t>(page_size)
                        : 0;
+        last_match.reset();
         eof_count = 0;
         break;
       case PagerAction::PrevLine:
         if (top_line > 0) --top_line;
+        last_match.reset();
         eof_count = 0;
         break;
       case PagerAction::PrevHalfPage: {
         size_t step = static_cast<size_t>(std::max(page_size / 2, 1));
         top_line = top_line > step ? top_line - step : 0;
+        last_match.reset();
         eof_count = 0;
         break;
       }
@@ -757,7 +810,8 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
           last_search = std::move(*compiled);
           if (auto match =
                   find_search_match(doc, *last_search, top_line, forward)) {
-            top_line = std::min(*match, max_top);
+            last_match = *match;
+            top_line = top_line_for_match(match->line, max_top, page_size);
           }
         }
         eof_count = 0;
@@ -768,9 +822,11 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
         if (last_search) {
           bool forward = last_search->forward;
           if (action == PagerAction::ReverseSearch) forward = !forward;
+          size_t anchor = last_match ? last_match->line : top_line;
           if (auto match =
-                  find_search_match(doc, *last_search, top_line, forward)) {
-            top_line = std::min(*match, max_top);
+                  find_search_match(doc, *last_search, anchor, forward)) {
+            last_match = *match;
+            top_line = top_line_for_match(match->line, max_top, page_size);
           }
         }
         eof_count = 0;

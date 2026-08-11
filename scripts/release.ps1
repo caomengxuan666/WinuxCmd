@@ -16,10 +16,19 @@ param(
     [switch]$SkipCommit,
 
     [Parameter(Mandatory=$false)]
-    [switch]$PrepareOnly
+    [switch]$PrepareOnly,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$PullRequestFlow,
+
+    [Parameter(Mandatory=$false)]
+    [string]$BaseBranch = "main"
 )
 
 $ErrorActionPreference = "Stop"
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $true
+}
 
 function Write-Color {
     param($Color, $Text)
@@ -69,8 +78,13 @@ Write-Host ""
 # Check git status
 $gitStatus = git status --short
 if (-not $gitStatus) {
-    Write-Color "Yellow" "No changes detected. Files already at version $Version"
-    exit 0
+    if (-not ($PullRequestFlow -and $SkipCommit)) {
+        Write-Color "Yellow" "No changes detected. Files already at version $Version"
+        exit 0
+    }
+
+    Write-Color "Yellow" "No uncommitted changes detected; continuing PR flow from existing branch commit"
+    Write-Host ""
 }
 
 if ($PrepareOnly) {
@@ -92,6 +106,91 @@ if (-not $SkipCommit) {
 } else {
     Write-Color "Yellow" "Skipping commit (--SkipCommit specified)"
     Write-Host ""
+}
+
+if ($PullRequestFlow) {
+    $currentBranch = (git branch --show-current).Trim()
+    if (-not $currentBranch) {
+        Write-Color "Red" "Cannot determine current git branch"
+        exit 1
+    }
+    if ($currentBranch -eq $BaseBranch) {
+        Write-Color "Red" "PullRequestFlow must run from a release/fix branch, not $BaseBranch"
+        exit 1
+    }
+
+    $tagName = "v$Version"
+
+    Write-Color "Yellow" "Pushing branch $currentBranch..."
+    git push -u origin $currentBranch
+    Write-Color "Green" "  Branch pushed"
+    Write-Host ""
+
+    Write-Color "Yellow" "Creating or reusing pull request into $BaseBranch..."
+    $existingJson = gh pr list --head $currentBranch --base $BaseBranch --state open --json number,url
+    $existing = @($existingJson | ConvertFrom-Json)
+    if ($existing.Count -gt 0) {
+        $prNumber = $existing[0].number
+        $prUrl = $existing[0].url
+        Write-Color "Green" "  Reusing PR #${prNumber}: $prUrl"
+    } else {
+        $bodyPath = Join-Path ([System.IO.Path]::GetTempPath()) "winuxcmd-release-$Version-pr.md"
+        Set-Content -Path $bodyPath -Encoding utf8 -Value @"
+## Summary
+- Release WinuxCmd $Version
+- Update PROJECT_VERSION and WPM builtin metadata
+
+## Verification
+- Run the repository test suite before merging this release PR.
+"@
+        $prUrl = (gh pr create --base $BaseBranch --head $currentBranch --title "Release v$Version" --body-file $bodyPath).Trim()
+        Remove-Item -LiteralPath $bodyPath -Force -ErrorAction SilentlyContinue
+        $prNumber = (($prUrl -split "/")[-1])
+        Write-Color "Green" "  Created PR #${prNumber}: $prUrl"
+    }
+    Write-Host ""
+
+    Write-Color "Yellow" "Waiting for pull request checks..."
+    gh pr checks $prNumber --watch --interval 10
+    Write-Color "Green" "  Checks completed"
+    Write-Host ""
+
+    Write-Color "Yellow" "Merging PR #$prNumber..."
+    gh pr merge $prNumber --merge --subject "Merge release v$Version" --body "Release v$Version"
+    Write-Color "Green" "  PR merged"
+    Write-Host ""
+
+    Write-Color "Yellow" "Fetching merged $BaseBranch..."
+    git fetch origin $BaseBranch --tags
+    Write-Color "Green" "  Fetched origin/$BaseBranch"
+    Write-Host ""
+
+    $existingTag = git tag -l $tagName
+    if ($existingTag) {
+        Write-Color "Red" "Tag $tagName already exists locally. Refusing to overwrite."
+        exit 1
+    }
+
+    Write-Color "Yellow" "Creating tag $tagName on origin/$BaseBranch..."
+    git tag -a $tagName "origin/$BaseBranch" -m "Release $tagName"
+    Write-Color "Green" "  Tag created"
+    Write-Host ""
+
+    Write-Color "Yellow" "Pushing tag $tagName..."
+    git push origin $tagName
+    Write-Color "Green" "  Tag pushed"
+    Write-Host ""
+
+    Write-Color "Yellow" "Syncing local $BaseBranch..."
+    git branch -f $BaseBranch "origin/$BaseBranch"
+    git switch $BaseBranch
+    Write-Color "Green" "  Local $BaseBranch is up to date"
+    Write-Host ""
+
+    Write-Color "Cyan" "================================"
+    Write-Color "Green" "Release $tagName completed successfully via PR flow!"
+    Write-Color "Cyan" "================================"
+    exit 0
 }
 
 # Push to remote
