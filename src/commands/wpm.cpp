@@ -722,6 +722,15 @@ auto http_get_urlmon(std::wstring_view url,
   return result;
 }
 
+auto with_urlmon_fallback(HttpResult result, std::wstring_view url,
+                          std::string_view progress_label = {}) -> HttpResult {
+  auto fallback = http_get_urlmon(url, progress_label);
+  if (fallback.ok) return fallback;
+  if (result.error.empty()) return fallback;
+  if (!fallback.error.empty()) result.error += "; " + fallback.error;
+  return result;
+}
+
 auto human_size(unsigned long long bytes) -> std::string {
   constexpr std::array<std::string_view, 5> units = {"B", "KiB", "MiB", "GiB",
                                                      "TiB"};
@@ -737,6 +746,151 @@ auto human_size(unsigned long long bytes) -> std::string {
 
 auto env_var_present(const char* name) -> bool {
   return GetEnvironmentVariableA(name, nullptr, 0) > 0;
+}
+
+auto env_var_value(const char* name) -> std::optional<std::string> {
+  DWORD size = GetEnvironmentVariableA(name, nullptr, 0);
+  if (size == 0) return std::nullopt;
+  std::string value(size, '\0');
+  DWORD written = GetEnvironmentVariableA(name, value.data(), size);
+  if (written == 0 || written >= size) return std::nullopt;
+  value.resize(written);
+  return value;
+}
+
+auto trim_ascii(std::string value) -> std::string {
+  auto is_space = [](unsigned char c) { return std::isspace(c) != 0; };
+  while (!value.empty() && is_space(static_cast<unsigned char>(value.front()))) {
+    value.erase(value.begin());
+  }
+  while (!value.empty() && is_space(static_cast<unsigned char>(value.back()))) {
+    value.pop_back();
+  }
+  if (value.size() >= 2 &&
+      ((value.front() == '"' && value.back() == '"') ||
+       (value.front() == '\'' && value.back() == '\''))) {
+    value = value.substr(1, value.size() - 2);
+  }
+  return value;
+}
+
+auto normalize_proxy_server(std::string value) -> std::optional<std::wstring> {
+  value = trim_ascii(std::move(value));
+  if (value.empty()) return std::nullopt;
+
+  auto lower = lower_ascii(value);
+  if (lower.find("http=") != std::string::npos ||
+      lower.find("https=") != std::string::npos) {
+    return utf8_to_wstring(value);
+  }
+
+  auto scheme = lower.find("://");
+  if (scheme != std::string::npos) {
+    auto scheme_name = lower.substr(0, scheme);
+    if (scheme_name != "http" && scheme_name != "https")
+      return std::nullopt;
+    value.erase(0, scheme + 3);
+  }
+
+  if (auto at = value.find('@'); at != std::string::npos) {
+    value.erase(0, at + 1);
+  }
+  if (auto slash = value.find_first_of("/?#"); slash != std::string::npos) {
+    value.resize(slash);
+  }
+
+  value = trim_ascii(std::move(value));
+  if (value.empty()) return std::nullopt;
+  return utf8_to_wstring(value);
+}
+
+auto proxy_from_environment(bool https) -> std::optional<std::wstring> {
+  std::array<std::string_view, 8> names =
+      https ? std::array<std::string_view, 8>{
+                  "WPM_HTTPS_PROXY", "WPM_HTTP_PROXY", "HTTPS_PROXY",
+                  "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY",
+                  "http_proxy"}
+            : std::array<std::string_view, 8>{
+                  "WPM_HTTP_PROXY", "WPM_HTTPS_PROXY", "HTTP_PROXY",
+                  "http_proxy", "ALL_PROXY", "all_proxy", "HTTPS_PROXY",
+                  "https_proxy"};
+  for (auto name : names) {
+    std::string key(name);
+    if (auto value = env_var_value(key.c_str())) {
+      if (auto proxy = normalize_proxy_server(*value)) return proxy;
+    }
+  }
+  return std::nullopt;
+}
+
+void free_proxy_info(WINHTTP_PROXY_INFO& info) {
+  if (info.lpszProxy) GlobalFree(info.lpszProxy);
+  if (info.lpszProxyBypass) GlobalFree(info.lpszProxyBypass);
+  info.lpszProxy = nullptr;
+  info.lpszProxyBypass = nullptr;
+}
+
+void free_ie_proxy_config(WINHTTP_CURRENT_USER_IE_PROXY_CONFIG& config) {
+  if (config.lpszAutoConfigUrl) GlobalFree(config.lpszAutoConfigUrl);
+  if (config.lpszProxy) GlobalFree(config.lpszProxy);
+  if (config.lpszProxyBypass) GlobalFree(config.lpszProxyBypass);
+  config.lpszAutoConfigUrl = nullptr;
+  config.lpszProxy = nullptr;
+  config.lpszProxyBypass = nullptr;
+}
+
+auto set_request_proxy(HINTERNET request, const std::wstring& proxy,
+                       LPCWSTR bypass = WINHTTP_NO_PROXY_BYPASS) -> bool {
+  WINHTTP_PROXY_INFO info{};
+  info.dwAccessType = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
+  info.lpszProxy = const_cast<LPWSTR>(proxy.c_str());
+  info.lpszProxyBypass = const_cast<LPWSTR>(bypass);
+  return WinHttpSetOption(request, WINHTTP_OPTION_PROXY, &info,
+                          sizeof(info)) != 0;
+}
+
+auto apply_user_proxy(HINTERNET session, HINTERNET request,
+                      std::wstring_view url, bool https) -> void {
+  if (auto proxy = proxy_from_environment(https)) {
+    set_request_proxy(request, *proxy);
+    return;
+  }
+
+  WINHTTP_CURRENT_USER_IE_PROXY_CONFIG ie_config{};
+  if (!WinHttpGetIEProxyConfigForCurrentUser(&ie_config)) return;
+
+  if (ie_config.lpszProxy && *ie_config.lpszProxy) {
+    std::wstring proxy(ie_config.lpszProxy);
+    LPCWSTR bypass = ie_config.lpszProxyBypass ? ie_config.lpszProxyBypass
+                                               : WINHTTP_NO_PROXY_BYPASS;
+    set_request_proxy(request, proxy, bypass);
+    free_ie_proxy_config(ie_config);
+    return;
+  }
+
+  if (ie_config.fAutoDetect || ie_config.lpszAutoConfigUrl) {
+    WINHTTP_AUTOPROXY_OPTIONS options{};
+    if (ie_config.lpszAutoConfigUrl && *ie_config.lpszAutoConfigUrl) {
+      options.dwFlags = WINHTTP_AUTOPROXY_CONFIG_URL;
+      options.lpszAutoConfigUrl = ie_config.lpszAutoConfigUrl;
+    } else {
+      options.dwFlags = WINHTTP_AUTOPROXY_AUTO_DETECT;
+      options.dwAutoDetectFlags =
+          WINHTTP_AUTO_DETECT_TYPE_DHCP | WINHTTP_AUTO_DETECT_TYPE_DNS_A;
+    }
+    options.fAutoLogonIfChallenged = TRUE;
+
+    WINHTTP_PROXY_INFO auto_proxy{};
+    std::wstring url_copy(url);
+    if (WinHttpGetProxyForUrl(session, url_copy.c_str(), &options,
+                              &auto_proxy)) {
+      WinHttpSetOption(request, WINHTTP_OPTION_PROXY, &auto_proxy,
+                       sizeof(auto_proxy));
+    }
+    free_proxy_info(auto_proxy);
+  }
+
+  free_ie_proxy_config(ie_config);
 }
 
 auto response_header(HINTERNET request, DWORD query)
@@ -832,16 +986,14 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
                   WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
   if (!session) {
     result.error = "failed to open WinHTTP session";
-    auto fallback = http_get_urlmon(wurl, progress_label);
-    return fallback.ok ? fallback : result;
+    return with_urlmon_fallback(std::move(result), wurl, progress_label);
   }
 
   HINTERNET connect = WinHttpConnect(session, host.c_str(), parts.nPort, 0);
   if (!connect) {
     result.error = "failed to connect";
     WinHttpCloseHandle(session);
-    auto fallback = http_get_urlmon(wurl, progress_label);
-    return fallback.ok ? fallback : result;
+    return with_urlmon_fallback(std::move(result), wurl, progress_label);
   }
 
   DWORD flags = https ? WINHTTP_FLAG_SECURE : 0;
@@ -852,9 +1004,10 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     result.error = "failed to create request";
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    auto fallback = http_get_urlmon(wurl, progress_label);
-    return fallback.ok ? fallback : result;
+    return with_urlmon_fallback(std::move(result), wurl, progress_label);
   }
+
+  apply_user_proxy(session, request, wurl, https);
 
   DWORD timeout_ms = 12000;
   WinHttpSetOption(request, WINHTTP_OPTION_CONNECT_TIMEOUT, &timeout_ms,
@@ -874,8 +1027,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    auto fallback = http_get_urlmon(wurl, progress_label);
-    return fallback.ok ? fallback : result;
+    return with_urlmon_fallback(std::move(result), wurl, progress_label);
   }
 
   DWORD status = 0;
@@ -902,8 +1054,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    auto fallback = http_get_urlmon(wurl, progress_label);
-    return fallback.ok ? fallback : result;
+    return with_urlmon_fallback(std::move(result), wurl, progress_label);
   }
 
   std::optional<unsigned long long> expected_bytes;
@@ -983,8 +1134,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
   WinHttpCloseHandle(connect);
   WinHttpCloseHandle(session);
   if (!result.ok) {
-    auto fallback = http_get_urlmon(wurl, progress_label);
-    return fallback.ok ? fallback : result;
+    return with_urlmon_fallback(std::move(result), wurl, progress_label);
   }
   return result;
 }
