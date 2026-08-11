@@ -151,8 +151,25 @@ if ($PullRequestFlow) {
     Write-Host ""
 
     Write-Color "Yellow" "Waiting for pull request checks..."
-    gh pr checks $prNumber --watch --interval 10
-    Write-Color "Green" "  Checks completed"
+    $oldNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+        $checksOutput = gh pr checks $prNumber --watch --interval 10 2>&1
+        $checksExitCode = $LASTEXITCODE
+    } finally {
+        $PSNativeCommandUseErrorActionPreference = $oldNativeErrorPreference
+    }
+    if ($checksExitCode -ne 0) {
+        $checksText = ($checksOutput | Out-String)
+        if ($checksText -match "no checks reported") {
+            Write-Color "Yellow" "  No pull request checks reported; continuing"
+        } else {
+            Write-Host $checksText
+            exit $checksExitCode
+        }
+    } else {
+        Write-Color "Green" "  Checks completed"
+    }
     Write-Host ""
 
     Write-Color "Yellow" "Merging PR #$prNumber..."
