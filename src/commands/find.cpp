@@ -478,12 +478,106 @@ auto parse_permission_predicate(std::string_view text)
 
   if (pos >= text.size()) return std::unexpected("invalid -perm mode");
 
+  auto symbolic_bit = [](char who, char perm) -> std::optional<unsigned> {
+    switch (perm) {
+      case 'r':
+        if (who == 'u') return 0400U;
+        if (who == 'g') return 0040U;
+        if (who == 'o') return 0004U;
+        break;
+      case 'w':
+        if (who == 'u') return 0200U;
+        if (who == 'g') return 0020U;
+        if (who == 'o') return 0002U;
+        break;
+      case 'x':
+      case 'X':
+        if (who == 'u') return 0100U;
+        if (who == 'g') return 0010U;
+        if (who == 'o') return 0001U;
+        break;
+      case 's':
+        if (who == 'u') return 04000U;
+        if (who == 'g') return 02000U;
+        break;
+      case 't':
+        if (who == 'o') return 01000U;
+        break;
+      default:
+        break;
+    }
+    return std::nullopt;
+  };
+
+  auto parse_symbolic = [&]() -> cp::Result<unsigned> {
+    unsigned mode = 0;
+    while (pos < text.size()) {
+      std::string who;
+      while (pos < text.size() && (text[pos] == 'u' || text[pos] == 'g' ||
+                                   text[pos] == 'o' || text[pos] == 'a')) {
+        if (text[pos] == 'a') {
+          who = "ugo";
+        } else if (who.find(text[pos]) == std::string::npos) {
+          who.push_back(text[pos]);
+        }
+        ++pos;
+      }
+      if (who.empty()) who = "ugo";
+
+      if (pos >= text.size() ||
+          (text[pos] != '+' && text[pos] != '-' && text[pos] != '=')) {
+        return std::unexpected("invalid -perm symbolic mode");
+      }
+      const char op = text[pos++];
+
+      unsigned clause_bits = 0;
+      while (pos < text.size() && text[pos] != ',') {
+        const char perm = text[pos++];
+        for (char target : who) {
+          auto bit = symbolic_bit(target, perm);
+          if (!bit) {
+            return std::unexpected("invalid -perm symbolic mode");
+          }
+          clause_bits |= *bit;
+        }
+      }
+
+      if (op == '=') {
+        unsigned who_mask = 0;
+        for (char target : who) {
+          who_mask |= target == 'u' ? 04700U : target == 'g' ? 02070U : 01007U;
+        }
+        mode = (mode & ~who_mask) | clause_bits;
+      } else if (op == '+') {
+        mode |= clause_bits;
+      } else {
+        mode &= ~clause_bits;
+      }
+
+      if (pos < text.size()) {
+        if (text[pos] != ',')
+          return std::unexpected("invalid -perm symbolic mode");
+        ++pos;
+        if (pos >= text.size())
+          return std::unexpected("invalid -perm symbolic mode");
+      }
+    }
+    return mode;
+  };
+
+  if (std::isalpha(static_cast<unsigned char>(text[pos])) || text[pos] == '+' ||
+      text[pos] == '=' || text[pos] == ',') {
+    auto symbolic = parse_symbolic();
+    if (!symbolic) return std::unexpected(symbolic.error());
+    result.mode = *symbolic & 07777U;
+    return result;
+  }
+
   unsigned mode = 0;
   for (; pos < text.size(); ++pos) {
     unsigned char ch = static_cast<unsigned char>(text[pos]);
     if (ch < '0' || ch > '7') {
-      return std::unexpected(
-          "symbolic -perm modes are not implemented; use an octal mode");
+      return std::unexpected("invalid -perm mode");
     }
     mode = (mode << 3) + static_cast<unsigned>(ch - '0');
   }

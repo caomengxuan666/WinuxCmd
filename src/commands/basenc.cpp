@@ -71,6 +71,11 @@ constexpr std::string_view BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 constexpr std::string_view BASE32HEX_ALPHABET =
     "0123456789ABCDEFGHIJKLMNOPQRSTUV";
 constexpr std::string_view BASE16_ALPHABET = "0123456789ABCDEF";
+constexpr std::string_view BASE58_ALPHABET =
+    "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+constexpr std::string_view Z85_ALPHABET =
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.-:+=^!/"
+    "*?&<>()[]{}@%$#";
 
 enum class Encoding {
   Base64,
@@ -356,11 +361,165 @@ auto decode_base2(std::string_view input, bool least_significant_first,
   return output;
 }
 
+auto encode_base58(std::string_view input, int wrap) -> std::string {
+  auto bytes = std::span<const unsigned char>(
+      reinterpret_cast<const unsigned char*>(input.data()), input.size());
+
+  size_t leading_zeroes = 0;
+  while (leading_zeroes < bytes.size() && bytes[leading_zeroes] == 0) {
+    ++leading_zeroes;
+  }
+
+  std::vector<unsigned char> digits(
+      (bytes.size() - leading_zeroes) * 138 / 100 + 1);
+  size_t used = 0;
+  for (size_t i = leading_zeroes; i < bytes.size(); ++i) {
+    unsigned int carry = bytes[i];
+    size_t j = 0;
+    for (auto it = digits.rbegin();
+         (carry != 0 || j < used) && it != digits.rend(); ++it, ++j) {
+      carry += static_cast<unsigned int>(*it) << 8;
+      *it = static_cast<unsigned char>(carry % 58);
+      carry /= 58;
+    }
+    used = j;
+  }
+
+  auto first =
+      digits.begin() + static_cast<std::ptrdiff_t>(digits.size() - used);
+  while (first != digits.end() && *first == 0) ++first;
+
+  std::string result(leading_zeroes, '1');
+  result.reserve(leading_zeroes + static_cast<size_t>(digits.end() - first));
+  for (; first != digits.end(); ++first) {
+    result.push_back(BASE58_ALPHABET[*first]);
+  }
+  return apply_wrap(result, wrap);
+}
+
+auto decode_base58(std::string_view input, bool ignore_garbage)
+    -> std::expected<std::string, std::string> {
+  std::array<int, 256> map;
+  map.fill(-1);
+  for (size_t i = 0; i < BASE58_ALPHABET.size(); ++i) {
+    map[static_cast<unsigned char>(BASE58_ALPHABET[i])] = static_cast<int>(i);
+  }
+
+  std::string clean;
+  clean.reserve(input.size());
+  for (unsigned char c : input) {
+    if (c == '\n' || c == '\r') continue;
+    if (map[c] >= 0) {
+      clean.push_back(static_cast<char>(c));
+      continue;
+    }
+    if (!ignore_garbage) return std::unexpected("invalid input");
+  }
+
+  size_t leading_zeroes = 0;
+  while (leading_zeroes < clean.size() && clean[leading_zeroes] == '1') {
+    ++leading_zeroes;
+  }
+
+  std::vector<unsigned char> bytes(
+      (clean.size() - leading_zeroes) * 733 / 1000 + 1);
+  size_t used = 0;
+  for (size_t i = leading_zeroes; i < clean.size(); ++i) {
+    unsigned int carry =
+        static_cast<unsigned int>(map[static_cast<unsigned char>(clean[i])]);
+    size_t j = 0;
+    for (auto it = bytes.rbegin();
+         (carry != 0 || j < used) && it != bytes.rend(); ++it, ++j) {
+      carry += static_cast<unsigned int>(*it) * 58;
+      *it = static_cast<unsigned char>(carry & 0xff);
+      carry >>= 8;
+    }
+    used = j;
+  }
+
+  auto first = bytes.begin() + static_cast<std::ptrdiff_t>(bytes.size() - used);
+  while (first != bytes.end() && *first == 0) ++first;
+
+  std::string result(leading_zeroes, '\0');
+  result.reserve(leading_zeroes + static_cast<size_t>(bytes.end() - first));
+  for (; first != bytes.end(); ++first) {
+    result.push_back(static_cast<char>(*first));
+  }
+  return result;
+}
+
+auto encode_z85(std::string_view input, int wrap)
+    -> std::expected<std::string, std::string> {
+  if (input.size() % 4 != 0) {
+    return std::unexpected("invalid input length for z85 encoding");
+  }
+
+  std::string result;
+  result.reserve((input.size() / 4) * 5);
+  for (size_t i = 0; i < input.size(); i += 4) {
+    uint32_t value = 0;
+    for (size_t j = 0; j < 4; ++j) {
+      value = (value << 8) | static_cast<unsigned char>(input[i + j]);
+    }
+
+    char encoded[5];
+    for (int j = 4; j >= 0; --j) {
+      encoded[j] = Z85_ALPHABET[value % 85];
+      value /= 85;
+    }
+    result.append(encoded, 5);
+  }
+  return apply_wrap(result, wrap);
+}
+
+auto decode_z85(std::string_view input, bool ignore_garbage)
+    -> std::expected<std::string, std::string> {
+  std::array<int, 256> map;
+  map.fill(-1);
+  for (size_t i = 0; i < Z85_ALPHABET.size(); ++i) {
+    map[static_cast<unsigned char>(Z85_ALPHABET[i])] = static_cast<int>(i);
+  }
+
+  std::string clean;
+  clean.reserve(input.size());
+  for (unsigned char c : input) {
+    if (c == '\n' || c == '\r') continue;
+    if (map[c] >= 0) {
+      clean.push_back(static_cast<char>(c));
+      continue;
+    }
+    if (!ignore_garbage) return std::unexpected("invalid input");
+  }
+
+  if (clean.size() % 5 != 0) {
+    return std::unexpected("invalid input length for z85 decoding");
+  }
+
+  std::string result;
+  result.reserve((clean.size() / 5) * 4);
+  for (size_t i = 0; i < clean.size(); i += 5) {
+    uint64_t value = 0;
+    for (size_t j = 0; j < 5; ++j) {
+      value = value * 85 + static_cast<uint32_t>(
+                               map[static_cast<unsigned char>(clean[i + j])]);
+    }
+    if (value > std::numeric_limits<uint32_t>::max()) {
+      return std::unexpected("invalid input");
+    }
+
+    for (int shift = 24; shift >= 0; shift -= 8) {
+      result.push_back(static_cast<char>((value >> shift) & 0xff));
+    }
+  }
+  return result;
+}
+
 auto parse_legacy_selector(std::string_view selector)
     -> std::expected<Encoding, std::string> {
   if (selector == "64" || selector == "base64") return Encoding::Base64;
   if (selector == "64url" || selector == "base64url")
     return Encoding::Base64Url;
+  if (selector == "58" || selector == "base58") return Encoding::Base58;
   if (selector == "32" || selector == "base32") return Encoding::Base32;
   if (selector == "32hex" || selector == "base32hex")
     return Encoding::Base32Hex;
@@ -371,6 +530,7 @@ auto parse_legacy_selector(std::string_view selector)
     return Encoding::Base2Msbf;
   }
   if (selector == "base2lsbf") return Encoding::Base2Lsbf;
+  if (selector == "z85") return Encoding::Z85;
 
   return std::unexpected("invalid encoding '" + std::string(selector) + "'");
 }
@@ -463,9 +623,11 @@ auto process(const Config& cfg, std::string_view input)
       if (cfg.decode) return decode_base2(input, false, cfg.ignore_garbage);
       return encode_base2(input, false, cfg.wrap);
     case Encoding::Base58:
-      return std::unexpected("base58 encoding is not implemented");
+      if (cfg.decode) return decode_base58(input, cfg.ignore_garbage);
+      return encode_base58(input, cfg.wrap);
     case Encoding::Z85:
-      return std::unexpected("z85 encoding is not implemented");
+      if (cfg.decode) return decode_z85(input, cfg.ignore_garbage);
+      return encode_z85(input, cfg.wrap);
   }
 
   return std::unexpected("invalid encoding");

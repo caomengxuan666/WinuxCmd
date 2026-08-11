@@ -12,7 +12,7 @@ Scope excludes `wpm` by release policy.
 | P0 hot commands | 33 |
 | P1 commands | 39 |
 | P2 commands | 82 |
-| Declared unsupported options | 7 |
+| Declared unsupported options | 4 |
 | Declared placeholder/no-op options | 16 |
 | Commands without direct unit tests | 0 |
 | P0 commands thin vs upstream | 0 |
@@ -32,7 +32,7 @@ Scope excludes `wpm` by release policy.
 
 - P0 commands thin vs upstream: _None._.
 - Commands without direct unit tests: _None._.
-- Commands with unsupported or placeholder options: `cat`, `egrep`, `fgrep`, `find`, `grep`, `less`, `more`, `touch`, `install`, `kill`, `stat`, `strings`, `hostname`.
+- Commands with unsupported or placeholder options: `cat`, `find`, `less`, `more`, `touch`, `install`, `kill`, `stat`, `strings`, `hostname`.
 - P0 commands without performance probes yet: _None._.
 
 ## Matrix
@@ -66,9 +66,9 @@ Scope excludes `wpm` by release policy.
 | P0 | `diff` | [gnu-diffutils](https://www.gnu.org/software/diffutils/manual/) | 626 | 1507 | 5 | 0 | 0 | 13 | 1 | 0.7x | 0 | `src/commands/diff.cpp` | Performance probes: 1. |
 | P0 | `find` | [gnu-findutils](https://www.gnu.org/software/findutils/manual/) | 2915 | 4965 | 79 | 0 | 1 | 104 | 6 | 2.8x | 0 | `src/commands/find.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 6. |
 | P0 | `xargs` | [gnu-findutils](https://www.gnu.org/software/findutils/manual/) | 1311 | 1905 | 21 | 0 | 0 | 79 | 2 | 0.0x | 0 | `src/commands/xargs.cpp` | Performance probes: 2. |
-| P0 | `egrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 1 | 0 | 2 | 1 | 1.3x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has explicitly unsupported declared option(s).<br>Performance probes: 1. |
-| P0 | `fgrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 1 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has explicitly unsupported declared option(s).<br>Performance probes: 1. |
-| P0 | `grep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 1 | 0 | 82 | 6 | 1.5x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has explicitly unsupported declared option(s).<br>Performance probes: 6. |
+| P0 | `egrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 0 | 0 | 2 | 1 | 1.3x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
+| P0 | `fgrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
+| P0 | `grep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 0 | 0 | 82 | 6 | 1.5x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 6. |
 | P0 | `sed` | [gnu-sed](https://www.gnu.org/software/sed/manual/) | 1960 | 2885 | 13 | 0 | 0 | 86 | 4 | 1.3x | 0 | `src/commands/sed.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 4. |
 | P0 | `less` | [less](https://www.greenwoodsoftware.com/less/) | 512 | 5961 | 14 | 0 | 4 | 4 | 1 | 0.9x | 0 | `src/commands/less.cpp` | Interactive terminal behavior needs PTY/manual coverage.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 1. |
 | P0 | `more` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 365 | 2071 | 10 | 0 | 1 | 10 | 3 | 1.1x | 0 | `src/commands/more.cpp` | Interactive terminal behavior needs PTY/manual coverage.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |

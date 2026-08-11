@@ -22,13 +22,23 @@
  *  - File: regex.cppm
  *  - CopyrightYear: 2026
  */
+module;
+
+#ifdef WINUXCMD_ENABLE_PCRE2
+#define PCRE2_CODE_UNIT_WIDTH 8
+#ifndef PCRE2_STATIC
+#define PCRE2_STATIC
+#endif
+#include <pcre2.h>
+#endif
+
 export module utils:regex;
 
 import std;
 
 export namespace portable_regex {
 
-enum class Syntax { Basic, Extended };
+enum class Syntax { Basic, Extended, Perl };
 
 struct Submatch {
   size_t begin = 0;
@@ -226,10 +236,6 @@ class Parser {
 
   auto make_escape_class(char escaped) -> std::optional<size_t> {
     switch (escaped) {
-      case 'd':
-        return make_posix_class("digit");
-      case 'D':
-        return make_posix_class("digit", true);
       case 's':
         return make_posix_class("space");
       case 'S':
@@ -559,6 +565,9 @@ class Pattern {
   Pattern() = default;
 
   [[nodiscard]] auto valid() const -> bool {
+#ifdef WINUXCMD_ENABLE_PCRE2
+    if (engine_ == Engine::Pcre2) return static_cast<bool>(pcre2_code_);
+#endif
     return root_ != detail::kInvalidNode;
   }
 
@@ -567,6 +576,9 @@ class Pattern {
   [[nodiscard]] auto match_at(std::string_view text, size_t start) const
       -> std::optional<Match> {
     if (!valid() || start > text.size()) return std::nullopt;
+#ifdef WINUXCMD_ENABLE_PCRE2
+    if (engine_ == Engine::Pcre2) return pcre2_find(text, start, true);
+#endif
 
     auto states = match_node(root_, text, make_initial_state(start));
     if (states.empty()) return std::nullopt;
@@ -580,6 +592,9 @@ class Pattern {
   [[nodiscard]] auto find_first(std::string_view text, size_t start = 0) const
       -> std::optional<Match> {
     if (!valid() || start > text.size()) return std::nullopt;
+#ifdef WINUXCMD_ENABLE_PCRE2
+    if (engine_ == Engine::Pcre2) return pcre2_find(text, start, false);
+#endif
 
     for (size_t cursor = start; cursor <= text.size(); ++cursor) {
       auto states = match_node(root_, text, make_initial_state(cursor));
@@ -610,6 +625,12 @@ class Pattern {
 
   [[nodiscard]] auto matches_entire(std::string_view text) const -> bool {
     if (!valid()) return false;
+#ifdef WINUXCMD_ENABLE_PCRE2
+    if (engine_ == Engine::Pcre2) {
+      auto match = pcre2_find(text, 0, true);
+      return match && match->begin == 0 && match->end == text.size();
+    }
+#endif
     auto states = match_node(root_, text, make_initial_state(0));
     return std::ranges::any_of(
         states, [&](const State& st) { return st.pos == text.size(); });
@@ -620,15 +641,67 @@ class Pattern {
   friend auto compile(Syntax syntax, std::string_view pattern, bool ignore_case)
       -> CompileResult;
 
+  enum class Engine { Local, Pcre2 };
+
+  Engine engine_ = Engine::Local;
   bool ignore_case_ = false;
   size_t root_ = detail::kInvalidNode;
   size_t capture_count_ = 0;
   std::vector<detail::Node> nodes_;
+#ifdef WINUXCMD_ENABLE_PCRE2
+  struct Pcre2CodeDeleter {
+    auto operator()(pcre2_code* code) const -> void { pcre2_code_free(code); }
+  };
+  std::shared_ptr<pcre2_code> pcre2_code_;
+#endif
 
   struct State {
     size_t pos = 0;
     std::vector<Submatch> captures;
   };
+
+#ifdef WINUXCMD_ENABLE_PCRE2
+  [[nodiscard]] auto pcre2_find(std::string_view text, size_t start,
+                                bool anchored) const -> std::optional<Match> {
+    if (!pcre2_code_ || start > text.size()) return std::nullopt;
+
+    using MatchDataPtr =
+        std::unique_ptr<pcre2_match_data, decltype(&pcre2_match_data_free)>;
+    MatchDataPtr data(pcre2_match_data_create_from_pattern(pcre2_code_.get(),
+                                                           nullptr),
+                      &pcre2_match_data_free);
+    if (!data) return std::nullopt;
+
+    uint32_t options = anchored ? PCRE2_ANCHORED : 0;
+    int rc = pcre2_match(
+        pcre2_code_.get(),
+        reinterpret_cast<PCRE2_SPTR>(text.data()),
+        text.size(),
+        start,
+        options,
+        data.get(),
+        nullptr);
+    if (rc <= 0) return std::nullopt;
+
+    PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(data.get());
+    Match match;
+    match.begin = static_cast<size_t>(ovector[0]);
+    match.end = static_cast<size_t>(ovector[1]);
+    match.captures.resize(static_cast<size_t>(rc));
+    for (int i = 0; i < rc; ++i) {
+      PCRE2_SIZE begin = ovector[2 * i];
+      PCRE2_SIZE end = ovector[2 * i + 1];
+      if (begin == PCRE2_UNSET || end == PCRE2_UNSET) {
+        match.captures[static_cast<size_t>(i)] = Submatch{};
+      } else {
+        match.captures[static_cast<size_t>(i)] =
+            Submatch{static_cast<size_t>(begin), static_cast<size_t>(end),
+                     true};
+      }
+    }
+    return match;
+  }
+#endif
 
   [[nodiscard]] auto make_initial_state(size_t pos) const -> State {
     return State{pos, std::vector<Submatch>(capture_count_ + 1)};
@@ -851,6 +924,56 @@ struct CompileResult {
 
 auto compile(Syntax syntax, std::string_view pattern, bool ignore_case = false)
     -> CompileResult {
+#ifdef WINUXCMD_ENABLE_PCRE2
+  if (syntax == Syntax::Perl) {
+    int error_code = 0;
+    PCRE2_SIZE error_offset = 0;
+    uint32_t flags = PCRE2_DOLLAR_ENDONLY | PCRE2_UTF;
+    if (ignore_case) flags |= PCRE2_CASELESS;
+
+    using CompileContextPtr =
+        std::unique_ptr<pcre2_compile_context,
+                        decltype(&pcre2_compile_context_free)>;
+    CompileContextPtr context(pcre2_compile_context_create(nullptr),
+                              &pcre2_compile_context_free);
+    if (!context) {
+      return CompileResult{Pattern{}, "failed to create PCRE2 context"};
+    }
+
+#ifdef PCRE2_EXTRA_ASCII_BSD
+    pcre2_set_compile_extra_options(context.get(), PCRE2_EXTRA_ASCII_BSD);
+    flags |= PCRE2_UCP;
+#endif
+
+    pcre2_code* raw_code = pcre2_compile(
+        reinterpret_cast<PCRE2_SPTR>(pattern.data()),
+        pattern.size(),
+        flags,
+        &error_code,
+        &error_offset,
+        context.get());
+    if (!raw_code) {
+      PCRE2_UCHAR message[256]{};
+      pcre2_get_error_message(error_code, message, sizeof(message));
+      return CompileResult{
+          Pattern{},
+          std::string(reinterpret_cast<const char*>(message))};
+    }
+
+    Pattern compiled;
+    compiled.engine_ = Pattern::Engine::Pcre2;
+    compiled.ignore_case_ = ignore_case;
+    compiled.root_ = 0;
+    compiled.pcre2_code_ =
+        std::shared_ptr<pcre2_code>(raw_code, Pattern::Pcre2CodeDeleter{});
+    return CompileResult{std::move(compiled), {}};
+  }
+#else
+  if (syntax == Syntax::Perl) {
+    return CompileResult{Pattern{}, "Perl matching not supported in this build"};
+  }
+#endif
+
   detail::Parser parser(syntax, pattern, ignore_case);
   size_t root = parser.parse();
   if (parser.failed()) {

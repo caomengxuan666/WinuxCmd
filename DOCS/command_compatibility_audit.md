@@ -414,6 +414,9 @@ Updated:
 - Added GNU `-NUM` context shorthand through the shared option parser.
 - Extended `GREP_COLORS` handling for `sl=`, `cx=`, and `rv`, including the
   `-v` selected/context line-color swap and context-line `mc=` match color.
+- Added `-P/--perl-regexp` through static PCRE2, with JIT disabled by default;
+  the shared clean-room BRE/ERE matcher remains the engine for `-G`, `-E`,
+  `sed`, `find`, and other POSIX-regex consumers.
 - Added regression coverage for GNU word-boundary tokens, GNU BRE escaped
   alternation (`\\|`), POSIX classes, intervals, `-f -`, `-u`, `-U`,
   `egrep`/`fgrep`, fixed-string streaming,
@@ -424,7 +427,8 @@ Updated:
 
 Remaining grep gaps versus GNU grep:
 
-- `-P/--perl-regexp` remains unsupported.
+- Deeper GNU `pcresearch.c` edge cases remain, especially around locale,
+  binary/NUL combinations, and exact warning wording.
 - Context/colored/only-matching paths still use the richer in-memory scanner;
   the GNU source keeps these concerns inside the scanner, so this needs a
   second streaming pass rather than an output-only patch.

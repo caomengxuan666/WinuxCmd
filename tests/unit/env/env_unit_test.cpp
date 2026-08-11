@@ -84,6 +84,17 @@ TEST(env, env_ignore_environment_and_set) {
   EXPECT_TRUE(r.stdout_text.find("SHOULD_NOT") == std::string::npos);
 }
 
+TEST(env, env_lone_dash_implies_ignore_environment) {
+  Pipeline p;
+  p.set_env(L"SHOULD_NOT", L"SEE");
+  p.add(L"env.exe", {L"-", L"X=1"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(has_env_line(r.stdout_text, "X", "1"));
+  EXPECT_TRUE(r.stdout_text.find("SHOULD_NOT") == std::string::npos);
+}
+
 TEST(env, env_unset_variable) {
   Pipeline p;
   p.set_env(L"KEEP", L"1");
@@ -201,6 +212,20 @@ TEST(env, env_runs_command_with_empty_environment) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("BAR") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("SHOULD_NOT") == std::string::npos);
+}
+
+TEST(env, env_modified_path_is_used_for_command_lookup) {
+  TempDir tmp;
+  std::filesystem::copy_file(system_cmd(), tmp.path / "mycmd.exe",
+                             std::filesystem::copy_options::overwrite_existing);
+
+  Pipeline p;
+  p.add(L"env.exe", {L"-i", L"PATH=" + tmp.wpath(), L"mycmd", L"/C", L"echo",
+                     L"PATH_OK"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("PATH_OK") != std::string::npos);
 }
 
 TEST(env, env_null_with_command_reports_usage_error) {

@@ -51,6 +51,11 @@ option(ENABLE_TESTS "Enable tests" ON)
 # but local test builds can disable this to avoid network FetchContent.
 option(ENABLE_BENCHMARKS "Enable benchmark targets" ON)
 
+# Enable PCRE2 for GNU grep -P / --perl-regexp. JIT stays off by default to
+# keep the Windows-native bundle small and avoid executable-memory allocation.
+option(WINUXCMD_ENABLE_PCRE2 "Enable PCRE2-backed grep -P support" ON)
+option(WINUXCMD_PCRE2_JIT "Enable PCRE2 JIT support" OFF)
+
 set(WINUXCMD_CXX_DIALECT "23" CACHE STRING "C++ dialect canary: 23, 26, or latest")
 set_property(CACHE WINUXCMD_CXX_DIALECT PROPERTY STRINGS "23" "26" "latest")
 if (NOT WINUXCMD_CXX_DIALECT STREQUAL "23" AND
@@ -157,6 +162,28 @@ project(WinuxCmd
         DESCRIPTION "Windows Compatible Linux Command Set"
         LANGUAGES CXX C
 )
+
+if(WINUXCMD_ENABLE_PCRE2)
+    include(FetchContent)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
+    set(PCRE2_BUILD_PCRE2_8 ON CACHE BOOL "" FORCE)
+    set(PCRE2_BUILD_PCRE2_16 OFF CACHE BOOL "" FORCE)
+    set(PCRE2_BUILD_PCRE2_32 OFF CACHE BOOL "" FORCE)
+    set(PCRE2_BUILD_PCRE2GREP OFF CACHE BOOL "" FORCE)
+    set(PCRE2_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(PCRE2_SUPPORT_UNICODE ON CACHE BOOL "" FORCE)
+    set(PCRE2_SUPPORT_JIT ${WINUXCMD_PCRE2_JIT} CACHE BOOL "" FORCE)
+    set(PCRE2_STATIC_PIC OFF CACHE BOOL "" FORCE)
+
+    FetchContent_Declare(
+            winuxcmd_pcre2
+            URL https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.gz
+            URL_HASH SHA256=c08ae2388ef333e8403e670ad70c0a11f1eed021fd88308d7e02f596fcd9dc16
+    )
+    FetchContent_MakeAvailable(winuxcmd_pcre2)
+    set(WINUXCMD_PCRE2_TARGET pcre2-8-static)
+endif()
 
 set(WINUXCMD_IMPORT_STD_LEVELS "${CMAKE_CXX_COMPILER_IMPORT_STD}")
 if (WINUXCMD_CXX_DIALECT STREQUAL "23")
@@ -365,6 +392,11 @@ target_compile_definitions(winuxcmd-commands PRIVATE
         _HAS_RTTI=0
 )
 
+if(WINUXCMD_ENABLE_PCRE2)
+    target_compile_definitions(winuxcmd-commands PRIVATE WINUXCMD_ENABLE_PCRE2)
+    target_link_libraries(winuxcmd-commands PRIVATE ${WINUXCMD_PCRE2_TARGET})
+endif()
+
 # Link options
 target_link_options(winuxcmd-commands PRIVATE
         $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
@@ -387,6 +419,9 @@ message(STATUS "Commands library created with ${COMMAND_SOURCES_COUNT} files")
 
 # Link commands library to main executable
 target_link_libraries(winuxcmd PRIVATE winuxcmd-commands winuxcmd-modules)
+if(WINUXCMD_ENABLE_PCRE2)
+    target_link_libraries(winuxcmd PRIVATE ${WINUXCMD_PCRE2_TARGET})
+endif()
 
 # Keep all command registration translation units from static library.
 # Without WHOLEARCHIVE, MSVC may discard unreferenced objects and leave
@@ -703,6 +738,11 @@ if(BUILD_STANDALONE)
             _HAS_RTTI=0
         )
 
+        if(WINUXCMD_ENABLE_PCRE2)
+            target_compile_definitions(${CMD_TARGET_NAME} PRIVATE WINUXCMD_ENABLE_PCRE2)
+            target_link_libraries(${CMD_TARGET_NAME} PRIVATE ${WINUXCMD_PCRE2_TARGET})
+        endif()
+
         target_link_options(${CMD_TARGET_NAME} PRIVATE
             $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
         )
@@ -898,6 +938,7 @@ message(STATUS "Map Info Generation: ${GENERATE_MAP_INFO}")
 message(STATUS "Unity Build: ${ENABLE_UNITY_BUILD}")
 message(STATUS "UPX Compression: ${ENABLE_UPX} (PERMANENTLY DISABLED)")
 message(STATUS "Static CRT: ${USE_STATIC_CRT}")
+message(STATUS "PCRE2 grep -P: ${WINUXCMD_ENABLE_PCRE2} (JIT=${WINUXCMD_PCRE2_JIT})")
 message(STATUS "Note: UPX compression has been permanently disabled for reliability")
 message(STATUS "Note: Run `winuxcmd wpm links rebuild` in bin directory to generate command links")
 message(STATUS "=================================================================")

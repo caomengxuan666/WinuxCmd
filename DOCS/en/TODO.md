@@ -150,6 +150,8 @@
 - [ ] date advanced formatting
 - [ ] time (measure command execution time)
 - [x] grep (pattern matching)
+- [x] grep `-P` / PCRE2-compatible matching (high-priority common option;
+      implemented with static PCRE2, no JIT by default)
 - [x] sed (stream editor)
 - [x] sort (text sorting)
 - [x] uniq (duplicate detection)
@@ -257,6 +259,7 @@
 - [x] locale (locale info)
 - [x] tzset (timezone)
 - [x] cygpath (path conversion)
+  - [x] `-f`, `-p`, `-U`, `-M`, short/long-name, and common special-folder options
 - [x] dos2unix (line ending conversion)
 - [x] unix2dos (line ending conversion)
 - [x] d2u (alias for dos2unix)
@@ -347,4 +350,3 @@
 - Maintain clean, well-documented code
 - Use C++23 modules for all new code
 - Separate interface (.cppm) and implementation (.cpp) files
-

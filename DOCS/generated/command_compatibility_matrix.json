@@ -4458,7 +4458,7 @@
     "priority": "P0",
     "option_count": 49,
     "placeholder_count": 0,
-    "unsupported_count": 1,
+    "unsupported_count": 0,
     "test_count": 82,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
@@ -4488,9 +4488,9 @@
       {
         "short": "-P",
         "long": "--perl-regexp",
-        "description": "PATTERNS are Perl regular expressions [NOT SUPPORT]",
+        "description": "PATTERNS are Perl regular expressions",
         "value_type": "flag",
-        "status": "unsupported"
+        "status": "declared"
       },
       {
         "short": "-e",
@@ -4824,7 +4824,7 @@
     "priority": "P0",
     "option_count": 49,
     "placeholder_count": 0,
-    "unsupported_count": 1,
+    "unsupported_count": 0,
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
@@ -4854,9 +4854,9 @@
       {
         "short": "-P",
         "long": "--perl-regexp",
-        "description": "PATTERNS are Perl regular expressions [NOT SUPPORT]",
+        "description": "PATTERNS are Perl regular expressions",
         "value_type": "flag",
-        "status": "unsupported"
+        "status": "declared"
       },
       {
         "short": "-e",
@@ -5190,7 +5190,7 @@
     "priority": "P0",
     "option_count": 49,
     "placeholder_count": 0,
-    "unsupported_count": 1,
+    "unsupported_count": 0,
     "test_count": 2,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
@@ -5220,9 +5220,9 @@
       {
         "short": "-P",
         "long": "--perl-regexp",
-        "description": "PATTERNS are Perl regular expressions [NOT SUPPORT]",
+        "description": "PATTERNS are Perl regular expressions",
         "value_type": "flag",
-        "status": "unsupported"
+        "status": "declared"
       },
       {
         "short": "-e",
