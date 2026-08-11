@@ -238,6 +238,12 @@ struct SearchState {
   bool forward = true;
 };
 
+struct MatchLocation {
+  size_t line = 0;
+  size_t begin = 0;
+  size_t end = 0;
+};
+
 auto redraw_prompt_text(wchar_t prompt, std::wstring_view text) -> void {
   safePrint("\r\033[K");
   safePrint(std::wstring_view(&prompt, 1));
@@ -257,6 +263,7 @@ auto read_prompt_text(HANDLE input, wchar_t prompt,
   std::wstring text;
   std::optional<std::wstring> draft;
   size_t history_index = history.size();
+  safePrint("\r\033[K");
   safePrint(std::wstring_view(&prompt, 1));
 
   INPUT_RECORD record{};
@@ -384,38 +391,48 @@ auto max_top_for(size_t line_count, size_t page_size) -> size_t {
   return line_count > page_size ? line_count - page_size : 0;
 }
 
-auto line_contains(std::string_view line, std::string_view needle) -> bool {
-  return needle.empty() || line.find(needle) != std::string_view::npos;
+auto top_line_for_match(size_t match_line, size_t max_top, size_t page_size)
+    -> size_t {
+  size_t context = page_size > 4 ? page_size / 3 : 0;
+  size_t target = match_line > context ? match_line - context : 0;
+  return std::min(target, max_top);
 }
 
 auto find_match(const std::vector<std::string>& lines,
-                const SearchState& search, size_t top_line, bool forward)
-    -> std::optional<size_t> {
+                const SearchState& search, size_t anchor_line, bool forward)
+    -> std::optional<MatchLocation> {
   if (lines.empty() || search.text.empty()) return std::nullopt;
 
+  auto line_match = [&](size_t index) -> std::optional<MatchLocation> {
+    size_t pos = lines[index].find(search.text);
+    if (pos == std::string_view::npos) return std::nullopt;
+    return MatchLocation{index, pos, pos + search.text.size()};
+  };
+
   if (forward) {
-    size_t start = std::min(top_line + 1, lines.size());
+    size_t start = std::min(anchor_line + 1, lines.size());
     for (size_t i = start; i < lines.size(); ++i) {
-      if (line_contains(lines[i], search.text)) return i;
+      if (auto match = line_match(i)) return match;
     }
     for (size_t i = 0; i < start; ++i) {
-      if (line_contains(lines[i], search.text)) return i;
+      if (auto match = line_match(i)) return match;
     }
   } else {
-    size_t start = top_line == 0 ? lines.size() - 1 : top_line - 1;
+    size_t start = anchor_line == 0 ? lines.size() - 1 : anchor_line - 1;
     for (size_t i = start + 1; i-- > 0;) {
-      if (line_contains(lines[i], search.text)) return i;
+      if (auto match = line_match(i)) return match;
       if (i == 0) break;
     }
     for (size_t i = lines.size(); i-- > start + 1;) {
-      if (line_contains(lines[i], search.text)) return i;
+      if (auto match = line_match(i)) return match;
     }
   }
 
   return std::nullopt;
 }
 
-auto highlighted_line(std::string_view line, const SearchState* search)
+auto highlighted_line(std::string_view line, const SearchState* search,
+                      std::optional<std::pair<size_t, size_t>> current_range)
     -> std::string {
   if (!search || search->text.empty() || !shouldUseAnsiColorStdout()) {
     return std::string(line);
@@ -431,7 +448,10 @@ auto highlighted_line(std::string_view line, const SearchState* search)
     }
 
     out.append(line.substr(cursor, pos - cursor));
-    out += "\033[7m";
+    const bool is_current =
+        current_range && current_range->first == pos &&
+        current_range->second == pos + search->text.size();
+    out += is_current ? "\033[1;30;43m" : "\033[7m";
     out.append(line.substr(pos, search->text.size()));
     out += ANSI_RESET;
     cursor = pos + search->text.size();
@@ -441,7 +461,8 @@ auto highlighted_line(std::string_view line, const SearchState* search)
 
 auto render(const Options& options, const std::vector<std::string>& lines,
             size_t top_line, size_t page_size, int width,
-            const SearchState* search) -> void {
+            const SearchState* search, const MatchLocation* current_match)
+    -> void {
   clearConsoleViewport();
 
   for (size_t i = 0; i < page_size; ++i) {
@@ -452,7 +473,14 @@ auto render(const Options& options, const std::vector<std::string>& lines,
     }
 
     auto line = clamp_to_width(lines[line_index], width);
-    safePrintLn(highlighted_line(line, search));
+    std::optional<std::pair<size_t, size_t>> current_range;
+    if (current_match && current_match->line == line_index &&
+        current_match->begin < line.size()) {
+      current_range = std::pair{
+          current_match->begin,
+          std::min(current_match->end, static_cast<size_t>(line.size()))};
+    }
+    safePrintLn(highlighted_line(line, search, current_range));
   }
 
   bool at_eof = top_line + page_size >= lines.size();
@@ -498,6 +526,7 @@ export auto page_text(std::string_view content, const Options& options = {})
 
   size_t top_line = 0;
   std::optional<SearchState> last_search;
+  std::optional<MatchLocation> last_match;
   std::vector<std::wstring> search_history;
   while (true) {
     auto [width, height] = getConsoleViewportSize();
@@ -505,36 +534,45 @@ export auto page_text(std::string_view content, const Options& options = {})
     const size_t max_top = max_top_for(lines.size(), page_size);
     top_line = std::min(top_line, max_top);
     render(options, lines, top_line, page_size, width,
-           last_search ? &*last_search : nullptr);
+           last_search ? &*last_search : nullptr,
+           last_match ? &*last_match : nullptr);
 
     Command command = read_action(input_mode.input(), search_history);
     switch (command.action) {
       case Action::NextPage:
         top_line = std::min(max_top, top_line + page_size);
+        last_match.reset();
         break;
       case Action::NextLine:
         top_line = std::min(max_top, top_line + 1);
+        last_match.reset();
         break;
       case Action::NextHalfPage:
         top_line =
             std::min(max_top, top_line + std::max<size_t>(1, page_size / 2));
+        last_match.reset();
         break;
       case Action::PrevPage:
         top_line = top_line > page_size ? top_line - page_size : 0;
+        last_match.reset();
         break;
       case Action::PrevLine:
         if (top_line > 0) --top_line;
+        last_match.reset();
         break;
       case Action::PrevHalfPage: {
         size_t step = std::max<size_t>(1, page_size / 2);
         top_line = top_line > step ? top_line - step : 0;
+        last_match.reset();
         break;
       }
       case Action::FirstLine:
         top_line = 0;
+        last_match.reset();
         break;
       case Action::LastLine:
         top_line = max_top;
+        last_match.reset();
         break;
       case Action::SearchForward:
       case Action::SearchBackward: {
@@ -542,7 +580,8 @@ export auto page_text(std::string_view content, const Options& options = {})
         bool forward = command.action == Action::SearchForward;
         last_search = SearchState{std::move(command.text), forward};
         if (auto match = find_match(lines, *last_search, top_line, forward)) {
-          top_line = std::min(*match, max_top);
+          last_match = *match;
+          top_line = top_line_for_match(match->line, max_top, page_size);
         }
         break;
       }
@@ -551,8 +590,10 @@ export auto page_text(std::string_view content, const Options& options = {})
         if (last_search) {
           bool forward = last_search->forward;
           if (command.action == Action::ReverseSearch) forward = !forward;
-          if (auto match = find_match(lines, *last_search, top_line, forward)) {
-            top_line = std::min(*match, max_top);
+          size_t anchor = last_match ? last_match->line : top_line;
+          if (auto match = find_match(lines, *last_search, anchor, forward)) {
+            last_match = *match;
+            top_line = top_line_for_match(match->line, max_top, page_size);
           }
         }
         break;
