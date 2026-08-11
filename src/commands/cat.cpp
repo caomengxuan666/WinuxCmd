@@ -315,27 +315,23 @@ REGISTER_COMMAND(cat, "cat",
       return true;
     }
 
-    std::ifstream file(std::string(path), std::ios::binary);
-
-    if (!file.is_open()) {
-      std::error_code ec;
-      if (std::filesystem::is_directory(std::filesystem::u8path(path), ec) &&
-          !ec) {
-        safeErrorPrint("cat: ");
-        safeErrorPrint(path);
-        safeErrorPrint(": Is a directory");
-        safeErrorPrint("\n");
-        return false;
-      }
-
-      // OPTIMIZED: No wstring concatenation!
+    auto content = file_io::read_all_file(path);
+    if (!content) {
+      const std::string prefix =
+          "cannot open '" + std::string(path) + "' for reading: ";
       safeErrorPrint("cat: ");
       safeErrorPrint(path);
-      safeErrorPrint(": No such file or directory");
+      safeErrorPrint(": ");
+      if (content.error().starts_with(prefix)) {
+        safeErrorPrint(std::string_view(content.error()).substr(prefix.size()));
+      } else {
+        safeErrorPrint(content.error());
+      }
       safeErrorPrint("\n");
       return false;
     }
 
+    std::istringstream file(*content);
     process_stream(file, ctx, state);
 
     if (file.bad()) {

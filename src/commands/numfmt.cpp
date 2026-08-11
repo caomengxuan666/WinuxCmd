@@ -149,7 +149,7 @@ std::string format_number(long long num, const std::string& unit = "") {
   if (suffix_index == 0) {
     sprintf_s(buffer, sizeof(buffer), "%lld", num);
   } else {
-    sprintf_s(buffer, sizeof(buffer), "%.2f", value);
+    sprintf_s(buffer, sizeof(buffer), "%.1f", value);
   }
 
   std::string result = buffer;
@@ -195,13 +195,7 @@ REGISTER_COMMAND(
     delimiter = ctx.get<std::string>("-d", "");
   }
   int header = 0;
-  auto header_str = ctx.get<std::string>("--header", "0");
-  if (!header_str.empty()) {
-    try {
-      header = std::stoi(header_str);
-    } catch (...) {
-    }
-  }
+  header = ctx.get<int>("--header", 0);
   bool grouping = ctx.get<bool>("--grouping", false);
   std::string invalid_policy = ctx.get<std::string>("--invalid", "abort");
   std::string round_mode = ctx.get<std::string>("--round", "");
@@ -240,6 +234,7 @@ REGISTER_COMMAND(
     return result;
   };
 
+  bool had_invalid = false;
   auto process_number = [&](const std::string& s) -> std::string {
     long long num;
     if (!parse_number(s, num, round_mode)) {
@@ -247,6 +242,7 @@ REGISTER_COMMAND(
         safeErrorPrint("numfmt: invalid number: '" + s + "'\n");
       } else if (invalid_policy == "abort") {
         safeErrorPrint("numfmt: invalid number: '" + s + "'\n");
+        had_invalid = true;
         return s;
       }
       // "ignore" - return as-is
@@ -307,5 +303,5 @@ REGISTER_COMMAND(
     }
   }
 
-  return 0;
+  return had_invalid ? 1 : 0;
 }

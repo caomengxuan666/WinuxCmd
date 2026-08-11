@@ -760,15 +760,15 @@ auto env_var_value(const char* name) -> std::optional<std::string> {
 
 auto trim_ascii(std::string value) -> std::string {
   auto is_space = [](unsigned char c) { return std::isspace(c) != 0; };
-  while (!value.empty() && is_space(static_cast<unsigned char>(value.front()))) {
+  while (!value.empty() &&
+         is_space(static_cast<unsigned char>(value.front()))) {
     value.erase(value.begin());
   }
   while (!value.empty() && is_space(static_cast<unsigned char>(value.back()))) {
     value.pop_back();
   }
-  if (value.size() >= 2 &&
-      ((value.front() == '"' && value.back() == '"') ||
-       (value.front() == '\'' && value.back() == '\''))) {
+  if (value.size() >= 2 && ((value.front() == '"' && value.back() == '"') ||
+                            (value.front() == '\'' && value.back() == '\''))) {
     value = value.substr(1, value.size() - 2);
   }
   return value;
@@ -787,8 +787,7 @@ auto normalize_proxy_server(std::string value) -> std::optional<std::wstring> {
   auto scheme = lower.find("://");
   if (scheme != std::string::npos) {
     auto scheme_name = lower.substr(0, scheme);
-    if (scheme_name != "http" && scheme_name != "https")
-      return std::nullopt;
+    if (scheme_name != "http" && scheme_name != "https") return std::nullopt;
     value.erase(0, scheme + 3);
   }
 
@@ -806,14 +805,15 @@ auto normalize_proxy_server(std::string value) -> std::optional<std::wstring> {
 
 auto proxy_from_environment(bool https) -> std::optional<std::wstring> {
   std::array<std::string_view, 8> names =
-      https ? std::array<std::string_view, 8>{
-                  "WPM_HTTPS_PROXY", "WPM_HTTP_PROXY", "HTTPS_PROXY",
-                  "https_proxy", "ALL_PROXY", "all_proxy", "HTTP_PROXY",
-                  "http_proxy"}
-            : std::array<std::string_view, 8>{
-                  "WPM_HTTP_PROXY", "WPM_HTTPS_PROXY", "HTTP_PROXY",
-                  "http_proxy", "ALL_PROXY", "all_proxy", "HTTPS_PROXY",
-                  "https_proxy"};
+      https
+          ? std::array<std::string_view, 8>{"WPM_HTTPS_PROXY", "WPM_HTTP_PROXY",
+                                            "HTTPS_PROXY",     "https_proxy",
+                                            "ALL_PROXY",       "all_proxy",
+                                            "HTTP_PROXY",      "http_proxy"}
+          : std::array<std::string_view, 8>{"WPM_HTTP_PROXY", "WPM_HTTPS_PROXY",
+                                            "HTTP_PROXY",     "http_proxy",
+                                            "ALL_PROXY",      "all_proxy",
+                                            "HTTPS_PROXY",    "https_proxy"};
   for (auto name : names) {
     std::string key(name);
     if (auto value = env_var_value(key.c_str())) {
@@ -845,8 +845,8 @@ auto set_request_proxy(HINTERNET request, const std::wstring& proxy,
   info.dwAccessType = WINHTTP_ACCESS_TYPE_NAMED_PROXY;
   info.lpszProxy = const_cast<LPWSTR>(proxy.c_str());
   info.lpszProxyBypass = const_cast<LPWSTR>(bypass);
-  return WinHttpSetOption(request, WINHTTP_OPTION_PROXY, &info,
-                          sizeof(info)) != 0;
+  return WinHttpSetOption(request, WINHTTP_OPTION_PROXY, &info, sizeof(info)) !=
+         0;
 }
 
 auto apply_user_proxy(HINTERNET session, HINTERNET request,
@@ -894,8 +894,8 @@ auto apply_user_proxy(HINTERNET session, HINTERNET request,
 }
 
 auto loopback_proxy_candidates() -> std::vector<std::wstring> {
-  return {L"127.0.0.1:7897", L"127.0.0.1:7890",  L"127.0.0.1:7891",
-          L"127.0.0.1:7892", L"127.0.0.1:7893",  L"127.0.0.1:10808",
+  return {L"127.0.0.1:7897", L"127.0.0.1:7890", L"127.0.0.1:7891",
+          L"127.0.0.1:7892", L"127.0.0.1:7893", L"127.0.0.1:10808",
           L"127.0.0.1:10809"};
 }
 
@@ -999,8 +999,8 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
 
     auto original_error = failed.error;
     for (const auto& proxy : loopback_proxy_candidates()) {
-      auto proxied = http_get(url, progress_label, redirects_remaining, proxy,
-                              false);
+      auto proxied =
+          http_get(url, progress_label, redirects_remaining, proxy, false);
       if (proxied.ok) return proxied;
       if (!proxied.error.empty()) {
         failed.error = original_error + "; loopback proxy " +

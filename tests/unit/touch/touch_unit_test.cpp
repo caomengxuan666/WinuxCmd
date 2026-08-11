@@ -139,6 +139,19 @@ TEST(touch, touch_creates_file) {
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "new.txt"));
 }
 
+TEST(touch, touch_creates_utf8_filename) {
+  TempDir tmp;
+  const std::wstring name = L"\x6D4B\x8BD5.txt";
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"touch.exe", {name});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / name));
+}
+
 TEST(touch, touch_no_create_option) {
   TempDir tmp;
 
@@ -149,6 +162,35 @@ TEST(touch, touch_no_create_option) {
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(!std::filesystem::exists(tmp.path / "missing.txt"));
+}
+
+TEST(touch, touch_missing_trailing_separator_is_not_created) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"touch.exe", {L"missing.txt/"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "missing.txt"));
+  EXPECT_TRUE(r.stderr_text.find("touch: cannot touch 'missing.txt/'") !=
+              std::string::npos);
+}
+
+TEST(touch, touch_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "payload");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"touch.exe", {L"file.txt/"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ(tmp.read("file.txt"), "payload");
+  EXPECT_TRUE(r.stderr_text.find("touch: cannot touch 'file.txt/': Not a "
+                                 "directory") != std::string::npos);
 }
 
 TEST(touch, touch_reference_updates_target_time) {

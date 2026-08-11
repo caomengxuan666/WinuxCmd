@@ -53,25 +53,28 @@ REGISTER_COMMAND(man,
 
   if (list_mode) {
     auto commands = CommandRegistry::getAllCommands();
-    safePrintLn(L"Available commands:");
+    std::string output = "Available commands:\n";
     for (const auto &[name, desc] : commands) {
-      std::wstring wname(name.begin(), name.end());
-      std::wstring wdesc(desc.begin(), desc.end());
-      safePrintLn(L"  " + wname + L"  - " + wdesc);
+      output += "  ";
+      output.append(name.data(), name.size());
+      output += "  - ";
+      output.append(desc.data(), desc.size());
+      output += "\n";
     }
-    return 0;
+    return winux::pager::page_text(
+        output, winux::pager::Options{.title = "man --list"});
   }
 
   if (ctx.positionals.empty()) {
-    safePrintLn(L"Usage: man [OPTION]... [COMMAND]...");
-    safePrintLn(L"Display manual page for a WinuxCmd command.");
-    safePrintLn(L"");
-    safePrintLn(L"Options:");
-    safePrintLn(L"  -l, --list    list all available commands");
-    safePrintLn(L"");
-    safePrintLn(L"Example:");
-    safePrintLn(L"  man ls        Show manual page for ls");
-    safePrintLn(L"  man --list    List all commands");
+    safePrintLn("Usage: man [OPTION]... [COMMAND]...");
+    safePrintLn("Display manual page for a WinuxCmd command.");
+    safePrintLn("");
+    safePrintLn("Options:");
+    safePrintLn("  -l, --list    list all available commands");
+    safePrintLn("");
+    safePrintLn("Examples:");
+    safePrintLn("  man ls        Show manual page for ls");
+    safePrintLn("  man --list    List all commands");
     return 0;
   }
 
@@ -85,7 +88,7 @@ REGISTER_COMMAND(man,
     return 1;
   }
 
-  std::wstring wman = utf8_to_wstring(man_page);
-  safePrintLn(wman);
-  return 0;
+  if (!man_page.ends_with('\n')) man_page += "\n";
+  return winux::pager::page_text(
+      man_page, winux::pager::Options{.title = "man " + cmd_name});
 }

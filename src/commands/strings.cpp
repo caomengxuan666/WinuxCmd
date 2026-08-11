@@ -121,13 +121,14 @@ auto build_config(const CommandContext<STRINGS_OPTIONS.size()>& ctx)
     bytes_opt = ctx.get<std::string>("-n", "");
   }
   if (!bytes_opt.empty()) {
-    try {
-      int val = std::stoi(bytes_opt);
-      if (val < 1) return std::unexpected("invalid minimum length");
-      cfg.min_length = static_cast<size_t>(val);
-    } catch (...) {
+    int val = 0;
+    auto [ptr, ec] = std::from_chars(bytes_opt.data(),
+                                     bytes_opt.data() + bytes_opt.size(), val);
+    if (ec != std::errc() || ptr != bytes_opt.data() + bytes_opt.size() ||
+        val < 1) {
       return std::unexpected("invalid minimum length");
     }
+    cfg.min_length = static_cast<size_t>(val);
   }
 
   auto radix_opt = ctx.get<std::string>("--radix", "");

@@ -221,3 +221,20 @@ TEST(unlink, unlink_unmatched_wildcard_falls_back_to_literal_path) {
   EXPECT_EQ_TEXT(r.stderr_text,
                  "unlink: cannot unlink '*.txt': No such file or directory\n");
 }
+
+TEST(unlink, unlink_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"unlink.exe", {L"file.txt/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "unlink: cannot unlink 'file.txt/': Not a directory\n");
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "file.txt"));
+}

@@ -115,39 +115,6 @@ struct Config {
   SmallVector<std::string, 64> files;
 };
 
-struct Handle {
-  HANDLE value = INVALID_HANDLE_VALUE;
-
-  Handle() = default;
-  explicit Handle(HANDLE h) : value(h) {}
-  ~Handle() {
-    if (value != INVALID_HANDLE_VALUE && value != nullptr) {
-      CloseHandle(value);
-    }
-  }
-
-  Handle(const Handle&) = delete;
-  Handle& operator=(const Handle&) = delete;
-
-  Handle(Handle&& other) noexcept
-      : value(std::exchange(other.value, INVALID_HANDLE_VALUE)) {}
-  Handle& operator=(Handle&& other) noexcept {
-    if (this != &other) {
-      if (value != INVALID_HANDLE_VALUE && value != nullptr) {
-        CloseHandle(value);
-      }
-      value = std::exchange(other.value, INVALID_HANDLE_VALUE);
-    }
-    return *this;
-  }
-
-  [[nodiscard]] explicit operator bool() const {
-    return value != INVALID_HANDLE_VALUE && value != nullptr;
-  }
-
-  [[nodiscard]] HANDLE get() const { return value; }
-};
-
 auto readlink_error(const std::string& file, std::string_view reason)
     -> std::string {
   return "readlink: " + file + ": " + std::string(reason);
@@ -188,13 +155,14 @@ auto get_full_path(const std::wstring& path)
   return strip_extended_prefix(std::move(buffer));
 }
 
-auto open_path_handle(const std::wstring& path, bool follow_reparse) -> Handle {
+auto open_path_handle(const std::wstring& path, bool follow_reparse)
+    -> UniqueHandle {
   DWORD flags = FILE_FLAG_BACKUP_SEMANTICS;
   if (!follow_reparse) {
     flags |= FILE_FLAG_OPEN_REPARSE_POINT;
   }
 
-  return Handle(
+  return UniqueHandle(
       CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, flags, nullptr));
@@ -257,7 +225,7 @@ auto find_existing_prefix(const std::filesystem::path& absolute)
 
 auto canonicalize_existing(const std::filesystem::path& absolute)
     -> std::expected<std::wstring, std::string> {
-  Handle handle = open_path_handle(absolute.wstring(), true);
+  UniqueHandle handle = open_path_handle(absolute.wstring(), true);
   if (!handle) {
     return std::unexpected(win32_posix_error_text(GetLastError()));
   }
@@ -327,7 +295,7 @@ auto canonicalize_path(const std::wstring& original, Mode mode)
     return prefix_resolved;
   }
 
-  return (std::filesystem::path(*prefix_resolved) / suffix).wstring();
+  return absolute.wstring();
 }
 
 auto read_link_target(const std::wstring& path)
@@ -341,7 +309,7 @@ auto read_link_target(const std::wstring& path)
     return std::unexpected("Invalid argument");
   }
 
-  Handle handle = open_path_handle(path, false);
+  UniqueHandle handle = open_path_handle(path, false);
   if (!handle) {
     return std::unexpected(win32_posix_error_text(GetLastError()));
   }

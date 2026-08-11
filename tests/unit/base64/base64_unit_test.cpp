@@ -78,6 +78,25 @@ TEST(base64, base64_encode_file) {
   EXPECT_EQ_TEXT(r.stdout_text, "aGVsbG8gd29ybGQK\n");
 }
 
+TEST(base64, base64_encode_file_with_utf8_name) {
+  TempDir tmp;
+  const std::wstring filename = L"\u6570\u636e.txt";
+  const auto file_path = tmp.path / filename;
+  {
+    std::ofstream ofs(file_path, std::ios::binary);
+    ofs << "hello\n";
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"base64.exe", {filename});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "aGVsbG8K\n");
+}
+
 TEST(base64, base64_decode_file) {
   TempDir tmp;
   tmp.write("encoded.txt", "aGVsbG8gd29ybGQK\n");

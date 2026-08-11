@@ -124,8 +124,9 @@ struct CommandContext {
 export template <size_t N>
 CommandContext<N> make_context(
     std::span<std::string_view> args,
-    const std::array<cmd::meta::OptionMeta, N>& metas, bool& ok) {
-  auto parsed = parse_command(args, metas);
+    const std::array<cmd::meta::OptionMeta, N>& metas, bool& ok,
+    OptionParsePolicy policy) {
+  auto parsed = parse_command(args, metas, policy);
   ok = parsed.ok;
 
   CommandContext<N> ctx;
@@ -136,4 +137,11 @@ CommandContext<N> make_context(
   ctx.parse_error = std::move(parsed.error_message);
 
   return ctx;
+}
+
+export template <size_t N>
+CommandContext<N> make_context(
+    std::span<std::string_view> args,
+    const std::array<cmd::meta::OptionMeta, N>& metas, bool& ok) {
+  return make_context(args, metas, ok, OptionParsePolicy{});
 }

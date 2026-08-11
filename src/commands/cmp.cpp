@@ -260,7 +260,7 @@ auto build_config(const CommandContext<CMP_OPTIONS.size()>& ctx)
 auto report_open_error(const Config& cfg, const std::string& file) -> void {
   if (cfg.quiet) return;
   auto err = std::string("cmp: ") + file + ": No such file";
-  cp::Result<int> result = std::unexpected(std::string_view(err));
+  cp::Result<int> result = std::unexpected(err);
   cp::report_error(result, L"cmp");
 }
 

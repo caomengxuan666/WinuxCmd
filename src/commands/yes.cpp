@@ -86,11 +86,14 @@ std::string repeated_block(const std::string& line) {
 std::optional<size_t> test_repeat_limit() {
   const char* raw_limit = getenv("WINUXCMD_YES_REPEAT_LIMIT");
   if (!raw_limit || !*raw_limit) return std::nullopt;
-  try {
-    return static_cast<size_t>(std::stoull(raw_limit));
-  } catch (...) {
+  std::string_view text(raw_limit);
+  size_t value = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
     return std::nullopt;
   }
+  return value;
 }
 
 auto run(const Config& cfg) -> int {

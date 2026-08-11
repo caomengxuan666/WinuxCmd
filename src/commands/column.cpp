@@ -88,8 +88,7 @@ auto constexpr COLUMN_OPTIONS = std::array{
     OPTION("-O", "output-width", "maximum display width", INT_TYPE),
     OPTION("", "--version", "output version information and exit", BOOL_TYPE),
     OPTION("-V", "version", "output version information and exit", BOOL_TYPE),
-    OPTION("", "--help", "display this help and exit", BOOL_TYPE),
-    OPTION("-h", "help", "display this help and exit", BOOL_TYPE)};
+    OPTION("", "--help", "display this help and exit", BOOL_TYPE)};
 
 namespace column_pipeline {
 namespace cp = core::pipeline;

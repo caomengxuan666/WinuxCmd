@@ -133,11 +133,20 @@ REGISTER_COMMAND(unlink,
   }
 
   std::wstring wfilename = utf8_to_wstring(expanded[0]);
-  BOOL result = remove_unlink_target(wfilename);
+  auto operand = native_path::make_api_path_operand_w(wfilename);
+  DWORD attrs = GetFileAttributesW(operand.extended.c_str());
+  if (operand.had_trailing_separator && attrs != INVALID_FILE_ATTRIBUTES &&
+      (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+    safeErrorPrintLn("unlink: cannot unlink '" + expanded[0] +
+                     "': Not a directory");
+    return 1;
+  }
+
+  BOOL result = remove_unlink_target(operand.extended);
   if (!result) {
     DWORD error = GetLastError();
     safeErrorPrintLn("unlink: cannot unlink '" + expanded[0] +
-                     "': " + describe_unlink_failure(wfilename, error));
+                     "': " + describe_unlink_failure(operand.extended, error));
     return 1;
   }
 

@@ -98,16 +98,17 @@ auto build_config(const CommandContext<B2SUM_OPTIONS.size()>& ctx)
     length_opt = ctx.get<std::string>("-l", "");
   }
   if (!length_opt.empty()) {
-    try {
-      cfg.digest_bits = std::stoi(length_opt);
-      if (cfg.digest_bits <= 0 || cfg.digest_bits > 512 ||
-          cfg.digest_bits % 8 != 0) {
-        return std::unexpected(
-            "digest length must be a positive multiple of 8 and at most 512 "
-            "bits");
-      }
-    } catch (...) {
+    auto [ptr, ec] =
+        std::from_chars(length_opt.data(),
+                        length_opt.data() + length_opt.size(), cfg.digest_bits);
+    if (ec != std::errc() || ptr != length_opt.data() + length_opt.size()) {
       return std::unexpected("invalid digest length");
+    }
+    if (cfg.digest_bits <= 0 || cfg.digest_bits > 512 ||
+        cfg.digest_bits % 8 != 0) {
+      return std::unexpected(
+          "digest length must be a positive multiple of 8 and at most 512 "
+          "bits");
     }
   }
 

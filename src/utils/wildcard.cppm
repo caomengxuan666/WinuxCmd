@@ -23,6 +23,10 @@
  *  - Username: Administrator
  *  - CopyrightYear: 2026
  */
+module;
+
+#include "pch/pch.h"
+
 export module utils:wildcard;
 
 import std;

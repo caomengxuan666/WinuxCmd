@@ -187,3 +187,36 @@ TEST(rmdir, rmdir_parents_verbose_reports_failed_ancestor_attempt) {
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "a" / "b"));
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "a" / "b" / "c"));
 }
+
+TEST(rmdir, rmdir_accepts_trailing_separator_operand) {
+  TempDir tmp;
+  std::filesystem::create_directory(tmp.path / "dir");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rmdir.exe", {L"dir/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.empty());
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dir"));
+}
+
+TEST(rmdir, rmdir_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rmdir.exe", {L"file.txt/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "rmdir: failed to remove 'file.txt/': Not a directory\n");
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "file.txt"));
+}

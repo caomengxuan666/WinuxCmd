@@ -110,9 +110,20 @@ export struct ParseResultRuntime {
   std::string error_message;
 };
 
+export struct OptionParsePolicy {
+  bool recognize_double_dash = true;
+  bool allow_long_options = true;
+  bool allow_long_equals = true;
+  bool allow_single_dash_long_options = true;
+  bool allow_numeric_short_options = true;
+  bool allow_short_option_clusters = true;
+  bool allow_short_attached_values = true;
+  bool allow_optional_short_attached_values = true;
+};
+
 export ParseResultRuntime parse_command_runtime(
     std::span<std::string_view> args,
-    std::span<const cmd::meta::OptionMeta> metas) {
+    std::span<const cmd::meta::OptionMeta> metas, OptionParsePolicy policy) {
   ParseResultRuntime result;
   result.options.reset(metas.size());
   using cmd::meta::OptionType;
@@ -169,19 +180,20 @@ export ParseResultRuntime parse_command_runtime(
     std::string_view arg = args[i];
 
     // ---------- "--" : end of options ----------
-    if (!end_of_options && arg == "--") {
+    if (!end_of_options && policy.recognize_double_dash && arg == "--") {
       end_of_options = true;
       continue;
     }
 
     // ---------- long option ----------
-    if (!end_of_options && arg.starts_with("--")) {
+    if (!end_of_options && policy.allow_long_options && arg.starts_with("--")) {
       const cmd::meta::OptionMeta* meta = nullptr;
       std::string_view value;
       std::string_view name = arg;
 
       size_t eq_pos = arg.find('=');
-      bool has_inline_value = eq_pos != std::string_view::npos;
+      bool has_inline_value =
+          policy.allow_long_equals && eq_pos != std::string_view::npos;
       if (has_inline_value) {
         name = arg.substr(0, eq_pos);
         value = arg.substr(eq_pos + 1);
@@ -291,16 +303,19 @@ export ParseResultRuntime parse_command_runtime(
       std::string_view exact_value;
       std::string_view exact_name = arg;
       size_t exact_eq_pos = arg.find('=');
-      bool exact_has_inline_value = exact_eq_pos != std::string_view::npos;
+      bool exact_has_inline_value =
+          policy.allow_long_equals && exact_eq_pos != std::string_view::npos;
       if (exact_has_inline_value) {
         exact_name = arg.substr(0, exact_eq_pos);
         exact_value = arg.substr(exact_eq_pos + 1);
       }
 
-      for (const auto& m : metas) {
-        if (!m.short_name.empty() && m.short_name == exact_name) {
-          exact_meta = &m;
-          break;
+      if (policy.allow_single_dash_long_options) {
+        for (const auto& m : metas) {
+          if (!m.short_name.empty() && m.short_name == exact_name) {
+            exact_meta = &m;
+            break;
+          }
         }
       }
 
@@ -379,7 +394,8 @@ export ParseResultRuntime parse_command_runtime(
         continue;
       }
 
-      if (arg.size() > 1 && is_decimal_digits(arg.substr(1))) {
+      if (policy.allow_numeric_short_options && arg.size() > 1 &&
+          is_decimal_digits(arg.substr(1))) {
         const cmd::meta::OptionMeta* numeric_meta = nullptr;
         for (const auto& m : metas) {
           if (m.short_name == "-NUM") {
@@ -402,6 +418,11 @@ export ParseResultRuntime parse_command_runtime(
           result.options.set(numeric_meta->index, v);
           continue;
         }
+      }
+
+      if (!policy.allow_short_option_clusters && arg.size() > 2) {
+        set_unrecognized_option(arg);
+        return result;
       }
 
       // iterate each short flag: -abc
@@ -437,7 +458,7 @@ export ParseResultRuntime parse_command_runtime(
           case OptionType::String: {
             std::string str;
 
-            if (pos + 1 < arg.size()) {
+            if (policy.allow_short_attached_values && pos + 1 < arg.size()) {
               str = std::string(arg.substr(pos + 1));
             } else {
               if (i + 1 >= args.size()) {
@@ -470,7 +491,8 @@ export ParseResultRuntime parse_command_runtime(
           }
 
           case OptionType::OptionalInt: {
-            if (pos + 1 >= arg.size()) {
+            if (!policy.allow_optional_short_attached_values ||
+                pos + 1 >= arg.size()) {
               result.options.set(idx, -1);
               pos = arg.size();
               break;
@@ -493,7 +515,8 @@ export ParseResultRuntime parse_command_runtime(
 
           case OptionType::OptionalString: {
             std::string str;
-            if (pos + 1 < arg.size()) {
+            if (policy.allow_optional_short_attached_values &&
+                pos + 1 < arg.size()) {
               str = std::string(arg.substr(pos + 1));
             }
             result.options.set(idx, std::move(str));
@@ -525,12 +548,19 @@ export ParseResultRuntime parse_command_runtime(
   return result;
 }
 
-export template <size_t N>
-ParseResult<N> parse_command(
+export ParseResultRuntime parse_command_runtime(
     std::span<std::string_view> args,
-    const std::array<cmd::meta::OptionMeta, N>& metas) {
+    std::span<const cmd::meta::OptionMeta> metas) {
+  return parse_command_runtime(args, metas, OptionParsePolicy{});
+}
+
+export template <size_t N>
+ParseResult<N> parse_command(std::span<std::string_view> args,
+                             const std::array<cmd::meta::OptionMeta, N>& metas,
+                             OptionParsePolicy policy) {
   auto runtime = parse_command_runtime(
-      args, std::span<const cmd::meta::OptionMeta>(metas.data(), metas.size()));
+      args, std::span<const cmd::meta::OptionMeta>(metas.data(), metas.size()),
+      policy);
 
   ParseResult<N> result;
   result.positionals = std::move(runtime.positionals);
@@ -544,4 +574,11 @@ ParseResult<N> parse_command(
   }
 
   return result;
+}
+
+export template <size_t N>
+ParseResult<N> parse_command(
+    std::span<std::string_view> args,
+    const std::array<cmd::meta::OptionMeta, N>& metas) {
+  return parse_command(args, metas, OptionParsePolicy{});
 }

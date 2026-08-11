@@ -46,6 +46,24 @@ TEST(cat, cat_basic_file) {
   EXPECT_EQ_TEXT(r.stdout_text, "hello\nworld\n");
 }
 
+TEST(cat, cat_reads_utf8_filename) {
+  TempDir tmp;
+  const std::wstring name = L"\x6D4B\x8BD5.txt";
+  {
+    std::ofstream out(tmp.path / name, std::ios::binary);
+    out << "utf8\n";
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {name});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "utf8\n");
+}
+
 TEST(cat, cat_solo_test) {
   Pipeline p;
   p.set_stdin("hello\nworld\n");
@@ -204,6 +222,37 @@ TEST(cat, cat_directory_input_reports_is_a_directory) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stderr_text.find("cat: indir: Is a directory") !=
+              std::string::npos);
+}
+
+TEST(cat, cat_directory_input_accepts_trailing_separator_diagnostic) {
+  TempDir tmp;
+  tmp.mkdir("indir");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"indir/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("cat: indir/: Is a directory") !=
+              std::string::npos);
+}
+
+TEST(cat, cat_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "payload\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cat.exe", {L"file.txt/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.find("cat: file.txt/: Not a directory") !=
               std::string::npos);
 }
 

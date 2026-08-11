@@ -598,11 +598,19 @@ auto parse_literal_time_ticks(std::string_view text)
 }
 
 constexpr std::array<std::string_view, 13> kFindRegexTypeNames = {
-    "findutils-default",   "awk",         "ed",
-    "egrep",               "emacs",       "gnu-awk",
-    "grep",                "posix-awk",   "posix-basic",
-    "posix-egrep",         "posix-extended",
-    "posix-minimal-basic", "sed"};
+    "findutils-default",
+    "awk",
+    "ed",
+    "egrep",
+    "emacs",
+    "gnu-awk",
+    "grep",
+    "posix-awk",
+    "posix-basic",
+    "posix-egrep",
+    "posix-extended",
+    "posix-minimal-basic",
+    "sed"};
 
 auto find_regex_type_names() -> std::string {
   std::string names;
@@ -630,13 +638,12 @@ auto parse_find_regex_syntax(std::string_view type)
   }
 
   return std::unexpected("Unknown regular expression type '" +
-                         std::string(type) + "'; valid types are: " +
-                         find_regex_type_names());
+                         std::string(type) +
+                         "'; valid types are: " + find_regex_type_names());
 }
 
 auto parse_regex(portable_regex::Syntax syntax, std::string_view pattern,
-                 bool case_insensitive)
-    -> cp::Result<portable_regex::Pattern> {
+                 bool case_insensitive) -> cp::Result<portable_regex::Pattern> {
   auto parsed = portable_regex::compile(syntax, pattern, case_insensitive);
   if (!parsed) {
     return std::unexpected("invalid regular expression");

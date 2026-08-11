@@ -174,7 +174,7 @@ constexpr auto TOP_OPTIONS = std::array{
     OPTION("-w", "--width", "override output width", INT_TYPE),
     OPTION("", "--rows", "limit number of processes displayed", INT_TYPE),
     OPTION("-v", "--version", "print version information"),
-    OPTION("-h", "--help", "display this help")};
+    OPTION("", "--help", "display this help")};
 
 // ======================================================
 // Helper Functions
@@ -860,14 +860,14 @@ auto parse_config(const CommandContext<TOP_OPTIONS.size()>& ctx)
 // 2. Check for help or version
 auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
     -> cp::Result<bool> {
-  if (ctx.get<bool>("--help", false) || ctx.get<bool>("-h", false)) {
+  if (ctx.get<bool>("--help", false)) {
     safePrint("Usage: top [options]\n");
     safePrint("  -b, --batch        Batch mode\n");
     safePrint("  -d, --delay DELAY  Update interval (default: 3s)\n");
     safePrint("  -n, --iterations N Exit after N iterations\n");
     safePrint("  -o, --field-sort F Sort by CPU|MEM|TIME|PID|NAME\n");
     safePrint("      --rows N       Limit number of displayed processes\n");
-    safePrint("  -h, --help         Show help\n");
+    safePrint("      --help         Show help\n");
     safePrint("  -v, --version      Show version\n");
     return true;  // Should exit
   }

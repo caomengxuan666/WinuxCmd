@@ -142,27 +142,6 @@ auto get_system_error_message(DWORD error) -> std::wstring {
 }
 
 /**
- * @brief Convert a path to Windows extended-length path (\\?\) format.
- *
- * This bypasses reserved device name resolution (nul, con, prn, aux, com*,
- * lpt*) and also removes the MAX_PATH limit. The path is first resolved to an
- * absolute path via GetFullPathNameW, then prefixed with "\\?\\\\". If
- * resolution fails the original path is returned unchanged.
- */
-auto to_extended_path(const std::wstring& path) -> std::wstring {
-  // Already in extended form
-  if (path.size() >= 4 && path.compare(0, 4, L"\\\\?\\") == 0) {
-    return path;
-  }
-  wchar_t abs_buf[32768];
-  DWORD len = GetFullPathNameW(path.c_str(), 32768, abs_buf, nullptr);
-  if (len == 0 || len >= 32768) {
-    return path;  // fallback: use original
-  }
-  return L"\\\\?\\" + std::wstring(abs_buf, len);
-}
-
-/**
  * @brief Check if paths are provided
  * @param paths Paths to check
  * @return Result with paths if valid, error otherwise
@@ -226,20 +205,12 @@ auto parse_interactive_mode(std::string_view value)
   return std::nullopt;
 }
 
-auto strip_trailing_separators(std::wstring_view path) -> std::wstring_view {
-  while (path.size() > 1 && (path.back() == L'\\' || path.back() == L'/')) {
-    if (path.size() == 3 && path[1] == L':') break;
-    path.remove_suffix(1);
-  }
-  return path;
-}
-
 auto path_is_current_or_parent_directory(std::wstring_view path) -> bool {
-  path = strip_trailing_separators(path);
+  path = native_path::strip_trailing_separators(path);
   size_t pos = path.find_last_of(L"\\/");
   auto name = pos == std::wstring_view::npos ? path : path.substr(pos + 1);
   if (name.empty() && pos != std::wstring_view::npos) {
-    auto parent = strip_trailing_separators(path.substr(0, pos));
+    auto parent = native_path::strip_trailing_separators(path.substr(0, pos));
     pos = parent.find_last_of(L"\\/");
     name = pos == std::wstring_view::npos ? parent : parent.substr(pos + 1);
   }
@@ -366,7 +337,8 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
   // Use extended-length path to bypass Windows reserved device names
   // (nul, con, prn, aux, com0-9, lpt0-9) which would otherwise redirect
   // file operations to the corresponding device instead of the actual file.
-  std::wstring wpath = to_extended_path(utf8_to_wstring(path));
+  auto operand = native_path::make_api_path_operand(path);
+  const std::wstring& wpath = operand.extended;
   DWORD attr = GetFileAttributesW(wpath.c_str());
 
   if (cfg.recursive &&
@@ -420,6 +392,14 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
       safeErrorPrint("': No such file or directory\n");
       return false;
     }
+  }
+
+  if (operand.had_trailing_separator &&
+      (attr & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+    safeErrorPrint("rm: cannot remove '");
+    safeErrorPrint(path);
+    safeErrorPrint("': Not a directory\n");
+    return false;
   }
 
   if (cfg.interactive == InteractiveMode::always) {

@@ -124,11 +124,23 @@ auto long_existing_prefix_path(std::filesystem::path path)
 
   if (!path.empty()) {
     std::wstring base = path.wstring();
+    std::replace(base.begin(), base.end(), L'/', L'\\');
+    DWORD full_needed = GetFullPathNameW(base.c_str(), 0, nullptr, nullptr);
+    if (full_needed > 0) {
+      std::wstring full(full_needed, wchar_t{});
+      DWORD full_written =
+          GetFullPathNameW(base.c_str(), full_needed, full.data(), nullptr);
+      if (full_written > 0 && full_written < full_needed) {
+        full.resize(full_written);
+        base = std::move(full);
+      }
+    }
     DWORD needed = GetLongPathNameW(base.c_str(), nullptr, 0);
     if (needed > 0) {
-      std::wstring buffer(needed, wchar_t{});
-      DWORD written = GetLongPathNameW(base.c_str(), buffer.data(), needed);
-      if (written > 0 && written < needed) {
+      std::wstring buffer(static_cast<size_t>(needed) + 1, wchar_t{});
+      DWORD written = GetLongPathNameW(base.c_str(), buffer.data(),
+                                       static_cast<DWORD>(buffer.size()));
+      if (written > 0 && written < buffer.size()) {
         buffer.resize(written);
         path = std::filesystem::path(buffer);
       }
@@ -141,8 +153,59 @@ auto long_existing_prefix_path(std::filesystem::path path)
   return path;
 }
 
+auto expand_user_profile_short_name(std::filesystem::path path)
+    -> std::filesystem::path {
+  DWORD needed = GetEnvironmentVariableW(L"USERPROFILE", nullptr, 0);
+  if (needed == 0) return path;
+
+  std::wstring profile(needed, wchar_t{});
+  DWORD written =
+      GetEnvironmentVariableW(L"USERPROFILE", profile.data(), needed);
+  if (written == 0 || written >= needed) return path;
+  profile.resize(written);
+  if (profile.empty()) return path;
+
+  std::wstring short_profile(MAX_PATH, wchar_t{});
+  DWORD short_written =
+      GetShortPathNameW(profile.c_str(), short_profile.data(),
+                        static_cast<DWORD>(short_profile.size()));
+  if (short_written == 0) return path;
+  if (short_written >= short_profile.size()) {
+    short_profile.assign(static_cast<size_t>(short_written) + 1, wchar_t{});
+    short_written = GetShortPathNameW(profile.c_str(), short_profile.data(),
+                                      static_cast<DWORD>(short_profile.size()));
+    if (short_written == 0 || short_written >= short_profile.size())
+      return path;
+  }
+  short_profile.resize(short_written);
+
+  auto normalize = [](std::wstring text) {
+    std::replace(text.begin(), text.end(), L'/', L'\\');
+    return text;
+  };
+  auto lower = [](std::wstring text) {
+    std::ranges::transform(text, text.begin(), [](wchar_t ch) {
+      return static_cast<wchar_t>(std::towlower(ch));
+    });
+    return text;
+  };
+
+  std::wstring actual = normalize(path.wstring());
+  std::wstring short_norm = normalize(short_profile);
+  std::wstring actual_lower = lower(actual);
+  std::wstring short_lower = lower(short_norm);
+  if (!actual_lower.starts_with(short_lower)) return path;
+  if (actual.size() > short_norm.size() && actual[short_norm.size()] != L'\\') {
+    return path;
+  }
+
+  std::wstring profile_norm = normalize(profile);
+  return std::filesystem::path(profile_norm + actual.substr(short_norm.size()));
+}
+
 auto native_display_path(const std::filesystem::path& path) -> std::string {
-  return long_existing_prefix_path(path).generic_string();
+  return expand_user_profile_short_name(long_existing_prefix_path(path))
+      .generic_string();
 }
 
 auto random_index(size_t limit) -> size_t {

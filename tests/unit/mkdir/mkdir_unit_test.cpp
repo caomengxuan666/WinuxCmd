@@ -69,6 +69,23 @@ TEST(mkdir, mkdir_p_parents) {
   EXPECT_TRUE(dir_exists);
 }
 
+TEST(mkdir, mkdir_p_accepts_utf8_path_segments) {
+  TempDir tmp;
+
+  const std::wstring first = L"\u6d4b\u8bd5";
+  const std::wstring second = L"\u76ee\u5f55";
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"mkdir.exe", {L"-p", first + L"/" + second});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.empty());
+  EXPECT_TRUE(std::filesystem::is_directory(tmp.path / first / second));
+}
+
 TEST(mkdir, mkdir_verbose_parents_reports_each_created_directory) {
   TempDir tmp;
 

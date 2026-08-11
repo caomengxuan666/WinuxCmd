@@ -84,15 +84,9 @@ struct Config {
   double last = 1.0;
 };
 
-auto set_error(std::string message) -> std::string_view {
-  static thread_local std::string storage;
-  storage = std::move(message);
-  return storage;
-}
-
 template <typename T>
 auto error_result(std::string message) -> cp::Result<T> {
-  return std::unexpected(set_error(std::move(message)));
+  return std::unexpected<cp::Error>(std::move(message));
 }
 
 auto parse_number(std::string_view text) -> cp::Result<double> {

@@ -98,18 +98,14 @@ auto option_value(const CommandContext<PTX_OPTIONS.size()>& ctx,
 auto parse_int_option(const std::string& value, int fallback,
                       std::string_view label) -> cp::Result<int> {
   if (value.empty()) return fallback;
-  try {
-    size_t used = 0;
-    int parsed = std::stoi(value, &used, 10);
-    if (used != value.size()) {
-      return std::unexpected(
-          make_error("invalid " + std::string(label) + " value"));
-    }
-    return parsed;
-  } catch (...) {
+  int parsed = 0;
+  auto [ptr, ec] =
+      std::from_chars(value.data(), value.data() + value.size(), parsed);
+  if (ec != std::errc() || ptr != value.data() + value.size()) {
     return std::unexpected(
         make_error("invalid " + std::string(label) + " value"));
   }
+  return parsed;
 }
 
 auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)

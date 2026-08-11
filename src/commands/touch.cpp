@@ -451,18 +451,29 @@ auto file_open_flags(bool no_dereference) -> DWORD {
 
 auto read_times_from_file(const std::wstring& wpath, bool no_dereference)
     -> std::optional<TimePair> {
-  HANDLE h = CreateFileW(wpath.c_str(), FILE_READ_ATTRIBUTES,
-                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                         nullptr, OPEN_EXISTING,
-                         file_open_flags(no_dereference), nullptr);
-  if (h == INVALID_HANDLE_VALUE) return std::nullopt;
+  auto operand = native_path::make_api_path_operand_w(wpath);
+  if (operand.had_trailing_separator &&
+      native_path::attributes_are_regular_file(
+          native_path::attributes_w(operand.extended))) {
+    return std::nullopt;
+  }
+
+  UniqueHandle h(CreateFileW(
+      operand.extended.c_str(), FILE_READ_ATTRIBUTES,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+      OPEN_EXISTING, file_open_flags(no_dereference), nullptr));
+  if (!h) return std::nullopt;
 
   FILETIME c{}, a{}, m{};
-  bool ok = GetFileTime(h, &c, &a, &m) != 0;
-  CloseHandle(h);
+  bool ok = GetFileTime(h.get(), &c, &a, &m) != 0;
   if (!ok) return std::nullopt;
 
   return TimePair{a, m};
+}
+
+auto touch_operand_error(std::string_view path, DWORD error) -> std::string {
+  return "touch: cannot touch '" + std::string(path) + "': " +
+         win32_posix_error_text(error, {.invalid_name_as_missing = true});
 }
 
 auto apply_touch_one(const std::string& path,
@@ -471,40 +482,49 @@ auto apply_touch_one(const std::string& path,
                      bool no_dereference,
                      const std::optional<TimePair>& ref_times,
                      const std::optional<TimePair>& date_times) -> bool {
-  std::wstring wpath = utf8_to_wstring(path);
-
-  DWORD create_mode =
-      (no_create || no_dereference) ? OPEN_EXISTING : OPEN_ALWAYS;
-  HANDLE h = CreateFileW(
-      wpath.c_str(), FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-      create_mode, file_open_flags(no_dereference), nullptr);
-
-  if (h == INVALID_HANDLE_VALUE && !no_create && !no_dereference) {
-    DWORD attrs = GetFileAttributesW(wpath.c_str());
-    if (attrs != INVALID_FILE_ATTRIBUTES &&
-        (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0) {
-      h = CreateFileW(wpath.c_str(),
-                      FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
-                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                      nullptr, OPEN_EXISTING, file_open_flags(false), nullptr);
+  auto operand = native_path::make_api_path_operand(path);
+  if (operand.had_trailing_separator) {
+    DWORD attrs = native_path::attributes_w(operand.extended);
+    if (native_path::attributes_are_regular_file(attrs) ||
+        !native_path::valid_attributes(attrs)) {
+      if (no_create && !native_path::valid_attributes(attrs)) {
+        return true;
+      }
+      safeErrorPrintLn(touch_operand_error(path, ERROR_DIRECTORY));
+      return false;
     }
   }
 
-  if (h == INVALID_HANDLE_VALUE) {
+  DWORD create_mode =
+      (no_create || no_dereference) ? OPEN_EXISTING : OPEN_ALWAYS;
+  UniqueHandle h(CreateFileW(
+      operand.extended.c_str(), FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+      create_mode, file_open_flags(no_dereference), nullptr));
+
+  if (!h && !no_create && !no_dereference) {
+    DWORD attrs = native_path::attributes_w(operand.extended);
+    if (attrs != INVALID_FILE_ATTRIBUTES &&
+        (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+      h.reset(
+          CreateFileW(operand.extended.c_str(),
+                      FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                      nullptr, OPEN_EXISTING, file_open_flags(false), nullptr));
+    }
+  }
+
+  if (!h) {
     DWORD e = GetLastError();
     if (no_create && (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND)) {
       return true;
     }
-    safeErrorPrint("touch: cannot touch '");
-    safeErrorPrint(path);
-    safeErrorPrint("': No such file or directory\n");
+    safeErrorPrintLn(touch_operand_error(path, e));
     return false;
   }
 
   FILETIME c{}, cur_a{}, cur_m{};
-  if (!GetFileTime(h, &c, &cur_a, &cur_m)) {
-    CloseHandle(h);
+  if (!GetFileTime(h.get(), &c, &cur_a, &cur_m)) {
     safeErrorPrint("touch: cannot touch '");
     safeErrorPrint(path);
     safeErrorPrint("'\n");
@@ -533,8 +553,7 @@ auto apply_touch_one(const std::string& path,
   FILETIME* pa = update_access ? &set_a : nullptr;
   FILETIME* pm = update_modify ? &set_m : nullptr;
 
-  bool ok = SetFileTime(h, nullptr, pa, pm) != 0;
-  CloseHandle(h);
+  bool ok = SetFileTime(h.get(), nullptr, pa, pm) != 0;
 
   if (!ok) {
     safeErrorPrint("touch: cannot touch '");

@@ -29,7 +29,7 @@ import std;
 import utils;
 
 export namespace core::pipeline {
-using Error = std::string_view;
+using Error = std::string;
 
 template <typename T>
 using Result = std::expected<T, Error>;

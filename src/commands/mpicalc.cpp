@@ -518,8 +518,10 @@ auto process_token(const std::string& token, std::vector<BigInt>& stack)
   } else if (token == "p") {
     if (stack.empty())
       safePrintLn("stack is empty");
-    else
+    else {
       safePrintLn(format_hex(stack.back()));
+      stack.pop_back();
+    }
   } else if (token == "f") {
     for (size_t i = stack.size(); i > 0; --i) {
       char index_buf[32];

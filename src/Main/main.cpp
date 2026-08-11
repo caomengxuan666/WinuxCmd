@@ -38,6 +38,33 @@ static std::string toLowerAscii(std::string s) {
   return s;
 }
 
+static void printCommandSummary(std::string_view name, std::string_view desc,
+                                std::string_view command_style, bool color) {
+  constexpr size_t command_width = 12;
+  std::string command(name);
+  if (command.size() < command_width) {
+    command.append(command_width - command.size(), ' ');
+  }
+
+  const std::string first_prefix =
+      "  " + (color ? colorizeStdout(command, command_style) : command) + " ";
+  const std::string continuation_prefix(2 + command_width + 1, ' ');
+
+  bool first_line = true;
+  while (true) {
+    size_t newline_pos = desc.find('\n');
+    std::string_view line = newline_pos == std::string_view::npos
+                                ? desc
+                                : desc.substr(0, newline_pos);
+    safePrintLn((first_line ? first_prefix : continuation_prefix) +
+                std::string(line));
+    first_line = false;
+
+    if (newline_pos == std::string_view::npos) break;
+    desc = desc.substr(newline_pos + 1);
+  }
+}
+
 }  // namespace
 
 /**
@@ -45,26 +72,36 @@ static std::string toLowerAscii(std::string s) {
  * @return Exit code (1 - error)
  */
 static int printHelp() noexcept {
-  safePrintLn(L"WinuxCmd - Windows Compatible Linux Command Set");
-  safePrintLn(L"Usage: winuxcmd <command> [options]...");
-  safePrintLn(L"");
-  safePrintLn(L"Available commands:");
+  const bool color = shouldUseAnsiColorStdout();
+  const std::string title_style =
+      std::string(ANSI_BOLD) + ansiFgRgb(98, 214, 255);
+  const std::string section_style =
+      std::string(ANSI_BOLD) + ANSI_UNDERLINE + ansiFg256(82);
+  const std::string command_style = std::string(ANSI_BOLD) + ansiFg256(117);
+  const std::string subtle_style = ansiFg256(245);
+
+  safePrintLn(color ? colorizeStdout("WinuxCmd", title_style) +
+                          " - Windows Compatible Linux Command Set"
+                    : "WinuxCmd - Windows Compatible Linux Command Set");
+  safePrintLn(color ? colorizeStdout("Usage:", section_style) +
+                          " winuxcmd <command> [options]..."
+                    : "Usage: winuxcmd <command> [options]...");
+  safePrintLn("");
+  safePrintLn(color ? colorizeStdout("Available Commands:", section_style)
+                    : "Available Commands:");
 
   // Get all registered commands and display them with brief descriptions
   auto commands = CommandRegistry::getAllCommands();
   for (const auto &[cmd_name, cmd_desc] : commands) {
-    // Display command name with its brief description
-    std::wstring cmd_str = utf8_to_wstring(std::string(cmd_name));
-    std::wstring desc_str = utf8_to_wstring(std::string(cmd_desc));
-    // Pad command name for alignment
-    if (cmd_str.length() < 10) {
-      cmd_str.append(10 - cmd_str.length(), L' ');
-    }
-    safePrintLn(L"  " + cmd_str + L"   " + desc_str);
+    printCommandSummary(cmd_name, cmd_desc, command_style, color);
   }
 
-  safePrintLn(L"");
-  safePrintLn(L"Use 'winuxcmd <command> --help' for command-specific help.");
+  safePrintLn("");
+  safePrintLn(color ? colorizeStdout("Tip:", subtle_style) +
+                          " Use 'winuxcmd <command> --help' for "
+                          "command-specific help."
+                    : "Tip: Use 'winuxcmd <command> --help' for "
+                      "command-specific help.");
   return 1;
 }
 
@@ -96,8 +133,8 @@ int main(int argc, char *argv[]) noexcept {
       return printHelp();
     }
 
-    // Check for top-level help flags/alias
-    if (args.size() == 1 && (args[0] == "--help" || args[0] == "-h")) {
+    // Check for top-level help flag/alias
+    if (args.size() == 1 && args[0] == "--help") {
       return printHelp();
     }
 

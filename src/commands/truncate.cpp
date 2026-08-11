@@ -174,70 +174,66 @@ auto scale_size(int64_t value, long double multiplier) -> cp::Result<int64_t> {
 }
 
 auto parse_size(const std::string& size_str) -> cp::Result<SizeSpec> {
-  try {
-    std::string s = size_str;
-    SizeSpec spec;
+  std::string s = size_str;
+  SizeSpec spec;
 
-    if (!s.empty()) {
-      switch (s[0]) {
-        case '+':
-          spec.mode = SizeMode::Add;
-          s.erase(0, 1);
-          break;
-        case '-':
-          spec.mode = SizeMode::Subtract;
-          s.erase(0, 1);
-          break;
-        case '<':
-          spec.mode = SizeMode::AtMost;
-          s.erase(0, 1);
-          break;
-        case '>':
-          spec.mode = SizeMode::AtLeast;
-          s.erase(0, 1);
-          break;
-        case '/':
-          spec.mode = SizeMode::RoundDown;
-          s.erase(0, 1);
-          break;
-        case '%':
-          spec.mode = SizeMode::RoundUp;
-          s.erase(0, 1);
-          break;
-        default:
-          break;
-      }
+  if (!s.empty()) {
+    switch (s[0]) {
+      case '+':
+        spec.mode = SizeMode::Add;
+        s.erase(0, 1);
+        break;
+      case '-':
+        spec.mode = SizeMode::Subtract;
+        s.erase(0, 1);
+        break;
+      case '<':
+        spec.mode = SizeMode::AtMost;
+        s.erase(0, 1);
+        break;
+      case '>':
+        spec.mode = SizeMode::AtLeast;
+        s.erase(0, 1);
+        break;
+      case '/':
+        spec.mode = SizeMode::RoundDown;
+        s.erase(0, 1);
+        break;
+      case '%':
+        spec.mode = SizeMode::RoundUp;
+        s.erase(0, 1);
+        break;
+      default:
+        break;
     }
+  }
 
-    if (s.empty()) {
-      return std::unexpected("invalid size");
-    }
+  if (s.empty()) {
+    return std::unexpected("invalid size");
+  }
 
-    long double multiplier = match_suffix(s);
-    if (s.empty()) {
-      return std::unexpected("invalid size");
-    }
+  long double multiplier = match_suffix(s);
+  if (s.empty()) {
+    return std::unexpected("invalid size");
+  }
 
-    size_t consumed = 0;
-    int64_t base_value = std::stoll(s, &consumed);
-    if (consumed != s.size() || base_value < 0) {
-      return std::unexpected("invalid size format");
-    }
-
-    auto scaled = scale_size(base_value, multiplier);
-    if (!scaled) {
-      return std::unexpected(scaled.error());
-    }
-    spec.value = *scaled;
-    if ((spec.mode == SizeMode::RoundDown || spec.mode == SizeMode::RoundUp) &&
-        spec.value == 0) {
-      return std::unexpected("division by zero size");
-    }
-
-    return spec;
-  } catch (...) {
+  int64_t base_value = 0;
+  auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), base_value);
+  if (ec != std::errc() || ptr != s.data() + s.size() || base_value < 0) {
     return std::unexpected("invalid size format");
   }
+
+  auto scaled = scale_size(base_value, multiplier);
+  if (!scaled) {
+    return std::unexpected(scaled.error());
+  }
+  spec.value = *scaled;
+  if ((spec.mode == SizeMode::RoundDown || spec.mode == SizeMode::RoundUp) &&
+      spec.value == 0) {
+    return std::unexpected("division by zero size");
+  }
+
+  return spec;
 }
 
 auto build_config(const CommandContext<TRUNCATE_OPTIONS.size()>& ctx)
@@ -294,33 +290,43 @@ auto build_config(const CommandContext<TRUNCATE_OPTIONS.size()>& ctx)
 }
 
 auto get_file_size(const std::string& file) -> cp::Result<int64_t> {
-  std::error_code ec;
-  auto size = std::filesystem::file_size(file, ec);
-  if (ec) {
+  auto operand = native_path::make_api_path_operand(file);
+  if (operand.had_trailing_separator &&
+      native_path::attributes_are_regular_file(
+          native_path::attributes_w(operand.extended))) {
+    return std::unexpected("Not a directory");
+  }
+
+  UniqueHandle h(
+      CreateFileW(operand.extended.c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING,
+                  FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+  if (!h) {
     return std::unexpected("cannot get file size");
   }
-  if (size > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+
+  LARGE_INTEGER size{};
+  if (!GetFileSizeEx(h.get(), &size)) {
+    return std::unexpected("cannot get file size");
+  }
+  if (size.QuadPart > std::numeric_limits<int64_t>::max()) {
     return std::unexpected("file too large");
   }
-  return static_cast<int64_t>(size);
+  return static_cast<int64_t>(size.QuadPart);
 }
 
 auto io_block_size_for(const std::string& file) -> uint64_t {
-  std::filesystem::path p(file);
-  auto dir = p.has_parent_path() ? p.parent_path() : std::filesystem::path(".");
-  std::error_code ec;
-  auto abs = std::filesystem::absolute(dir, ec);
-  if (ec) {
-    abs = dir;
-  }
-
   wchar_t root[MAX_PATH];
   DWORD sectors_per_cluster = 0;
   DWORD bytes_per_sector = 0;
   DWORD free_clusters = 0;
   DWORD total_clusters = 0;
 
-  auto wdir = abs.wstring();
+  std::wstring wdir = native_path::parent_path_w(native_path::from_utf8(file));
+  if (wdir.empty()) {
+    wdir = native_path::current_directory_w();
+  }
   if (!GetVolumePathNameW(wdir.c_str(), root, MAX_PATH)) {
     return 512;
   }
@@ -383,19 +389,27 @@ auto apply_size_mode(int64_t current_size, SizeSpec spec,
 }
 
 auto set_file_size(const std::string& file, int64_t target_size) -> bool {
-  HANDLE hFile =
-      CreateFileA(file.c_str(), GENERIC_WRITE,
+  auto operand = native_path::make_api_path_operand(file);
+  if (operand.had_trailing_separator) {
+    DWORD attrs = native_path::attributes_w(operand.extended);
+    if (native_path::attributes_are_regular_file(attrs) ||
+        !native_path::valid_attributes(attrs)) {
+      return false;
+    }
+  }
+
+  UniqueHandle hFile(
+      CreateFileW(operand.extended.c_str(), GENERIC_WRITE,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                  nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-  if (hFile == INVALID_HANDLE_VALUE) {
+                  nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+  if (!hFile) {
     return false;
   }
 
   LARGE_INTEGER distance;
   distance.QuadPart = target_size;
-  bool ok = SetFilePointerEx(hFile, distance, nullptr, FILE_BEGIN) != 0 &&
-            SetEndOfFile(hFile) != 0;
-  CloseHandle(hFile);
+  bool ok = SetFilePointerEx(hFile.get(), distance, nullptr, FILE_BEGIN) != 0 &&
+            SetEndOfFile(hFile.get()) != 0;
   return ok;
 }
 
@@ -414,8 +428,16 @@ auto run(const Config& cfg) -> int {
   }
 
   for (const auto& file : cfg.files) {
-    std::error_code ec;
-    bool exists = std::filesystem::exists(file, ec);
+    auto operand = native_path::make_api_path_operand(file);
+    DWORD attrs = native_path::attributes_w(operand.extended);
+    if (operand.had_trailing_separator &&
+        native_path::attributes_are_regular_file(attrs)) {
+      safeErrorPrintLn("truncate: cannot resize '" + file +
+                       "': Not a directory");
+      all_ok = false;
+      continue;
+    }
+    bool exists = native_path::valid_attributes(attrs);
     if (!exists) {
       if (cfg.no_create) {
         continue;

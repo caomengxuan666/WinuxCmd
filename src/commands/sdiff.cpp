@@ -240,18 +240,16 @@ REGISTER_COMMAND(
 
   auto width_opt = ctx.get<std::string>("-w", "");
   if (!width_opt.empty()) {
-    try {
-      size_t consumed = 0;
-      int parsed = std::stoi(width_opt, &consumed);
-      if (consumed != width_opt.size() || parsed <= 0) {
-        throw std::invalid_argument("width");
-      }
-      output_width = parsed;
-    } catch (...) {
+    int parsed = 0;
+    auto [ptr, ec] = std::from_chars(
+        width_opt.data(), width_opt.data() + width_opt.size(), parsed);
+    if (ec != std::errc() || ptr != width_opt.data() + width_opt.size() ||
+        parsed <= 0) {
       safeErrorPrintLn("sdiff: invalid width '" + width_opt + "'");
       safeErrorPrint("Try 'sdiff --help' for more information.\n");
       return 1;
     }
+    output_width = parsed;
   }
 
   auto files_result = resolve_files(ctx);

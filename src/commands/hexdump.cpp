@@ -102,18 +102,18 @@ auto build_config(const CommandContext<HEXDUMP_OPTIONS.size()>& ctx)
 
   auto length_opt = ctx.get<std::string>("-n", "");
   if (!length_opt.empty()) {
-    try {
-      cfg.length = std::stoull(length_opt);
-    } catch (...) {
+    auto [ptr, ec] = std::from_chars(
+        length_opt.data(), length_opt.data() + length_opt.size(), cfg.length);
+    if (ec != std::errc() || ptr != length_opt.data() + length_opt.size()) {
       return std::unexpected("invalid length");
     }
   }
 
   auto skip_opt = ctx.get<std::string>("-s", "");
   if (!skip_opt.empty()) {
-    try {
-      cfg.skip = std::stoull(skip_opt);
-    } catch (...) {
+    auto [ptr, ec] = std::from_chars(
+        skip_opt.data(), skip_opt.data() + skip_opt.size(), cfg.skip);
+    if (ec != std::errc() || ptr != skip_opt.data() + skip_opt.size()) {
       return std::unexpected("invalid skip");
     }
   }

@@ -377,6 +377,20 @@ auto query_object_text_with_timeout(HANDLE dup_handle,
   return {QueryResult::Status::Ok, std::move(ctx.text)};
 }
 
+auto parse_port(std::wstring_view text) -> std::optional<unsigned short> {
+  if (text.empty()) return std::nullopt;
+
+  unsigned value = 0;
+  for (wchar_t ch : text) {
+    if (ch < L'0' || ch > L'9') return std::nullopt;
+    value = value * 10 + static_cast<unsigned>(ch - L'0');
+    if (value > 65535) return std::nullopt;
+  }
+
+  if (value == 0) return std::nullopt;
+  return static_cast<unsigned short>(value);
+}
+
 // Parse the argument to -i: ":PORT"  |  "PROTO"  |  "PROTO:PORT"
 auto parse_inet_spec(std::string_view spec) -> InternetFilter {
   InternetFilter f;
@@ -390,12 +404,8 @@ auto parse_inet_spec(std::string_view spec) -> InternetFilter {
   if (ws.front() == L':') {
     // ":PORT" form
     std::wstring port_str = ws.substr(1);
-    if (!port_str.empty()) {
-      try {
-        int v = std::stoi(port_str);
-        if (v > 0 && v <= 65535) f.port = static_cast<unsigned short>(v);
-      } catch (...) {
-      }
+    if (auto port = parse_port(port_str)) {
+      f.port = *port;
     }
   } else {
     auto colon = ws.find(L':');
@@ -404,12 +414,8 @@ auto parse_inet_spec(std::string_view spec) -> InternetFilter {
     } else {
       f.protocol = ws.substr(0, colon);
       std::wstring port_str = ws.substr(ws.rfind(L':') + 1);
-      if (!port_str.empty()) {
-        try {
-          int v = std::stoi(port_str);
-          if (v > 0 && v <= 65535) f.port = static_cast<unsigned short>(v);
-        } catch (...) {
-        }
+      if (auto port = parse_port(port_str)) {
+        f.port = *port;
       }
     }
   }

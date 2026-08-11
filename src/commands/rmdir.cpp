@@ -45,42 +45,15 @@ auto constexpr RMDIR_OPTIONS =
 namespace rmdir_pipeline {
 namespace cp = core::pipeline;
 
-auto is_separator(char ch) -> bool { return ch == '\\' || ch == '/'; }
-
-auto unc_root_length(std::string_view path) -> std::optional<size_t> {
-  if (path.size() < 3 || !is_separator(path[0]) || !is_separator(path[1])) {
-    return std::nullopt;
-  }
-
-  auto server_end = path.find_first_of("\\/", 2);
-  if (server_end == std::string_view::npos) return path.size();
-
-  auto share_start = server_end + 1;
-  auto share_end = path.find_first_of("\\/", share_start);
-  if (share_end == std::string_view::npos) return path.size();
-  return share_end;
-}
-
-auto strip_trailing_separators(std::string path) -> std::string {
-  while (path.size() > 1 && is_separator(path.back())) {
-    if (path.size() == 3 && path[1] == ':') break;
-    if (auto root_len = unc_root_length(path);
-        root_len && path.size() <= *root_len + 1) {
-      break;
-    }
-    path.pop_back();
-  }
-  return path;
-}
-
 auto parent_path(std::string path) -> std::string {
-  path = strip_trailing_separators(std::move(path));
+  path = native_path::normalize_api_operand(path);
   if (path.empty()) return {};
 
   auto pos = path.find_last_of("\\/");
   if (pos == std::string::npos || pos == 0) return {};
   if (pos == 2 && path.size() >= 3 && path[1] == ':') return {};
-  if (auto root_len = unc_root_length(path); root_len && pos <= *root_len) {
+  if (auto root_len = native_path::unc_root_length(path);
+      root_len && pos <= *root_len) {
     return {};
   }
 
@@ -91,12 +64,23 @@ auto parent_path(std::string path) -> std::string {
 
 auto remove_one(const std::string& utf8_path, bool ignore_non_empty,
                 bool verbose) -> bool {
-  std::wstring wpath = utf8_to_wstring(utf8_path);
+  auto operand = native_path::make_api_path_operand(utf8_path);
+  const std::wstring& wpath = operand.extended;
   if (verbose) {
     safePrint("rmdir: removing directory, '");
     safePrint(utf8_path);
     safePrint("'\n");
   }
+
+  DWORD attrs = GetFileAttributesW(wpath.c_str());
+  if (operand.had_trailing_separator && attrs != INVALID_FILE_ATTRIBUTES &&
+      (attrs & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+    safeErrorPrint("rmdir: failed to remove '");
+    safeErrorPrint(utf8_path);
+    safeErrorPrint("': Not a directory\n");
+    return false;
+  }
+
   if (RemoveDirectoryW(wpath.c_str())) {
     return true;
   }

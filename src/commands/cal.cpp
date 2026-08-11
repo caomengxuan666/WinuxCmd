@@ -25,16 +25,12 @@ constexpr std::array<std::string_view, 13> kMonthNames = {
 
 bool parseInt(std::string_view text, int& value) {
   if (text.empty()) return false;
-  std::string owned(text);
-  size_t consumed = 0;
-  try {
-    int parsed = std::stoi(owned, &consumed, 10);
-    if (consumed != owned.size()) return false;
-    value = parsed;
-    return true;
-  } catch (...) {
-    return false;
-  }
+  int parsed = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), parsed);
+  if (ec != std::errc() || ptr != text.data() + text.size()) return false;
+  value = parsed;
+  return true;
 }
 
 bool isLeapYear(int year) {

@@ -124,13 +124,9 @@ auto file_has_size(const std::string& path) -> bool {
 }
 
 auto string_to_int(const std::string& value, long long& out) -> bool {
-  try {
-    size_t consumed = 0;
-    out = std::stoll(value, &consumed);
-    return consumed == value.size();
-  } catch (...) {
-    return false;
-  }
+  auto [ptr, ec] =
+      std::from_chars(value.data(), value.data() + value.size(), out);
+  return ec == std::errc() && ptr == value.data() + value.size();
 }
 
 auto is_unary_operator(const std::string& op) -> bool {

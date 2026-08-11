@@ -36,6 +36,17 @@ TEST(winuxcmd, winuxcmd_help_alias_shows_toplevel_help) {
       std::string::npos);
 }
 
+TEST(winuxcmd, winuxcmd_dash_h_is_not_help_alias) {
+  Pipeline p;
+  p.add(L"winuxcmd.exe", {L"-h"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 127);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.find("winuxcmd: command not found: -h") !=
+              std::string::npos);
+}
+
 TEST(winuxcmd, winuxcmd_help_command_topic_shows_command_help) {
   Pipeline p;
   p.add(L"winuxcmd.exe", {L"help", L"sort"});

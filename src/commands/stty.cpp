@@ -51,7 +51,8 @@ auto constexpr STTY_OPTIONS = std::array{
     OPTION("-g", "--save",
            "print all current settings in a stty-readable form"),
     OPTION("-F", "--file", "open and use the specified device instead of stdin",
-           STRING_TYPE)};
+           STRING_TYPE),
+    OPTION("-echo", "", "do not echo input characters")};
 
 namespace stty_pipeline {
 namespace cp = core::pipeline;
@@ -76,6 +77,9 @@ auto build_config(const CommandContext<STTY_OPTIONS.size()>& ctx)
 
   for (const auto& pos : ctx.positionals) {
     cfg.settings.push_back(std::string(pos));
+  }
+  if (ctx.has("-echo")) {
+    cfg.settings.push_back("-echo");
   }
 
   return cfg;

@@ -43,6 +43,16 @@ auto constexpr FACTOR_OPTIONS = std::array{
     OPTION("", "--exponents", "print repeated factors in exponent form")};
 
 namespace {
+auto parse_integer(std::string_view text) -> std::optional<long long> {
+  long long value = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
+    return std::nullopt;
+  }
+  return value;
+}
+
 auto factorize(long long n) -> std::vector<long long> {
   std::vector<long long> factors;
 
@@ -100,17 +110,17 @@ REGISTER_COMMAND(factor_cmd,
     // Read from stdin
     std::string line;
     while (std::getline(std::cin, line)) {
-      try {
-        numbers.push_back(std::stoll(line));
-      } catch (...) {
+      if (auto value = parse_integer(line)) {
+        numbers.push_back(*value);
+      } else {
         safeErrorPrintLn("factor: '" + line + "' is not a valid integer");
       }
     }
   } else {
     for (const auto& arg : ctx.positionals) {
-      try {
-        numbers.push_back(std::stoll(std::string(arg)));
-      } catch (...) {
+      if (auto value = parse_integer(arg)) {
+        numbers.push_back(*value);
+      } else {
         safeErrorPrintLn("factor: '" + std::string(arg) +
                          "' is not a valid integer");
       }

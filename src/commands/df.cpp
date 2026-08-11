@@ -248,11 +248,8 @@ struct OutputColumn {
   bool align_right = false;
 };
 
-auto make_output_error(std::string message)
-    -> std::unexpected<std::string_view> {
-  static thread_local std::string storage;
-  storage = std::move(message);
-  return std::unexpected(std::string_view(storage));
+auto make_output_error(std::string message) -> std::unexpected<std::string> {
+  return std::unexpected(std::move(message));
 }
 
 auto parse_output_field(std::string_view name) -> std::optional<OutputField> {

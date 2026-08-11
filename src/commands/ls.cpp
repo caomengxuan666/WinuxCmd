@@ -1083,24 +1083,15 @@ struct TimeStyleSelection {
 constexpr std::string_view kInvalidTimeStylePrefix =
     "invalid --time-style argument ";
 
-thread_local std::string g_ls_dynamic_error;
-
-auto store_ls_dynamic_error(std::string message) -> std::string_view {
-  g_ls_dynamic_error = std::move(message);
-  return g_ls_dynamic_error;
-}
-
-auto build_invalid_time_style_message(std::string_view value)
-    -> std::string_view {
-  return store_ls_dynamic_error(
-      "invalid --time-style argument '" + std::string(value) +
-      "'\nPossible values are:\n"
-      "  - [posix-]full-iso\n"
-      "  - [posix-]long-iso\n"
-      "  - [posix-]iso\n"
-      "  - [posix-]locale\n"
-      "  - +FORMAT (e.g., +%H:%M) for a 'date'-style format\n"
-      "\nFor more information try --help");
+auto build_invalid_time_style_message(std::string_view value) -> std::string {
+  return "invalid --time-style argument '" + std::string(value) +
+         "'\nPossible values are:\n"
+         "  - [posix-]full-iso\n"
+         "  - [posix-]long-iso\n"
+         "  - [posix-]iso\n"
+         "  - [posix-]locale\n"
+         "  - +FORMAT (e.g., +%H:%M) for a 'date'-style format\n"
+         "\nFor more information try --help";
 }
 
 auto resolve_time_mode(const CommandContext<LS_OPTIONS.size()> &ctx)

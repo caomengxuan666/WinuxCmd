@@ -70,13 +70,14 @@ auto build_config(const CommandContext<COL_OPTIONS.size()>& ctx)
 
   auto lines_opt = ctx.get<std::string>("-l", "");
   if (!lines_opt.empty()) {
-    try {
-      int val = std::stoi(lines_opt);
-      if (val < 1) return std::unexpected("invalid line count");
-      cfg.buffer_lines = static_cast<size_t>(val);
-    } catch (...) {
+    int val = 0;
+    auto [ptr, ec] = std::from_chars(lines_opt.data(),
+                                     lines_opt.data() + lines_opt.size(), val);
+    if (ec != std::errc() || ptr != lines_opt.data() + lines_opt.size() ||
+        val < 1) {
       return std::unexpected("invalid line count");
     }
+    cfg.buffer_lines = static_cast<size_t>(val);
   }
 
   return cfg;

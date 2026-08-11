@@ -59,6 +59,19 @@ REGISTER_COMMAND(
   if (size_str.empty()) {
     size_str = ctx.get<std::string>("--size", "");
   }
+  std::optional<LONGLONG> size_limit;
+  if (!size_str.empty()) {
+    LONGLONG parsed = 0;
+    auto [ptr, ec] =
+        std::from_chars(size_str.data(), size_str.data() + size_str.size(),
+                        parsed);
+    if (ec != std::errc() || ptr != size_str.data() + size_str.size() ||
+        parsed < 0) {
+      safeErrorPrintLn("shred: invalid size");
+      return 1;
+    }
+    size_limit = parsed;
+  }
 
   // Initialize CryptGenRandom
   HCRYPTPROV hProv = 0;
@@ -100,10 +113,9 @@ REGISTER_COMMAND(
       LONGLONG size = fileSize.QuadPart;
 
       // Apply --size limit
-      if (!size_str.empty()) {
-        LONGLONG limit = std::stoll(size_str);
-        if (limit > 0 && limit < size) {
-          size = limit;
+      if (size_limit) {
+        if (*size_limit > 0 && *size_limit < size) {
+          size = *size_limit;
         }
       }
 

@@ -146,12 +146,11 @@ auto build_config(const CommandContext<CKSUM_OPTIONS.size()>& ctx)
     length_str = ctx.get<std::string>("-l", "");
   }
   if (!length_str.empty()) {
-    try {
-      cfg.digest_length = std::stoi(length_str);
-      if (cfg.digest_length <= 0 || cfg.digest_length % 8 != 0) {
-        return std::unexpected("invalid length");
-      }
-    } catch (...) {
+    auto [ptr, ec] = std::from_chars(length_str.data(),
+                                     length_str.data() + length_str.size(),
+                                     cfg.digest_length);
+    if (ec != std::errc() || ptr != length_str.data() + length_str.size() ||
+        cfg.digest_length <= 0 || cfg.digest_length % 8 != 0) {
       return std::unexpected("invalid length");
     }
   }
@@ -312,10 +311,21 @@ auto crc32_to_bytes(uint32_t crc) -> std::vector<unsigned char> {
 
 // Parse a hex string to bytes
 auto hex_to_bytes(const std::string& hex) -> std::vector<unsigned char> {
+  auto hex_value = [](char ch) -> unsigned char {
+    if (ch >= '0' && ch <= '9') return static_cast<unsigned char>(ch - '0');
+    if (ch >= 'a' && ch <= 'f') {
+      return static_cast<unsigned char>(ch - 'a' + 10);
+    }
+    if (ch >= 'A' && ch <= 'F') {
+      return static_cast<unsigned char>(ch - 'A' + 10);
+    }
+    return 0;
+  };
+
   std::vector<unsigned char> bytes;
   for (size_t i = 0; i + 1 < hex.size(); i += 2) {
-    bytes.push_back(
-        static_cast<unsigned char>(std::stoul(hex.substr(i, 2), nullptr, 16)));
+    bytes.push_back(static_cast<unsigned char>((hex_value(hex[i]) << 4) |
+                                               hex_value(hex[i + 1])));
   }
   return bytes;
 }
@@ -474,15 +484,13 @@ auto run_check_mode(const Config& cfg) -> int {
         // The rest is the filename
         std::getline(iss >> std::ws, filename);
         expected_digest = checksum_str;
-        try {
-          size_t parsed_chars = 0;
-          expected_bytes = std::stoull(bytes_str, &parsed_chars, 10);
-          if (parsed_chars != bytes_str.size()) {
-            expected_bytes.reset();
-            filename.clear();
-            expected_digest.clear();
-          }
-        } catch (...) {
+        unsigned long long parsed_bytes = 0;
+        auto [ptr, ec] =
+            std::from_chars(bytes_str.data(),
+                            bytes_str.data() + bytes_str.size(), parsed_bytes);
+        if (ec == std::errc() && ptr == bytes_str.data() + bytes_str.size()) {
+          expected_bytes = parsed_bytes;
+        } else {
           expected_bytes.reset();
           filename.clear();
           expected_digest.clear();

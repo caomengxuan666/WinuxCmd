@@ -66,6 +66,31 @@ struct CommandEntryErased {
       : options(opts), handler(h), brief_desc(brief) {}
 };
 
+using ArgsRewriteHook =
+    std::optional<std::vector<std::string>> (*)(std::span<std::string_view>);
+using ArgsValidationHook =
+    std::optional<std::string> (*)(std::span<std::string_view>);
+using SpecialDispatchHook = std::optional<int> (*)(const CommandEntryErased &,
+                                                   std::span<std::string_view>);
+using StandardInterceptionHook = bool (*)(std::span<std::string_view>);
+
+constexpr size_t kMaxRewriteHooks = 5;
+
+struct CommandBehavior {
+  int parse_error_exit_code = 1;
+  ArgsValidationHook validate_args = nullptr;
+  std::string_view validation_prefix;
+  std::array<ArgsRewriteHook, kMaxRewriteHooks> rewrite_hooks{};
+  size_t rewrite_hook_count = 0;
+  SpecialDispatchHook special_dispatch = nullptr;
+  StandardInterceptionHook standard_interception_enabled = nullptr;
+};
+
+auto is_posixly_correct() -> bool {
+  const char *value = std::getenv("POSIXLY_CORRECT");
+  return value != nullptr && value[0] != '\0';
+}
+
 auto legacy_count_value(std::string_view arg) -> std::string {
   if (arg.empty()) return {};
   if ((arg[0] == '-' || arg[0] == '+') && arg.size() > 1) {
@@ -231,14 +256,6 @@ auto rewrite_tail_obsolete_args(std::span<std::string_view> args)
   if (follow) rewritten.emplace_back("-f");
   append_remaining_args(rewritten, args, 1);
   return rewritten;
-}
-
-auto rewrite_head_tail_count_args(std::string_view cmdName,
-                                  std::span<std::string_view> args)
-    -> std::optional<std::vector<std::string>> {
-  if (cmdName == "head") return rewrite_head_obsolete_args(args);
-  if (cmdName == "tail") return rewrite_tail_obsolete_args(args);
-  return std::nullopt;
 }
 
 auto is_head_obsolete_count_arg(std::string_view arg) -> bool {
@@ -431,6 +448,11 @@ auto rewrite_chmod_gnu_negative_mode_args(std::string_view cmdName,
   return rewritten;
 }
 
+auto rewrite_chmod_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  return rewrite_chmod_gnu_negative_mode_args("chmod", args);
+}
+
 auto parse_legacy_nice_adjustment(std::string_view arg) -> std::optional<int> {
   if (arg.size() < 2 || arg[0] != '-') {
     return std::nullopt;
@@ -529,6 +551,11 @@ auto rewrite_nice_legacy_args(std::string_view cmdName,
   return rewritten;
 }
 
+auto rewrite_nice_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  return rewrite_nice_legacy_args("nice", args);
+}
+
 auto rewrite_pr_legacy_column_args(std::string_view cmdName,
                                    std::span<std::string_view> args)
     -> std::optional<std::vector<std::string>> {
@@ -567,6 +594,11 @@ auto rewrite_pr_legacy_column_args(std::string_view cmdName,
   }
 
   return rewritten;
+}
+
+auto rewrite_pr_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  return rewrite_pr_legacy_column_args("pr", args);
 }
 
 auto echo_posixly_correct_literal_mode(std::string_view cmdName,
@@ -635,25 +667,102 @@ auto rewrite_echo_posix_args(std::string_view cmdName,
   return rewritten;
 }
 
+auto rewrite_echo_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  return rewrite_echo_posix_args("echo", args);
+}
+
+auto echo_standard_interception_enabled(std::span<std::string_view> args)
+    -> bool {
+  return !echo_posixly_correct_literal_mode("echo", args);
+}
+
+auto default_standard_interception_enabled(std::span<std::string_view>)
+    -> bool {
+  return true;
+}
+
+auto dispatch_wpm_help_version(const CommandEntryErased &entry,
+                               std::span<std::string_view> args)
+    -> std::optional<int> {
+  for (const auto &arg : args) {
+    if (arg == "--help") {
+      return entry.handler(std::span<std::string_view>{});
+    }
+    if (arg == "--version" || arg == "-V") {
+      std::array<std::string_view, 1> version_args{"version"};
+      return entry.handler(version_args);
+    }
+  }
+
+  return std::nullopt;
+}
+
+auto append_rewrite_hook(CommandBehavior &behavior, ArgsRewriteHook hook)
+    -> void {
+  if (behavior.rewrite_hook_count < behavior.rewrite_hooks.size()) {
+    behavior.rewrite_hooks[behavior.rewrite_hook_count++] = hook;
+  }
+}
+
+auto behavior_for(std::string_view name) -> CommandBehavior {
+  CommandBehavior behavior;
+  behavior.standard_interception_enabled =
+      default_standard_interception_enabled;
+
+  if (name == "env" || name == "nice" || name == "stdbuf" ||
+      name == "timeout") {
+    behavior.parse_error_exit_code = 125;
+  } else if (name == "nohup") {
+    behavior.parse_error_exit_code = is_posixly_correct() ? 127 : 125;
+  } else if (name == "printenv" || name == "tty") {
+    behavior.parse_error_exit_code = 2;
+  }
+
+  if (name == "head") {
+    behavior.validate_args = head_invalid_obsolete_count_context;
+    behavior.validation_prefix = "head";
+    append_rewrite_hook(behavior, rewrite_head_obsolete_args);
+  } else if (name == "tail") {
+    behavior.validate_args = tail_invalid_obsolete_count_context;
+    behavior.validation_prefix = "tail";
+    append_rewrite_hook(behavior, rewrite_tail_obsolete_args);
+  } else if (name == "chmod") {
+    append_rewrite_hook(behavior, rewrite_chmod_args);
+  } else if (name == "nice") {
+    append_rewrite_hook(behavior, rewrite_nice_args);
+  } else if (name == "pr") {
+    append_rewrite_hook(behavior, rewrite_pr_args);
+  } else if (name == "echo") {
+    append_rewrite_hook(behavior, rewrite_echo_args);
+    behavior.standard_interception_enabled = echo_standard_interception_enabled;
+  } else if (name == "wpm") {
+    behavior.special_dispatch = dispatch_wpm_help_version;
+  }
+
+  return behavior;
+}
+
+auto replace_effective_args(std::vector<std::string> rewritten,
+                            std::vector<std::string> &storage,
+                            std::vector<std::string_view> &views)
+    -> std::span<std::string_view> {
+  storage = std::move(rewritten);
+  views.clear();
+  views.reserve(storage.size());
+  for (const auto &arg : storage) {
+    views.emplace_back(arg);
+  }
+  return std::span<std::string_view>(views);
+}
+
 // Internal registry implementation class
 class RegistryImpl {
   std::unordered_map<std::string_view, CommandEntryErased> registry_;
 
-  static auto is_posixly_correct() -> bool {
-    const char *value = std::getenv("POSIXLY_CORRECT");
-    return value != nullptr && value[0] != '\0';
-  }
-
  public:
   static auto parse_error_exit_code(std::string_view name) -> int {
-    if (name == "env") return 125;
-    if (name == "nice") return 125;
-    if (name == "nohup") return is_posixly_correct() ? 127 : 125;
-    if (name == "stdbuf") return 125;
-    if (name == "timeout") return 125;
-    if (name == "printenv") return 2;
-    if (name == "tty") return 2;
-    return 1;
+    return behavior_for(name).parse_error_exit_code;
   }
 
   // Register a command with compile-time metadata
@@ -676,19 +785,13 @@ class RegistryImpl {
       return 127;
     }
 
-    if (cmdName == "head") {
-      if (auto invalid_count = head_invalid_obsolete_count_context(args)) {
-        safeErrorPrintLn("head: option used in invalid context -- " +
-                         *invalid_count);
-        return parse_error_exit_code(cmdName);
-      }
-    }
+    const CommandBehavior behavior = behavior_for(cmdName);
 
-    if (cmdName == "tail") {
-      if (auto invalid_count = tail_invalid_obsolete_count_context(args)) {
-        safeErrorPrintLn("tail: option used in invalid context -- " +
-                         *invalid_count);
-        return parse_error_exit_code(cmdName);
+    if (behavior.validate_args != nullptr) {
+      if (auto invalid_arg = behavior.validate_args(args)) {
+        safeErrorPrintLn(std::string(behavior.validation_prefix) +
+                         ": option used in invalid context -- " + *invalid_arg);
+        return behavior.parse_error_exit_code;
       }
     }
 
@@ -696,98 +799,31 @@ class RegistryImpl {
     std::vector<std::string_view> rewritten_views;
     std::span<std::string_view> effective_args = args;
 
-    if (auto rewritten = rewrite_head_tail_count_args(cmdName, args)) {
-      rewritten_storage = std::move(*rewritten);
-      rewritten_views.reserve(rewritten_storage.size());
-      for (const auto &arg : rewritten_storage) {
-        rewritten_views.emplace_back(arg);
+    for (size_t i = 0; i < behavior.rewrite_hook_count; ++i) {
+      if (auto hook = behavior.rewrite_hooks[i]) {
+        if (auto rewritten = hook(effective_args)) {
+          effective_args = replace_effective_args(
+              std::move(*rewritten), rewritten_storage, rewritten_views);
+        }
       }
-      effective_args = std::span<std::string_view>(rewritten_views);
-    }
-
-    if (auto rewritten =
-            rewrite_chmod_gnu_negative_mode_args(cmdName, effective_args)) {
-      rewritten_storage = std::move(*rewritten);
-      rewritten_views.clear();
-      rewritten_views.reserve(rewritten_storage.size());
-      for (const auto &arg : rewritten_storage) {
-        rewritten_views.emplace_back(arg);
-      }
-      effective_args = std::span<std::string_view>(rewritten_views);
-    }
-
-    if (auto rewritten = rewrite_nice_legacy_args(cmdName, effective_args)) {
-      rewritten_storage = std::move(*rewritten);
-      rewritten_views.clear();
-      rewritten_views.reserve(rewritten_storage.size());
-      for (const auto &arg : rewritten_storage) {
-        rewritten_views.emplace_back(arg);
-      }
-      effective_args = std::span<std::string_view>(rewritten_views);
-    }
-
-    if (auto rewritten =
-            rewrite_pr_legacy_column_args(cmdName, effective_args)) {
-      rewritten_storage = std::move(*rewritten);
-      rewritten_views.clear();
-      rewritten_views.reserve(rewritten_storage.size());
-      for (const auto &arg : rewritten_storage) {
-        rewritten_views.emplace_back(arg);
-      }
-      effective_args = std::span<std::string_view>(rewritten_views);
-    }
-
-    if (auto rewritten = rewrite_echo_posix_args(cmdName, effective_args)) {
-      rewritten_storage = std::move(*rewritten);
-      rewritten_views.clear();
-      rewritten_views.reserve(rewritten_storage.size());
-      for (const auto &arg : rewritten_storage) {
-        rewritten_views.emplace_back(arg);
-      }
-      effective_args = std::span<std::string_view>(rewritten_views);
     }
 
     // Get meta data from the command
     auto options = it->second.options;  // std::span<const OptionMeta>
 
-    if (cmdName == "wpm") {
-      for (const auto &arg : effective_args) {
-        if (arg == "--help" || arg == "-h") {
-          return it->second.handler(std::span<std::string_view>{});
-        }
-        if (arg == "--version" || arg == "-V") {
-          std::array<std::string_view, 1> version_args{"version"};
-          return it->second.handler(version_args);
-        }
+    if (behavior.special_dispatch != nullptr) {
+      if (auto status = behavior.special_dispatch(it->second, effective_args)) {
+        return *status;
       }
     }
 
     // Check if it contains help
     bool wants_help = false;
-    if (!echo_posixly_correct_literal_mode(cmdName, args)) {
+    if (behavior.standard_interception_enabled(args)) {
       for (const auto &arg : effective_args) {
         if (arg == "--help") {
           wants_help = true;
           break;
-        }
-      }
-
-      if (!wants_help) {
-        // Check if -h is already been registered
-        bool has_h_option = false;
-        for (const auto &opt : options) {
-          if (opt.short_name == "-h") {
-            has_h_option = true;
-            break;
-          }
-        }
-        if (!has_h_option) {
-          for (const auto &arg : effective_args) {
-            if (arg == "-h") {
-              wants_help = true;
-              break;
-            }
-          }
         }
       }
     }

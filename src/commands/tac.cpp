@@ -93,33 +93,7 @@ auto build_config(const CommandContext<TAC_OPTIONS.size()>& ctx)
 }
 
 auto read_source(const std::string& file) -> cp::Result<std::string> {
-  if (file == "-") {
-    std::string content;
-    content.assign(std::istreambuf_iterator<char>(std::cin),
-                   std::istreambuf_iterator<char>());
-    return content;
-  }
-
-  auto tac_input_open_error = [](std::string_view path) -> std::string {
-    std::error_code ec;
-    auto status = std::filesystem::status(std::filesystem::u8path(path), ec);
-    if (!ec && status.type() == std::filesystem::file_type::directory) {
-      return std::string("cannot open '") + std::string(path) +
-             "' for reading: Is a directory";
-    }
-    return std::string("cannot open '") + std::string(path) +
-           "' for reading: No such file or directory";
-  };
-
-  std::ifstream f(file, std::ios::binary);
-  if (!f) {
-    return std::unexpected(tac_input_open_error(file));
-  }
-  std::string content;
-  content.assign(std::istreambuf_iterator<char>(f),
-                 std::istreambuf_iterator<char>());
-  if (f.fail() && !f.eof()) return std::unexpected("error reading from file");
-  return content;
+  return file_io::read_all_input(file);
 }
 
 auto normalize_newline_delimited_text(std::string_view content) -> std::string {
