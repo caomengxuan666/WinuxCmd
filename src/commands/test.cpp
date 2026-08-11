@@ -139,12 +139,8 @@ bool file_has_size(const std::string& path) {
 
 // String to integer
 bool string_to_int(const std::string& s, long long& result) {
-  try {
-    result = std::stoll(s);
-    return true;
-  } catch (...) {
-    return false;
-  }
+  auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), result);
+  return ec == std::errc() && ptr == s.data() + s.size();
 }
 
 // Compare strings

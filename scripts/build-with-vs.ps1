@@ -18,6 +18,7 @@ param(
     [string[]]$VsEnvArgs,
     [string]$Arch = "x64",
     [string]$Generator = "Ninja",
+    [string[]]$CMakeExtraArgs,
     [switch]$ConfigureOnly,
     [switch]$SkipConfigure
 )
@@ -65,6 +66,10 @@ $cmakeArgs = @(
     "-G", $Generator,
     "-DCMAKE_BUILD_TYPE=$Configuration"
 )
+
+if ($null -ne $CMakeExtraArgs) {
+    $cmakeArgs += $CMakeExtraArgs
+}
 
 $buildArgs = @(
     "--build", $buildPath,

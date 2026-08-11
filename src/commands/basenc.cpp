@@ -94,40 +94,7 @@ struct Config {
 
 auto read_input(std::string_view filename)
     -> std::expected<std::string, std::string> {
-  std::string content;
-  auto input_open_error = [](std::string_view path) -> std::string {
-    std::error_code ec;
-    if (std::filesystem::is_directory(std::filesystem::u8path(path), ec) &&
-        !ec) {
-      return "cannot open '" + std::string(path) +
-             "' for reading: Is a directory";
-    }
-
-    return "cannot open '" + std::string(path) +
-           "' for reading: No such file or directory";
-  };
-
-  if (filename == "-") {
-    content.assign(std::istreambuf_iterator<char>(std::cin),
-                   std::istreambuf_iterator<char>());
-    if (std::cin.fail() && !std::cin.eof()) {
-      return std::unexpected("error reading from standard input");
-    }
-    return content;
-  }
-
-  std::ifstream file(std::string(filename), std::ios::binary);
-  if (!file) {
-    return std::unexpected(input_open_error(filename));
-  }
-
-  content.assign(std::istreambuf_iterator<char>(file),
-                 std::istreambuf_iterator<char>());
-  if (file.fail() && !file.eof()) {
-    return std::unexpected("error reading '" + std::string(filename) + "'");
-  }
-
-  return content;
+  return file_io::read_all_input(filename);
 }
 
 auto apply_wrap(std::string_view input, int wrap) -> std::string {

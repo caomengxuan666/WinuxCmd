@@ -86,16 +86,13 @@ struct Config {
 
 auto parse_int(const std::string& text, std::string_view error)
     -> cp::Result<int> {
-  try {
-    size_t pos = 0;
-    int value = std::stoi(text, &pos);
-    if (pos != text.size()) {
-      return std::unexpected(std::string(error));
-    }
-    return value;
-  } catch (...) {
+  int value = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
     return std::unexpected(std::string(error));
   }
+  return value;
 }
 
 auto validate_numbering_style(const std::string& style,
@@ -402,7 +399,7 @@ auto run(const Config& cfg) -> int {
       std::ifstream f(file, std::ios::binary);
       if (!f) {
         auto err = nl_input_open_error(file);
-        cp::Result<int> result = std::unexpected(std::string_view(err));
+        cp::Result<int> result = std::unexpected(err);
         cp::report_error(result, L"nl");
         return 1;
       }

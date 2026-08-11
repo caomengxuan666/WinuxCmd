@@ -93,6 +93,36 @@ TEST(rm, rm_recursive) {
   EXPECT_TRUE(!dir_exists);
 }
 
+TEST(rm, rm_recursive_accepts_trailing_separator_operand) {
+  TempDir tmp;
+  std::filesystem::create_directory(tmp.path / "dir1");
+  tmp.write("dir1/file.txt", "content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rm.exe", {L"-r", L"-f", L"dir1/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dir1"));
+}
+
+TEST(rm, rm_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"rm.exe", {L"-r", L"-f", L"file.txt/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("Not a directory") != std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "file.txt"));
+}
+
 TEST(rm, rm_recursive_removes_readonly_file) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "dir1");

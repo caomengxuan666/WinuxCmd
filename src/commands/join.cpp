@@ -100,16 +100,13 @@ struct Config {
 
 auto parse_positive_field(const std::string& text, std::string_view option)
     -> cp::Result<int> {
-  try {
-    size_t pos = 0;
-    int value = std::stoi(text, &pos);
-    if (pos != text.size() || value <= 0) {
-      return std::unexpected("invalid field number for " + std::string(option));
-    }
-    return value;
-  } catch (...) {
+  int value = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size() || value <= 0) {
     return std::unexpected("invalid field number for " + std::string(option));
   }
+  return value;
 }
 
 auto split_fields(const std::string& line, const Config& cfg)

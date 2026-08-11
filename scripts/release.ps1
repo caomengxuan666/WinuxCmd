@@ -13,7 +13,10 @@ param(
     [string]$CommitMessage = "release: version $Version",
 
     [Parameter(Mandatory=$false)]
-    [switch]$SkipCommit
+    [switch]$SkipCommit,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$PrepareOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,6 +70,11 @@ Write-Host ""
 $gitStatus = git status --short
 if (-not $gitStatus) {
     Write-Color "Yellow" "No changes detected. Files already at version $Version"
+    exit 0
+}
+
+if ($PrepareOnly) {
+    Write-Color "Yellow" "Prepare-only mode: version metadata updated; skipping commit, push, and tag"
     exit 0
 }
 

@@ -314,7 +314,7 @@ auto run(const Config& cfg) -> int {
       std::ifstream f(file, std::ios::binary);
       if (!f) {
         auto err = fold_input_open_error(file);
-        cp::Result<int> result = std::unexpected(std::string_view(err));
+        cp::Result<int> result = std::unexpected(err);
         cp::report_error(result, L"fold");
         all_ok = false;
         continue;

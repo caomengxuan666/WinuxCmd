@@ -127,101 +127,121 @@ auto checked_mul(int64_t value, int64_t multiplier) -> cp::Result<int64_t> {
   return value * multiplier;
 }
 
+auto strip_leading_plus(std::string_view value) -> std::string_view {
+  if (!value.empty() && value.front() == '+') {
+    value.remove_prefix(1);
+  }
+  return value;
+}
+
+auto parse_i64_full(std::string_view value) -> cp::Result<int64_t> {
+  value = strip_leading_plus(value);
+  int64_t parsed = 0;
+  auto [ptr, ec] =
+      std::from_chars(value.data(), value.data() + value.size(), parsed);
+  if (ec != std::errc() || ptr != value.data() + value.size()) {
+    return std::unexpected("invalid integer");
+  }
+  return parsed;
+}
+
 auto parse_size(const std::string& size_str) -> cp::Result<int64_t> {
-  try {
-    std::string s = size_str;
-    if (s.empty()) return std::unexpected("invalid size");
+  std::string s = size_str;
+  if (s.empty()) return std::unexpected("invalid size");
 
-    int64_t multiplier = 1;
-    auto consume_suffix = [&](std::string_view suffix, int64_t factor) {
-      if (s.size() < suffix.size()) return false;
-      if (std::string_view(s).substr(s.size() - suffix.size()) != suffix) {
-        return false;
-      }
-      multiplier = factor;
-      s.resize(s.size() - suffix.size());
-      return true;
-    };
-
-    struct Suffix {
-      std::string_view text;
-      int64_t factor;
-    };
-    constexpr int64_t k1000 = 1000;
-    constexpr int64_t k1024 = 1024;
-    const std::array<Suffix, 31> suffixes = {
-        Suffix{"KiB", k1024},
-        Suffix{"kiB", k1024},
-        Suffix{"MiB", k1024 * k1024},
-        Suffix{"miB", k1024 * k1024},
-        Suffix{"GiB", k1024 * k1024 * k1024},
-        Suffix{"giB", k1024 * k1024 * k1024},
-        Suffix{"TiB", k1024 * k1024 * k1024 * k1024},
-        Suffix{"tiB", k1024 * k1024 * k1024 * k1024},
-        Suffix{"PiB", k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"piB", k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"EiB", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"eiB", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"KB", k1000},
-        Suffix{"MB", k1000 * k1000},
-        Suffix{"GB", k1000 * k1000 * k1000},
-        Suffix{"TB", k1000 * k1000 * k1000 * k1000},
-        Suffix{"PB", k1000 * k1000 * k1000 * k1000 * k1000},
-        Suffix{"EB", k1000 * k1000 * k1000 * k1000 * k1000 * k1000},
-        Suffix{"K", k1024},
-        Suffix{"M", k1024 * k1024},
-        Suffix{"G", k1024 * k1024 * k1024},
-        Suffix{"T", k1024 * k1024 * k1024 * k1024},
-        Suffix{"P", k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"E", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"k", k1024},
-        Suffix{"m", k1024 * k1024},
-        Suffix{"g", k1024 * k1024 * k1024},
-        Suffix{"t", k1024 * k1024 * k1024 * k1024},
-        Suffix{"p", k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"e", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
-        Suffix{"b", 512},
-    };
-
-    for (const auto& suffix : suffixes) {
-      if (consume_suffix(suffix.text, suffix.factor)) break;
+  int64_t multiplier = 1;
+  auto consume_suffix = [&](std::string_view suffix, int64_t factor) {
+    if (s.size() < suffix.size()) return false;
+    if (std::string_view(s).substr(s.size() - suffix.size()) != suffix) {
+      return false;
     }
+    multiplier = factor;
+    s.resize(s.size() - suffix.size());
+    return true;
+  };
 
-    if (s.empty()) return std::unexpected("invalid size");
-    int64_t value = std::stoll(s);
-    return checked_mul(value, multiplier);
-  } catch (...) {
+  struct Suffix {
+    std::string_view text;
+    int64_t factor;
+  };
+  constexpr int64_t k1000 = 1000;
+  constexpr int64_t k1024 = 1024;
+  const std::array<Suffix, 31> suffixes = {
+      Suffix{"KiB", k1024},
+      Suffix{"kiB", k1024},
+      Suffix{"MiB", k1024 * k1024},
+      Suffix{"miB", k1024 * k1024},
+      Suffix{"GiB", k1024 * k1024 * k1024},
+      Suffix{"giB", k1024 * k1024 * k1024},
+      Suffix{"TiB", k1024 * k1024 * k1024 * k1024},
+      Suffix{"tiB", k1024 * k1024 * k1024 * k1024},
+      Suffix{"PiB", k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"piB", k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"EiB", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"eiB", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"KB", k1000},
+      Suffix{"MB", k1000 * k1000},
+      Suffix{"GB", k1000 * k1000 * k1000},
+      Suffix{"TB", k1000 * k1000 * k1000 * k1000},
+      Suffix{"PB", k1000 * k1000 * k1000 * k1000 * k1000},
+      Suffix{"EB", k1000 * k1000 * k1000 * k1000 * k1000 * k1000},
+      Suffix{"K", k1024},
+      Suffix{"M", k1024 * k1024},
+      Suffix{"G", k1024 * k1024 * k1024},
+      Suffix{"T", k1024 * k1024 * k1024 * k1024},
+      Suffix{"P", k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"E", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"k", k1024},
+      Suffix{"m", k1024 * k1024},
+      Suffix{"g", k1024 * k1024 * k1024},
+      Suffix{"t", k1024 * k1024 * k1024 * k1024},
+      Suffix{"p", k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"e", k1024 * k1024 * k1024 * k1024 * k1024 * k1024},
+      Suffix{"b", 512},
+  };
+
+  for (const auto& suffix : suffixes) {
+    if (consume_suffix(suffix.text, suffix.factor)) break;
+  }
+
+  if (s.empty()) return std::unexpected("invalid size");
+  auto value_text = strip_leading_plus(s);
+  int64_t value = 0;
+  auto [ptr, ec] = std::from_chars(
+      value_text.data(), value_text.data() + value_text.size(), value);
+  if (ec != std::errc() || ptr == value_text.data()) {
     return std::unexpected("invalid size format");
   }
+  return checked_mul(value, multiplier);
 }
 
 auto parse_positive_i64(const std::string& value, std::string_view name)
     -> cp::Result<int64_t> {
-  try {
-    size_t consumed = 0;
-    int64_t parsed = std::stoll(value, &consumed);
-    if (consumed != value.size() || parsed <= 0) {
-      return std::unexpected(std::string(name) + " must be positive");
-    }
-    return parsed;
-  } catch (...) {
+  auto parsed = parse_i64_full(value);
+  if (!parsed) {
     return std::unexpected(std::string("invalid ") + std::string(name));
   }
+  if (*parsed <= 0) {
+    return std::unexpected(std::string(name) + " must be positive");
+  }
+  return *parsed;
 }
 
 auto parse_suffix_start(const std::string& value, int base)
     -> cp::Result<uint64_t> {
   if (value.empty()) return 0;
-  try {
-    size_t consumed = 0;
-    uint64_t parsed = std::stoull(value, &consumed, base);
-    if (consumed != value.size()) {
-      return std::unexpected("invalid suffix start");
-    }
-    return parsed;
-  } catch (...) {
+  auto text = strip_leading_plus(value);
+  if (base == 16 && text.size() > 2 && text[0] == '0' &&
+      (text[1] == 'x' || text[1] == 'X')) {
+    text.remove_prefix(2);
+  }
+  uint64_t parsed = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), parsed, base);
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
     return std::unexpected("invalid suffix start");
   }
+  return parsed;
 }
 
 auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
@@ -333,16 +353,16 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
     suffix_opt = ctx.get<std::string>("-a", "");
   }
   if (!suffix_opt.empty()) {
-    try {
-      cfg.suffix_length = std::stoi(suffix_opt);
-      if (cfg.suffix_length < 0 || cfg.suffix_length > 32) {
-        return std::unexpected("suffix length must be between 0 and 32");
-      }
-      cfg.suffix_length_explicit = cfg.suffix_length != 0;
-      if (cfg.suffix_length == 0) cfg.suffix_length = 2;
-    } catch (...) {
+    auto suffix_length = parse_i64_full(suffix_opt);
+    if (!suffix_length) {
       return std::unexpected("invalid suffix length");
     }
+    if (*suffix_length < 0 || *suffix_length > 32) {
+      return std::unexpected("suffix length must be between 0 and 32");
+    }
+    cfg.suffix_length = static_cast<int>(*suffix_length);
+    cfg.suffix_length_explicit = cfg.suffix_length != 0;
+    if (cfg.suffix_length == 0) cfg.suffix_length = 2;
   }
 
   cfg.additional_suffix = ctx.get<std::string>("--additional-suffix", "");
@@ -575,7 +595,7 @@ auto run(const Config& cfg) -> int {
     std::ifstream f(cfg.input_file, std::ios::binary);
     if (!f) {
       auto err = split_input_open_error(cfg.input_file);
-      cp::Result<int> result = std::unexpected(std::string_view(err));
+      cp::Result<int> result = std::unexpected(err);
       cp::report_error(result, L"split");
       return 1;
     }

@@ -129,7 +129,7 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
   if (ctx.positionals.size() < 4) {
     return std::unexpected(make_error(
         "missing operand after '" + std::string(ctx.positionals.back()) +
-        "'\nSpecial files require major and minor device numbers."));
+        "'\nspecial files requires major and minor device numbers."));
   }
 
   auto major_result = parse_uint_arg(ctx.positionals[2], "major");

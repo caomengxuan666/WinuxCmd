@@ -38,6 +38,20 @@ TEST(truncate, truncate_create) {
   EXPECT_TRUE(std::filesystem::exists(tmp.path / "test.txt"));
 }
 
+TEST(truncate, truncate_creates_utf8_filename) {
+  TempDir tmp;
+  const std::wstring name = L"\x6D4B\x8BD5.txt";
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"truncate.exe", {L"-s", L"3", name});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(std::filesystem::file_size(tmp.path / name), 3);
+}
+
 TEST(truncate, truncate_shrink) {
   TempDir tmp;
   tmp.write("test.txt", "hello world, this is a long string");
@@ -80,6 +94,37 @@ TEST(truncate, truncate_no_create_skips_missing_file) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(std::filesystem::exists(tmp.path / "missing.txt"));
+}
+
+TEST(truncate, truncate_missing_trailing_separator_is_not_created) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"truncate.exe", {L"-s", L"100", L"missing.txt/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "missing.txt"));
+  EXPECT_TRUE(r.stderr_text.find("truncate: cannot resize 'missing.txt/'") !=
+              std::string::npos);
+}
+
+TEST(truncate, truncate_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "abcdef");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"truncate.exe", {L"-s", L"1", L"file.txt/"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ(tmp.read("file.txt"), "abcdef");
+  EXPECT_TRUE(r.stderr_text.find("truncate: cannot resize 'file.txt/': Not a "
+                                 "directory") != std::string::npos);
 }
 
 TEST(truncate, truncate_relative_extend) {

@@ -902,10 +902,9 @@ TEST(find, find_regextype_is_positional_for_later_regexes) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"find.exe",
-        {L".", L"-regextype", L"posix-basic", L"-regex",
-         L"./src/\\(basic\\)\\.txt", L"-o", L"-regextype",
-         L"posix-extended", L"-regex", L"./src/(extended)\\.txt"});
+  p.add(L"find.exe", {L".", L"-regextype", L"posix-basic", L"-regex",
+                      L"./src/\\(basic\\)\\.txt", L"-o", L"-regextype",
+                      L"posix-extended", L"-regex", L"./src/(extended)\\.txt"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
@@ -924,9 +923,9 @@ TEST(find, find_regextype_unknown_type_is_error) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(r.stderr_text.find("Unknown regular expression type 'not-a-type'") !=
-              std::string::npos);
-  EXPECT_TRUE(r.stderr_text.find("posix-extended") != std::string::npos);
+  EXPECT_CONTAINS(r.stderr_text,
+                  "Unknown regular expression type 'not-a-type'");
+  EXPECT_CONTAINS(r.stderr_text, "posix-extended");
 }
 
 TEST(find, find_newer_matches_files_modified_after_reference) {

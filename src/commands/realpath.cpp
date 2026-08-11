@@ -115,7 +115,7 @@ auto access_error(const std::string& path) -> std::string {
   return "realpath: cannot access '" + path + "': No such file or directory";
 }
 
-auto empty_operand_error() -> std::string_view {
+auto empty_operand_error() -> std::string {
   return "invalid operand: empty string";
 }
 

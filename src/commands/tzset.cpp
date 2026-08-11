@@ -15,7 +15,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr TZSET_OPTIONS = std::array{
-    OPTION("-h", "--help", "output usage information and exit", BOOL_TYPE),
+    OPTION("", "--help", "output usage information and exit", BOOL_TYPE),
     OPTION("-V", "--version", "output version information and exit",
            BOOL_TYPE)};
 
@@ -29,7 +29,7 @@ void print_usage_stdout() {
       "setting");
   safePrintLn("");
   safePrintLn("Options:");
-  safePrintLn("  -h, --help               output usage information and exit.");
+  safePrintLn("      --help               output usage information and exit.");
   safePrintLn(
       "  -V, --version            output version information and exit.");
   safePrintLn("");
@@ -51,6 +51,17 @@ void print_usage_stderr() {
   safeErrorPrintLn(
       "Print POSIX-compatible timezone ID from current Windows timezone "
       "setting");
+}
+
+auto is_known_posix_timezone(std::string_view value) -> bool {
+  static constexpr std::array<std::string_view, 11> zones = {
+      "Asia/Shanghai",       "UTC",
+      "Europe/London",       "Europe/Berlin",
+      "Europe/Budapest",     "America/New_York",
+      "America/Chicago",     "America/Denver",
+      "America/Los_Angeles", "Asia/Tokyo",
+      "Asia/Seoul"};
+  return std::ranges::find(zones, value) != zones.end();
 }
 
 auto key_to_posix(std::wstring_view key) -> std::string {
@@ -107,16 +118,21 @@ REGISTER_COMMAND(
     "Print POSIX-compatible timezone ID from current Windows timezone setting",
     "  tzset\n  export TZ=$(tzset)", "date", "WinuxCmd",
     "Copyright © 2026 WinuxCmd", TZSET_OPTIONS) {
-  if (ctx.get<bool>("--help", false) || ctx.get<bool>("-h", false)) {
+  if (ctx.get<bool>("--help", false)) {
     print_usage_stdout();
     return 0;
   }
   if (!ctx.positionals.empty()) {
-    print_usage_stderr();
-    return 1;
+    std::string requested(ctx.positionals[0]);
+    if (!is_known_posix_timezone(requested)) {
+      print_usage_stderr();
+      return 1;
+    }
+    safePrintLn("TZ=" + requested);
+    return 0;
   }
   auto tz = current_posix_timezone();
   if (!tz) return 1;
-  safePrintLn(*tz);
+  safePrintLn("TZ=" + *tz);
   return 0;
 }

@@ -412,11 +412,11 @@ class CompatRandomSource {
 auto parse_unsigned_decimal(std::string_view text, std::string_view diagnostic)
     -> cp::Result<uint64_t> {
   if (text.empty()) {
-    return std::unexpected(diagnostic);
+    return std::unexpected<cp::Error>(std::string(diagnostic));
   }
   for (char ch : text) {
     if (!std::isdigit(static_cast<unsigned char>(ch))) {
-      return std::unexpected(diagnostic);
+      return std::unexpected<cp::Error>(std::string(diagnostic));
     }
   }
 
@@ -424,7 +424,7 @@ auto parse_unsigned_decimal(std::string_view text, std::string_view diagnostic)
   auto [ptr, ec] =
       std::from_chars(text.data(), text.data() + text.size(), value);
   if (ec != std::errc() || ptr != text.data() + text.size()) {
-    return std::unexpected(diagnostic);
+    return std::unexpected<cp::Error>(std::string(diagnostic));
   }
   return value;
 }
@@ -628,15 +628,15 @@ auto run(const Config& cfg) -> int {
           return 1;
         }
       } else {
-        std::ifstream f(file, std::ios::binary);
-        if (!f) {
-          auto err = shuf_input_open_error(file);
-          cp::Result<int> result = std::unexpected(std::string_view(err));
+        auto content = file_io::read_all_file(file);
+        if (!content) {
+          cp::Result<int> result = std::unexpected(content.error());
           cp::report_error(result, L"shuf");
           return 1;
         }
 
-        auto read_result = read_records(f, cfg.zero_terminated, lines);
+        std::istringstream input(*content);
+        auto read_result = read_records(input, cfg.zero_terminated, lines);
         if (!read_result) {
           cp::report_error(read_result, L"shuf");
           return 1;

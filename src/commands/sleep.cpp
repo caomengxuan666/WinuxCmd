@@ -53,52 +53,52 @@ struct Config {
 };
 
 auto parse_duration(const std::string& duration) -> cp::Result<int64_t> {
-  try {
-    // Support: N, Ns, Nm, Nh, Nd
-    std::string s = duration;
+  // Support: N, Ns, Nm, Nh, Nd
+  std::string s = duration;
+  if (auto first = s.find_first_not_of(" \t\r\n");
+      first != std::string::npos && first > 0) {
+    s.erase(0, first);
+  }
 
-    if (s.empty()) {
-      return std::unexpected("invalid time interval '" + duration + "'");
-    }
-
-    int64_t multiplier = 1;
-    if (s.size() > 1) {
-      char suffix = s.back();
-
-      switch (suffix) {
-        case 's':
-        case 'S':
-          multiplier = 1;
-          s = s.substr(0, s.size() - 1);
-          break;
-        case 'm':
-        case 'M':
-          multiplier = 60;
-          s = s.substr(0, s.size() - 1);
-          break;
-        case 'h':
-        case 'H':
-          multiplier = 3600;
-          s = s.substr(0, s.size() - 1);
-          break;
-        case 'd':
-        case 'D':
-          multiplier = 86400;
-          s = s.substr(0, s.size() - 1);
-          break;
-      }
-    }
-
-    size_t parsed = 0;
-    double value = std::stod(s, &parsed);
-    if (parsed != s.size() || value < 0) {
-      return std::unexpected("invalid time interval '" + duration + "'");
-    }
-    return static_cast<int64_t>(value * multiplier *
-                                1000);  // Convert to milliseconds
-  } catch (...) {
+  if (s.empty()) {
     return std::unexpected("invalid time interval '" + duration + "'");
   }
+
+  int64_t multiplier = 1;
+  if (s.size() > 1) {
+    char suffix = s.back();
+
+    switch (suffix) {
+      case 's':
+      case 'S':
+        multiplier = 1;
+        s = s.substr(0, s.size() - 1);
+        break;
+      case 'm':
+      case 'M':
+        multiplier = 60;
+        s = s.substr(0, s.size() - 1);
+        break;
+      case 'h':
+      case 'H':
+        multiplier = 3600;
+        s = s.substr(0, s.size() - 1);
+        break;
+      case 'd':
+      case 'D':
+        multiplier = 86400;
+        s = s.substr(0, s.size() - 1);
+        break;
+    }
+  }
+
+  double value = 0.0;
+  auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
+  if (ec != std::errc() || ptr != s.data() + s.size() || value < 0) {
+    return std::unexpected("invalid time interval '" + duration + "'");
+  }
+  return static_cast<int64_t>(value * static_cast<double>(multiplier) *
+                              1000.0);  // Convert to milliseconds
 }
 
 auto build_config(const CommandContext<SLEEP_OPTIONS.size()>& ctx)

@@ -27,6 +27,7 @@ REGISTER_COMMAND(toe, "toe", "toe [-ahsuUV] [-v n] [file...]",
   if (ctx.get<bool>("-h", false)) {
     safePrintLn("Terminfo Entries");
   }
+  safePrintLn("windows-ansi Windows ANSI/VT console");
   safePrintLn("xterm        xterm terminal emulator");
   safePrintLn("vt100        DEC VT100");
   safePrintLn("ansi         ANSI/VT100 terminal");

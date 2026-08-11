@@ -47,6 +47,20 @@ set_property(CACHE BUILD_MODE PROPERTY STRINGS "DEV" "RELEASE" "DEBUG_RELEASE" "
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
 
+# Option to enable benchmarks. DEV/DEBUG_RELEASE keep the historical default,
+# but local test builds can disable this to avoid network FetchContent.
+option(ENABLE_BENCHMARKS "Enable benchmark targets" ON)
+
+set(WINUXCMD_CXX_DIALECT "23" CACHE STRING "C++ dialect canary: 23, 26, or latest")
+set_property(CACHE WINUXCMD_CXX_DIALECT PROPERTY STRINGS "23" "26" "latest")
+if (NOT WINUXCMD_CXX_DIALECT STREQUAL "23" AND
+    NOT WINUXCMD_CXX_DIALECT STREQUAL "26" AND
+    NOT WINUXCMD_CXX_DIALECT STREQUAL "latest")
+    message(FATAL_ERROR "Unsupported WINUXCMD_CXX_DIALECT='${WINUXCMD_CXX_DIALECT}'. Use 23, 26, or latest.")
+endif ()
+set(WINUXCMD_CXX_STANDARD 23)
+set(WINUXCMD_CXX_DIALECT_NOTE "pending compiler detection")
+
 # Option to enable FFI library
 option(BUILD_FFI "Build FFI library for external integration" OFF)
 set(BUILD_FFI OFF CACHE BOOL "Build FFI library for external integration" FORCE)
@@ -144,6 +158,27 @@ project(WinuxCmd
         LANGUAGES CXX C
 )
 
+set(WINUXCMD_IMPORT_STD_LEVELS "${CMAKE_CXX_COMPILER_IMPORT_STD}")
+if (WINUXCMD_CXX_DIALECT STREQUAL "23")
+    set(WINUXCMD_CXX_STANDARD 23)
+    set(WINUXCMD_CXX_DIALECT_NOTE "CMake CXX23")
+elseif (WINUXCMD_CXX_DIALECT STREQUAL "26")
+    if (NOT DEFINED CMAKE_CXX_COMPILER_IMPORT_STD)
+        set(CMAKE_CXX_COMPILER_IMPORT_STD "")
+    endif()
+    list(FIND CMAKE_CXX_COMPILER_IMPORT_STD 26 _WINUXCMD_IMPORT_STD_CXX26_INDEX)
+    if (_WINUXCMD_IMPORT_STD_CXX26_INDEX GREATER_EQUAL 0)
+        set(WINUXCMD_CXX_STANDARD 26)
+        set(WINUXCMD_CXX_DIALECT_NOTE "native CMake CXX26 import std")
+    else()
+        set(WINUXCMD_CXX_STANDARD 23)
+        set(WINUXCMD_CXX_DIALECT_NOTE "C++26 canary via compiler latest mode; import std levels=${WINUXCMD_IMPORT_STD_LEVELS}")
+    endif()
+elseif (WINUXCMD_CXX_DIALECT STREQUAL "latest")
+    set(WINUXCMD_CXX_STANDARD 23)
+    set(WINUXCMD_CXX_DIALECT_NOTE "compiler latest mode")
+endif()
+
 # Generate version header file
 string(TIMESTAMP BUILD_TIMESTAMP "%Y-%m-%d %H:%M:%S" UTC)
 configure_file(
@@ -156,7 +191,7 @@ set_source_files_properties(
     PROPERTIES OBJECT_DEPENDS "${CMAKE_BINARY_DIR}/version.hpp"
 )
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD ${WINUXCMD_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -312,7 +347,7 @@ enable_unity_build(winuxcmd-commands)
 
 # Set C++ standard
 set_target_properties(winuxcmd-commands PROPERTIES
-        CXX_STANDARD 23
+        CXX_STANDARD ${WINUXCMD_CXX_STANDARD}
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
 )
@@ -456,6 +491,7 @@ macro(create_command_executable CMD)
             src/utils/string.cppm
             src/utils/wildcard.cppm
             src/utils/path.cppm
+            src/utils/native_path.cppm
             src/utils/utf8.cppm
             src/utils/win32.cppm
             src/utils/json.cppm
@@ -548,6 +584,7 @@ if(BUILD_STANDALONE)
         src/utils/text_io.cppm
         src/utils/string.cppm
         src/utils/path.cppm
+        src/utils/native_path.cppm
         src/utils/utf8.cppm
         src/utils/win32.cppm
         src/utils/wildcard.cppm
@@ -634,6 +671,7 @@ if(BUILD_STANDALONE)
             src/utils/text_io.cppm
             src/utils/string.cppm
             src/utils/path.cppm
+            src/utils/native_path.cppm
             src/utils/utf8.cppm
             src/utils/win32.cppm
             src/utils/wildcard.cppm
@@ -703,7 +741,7 @@ add_executable(scaffold
 
 # Set C++ standard for scaffold tool
 set_target_properties(scaffold PROPERTIES
-        CXX_STANDARD 23
+        CXX_STANDARD ${WINUXCMD_CXX_STANDARD}
         CXX_STANDARD_REQUIRED ON
         CXX_EXTENSIONS OFF
 )
@@ -852,7 +890,9 @@ endif()
 # Print final configuration summary
 message(STATUS "=================== BUILD CONFIGURATION SUMMARY ===================")
 message(STATUS "Build Mode: ${BUILD_MODE}")
+message(STATUS "C++ Dialect: ${WINUXCMD_CXX_DIALECT} (${WINUXCMD_CXX_DIALECT_NOTE}, CXX_STANDARD=${WINUXCMD_CXX_STANDARD})")
 message(STATUS "Tests Enabled: ${ENABLE_TESTS}")
+message(STATUS "Benchmarks Enabled: ${ENABLE_BENCHMARKS}")
 message(STATUS "FFI Library: ${BUILD_FFI}")
 message(STATUS "Map Info Generation: ${GENERATE_MAP_INFO}")
 message(STATUS "Unity Build: ${ENABLE_UNITY_BUILD}")
@@ -868,11 +908,11 @@ message(STATUS "Final count result: ${COMMANDS_SRC_FILE_COUNT} .cpp files")
 
 # ========== Benchmark (DEV and DEBUG_RELEASE mode only) ==========
 
-if (BUILD_MODE STREQUAL "DEV" OR BUILD_MODE STREQUAL "DEBUG_RELEASE")
+if (ENABLE_BENCHMARKS AND (BUILD_MODE STREQUAL "DEV" OR BUILD_MODE STREQUAL "DEBUG_RELEASE"))
     message(STATUS "Benchmarks: ENABLED (${BUILD_MODE} mode)")
     add_subdirectory(benchmark)
 else ()
-    message(STATUS "Benchmarks: DISABLED (only available in DEV and DEBUG_RELEASE mode)")
+    message(STATUS "Benchmarks: DISABLED (requires ENABLE_BENCHMARKS=ON and DEV/DEBUG_RELEASE mode)")
 endif ()
 
 include(CPack)

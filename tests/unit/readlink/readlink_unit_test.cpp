@@ -62,14 +62,41 @@ auto long_existing_prefix_path(std::filesystem::path path)
     ec.clear();
   }
 
-  std::wstring base = path.wstring();
-  DWORD needed = GetLongPathNameW(base.c_str(), nullptr, 0);
-  if (needed > 0) {
-    std::wstring buffer(needed, L'\0');
-    DWORD written = GetLongPathNameW(base.c_str(), buffer.data(), needed);
-    if (written > 0 && written < needed) {
-      buffer.resize(written);
-      path = buffer;
+  HANDLE handle =
+      CreateFileW(path.wstring().c_str(), FILE_READ_ATTRIBUTES,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  if (handle != INVALID_HANDLE_VALUE) {
+    DWORD needed = GetFinalPathNameByHandleW(
+        handle, nullptr, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    if (needed > 0) {
+      std::wstring buffer(needed + 1, L'\0');
+      DWORD written = GetFinalPathNameByHandleW(
+          handle, buffer.data(), static_cast<DWORD>(buffer.size()),
+          FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+      if (written > 0 && written < buffer.size()) {
+        buffer.resize(written);
+        if (buffer.rfind(L"\\\\?\\UNC\\", 0) == 0) {
+          path = L"\\\\" + buffer.substr(8);
+        } else if (buffer.rfind(L"\\\\?\\", 0) == 0 ||
+                   buffer.rfind(L"\\??\\", 0) == 0) {
+          path = buffer.substr(4);
+        } else {
+          path = buffer;
+        }
+      }
+    }
+    CloseHandle(handle);
+  } else {
+    std::wstring base = path.wstring();
+    DWORD needed = GetLongPathNameW(base.c_str(), nullptr, 0);
+    if (needed > 0) {
+      std::wstring buffer(needed, L'\0');
+      DWORD written = GetLongPathNameW(base.c_str(), buffer.data(), needed);
+      if (written > 0 && written < needed) {
+        buffer.resize(written);
+        path = buffer;
+      }
     }
   }
 

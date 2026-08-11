@@ -120,13 +120,15 @@ auto build_config(const CommandContext<CSPLIT_OPTIONS.size()>& ctx)
     digits_opt = ctx.get<std::string>("-n", "");
   }
   if (!digits_opt.empty()) {
-    try {
-      cfg.digits = std::stoi(digits_opt);
-      if (cfg.digits < 0 || cfg.digits > 32) {
-        return std::unexpected("digits value must be between 0 and 32");
-      }
-    } catch (...) {
+    int digits = 0;
+    auto [ptr, ec] = std::from_chars(
+        digits_opt.data(), digits_opt.data() + digits_opt.size(), digits);
+    if (ec != std::errc() || ptr != digits_opt.data() + digits_opt.size()) {
       return std::unexpected("invalid digits value");
+    }
+    cfg.digits = digits;
+    if (cfg.digits < 0 || cfg.digits > 32) {
+      return std::unexpected("digits value must be between 0 and 32");
     }
   }
 
@@ -219,16 +221,15 @@ auto parse_offset(std::string_view text) -> cp::Result<int> {
   if (text[0] != '+' && text[0] != '-') {
     return std::unexpected("invalid pattern offset");
   }
-  try {
-    size_t consumed = 0;
-    int offset = std::stoi(std::string(text), &consumed);
-    if (consumed != text.size()) {
-      return std::unexpected("invalid pattern offset");
-    }
-    return offset;
-  } catch (...) {
+  int magnitude = 0;
+  auto digits = text.substr(1);
+  if (digits.empty()) return std::unexpected("invalid pattern offset");
+  auto [ptr, ec] =
+      std::from_chars(digits.data(), digits.data() + digits.size(), magnitude);
+  if (ec != std::errc() || ptr != digits.data() + digits.size()) {
     return std::unexpected("invalid pattern offset");
   }
+  return text[0] == '-' ? -magnitude : magnitude;
 }
 
 auto parse_pattern(const std::string& text) -> cp::Result<ParsedPattern> {
@@ -267,19 +268,20 @@ auto parse_pattern(const std::string& text) -> cp::Result<ParsedPattern> {
     return pattern;
   }
 
-  try {
-    size_t consumed = 0;
-    size_t line_number = std::stoull(text, &consumed, 10);
-    if (consumed != text.size() || line_number == 0) {
-      return std::unexpected("invalid line number");
-    }
-    ParsedPattern pattern;
-    pattern.kind = ParsedPattern::Kind::LineNumber;
-    pattern.line_number = line_number;
-    return pattern;
-  } catch (...) {
+  size_t line_number = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), line_number);
+  if (ec != std::errc()) {
     return std::unexpected("invalid pattern");
   }
+  if (ptr != text.data() + text.size() || line_number == 0) {
+    return std::unexpected("invalid line number");
+  }
+
+  ParsedPattern pattern;
+  pattern.kind = ParsedPattern::Kind::LineNumber;
+  pattern.line_number = line_number;
+  return pattern;
 }
 
 auto parse_repeat(const std::string& text) -> cp::Result<RepeatSpec> {
@@ -295,16 +297,12 @@ auto parse_repeat(const std::string& text) -> cp::Result<RepeatSpec> {
     return repeat;
   }
 
-  try {
-    size_t consumed = 0;
-    repeat.count = std::stoull(inner, &consumed, 10);
-    if (consumed != inner.size()) {
-      return std::unexpected("invalid repeat count");
-    }
-    return repeat;
-  } catch (...) {
+  auto [ptr, ec] =
+      std::from_chars(inner.data(), inner.data() + inner.size(), repeat.count);
+  if (ec != std::errc() || ptr != inner.data() + inner.size()) {
     return std::unexpected("invalid repeat count");
   }
+  return repeat;
 }
 
 struct Segment {

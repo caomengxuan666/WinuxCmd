@@ -135,13 +135,6 @@ namespace cp = core::pipeline;
 
 constexpr int kWindowsCommandLineLimit = 32767;
 
-thread_local std::string g_xargs_dynamic_error;
-
-auto store_xargs_dynamic_error(std::string message) -> std::string_view {
-  g_xargs_dynamic_error = std::move(message);
-  return g_xargs_dynamic_error;
-}
-
 template <size_t N>
 auto option_present(const CommandContext<N> &ctx, std::string_view name)
     -> bool {
@@ -937,8 +930,8 @@ auto launch_process(const std::string &command,
                                 TRUE, CREATE_UNICODE_ENVIRONMENT, environment,
                                 nullptr, &si, &pi);
   if (!success) {
-    return std::unexpected(store_xargs_dynamic_error(
-        "create process failed:" + std::to_string(GetLastError())));
+    return std::unexpected<cp::Error>("create process failed:" +
+                                      std::to_string(GetLastError()));
   }
 
   ChildProcess child;

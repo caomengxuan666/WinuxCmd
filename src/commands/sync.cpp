@@ -91,16 +91,15 @@ REGISTER_COMMAND(
       ctx.get<bool>("--file-system", false) || ctx.get<bool>("-f", false);
 
   if (sync_data && sync_fs) {
-    cp::Result<int> result = std::unexpected(
-        std::string_view("options --data and --file-system are mutually "
-                         "exclusive"));
+    cp::Result<int> result = std::unexpected<cp::Error>(
+        "options --data and --file-system are mutually exclusive");
     cp::report_error(result, L"sync");
     return 1;
   }
 
   if (sync_data && ctx.positionals.empty()) {
     cp::Result<int> result =
-        std::unexpected(std::string_view("--data needs at least one argument"));
+        std::unexpected<cp::Error>("--data needs at least one argument");
     cp::report_error(result, L"sync");
     return 1;
   }
@@ -135,8 +134,7 @@ REGISTER_COMMAND(
       if (sync_fs) {
         if (!std::filesystem::exists(fs_path, path_ec)) {
           auto err = format_open_error(exp, ERROR_FILE_NOT_FOUND);
-          cp::Result<int> result =
-              std::unexpected(std::string_view(err.data(), err.size()));
+          cp::Result<int> result = std::unexpected(err);
           cp::report_error(result, L"sync");
           had_error = true;
         }
@@ -154,7 +152,7 @@ REGISTER_COMMAND(
 
       if (hFile == INVALID_HANDLE_VALUE) {
         auto err = format_open_error(exp, GetLastError());
-        cp::Result<int> result = std::unexpected(std::string_view(err));
+        cp::Result<int> result = std::unexpected(err);
         cp::report_error(result, L"sync");
         had_error = true;
         continue;
@@ -163,7 +161,7 @@ REGISTER_COMMAND(
       if (!FlushFileBuffers(hFile)) {
         CloseHandle(hFile);
         auto err = std::string("failed to flush '") + exp + "'";
-        cp::Result<int> result = std::unexpected(std::string_view(err));
+        cp::Result<int> result = std::unexpected(err);
         cp::report_error(result, L"sync");
         had_error = true;
         continue;

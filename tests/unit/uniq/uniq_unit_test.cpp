@@ -38,6 +38,23 @@ TEST(uniq, uniq_basic_adjacent_behavior) {
   EXPECT_EQ_TEXT(r.stdout_text, "a\nb\na\n");
 }
 
+TEST(uniq, uniq_reads_utf8_filename) {
+  TempDir tmp;
+  const std::wstring name = L"\x6D4B\x8BD5.txt";
+  {
+    std::ofstream out(tmp.path / name, std::ios::binary);
+    out << "x\nx\ny\n";
+  }
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"uniq.exe", {name});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "x\ny\n");
+}
+
 TEST(uniq, uniq_strips_cr_from_crlf_input_records) {
   TempDir tmp;
   tmp.write_bytes("a.txt", {'a', '\r', '\n', 'a', '\r', '\n', 'b', '\r', '\n',
@@ -245,5 +262,20 @@ TEST(uniq, uniq_reports_is_a_directory_for_directory_input) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stdout_text.empty());
   EXPECT_TRUE(r.stderr_text.find("uniq: indir: Is a directory") !=
+              std::string::npos);
+}
+
+TEST(uniq, uniq_file_with_trailing_separator_reports_not_directory) {
+  TempDir tmp;
+  tmp.write("file.txt", "a\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"uniq.exe", {L"file.txt/"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.find("uniq: file.txt/: Not a directory") !=
               std::string::npos);
 }

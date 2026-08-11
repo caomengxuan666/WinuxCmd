@@ -120,13 +120,15 @@ auto build_config(const CommandContext<MORE_OPTIONS.size()>& ctx)
           arg.begin() + 1, arg.end(),
           [](unsigned char ch) { return std::isdigit(ch) != 0; });
       if (digits_only) {
-        try {
-          unsigned long long line = std::stoull(arg.substr(1));
-          cfg.start_line = line > 0 ? static_cast<size_t>(line - 1) : 0;
-          continue;
-        } catch (...) {
+        auto value = std::string_view(arg).substr(1);
+        unsigned long long line = 0;
+        auto [ptr, ec] =
+            std::from_chars(value.data(), value.data() + value.size(), line);
+        if (ec != std::errc() || ptr != value.data() + value.size()) {
           return std::unexpected("invalid line number");
         }
+        cfg.start_line = line > 0 ? static_cast<size_t>(line - 1) : 0;
+        continue;
       }
     }
     cfg.files.push_back(std::move(arg));
@@ -136,23 +138,178 @@ auto build_config(const CommandContext<MORE_OPTIONS.size()>& ctx)
 }
 
 auto get_console_height() -> size_t {
-  CONSOLE_SCREEN_BUFFER_INFO csbi;
-  if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
-    return static_cast<size_t>(csbi.srWindow.Bottom - csbi.srWindow.Top);
-  }
-  return 24;  // Default
+  auto [width, height] = getConsoleViewportSize();
+  (void)width;
+  return static_cast<size_t>(std::max(height - 1, 1));
 }
 
-auto clear_console() -> void {
-  HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-  CONSOLE_SCREEN_BUFFER_INFO csbi;
-  GetConsoleScreenBufferInfo(hConsole, &csbi);
-  DWORD cells = csbi.dwSize.X * csbi.dwSize.Y;
-  DWORD written;
-  FillConsoleOutputCharacter(hConsole, ' ', cells, {0, 0}, &written);
-  FillConsoleOutputAttribute(hConsole, csbi.wAttributes, cells, {0, 0},
-                             &written);
-  SetConsoleCursorPosition(hConsole, {0, 0});
+auto clear_console() -> void { clearConsoleViewport(); }
+
+enum class MoreAction {
+  None,
+  RepeatPrevious,
+  NextPage,
+  SetPageSize,
+  NextLine,
+  Scroll,
+  SkipScreens,
+  SkipLines,
+  PrevPage,
+  Search,
+  RepeatSearch,
+  DisplayLine,
+  DisplayFile,
+  Help,
+  ClearScreen,
+  NextFile,
+  PrevFile,
+  Quit
+};
+
+struct MoreCommand {
+  MoreAction action = MoreAction::None;
+  size_t number = 0;
+  std::string text;
+};
+
+struct MoreResult {
+  int code = 0;
+  MoreAction action = MoreAction::Quit;
+  size_t count = 0;
+};
+
+auto print_runtime_help() -> void {
+  safePrintLn(
+      "Most commands optionally preceded by integer argument k. Defaults in "
+      "brackets.");
+  safePrintLn("SPACE       display next k lines [current screen size]");
+  safePrintLn("z           display next k lines and set screen size");
+  safePrintLn("ENTER       display next k lines [1]");
+  safePrintLn("d, Ctrl-D   scroll k lines [half screen]");
+  safePrintLn("s           skip forward k lines [1]");
+  safePrintLn("f, Ctrl-F   skip forward k screenfuls [1]");
+  safePrintLn("b, Ctrl-B   skip backward k screenfuls [1]");
+  safePrintLn("/pattern    search for kth occurrence [1]");
+  safePrintLn("n           repeat previous search");
+  safePrintLn("=           display current line number");
+  safePrintLn(":f          display current file and line");
+  safePrintLn(":n, :p      next/previous file");
+  safePrintLn(".           repeat previous command");
+  safePrintLn("q           quit");
+}
+
+auto read_prompt_text(HANDLE input, char prompt) -> std::optional<std::string> {
+  std::wstring text;
+  safePrint(std::string_view(&prompt, 1));
+
+  INPUT_RECORD record{};
+  DWORD read = 0;
+  while (ReadConsoleInputW(input, &record, 1, &read)) {
+    if (record.EventType != KEY_EVENT || !record.Event.KeyEvent.bKeyDown) {
+      continue;
+    }
+
+    const auto& key = record.Event.KeyEvent;
+    if (key.wVirtualKeyCode == VK_ESCAPE) return std::nullopt;
+    if (key.wVirtualKeyCode == VK_RETURN) {
+      safePrint("\n");
+      return wstring_to_utf8(text);
+    }
+    if (key.wVirtualKeyCode == VK_BACK) {
+      if (!text.empty()) {
+        text.pop_back();
+        safePrint("\r\033[K");
+        safePrint(std::string_view(&prompt, 1));
+        safePrint(text);
+      }
+      continue;
+    }
+
+    wchar_t ch = key.uChar.UnicodeChar;
+    if (ch >= L' ') {
+      text.push_back(ch);
+      safePrint(std::wstring_view(&ch, 1));
+    }
+  }
+  return std::nullopt;
+}
+
+auto read_more_command(HANDLE input) -> MoreCommand {
+  std::string digits;
+
+  INPUT_RECORD record{};
+  DWORD read = 0;
+  while (ReadConsoleInputW(input, &record, 1, &read)) {
+    if (record.EventType != KEY_EVENT || !record.Event.KeyEvent.bKeyDown) {
+      continue;
+    }
+
+    const auto& key = record.Event.KeyEvent;
+    char ch = key.uChar.AsciiChar;
+    if (std::isdigit(static_cast<unsigned char>(ch)) != 0) {
+      digits.push_back(ch);
+      continue;
+    }
+
+    auto number = [&]() -> size_t {
+      if (digits.empty()) return 0;
+      size_t value = 0;
+      auto [ptr, ec] =
+          std::from_chars(digits.data(), digits.data() + digits.size(), value);
+      return ec == std::errc() && ptr == digits.data() + digits.size() ? value
+                                                                       : 0;
+    }();
+
+    if (ch == ':') {
+      INPUT_RECORD colon_record{};
+      DWORD colon_read = 0;
+      while (ReadConsoleInputW(input, &colon_record, 1, &colon_read)) {
+        if (colon_record.EventType != KEY_EVENT ||
+            !colon_record.Event.KeyEvent.bKeyDown) {
+          continue;
+        }
+        char colon_ch = colon_record.Event.KeyEvent.uChar.AsciiChar;
+        if (colon_ch == 'n') return {MoreAction::NextFile, number};
+        if (colon_ch == 'p') return {MoreAction::PrevFile, number};
+        if (colon_ch == 'f') return {MoreAction::DisplayFile, number};
+        return {MoreAction::None, number};
+      }
+      return {MoreAction::Quit, number};
+    }
+
+    if (ch == '.') return {MoreAction::RepeatPrevious, number};
+    if (ch == 'q' || ch == 'Q') return {MoreAction::Quit, number};
+    if (ch == ' ') return {MoreAction::NextPage, number};
+    if (ch == 'z') return {MoreAction::SetPageSize, number};
+    if (ch == '\r' || ch == '\n') return {MoreAction::NextLine, number};
+    if (ch == 'd' || ch == 4) return {MoreAction::Scroll, number};
+    if (ch == 's') return {MoreAction::SkipLines, number};
+    if (ch == 'f' || ch == 6) return {MoreAction::SkipScreens, number};
+    if (ch == 'b' || ch == 2) return {MoreAction::PrevPage, number};
+    if (ch == '/' || ch == 'n') {
+      if (ch == 'n') return {MoreAction::RepeatSearch, number};
+      auto text = read_prompt_text(input, '/');
+      return text ? MoreCommand{MoreAction::Search, number, *text}
+                  : MoreCommand{MoreAction::None, number};
+    }
+    if (ch == '=') return {MoreAction::DisplayLine, number};
+    if (ch == 'h' || ch == '?') return {MoreAction::Help, number};
+    if (ch == '\f' || ch == 12) return {MoreAction::ClearScreen, number};
+
+    switch (key.wVirtualKeyCode) {
+      case VK_NEXT:
+      case VK_DOWN:
+        return {MoreAction::NextPage, number};
+      case VK_PRIOR:
+      case VK_UP:
+        return {MoreAction::PrevPage, number};
+      case VK_ESCAPE:
+        return {MoreAction::Quit, number};
+      default:
+        return {MoreAction::None, number};
+    }
+  }
+  return {MoreAction::Quit, 0};
 }
 
 auto copy_stream_to_stdout(std::istream& input) -> int {
@@ -182,27 +339,24 @@ auto copy_file_to_stdout(const std::string& filename) -> int {
   return copy_stream_to_stdout(file);
 }
 auto read_display_lines(const std::string& filename)
-    -> cp::Result<std::vector<std::string>> {
-  std::vector<std::string> lines;
+    -> std::expected<std::vector<std::string>, std::string> {
   if (filename.empty() || filename == "-") {
-    std::string line;
-    while (std::getline(std::cin, line)) {
-      if (!line.empty() && line.back() == '') line.pop_back();
-      lines.push_back(line);
+    std::string content;
+    std::array<char, 64 * 1024> buffer{};
+    while (std::cin.good()) {
+      std::cin.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+      auto count = std::cin.gcount();
+      if (count > 0) {
+        content.append(buffer.data(), static_cast<size_t>(count));
+      }
     }
-  } else {
-    std::ifstream file(filename, std::ios::binary);
-    if (!file) {
-      return std::unexpected(std::string("cannot open '") + filename +
-                             "' for reading");
-    }
-    std::string line;
-    while (std::getline(file, line)) {
-      if (!line.empty() && line.back() == '') line.pop_back();
-      lines.push_back(line);
-    }
+    if (std::cin.bad()) return std::unexpected("error reading from stdin");
+    return winux::pager::split_text_lines(content);
   }
-  return lines;
+
+  auto doc = winux::pager::load_seekable_document(filename);
+  if (!doc) return std::unexpected(doc.error());
+  return doc->materialize_lines();
 }
 auto prepare_start_line(std::vector<std::string>& lines, const Config& cfg)
     -> size_t {
@@ -233,7 +387,8 @@ auto display_file_noninteractive(const std::string& filename, const Config& cfg)
     -> int {
   auto lines_result = read_display_lines(filename);
   if (!lines_result) {
-    cp::report_error(lines_result, L"more");
+    safeErrorPrint("more: ");
+    safeErrorPrintLn(lines_result.error());
     return 1;
   }
   auto lines = std::move(*lines_result);
@@ -243,80 +398,187 @@ auto display_file_noninteractive(const std::string& filename, const Config& cfg)
   }
   return 0;
 }
-auto display_file(const std::string& filename, const Config& cfg) -> int {
+auto display_file(const std::string& filename, const Config& cfg,
+                  size_t file_index, size_t file_count) -> MoreResult {
   auto lines_result = read_display_lines(filename);
   if (!lines_result) {
-    cp::report_error(lines_result, L"more");
-    return 1;
+    safeErrorPrint("more: ");
+    safeErrorPrintLn(lines_result.error());
+    return {1, MoreAction::Quit};
   }
   auto lines = std::move(*lines_result);
   size_t start_line = prepare_start_line(lines, cfg);
 
-  // Get terminal height
-  size_t page_height = cfg.lines_per_page;
-  if (page_height == 0) {
-    page_height = get_console_height();
+  size_t current_line = start_line;
+  size_t lines_per_page = cfg.lines_per_page;
+  size_t last_lines_shown = 0;
+  size_t scroll_len = std::max<size_t>(1, get_console_height() / 2);
+  std::string last_search = cfg.search_pattern;
+  MoreCommand previous_command{MoreAction::NextPage, 0};
+
+  winux::pager::ConsoleInputMode input_mode;
+  if (!input_mode.active()) {
+    for (size_t i = current_line; i < lines.size(); ++i) {
+      safePrintLn(lines[i]);
+    }
+    return {0, MoreAction::Quit};
   }
 
-  // Display pages
-  size_t current_line = start_line;
-  bool done = false;
+  while (current_line < lines.size()) {
+    size_t visible_height = get_console_height();
+    size_t page_height = lines_per_page > 0
+                             ? std::min(lines_per_page, visible_height)
+                             : visible_height;
 
-  while (!done && current_line < lines.size()) {
-    // Clear screen if requested
     if (cfg.clear_screen || cfg.no_scroll) {
       clear_console();
     }
 
-    // Display one page
     size_t lines_shown = 0;
     for (size_t i = 0; i < page_height && current_line < lines.size();
          ++i, ++current_line) {
       safePrintLn(lines[current_line]);
       lines_shown++;
     }
+    last_lines_shown = lines_shown;
 
-    // Check if we're at the end
     if (current_line >= lines.size()) {
       break;
     }
 
-    // Prompt for more
+    size_t percent =
+        lines.empty()
+            ? 100
+            : std::min<size_t>(100, current_line * 100 / lines.size());
     if (cfg.help_prompt) {
-      safePrint("--More--(%) [Press space to continue, 'q' to quit]");
+      safePrint("--More--(");
+      safePrint(std::to_string(percent));
+      safePrint("%) [Press h for instructions]");
     } else {
-      safePrint("--More--");
+      safePrint("--More--(");
+      safePrint(std::to_string(percent));
+      safePrint("%)");
     }
 
-    // Wait for input
-    HANDLE hInput = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-    GetConsoleMode(hInput, &mode);
-    SetConsoleMode(hInput, mode & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT));
+    MoreCommand command = read_more_command(input_mode.input());
+    safePrint("\r\033[K");
+    if (command.action == MoreAction::RepeatPrevious) {
+      command = previous_command;
+    } else if (command.action != MoreAction::None) {
+      previous_command = command;
+    }
 
-    INPUT_RECORD record;
-    DWORD read;
-    while (true) {
-      ReadConsoleInput(hInput, &record, 1, &read);
-      if (record.EventType == KEY_EVENT && record.Event.KeyEvent.bKeyDown) {
-        char ch = record.Event.KeyEvent.uChar.AsciiChar;
-        if (ch == 'q' || ch == 'Q') {
-          done = true;
-          break;
-        } else if (ch == ' ' || ch == '\n' || ch == '\r') {
-          break;
-        }
+    auto count_or = [&](size_t fallback) {
+      return command.number == 0 ? fallback : command.number;
+    };
+    auto rewind_current_page = [&]() {
+      current_line =
+          current_line > last_lines_shown ? current_line - last_lines_shown : 0;
+    };
+
+    switch (command.action) {
+      case MoreAction::Quit:
+        return {0, MoreAction::Quit};
+      case MoreAction::NextPage:
+        lines_per_page = count_or(page_height);
+        break;
+      case MoreAction::SetPageSize:
+        lines_per_page = count_or(page_height);
+        break;
+      case MoreAction::NextLine:
+        lines_per_page = count_or(1);
+        break;
+      case MoreAction::Scroll:
+        if (command.number != 0) scroll_len = command.number;
+        lines_per_page = scroll_len;
+        break;
+      case MoreAction::SkipLines:
+        current_line = std::min(lines.size(), current_line + count_or(1));
+        lines_per_page = page_height;
+        break;
+      case MoreAction::SkipScreens:
+        current_line =
+            std::min(lines.size(), current_line + count_or(1) * page_height);
+        lines_per_page = page_height;
+        break;
+      case MoreAction::PrevPage: {
+        size_t pages = count_or(1);
+        size_t rewind = last_lines_shown + pages * page_height;
+        current_line = current_line > rewind ? current_line - rewind : 0;
+        lines_per_page = page_height;
+        break;
       }
+      case MoreAction::Search:
+        last_search = command.text;
+        [[fallthrough]];
+      case MoreAction::RepeatSearch: {
+        if (last_search.empty()) break;
+        size_t occurrences = count_or(1);
+        size_t found = std::string::npos;
+        for (size_t i = current_line; i < lines.size(); ++i) {
+          if (lines[i].find(last_search) == std::string::npos) continue;
+          if (--occurrences == 0) {
+            found = i;
+            break;
+          }
+        }
+        if (found != std::string::npos) current_line = found;
+        lines_per_page = page_height;
+        break;
+      }
+      case MoreAction::DisplayLine:
+        rewind_current_page();
+        safePrint("line ");
+        safePrintLn(std::to_string(current_line));
+        lines_per_page = page_height;
+        break;
+      case MoreAction::DisplayFile:
+        rewind_current_page();
+        safePrint(filename.empty() ? "[stdin]" : filename);
+        if (file_count > 1) {
+          safePrint(" [");
+          safePrint(std::to_string(file_index + 1));
+          safePrint("/");
+          safePrint(std::to_string(file_count));
+          safePrint("]");
+        }
+        safePrint(" line ");
+        safePrintLn(std::to_string(current_line));
+        lines_per_page = page_height;
+        break;
+      case MoreAction::Help:
+        rewind_current_page();
+        print_runtime_help();
+        lines_per_page = page_height;
+        break;
+      case MoreAction::ClearScreen:
+        current_line = current_line > last_lines_shown
+                           ? current_line - last_lines_shown
+                           : 0;
+        clear_console();
+        lines_per_page = page_height;
+        break;
+      case MoreAction::NextFile:
+      case MoreAction::PrevFile:
+        return {0, command.action, command.number};
+      case MoreAction::RepeatPrevious:
+      case MoreAction::None:
+        rewind_current_page();
+        lines_per_page = page_height;
+        break;
     }
-
-    SetConsoleMode(hInput, mode);
-    safePrintLn("");
   }
 
-  return 0;
+  return {0, MoreAction::NextFile, 1};
 }
 
 auto run(const Config& cfg) -> int {
+  if (cfg.files.empty() && isInputConsole()) {
+    safeErrorPrintLn("more: missing filename or piped input");
+    safeErrorPrintLn("Usage: more [OPTION]... [FILE]...");
+    return 1;
+  }
+
   if (!isOutputConsole()) {
     bool needs_line_processing =
         cfg.squeeze_blank || cfg.start_line > 0 || !cfg.search_pattern.empty();
@@ -336,14 +598,26 @@ auto run(const Config& cfg) -> int {
     return result;
   }
   if (cfg.files.empty()) {
-    return display_file("", cfg);
+    return display_file("", cfg, 0, 1).code;
   }
 
   int result = 0;
-  for (const auto& file : cfg.files) {
-    if (display_file(file, cfg) != 0) {
-      result = 1;
+  size_t index = 0;
+  while (index < cfg.files.size()) {
+    MoreResult file_result =
+        display_file(cfg.files[index], cfg, index, cfg.files.size());
+    if (file_result.code != 0) result = 1;
+    if (file_result.action == MoreAction::PrevFile) {
+      size_t count = file_result.count == 0 ? 1 : file_result.count;
+      index = index > count ? index - count : 0;
+      continue;
     }
+    if (file_result.action == MoreAction::NextFile) {
+      size_t count = file_result.count == 0 ? 1 : file_result.count;
+      index += count;
+      continue;
+    }
+    break;
   }
   return result;
 }
@@ -357,25 +631,18 @@ REGISTER_COMMAND(
     "The more command is a filter for paging through text one screen at a "
     "time.\n"
     "\n"
-    "Mandatory arguments to long options are mandatory for short options too.\n"
-    "\n"
-    "  -d, --silent       display help instead of ring bell\n"
-    "  -f, --logical      count logical lines, not screen lines\n"
-    "  -l, --no-pause     suppress pause after form feeds\n"
-    "  -c, --print-over   clear line ends before each page\n"
-    "  -p, --clean-print  do not scroll, clean screen and display text\n"
-    "  -e, --exit-on-eof  exit on end-of-file\n"
-    "  -s, --squeeze      squeeze multiple blank lines\n"
-    "  -u, --plain        suppress underlining and bold; currently plain "
-    "output\n"
-    "  -n, --lines NUM    number of lines per screenful\n"
-    "  -NUM              same as -n NUM\n"
-    "  +NUM              display file beginning from line number\n"
-    "  +/PATTERN         display file beginning from pattern match\n"
+    "Start modifiers:\n"
+    "  +NUM       display file beginning from line number\n"
+    "  +/PATTERN  display file beginning from pattern match\n"
     "\n"
     "Interactive commands:\n"
-    "  SPACE       display next screenful\n"
+    "  SPACE/z     display next screenful; z also sets screen size\n"
     "  ENTER       display next line\n"
+    "  d/s/f/b     scroll, skip lines, skip screens, or go back\n"
+    "  / and n     search and repeat search\n"
+    "  :n/:p/:f    next file, previous file, or file status\n"
+    "  .           repeat previous command\n"
+    "  h or ?      show interactive help\n"
     "  q           quit\n"
     "\n"
     "Note: On Windows, more uses the console for interactive paging.",

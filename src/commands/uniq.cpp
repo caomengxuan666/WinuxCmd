@@ -110,23 +110,20 @@ struct Config {
 
 auto read_all(std::istream& in) -> std::string { return read_text_stream(in); }
 
-auto input_open_error_message(std::string_view path) -> std::string {
-  std::error_code ec;
-  auto status = std::filesystem::status(std::filesystem::u8path(path), ec);
-  if (!ec && status.type() == std::filesystem::file_type::directory) {
-    return std::string(path) + ": Is a directory";
-  }
-  return std::string(path) + ": No such file or directory";
-}
-
 auto read_source(std::string_view path) -> cp::Result<std::string> {
   if (path == "-") return read_all(std::cin);
 
-  std::ifstream in(std::string(path), std::ios::binary);
-  if (!in.is_open()) {
-    return std::unexpected(input_open_error_message(path));
+  auto content = file_io::read_all_file(path);
+  if (!content) {
+    const std::string prefix =
+        "cannot open '" + std::string(path) + "' for reading: ";
+    if (content.error().starts_with(prefix)) {
+      return std::unexpected(std::string(path) + ": " +
+                             content.error().substr(prefix.size()));
+    }
+    return std::unexpected(content.error());
   }
-  return read_all(in);
+  return *content;
 }
 
 auto split_records(std::string_view content, char delimiter)

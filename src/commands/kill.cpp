@@ -595,15 +595,14 @@ auto parse_pids(const std::vector<std::string>& pid_args)
   std::vector<DWORD> pids;
 
   for (const auto& pid_str : pid_args) {
-    try {
-      long long pid_value = std::stoll(pid_str);
-      if (pid_value <= 0 || pid_value > UINT32_MAX) {
-        return std::unexpected("invalid PID: " + pid_str);
-      }
-      pids.push_back(static_cast<DWORD>(pid_value));
-    } catch (...) {
+    uint64_t pid_value = 0;
+    auto [ptr, ec] = std::from_chars(
+        pid_str.data(), pid_str.data() + pid_str.size(), pid_value);
+    if (ec != std::errc() || ptr != pid_str.data() + pid_str.size() ||
+        pid_value == 0 || pid_value > UINT32_MAX) {
       return std::unexpected("invalid PID: " + pid_str);
     }
+    pids.push_back(static_cast<DWORD>(pid_value));
   }
 
   if (pids.empty()) {

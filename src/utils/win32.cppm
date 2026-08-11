@@ -20,6 +20,46 @@ export module utils:win32;
 import std;
 import :utf8;
 
+export class UniqueHandle {
+ public:
+  UniqueHandle() = default;
+  explicit UniqueHandle(HANDLE handle) : handle_(handle) {}
+
+  UniqueHandle(const UniqueHandle&) = delete;
+  auto operator=(const UniqueHandle&) -> UniqueHandle& = delete;
+
+  UniqueHandle(UniqueHandle&& other) noexcept : handle_(other.release()) {}
+
+  auto operator=(UniqueHandle&& other) noexcept -> UniqueHandle& {
+    if (this != &other) reset(other.release());
+    return *this;
+  }
+
+  ~UniqueHandle() { reset(); }
+
+  [[nodiscard]] auto get() const noexcept -> HANDLE { return handle_; }
+
+  [[nodiscard]] auto valid() const noexcept -> bool {
+    return handle_ != nullptr && handle_ != INVALID_HANDLE_VALUE;
+  }
+
+  explicit operator bool() const noexcept { return valid(); }
+
+  auto release() noexcept -> HANDLE {
+    HANDLE handle = handle_;
+    handle_ = INVALID_HANDLE_VALUE;
+    return handle;
+  }
+
+  auto reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept -> void {
+    if (valid()) CloseHandle(handle_);
+    handle_ = handle;
+  }
+
+ private:
+  HANDLE handle_ = INVALID_HANDLE_VALUE;
+};
+
 export auto quote_windows_command_arg(std::wstring_view arg) -> std::wstring {
   if (arg.empty()) return L"\"\"";
 
@@ -85,6 +125,8 @@ export auto win32_posix_error_text(unsigned long error,
       break;
     case ERROR_ACCESS_DENIED:
       return "Permission denied";
+    case ERROR_DIRECTORY:
+      return "Not a directory";
     case ERROR_BAD_EXE_FORMAT:
       if (options.bad_exe_format_as_permission) return "Permission denied";
       break;

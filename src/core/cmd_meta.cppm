@@ -59,53 +59,206 @@ export constexpr auto option_matches(const OptionMeta& meta,
          (!long_name.empty() && meta.long_name == long_name);
 }
 
+namespace {
+auto append_styled(std::string& out, std::string_view text,
+                   std::string_view style, bool color) -> void {
+  if (!color || style.empty()) {
+    out.append(text.data(), text.size());
+    return;
+  }
+
+  out.append(style.data(), style.size());
+  out.append(text.data(), text.size());
+  out += ANSI_RESET;
+}
+
+auto trim_left_ascii(std::string_view value) -> std::string_view {
+  while (!value.empty() && (value.front() == ' ' || value.front() == '\t')) {
+    value.remove_prefix(1);
+  }
+  return value;
+}
+
+auto trim_right_ascii(std::string_view value) -> std::string_view {
+  while (!value.empty() && (value.back() == ' ' || value.back() == '\t')) {
+    value.remove_suffix(1);
+  }
+  return value;
+}
+
+auto append_wrapped_line(std::string& out, std::string_view line,
+                         size_t continuation_indent, size_t text_width,
+                         bool indent_first_line) -> void {
+  line = trim_left_ascii(line);
+
+  bool first_output = true;
+  while (line.size() > text_width && text_width > 0) {
+    size_t break_pos = line.rfind(' ', text_width);
+    bool broke_on_space = true;
+    if (break_pos == std::string_view::npos || break_pos == 0) {
+      break_pos = text_width;
+      broke_on_space = false;
+    }
+
+    if (!first_output || indent_first_line) {
+      out.append(continuation_indent, ' ');
+    }
+    std::string_view chunk = trim_right_ascii(line.substr(0, break_pos));
+    out.append(chunk.data(), chunk.size());
+    out += "\n";
+
+    size_t next_pos = broke_on_space ? break_pos + 1 : break_pos;
+    line = trim_left_ascii(line.substr(std::min(next_pos, line.size())));
+    first_output = false;
+  }
+
+  if (!first_output || indent_first_line) {
+    out.append(continuation_indent, ' ');
+  }
+  out.append(line.data(), line.size());
+  out += "\n";
+}
+
+auto append_wrapped_description(std::string& out, std::string_view desc,
+                                size_t continuation_indent,
+                                size_t terminal_width) -> void {
+  const size_t fallback_width = 80;
+  const size_t effective_width = terminal_width > continuation_indent + 24
+                                     ? terminal_width
+                                     : fallback_width;
+  const size_t text_width =
+      std::max<size_t>(24, effective_width - continuation_indent);
+  bool first_line = true;
+  while (!desc.empty()) {
+    size_t newline_pos = desc.find('\n');
+    if (newline_pos == std::string_view::npos) {
+      append_wrapped_line(out, desc, continuation_indent, text_width,
+                          !first_line);
+      break;
+    }
+
+    append_wrapped_line(out, desc.substr(0, newline_pos), continuation_indent,
+                        text_width, !first_line);
+    desc = desc.substr(newline_pos + 1);
+    first_line = false;
+  }
+}
+
+auto option_argument_suffix(const OptionMeta& opt) -> std::string_view {
+  if (opt.short_name == "-NUM") return "";
+  switch (opt.type) {
+    case OptionType::Bool:
+      return "";
+    case OptionType::Int:
+      return " NUM";
+    case OptionType::String:
+    case OptionType::TerminatedString:
+      return " ARG";
+    case OptionType::OptionalInt:
+      return "[=NUM]";
+    case OptionType::OptionalString:
+      return "[=ARG]";
+  }
+  return "";
+}
+
+auto format_option_names(const OptionMeta& opt) -> std::string {
+  const auto suffix = option_argument_suffix(opt);
+  if (!opt.short_name.empty() && !opt.long_name.empty()) {
+    return "  " + std::string(opt.short_name) + ", " +
+           std::string(opt.long_name) + std::string(suffix);
+  }
+  if (!opt.short_name.empty()) {
+    return "  " + std::string(opt.short_name) + std::string(suffix);
+  }
+  if (!opt.long_name.empty()) {
+    return "      " + std::string(opt.long_name) + std::string(suffix);
+  }
+  return {};
+}
+
+auto has_option(std::span<const OptionMeta> options, std::string_view long_name)
+    -> bool {
+  return std::ranges::any_of(options, [long_name](const OptionMeta& opt) {
+    return opt.long_name == long_name;
+  });
+}
+
+auto has_short_option(std::span<const OptionMeta> options,
+                      std::string_view short_name) -> bool {
+  return std::ranges::any_of(options, [short_name](const OptionMeta& opt) {
+    return opt.short_name == short_name;
+  });
+}
+
+auto synopsis_looks_like_usage(std::string_view name, std::string_view synopsis)
+    -> bool {
+  synopsis = trim_left_ascii(synopsis);
+  if (synopsis.empty()) return false;
+  if (synopsis.starts_with(name)) return true;
+  return name == "[" && synopsis.starts_with("[");
+}
+}  // namespace
+
 auto format_help_text(std::string_view name, std::string_view synopsis,
                       std::string_view description,
                       std::span<const OptionMeta> options) -> std::string {
   std::string result;
   result.reserve(4096);
 
-  result += "Usage: ";
-  result.append(name.data(), name.size());
-  result += " [OPTION]... [FILE]...\n";
+  const bool color = shouldUseAnsiColorStdout();
+  const std::string title_style =
+      std::string(ANSI_BOLD) + ansiFgRgb(98, 214, 255);
+  const std::string section_style =
+      std::string(ANSI_BOLD) + ANSI_UNDERLINE + ansiFg256(82);
+  const std::string option_style = std::string(ANSI_BOLD) + ansiFg256(117);
+  const std::string subtle_style = ansiFg256(245);
+  const size_t terminal_width =
+      static_cast<size_t>(std::clamp(getTerminalWidth(), 80, 120));
 
-  if (!synopsis.empty()) {
-    result += synopsis;
-    result += "\n\n";
+  append_styled(result, "Usage:", section_style, color);
+  result += " ";
+  if (synopsis_looks_like_usage(name, synopsis)) {
+    append_styled(result, synopsis, title_style, color);
+  } else {
+    append_styled(result, name, title_style, color);
+    result += " [OPTION]... [FILE]...";
   }
+  result += "\n\n";
 
   if (!description.empty()) {
     result.append(description.data(), description.size());
     result += "\n\n";
   }
 
-  if (!options.empty()) {
+  std::vector<OptionMeta> display_options;
+  display_options.reserve(options.size() + 2);
+  for (const auto& opt : options) {
+    display_options.push_back(opt);
+  }
+  if (!has_option(options, "--help")) {
+    display_options.emplace_back("", "--help", "display this help and exit",
+                                 OptionType::Bool);
+  }
+  if (!has_option(options, "--version")) {
+    display_options.emplace_back(
+        has_short_option(options, "-V") ? "" : "-V", "--version",
+        "output version information and exit", OptionType::Bool);
+  }
+
+  if (!display_options.empty()) {
     size_t max_option_width = 0;
-    for (const auto& opt : options) {
-      size_t width = 2;
-      if (!opt.short_name.empty() && !opt.long_name.empty()) {
-        width += opt.short_name.size() + 2 + opt.long_name.size();
-      } else if (!opt.short_name.empty()) {
-        width += opt.short_name.size();
-      } else if (!opt.long_name.empty()) {
-        width += 4 + opt.long_name.size();
-      }
-      max_option_width = std::max(max_option_width, width);
+    for (const auto& opt : display_options) {
+      max_option_width =
+          std::max(max_option_width, format_option_names(opt).size());
     }
 
-    result += "OPTIONS\n";
-    for (const auto& opt : options) {
-      std::string option_str;
-      if (!opt.short_name.empty() && !opt.long_name.empty()) {
-        option_str = "  " + std::string(opt.short_name) + ", " +
-                     std::string(opt.long_name);
-      } else if (!opt.short_name.empty()) {
-        option_str = "  " + std::string(opt.short_name);
-      } else if (!opt.long_name.empty()) {
-        option_str = "      " + std::string(opt.long_name);
-      }
+    append_styled(result, "OPTIONS:", section_style, color);
+    result += "\n";
+    for (const auto& opt : display_options) {
+      std::string option_str = format_option_names(opt);
 
-      result += option_str;
+      append_styled(result, option_str, option_style, color);
       if (opt.description.empty()) {
         result += "\n";
       } else {
@@ -113,41 +266,22 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
         if (padding > 0) {
           result.append(padding, ' ');
         }
-
-        std::string_view desc = opt.description;
-        bool first_line = true;
-        while (!desc.empty()) {
-          if (!first_line) {
-            result.append(max_option_width + 2, ' ');
-          }
-
-          size_t newline_pos = desc.find('\n');
-          if (newline_pos == std::string_view::npos) {
-            result.append(desc.data(), desc.size());
-            result += "\n";
-            break;
-          }
-
-          result.append(desc.data(), newline_pos);
-          result += "\n";
-          desc = desc.substr(newline_pos + 1);
-          first_line = false;
-        }
+        append_wrapped_description(result, opt.description,
+                                   max_option_width + 2, terminal_width);
       }
-      result += "\n";
     }
+    result += "\n";
   }
 
-  result += "  -h, --help\n";
-  result += "          display this help and exit\n\n";
-  result += "  -V, --version\n";
-  result += "          output version information and exit\n\n";
-  result += "Exit status:\n";
+  append_styled(result, "EXIT STATUS:", section_style, color);
+  result += "\n";
   result += "  0  if OK,\n";
   result += "  1  if minor problems,\n";
-  result += "  2  if serious trouble.\n";
-  result += "This Project is a Windows implemention of GNU CoreUtils\n";
-  result += "Serverd for linux-windows developers and Ai coding assistant";
+  result += "  2  if serious trouble.\n\n";
+  append_styled(result, "WinuxCmd", subtle_style, color);
+  result +=
+      " is a Windows implementation of GNU CoreUtils for Linux-Windows "
+      "developers and AI coding assistants.";
 
   return result;
 }
@@ -254,7 +388,7 @@ auto format_man_text(std::string_view name, std::string_view synopsis,
     result += "\n";
   }
 
-  result += "       -h, --help\n";
+  result += "       --help\n";
   result += "              display this help and exit\n\n";
   result += "       -V, --version\n";
   result += "              output version information and exit\n\n";

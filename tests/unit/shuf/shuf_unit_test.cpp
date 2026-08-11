@@ -119,11 +119,11 @@ TEST(shuf, shuf_repeat_allows_repeated_output) {
 
 TEST(shuf, shuf_zero_terminated_reads_and_writes_nul_records) {
   TempDir tmp;
-  tmp.write_bytes("nul.txt", {'a', '\0', 'b', '\0', 'c', '\0'});
+  tmp.write_bytes("records.bin", {'a', '\0', 'b', '\0', 'c', '\0'});
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"shuf.exe", {L"-z", L"nul.txt"});
+  p.add(L"shuf.exe", {L"-z", L"records.bin"});
 
   auto r = p.run();
 
