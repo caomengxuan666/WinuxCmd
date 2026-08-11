@@ -893,6 +893,12 @@ auto apply_user_proxy(HINTERNET session, HINTERNET request,
   free_ie_proxy_config(ie_config);
 }
 
+auto loopback_proxy_candidates() -> std::vector<std::wstring> {
+  return {L"127.0.0.1:7897", L"127.0.0.1:7890",  L"127.0.0.1:7891",
+          L"127.0.0.1:7892", L"127.0.0.1:7893",  L"127.0.0.1:10808",
+          L"127.0.0.1:10809"};
+}
+
 auto response_header(HINTERNET request, DWORD query)
     -> std::optional<std::wstring> {
   DWORD size = 0;
@@ -937,7 +943,9 @@ auto redirect_url(std::wstring_view location, bool https,
 }
 
 auto http_get(std::string_view url, std::string_view progress_label = {},
-              int redirects_remaining = 5) -> HttpResult {
+              int redirects_remaining = 5,
+              std::optional<std::wstring> forced_proxy = std::nullopt,
+              bool allow_loopback_proxy_fallback = true) -> HttpResult {
   HttpResult result;
 
   if (starts_with_ci(url, "file://")) {
@@ -981,19 +989,40 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
   if (path_part.empty()) path_part = L"/";
 
   bool https = parts.nScheme == INTERNET_SCHEME_HTTPS;
+  auto finish_failed = [&](HttpResult failed) -> HttpResult {
+    if (!forced_proxy) {
+      failed = with_urlmon_fallback(std::move(failed), wurl, progress_label);
+    }
+    if (failed.ok || forced_proxy || !allow_loopback_proxy_fallback) {
+      return failed;
+    }
+
+    auto original_error = failed.error;
+    for (const auto& proxy : loopback_proxy_candidates()) {
+      auto proxied = http_get(url, progress_label, redirects_remaining, proxy,
+                              false);
+      if (proxied.ok) return proxied;
+      if (!proxied.error.empty()) {
+        failed.error = original_error + "; loopback proxy " +
+                       wstring_to_utf8(proxy) + " failed: " + proxied.error;
+      }
+    }
+    return failed;
+  };
+
   HINTERNET session =
       WinHttpOpen(L"WinuxCmd-WPM/0.2", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                   WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
   if (!session) {
     result.error = "failed to open WinHTTP session";
-    return with_urlmon_fallback(std::move(result), wurl, progress_label);
+    return finish_failed(std::move(result));
   }
 
   HINTERNET connect = WinHttpConnect(session, host.c_str(), parts.nPort, 0);
   if (!connect) {
     result.error = "failed to connect";
     WinHttpCloseHandle(session);
-    return with_urlmon_fallback(std::move(result), wurl, progress_label);
+    return finish_failed(std::move(result));
   }
 
   DWORD flags = https ? WINHTTP_FLAG_SECURE : 0;
@@ -1004,10 +1033,14 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     result.error = "failed to create request";
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    return with_urlmon_fallback(std::move(result), wurl, progress_label);
+    return finish_failed(std::move(result));
   }
 
-  apply_user_proxy(session, request, wurl, https);
+  if (forced_proxy) {
+    set_request_proxy(request, *forced_proxy);
+  } else {
+    apply_user_proxy(session, request, wurl, https);
+  }
 
   DWORD timeout_ms = 12000;
   WinHttpSetOption(request, WINHTTP_OPTION_CONNECT_TIMEOUT, &timeout_ms,
@@ -1027,7 +1060,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    return with_urlmon_fallback(std::move(result), wurl, progress_label);
+    return finish_failed(std::move(result));
   }
 
   DWORD status = 0;
@@ -1044,7 +1077,8 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     WinHttpCloseHandle(session);
     if (location && !location->empty()) {
       return http_get(redirect_url(*location, https, host, parts.nPort),
-                      progress_label, redirects_remaining - 1);
+                      progress_label, redirects_remaining - 1, forced_proxy,
+                      allow_loopback_proxy_fallback);
     }
     result.error = "HTTP redirect without Location header";
     return result;
@@ -1054,7 +1088,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
     WinHttpCloseHandle(request);
     WinHttpCloseHandle(connect);
     WinHttpCloseHandle(session);
-    return with_urlmon_fallback(std::move(result), wurl, progress_label);
+    return finish_failed(std::move(result));
   }
 
   std::optional<unsigned long long> expected_bytes;
@@ -1134,7 +1168,7 @@ auto http_get(std::string_view url, std::string_view progress_label = {},
   WinHttpCloseHandle(connect);
   WinHttpCloseHandle(session);
   if (!result.ok) {
-    return with_urlmon_fallback(std::move(result), wurl, progress_label);
+    return finish_failed(std::move(result));
   }
   return result;
 }
