@@ -51,6 +51,8 @@ auto constexpr LESS_OPTIONS = std::array{
     OPTION("-i", "--ignore-case",
            "ignore case in searches that do not contain uppercase", BOOL_TYPE),
     OPTION("-I", "--IGNORE-CASE", "ignore case in all searches", BOOL_TYPE),
+    OPTION("-K", "--quit-on-intr", "exit less in response to Ctrl+C",
+           BOOL_TYPE),
     OPTION("-n", "--line-numbers", "display line number at start of each line",
            BOOL_TYPE),
     OPTION("-N", "--LINE-NUMBERS", "display line number at start of each line",
@@ -78,6 +80,7 @@ struct Config {
   bool quit_one_screen = false;    // -F
   bool ignore_case = false;        // -i
   bool ignore_case_all = false;    // -I
+  bool quit_on_intr = false;       // -K
   bool show_line_numbers = false;  // -n, -N
   bool chop_long_lines = false;    // -S
   bool quiet = false;              // -q accepted; pager does not ring a bell.
@@ -102,6 +105,8 @@ auto build_config(const CommandContext<LESS_OPTIONS.size()>& ctx)
       ctx.get<bool>("--ignore-case", false) || ctx.get<bool>("-i", false);
   cfg.ignore_case_all =
       ctx.get<bool>("--IGNORE-CASE", false) || ctx.get<bool>("-I", false);
+  cfg.quit_on_intr =
+      ctx.get<bool>("--quit-on-intr", false) || ctx.get<bool>("-K", false);
   cfg.show_line_numbers =
       ctx.get<bool>("--line-numbers", false) || ctx.get<bool>("-n", false) ||
       ctx.get<bool>("--LINE-NUMBERS", false) || ctx.get<bool>("-N", false);
@@ -240,9 +245,18 @@ auto push_search_history(std::vector<std::wstring>& history,
   history.emplace_back(text);
 }
 
-auto read_search_text(HANDLE input, wchar_t prompt,
+[[nodiscard]] auto is_interrupt_key(const KEY_EVENT_RECORD& key) -> bool {
+  return key.uChar.AsciiChar == 3 || key.wVirtualKeyCode == VK_CANCEL;
+}
+
+struct PromptResult {
+  PagerAction action = PagerAction::None;
+  std::string text;
+};
+
+auto read_search_text(HANDLE input, wchar_t prompt, bool quit_on_intr,
                       std::vector<std::wstring>& history)
-    -> std::optional<std::string> {
+    -> PromptResult {
   std::wstring text;
   std::optional<std::wstring> draft;
   size_t history_index = history.size();
@@ -256,11 +270,12 @@ auto read_search_text(HANDLE input, wchar_t prompt,
     }
 
     const auto& key = record.Event.KeyEvent;
-    if (key.wVirtualKeyCode == VK_ESCAPE) return std::nullopt;
+    if (quit_on_intr && is_interrupt_key(key)) return {PagerAction::Quit, {}};
+    if (key.wVirtualKeyCode == VK_ESCAPE) return {PagerAction::None, {}};
     if (key.wVirtualKeyCode == VK_RETURN) {
       safePrint("\n");
       push_search_history(history, text);
-      return wstring_to_utf8(text);
+      return {PagerAction::None, wstring_to_utf8(text)};
     }
     if (key.wVirtualKeyCode == VK_UP || key.wVirtualKeyCode == VK_DOWN) {
       if (history.empty()) continue;
@@ -298,10 +313,11 @@ auto read_search_text(HANDLE input, wchar_t prompt,
       safePrint(std::wstring_view(&ch, 1));
     }
   }
-  return std::nullopt;
+  return {PagerAction::Quit, {}};
 }
 
-auto read_colon_command(HANDLE input, size_t number = 0) -> PagerCommand {
+auto read_colon_command(HANDLE input, bool quit_on_intr,
+                        size_t number = 0) -> PagerCommand {
   std::wstring text;
   safePrint(":");
 
@@ -313,6 +329,7 @@ auto read_colon_command(HANDLE input, size_t number = 0) -> PagerCommand {
     }
 
     const auto& key = record.Event.KeyEvent;
+    if (quit_on_intr && is_interrupt_key(key)) return {PagerAction::Quit, {}};
     if (key.wVirtualKeyCode == VK_ESCAPE) return {PagerAction::None, {}};
     if (key.wVirtualKeyCode == VK_RETURN) {
       safePrint("\n");
@@ -341,7 +358,8 @@ auto read_colon_command(HANDLE input, size_t number = 0) -> PagerCommand {
   return {PagerAction::Quit, {}};
 }
 
-auto read_number_command(HANDLE input, char first_digit) -> PagerCommand {
+auto read_number_command(HANDLE input, char first_digit, bool quit_on_intr)
+    -> PagerCommand {
   std::string digits(1, first_digit);
 
   INPUT_RECORD record{};
@@ -352,6 +370,7 @@ auto read_number_command(HANDLE input, char first_digit) -> PagerCommand {
     }
 
     const auto& key = record.Event.KeyEvent;
+    if (quit_on_intr && is_interrupt_key(key)) return {PagerAction::Quit, {}};
     char ch = key.uChar.AsciiChar;
     if (std::isdigit(static_cast<unsigned char>(ch)) != 0) {
       digits.push_back(ch);
@@ -375,7 +394,7 @@ auto read_number_command(HANDLE input, char first_digit) -> PagerCommand {
       return {PagerAction::GoToPercent, {}, 100};
     }
     if (ch == ':') {
-      return read_colon_command(input, value);
+      return read_colon_command(input, quit_on_intr, value);
     }
     return {PagerAction::None, {}};
   }
@@ -383,7 +402,8 @@ auto read_number_command(HANDLE input, char first_digit) -> PagerCommand {
   return {PagerAction::Quit, {}};
 }
 
-auto read_pager_command(HANDLE input, std::vector<std::wstring>& search_history)
+auto read_pager_command(HANDLE input, bool quit_on_intr,
+                        std::vector<std::wstring>& search_history)
     -> PagerCommand {
   INPUT_RECORD record{};
   DWORD read = 0;
@@ -393,6 +413,7 @@ auto read_pager_command(HANDLE input, std::vector<std::wstring>& search_history)
     }
 
     const auto& key = record.Event.KeyEvent;
+    if (quit_on_intr && is_interrupt_key(key)) return {PagerAction::Quit, {}};
     char ch = key.uChar.AsciiChar;
     if (ch == 'q' || ch == 'Q') return {PagerAction::Quit, {}};
     if (ch == 'b' || ch == 'B' || ch == 2) {
@@ -411,7 +432,7 @@ auto read_pager_command(HANDLE input, std::vector<std::wstring>& search_history)
     if (ch == 'd' || ch == 4) return {PagerAction::NextHalfPage, {}};
     if (ch == 'u' || ch == 21) return {PagerAction::PrevHalfPage, {}};
     if (std::isdigit(static_cast<unsigned char>(ch)) != 0) {
-      return read_number_command(input, ch);
+      return read_number_command(input, ch, quit_on_intr);
     }
     if (ch == 'g' || ch == '<') return {PagerAction::FirstLine, {}};
     if (ch == 'G' || ch == '>') return {PagerAction::LastLine, {}};
@@ -422,16 +443,18 @@ auto read_pager_command(HANDLE input, std::vector<std::wstring>& search_history)
     if (ch == '=' || ch == 7) return {PagerAction::Status, {}};
     if (ch == 'n') return {PagerAction::RepeatSearch, {}};
     if (ch == 'N') return {PagerAction::ReverseSearch, {}};
-    if (ch == ':') return read_colon_command(input);
+    if (ch == ':') return read_colon_command(input, quit_on_intr);
     if (ch == '/') {
-      auto text = read_search_text(input, L'/', search_history);
-      return text ? PagerCommand{PagerAction::SearchForward, *text}
-                  : PagerCommand{PagerAction::None, {}};
+      auto result = read_search_text(input, L'/', quit_on_intr, search_history);
+      return result.action == PagerAction::Quit
+                 ? PagerCommand{PagerAction::Quit, {}}
+                 : PagerCommand{PagerAction::SearchForward, result.text};
     }
     if (ch == '?') {
-      auto text = read_search_text(input, L'?', search_history);
-      return text ? PagerCommand{PagerAction::SearchBackward, *text}
-                  : PagerCommand{PagerAction::None, {}};
+      auto result = read_search_text(input, L'?', quit_on_intr, search_history);
+      return result.action == PagerAction::Quit
+                 ? PagerCommand{PagerAction::Quit, {}}
+                 : PagerCommand{PagerAction::SearchBackward, result.text};
     }
 
     switch (key.wVirtualKeyCode) {
@@ -615,7 +638,7 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
     return {0, PagerAction::Quit};
   }
 
-  winux::pager::ConsoleInputMode input_mode;
+  winux::pager::ConsoleInputMode input_mode(!cfg.quit_on_intr);
   if (!input_mode.active()) {
     for (size_t i = 0; i < doc.line_count(); ++i) {
       auto line = doc.line_at(i);
@@ -650,7 +673,8 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
     if (at_eof && cfg.quit_first_eof) return {0, PagerAction::Quit};
 
     PagerCommand command =
-        read_pager_command(input_mode.input(), search_history);
+        read_pager_command(input_mode.input(), cfg.quit_on_intr,
+                           search_history);
     PagerAction action = command.action;
     if (action == PagerAction::Quit) return {0, PagerAction::Quit};
 
@@ -823,7 +847,8 @@ REGISTER_COMMAND(
     "  less file.txt\n"
     "  less -N file.txt          # Show line numbers\n"
     "  less -E file.txt          # Quit at end of file\n"
-    "  less -F file.txt          # Quit if fits on one screen",
+    "  less -F file.txt          # Quit if fits on one screen\n"
+    "  less -K file.txt          # Quit on Ctrl+C",
     "more(1), most(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd", LESS_OPTIONS) {
   using namespace less_pipeline;
 
