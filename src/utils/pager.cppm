@@ -38,25 +38,47 @@ export class ConsoleInputMode {
  public:
   explicit ConsoleInputMode(bool processed_input = true)
       : input_(GetStdHandle(STD_INPUT_HANDLE)) {
-    if (input_ == INVALID_HANDLE_VALUE || input_ == nullptr) return;
-    if (!GetConsoleMode(input_, &original_mode_)) return;
+    if (input_ == INVALID_HANDLE_VALUE || input_ == nullptr) {
+      input_ = nullptr;
+    }
 
-    DWORD raw_mode = original_mode_ & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
-    if (!processed_input) raw_mode &= ~ENABLE_PROCESSED_INPUT;
-    if (SetConsoleMode(input_, raw_mode)) active_ = true;
+    if (!try_activate(processed_input)) {
+      // Match less(1): piped input is content; pager commands still read from
+      // the controlling console.
+      input_ = CreateFileW(L"CONIN$", GENERIC_READ | GENERIC_WRITE,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                           OPEN_EXISTING, 0, nullptr);
+      if (input_ == INVALID_HANDLE_VALUE) {
+        input_ = nullptr;
+        return;
+      }
+      close_input_ = true;
+      (void)try_activate(processed_input);
+    }
   }
 
   ~ConsoleInputMode() {
     if (active_) SetConsoleMode(input_, original_mode_);
+    if (close_input_ && input_ != nullptr) CloseHandle(input_);
   }
 
   [[nodiscard]] auto active() const -> bool { return active_; }
   [[nodiscard]] auto input() const -> HANDLE { return input_; }
 
  private:
+  auto try_activate(bool processed_input) -> bool {
+    if (input_ == nullptr) return false;
+    if (!GetConsoleMode(input_, &original_mode_)) return false;
+    DWORD raw_mode = original_mode_ & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+    if (!processed_input) raw_mode &= ~ENABLE_PROCESSED_INPUT;
+    active_ = SetConsoleMode(input_, raw_mode) != 0;
+    return active_;
+  }
+
   HANDLE input_ = nullptr;
   DWORD original_mode_ = 0;
   bool active_ = false;
+  bool close_input_ = false;
 };
 
 export auto split_text_lines(std::string_view content)
