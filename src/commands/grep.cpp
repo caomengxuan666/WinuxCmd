@@ -88,8 +88,8 @@ static auto grep_is_terminal(FILE* stream) -> bool {
  * - @a -F, @a --fixed-strings: PATTERNS are strings [IMPLEMENTED]
  * - @a -G, @a --basic-regexp: PATTERNS are basic regular expressions
  * [IMPLEMENTED]
- * - @a -P, @a --perl-regexp: PATTERNS are Perl regular expressions [NOT
- * SUPPORT]
+ * - @a -P, @a --perl-regexp: PATTERNS are Perl regular expressions
+ * [IMPLEMENTED]
  * - @a -e, @a --regexp: Use PATTERNS for matching [IMPLEMENTED]
  * - @a -f, @a --file: Take PATTERNS from FILE [IMPLEMENTED]
  * - @a -i, @a --ignore-case: Ignore case distinctions in patterns and data
@@ -161,7 +161,7 @@ auto constexpr GREP_OPTIONS = std::array{
     OPTION("-F", "--fixed-strings", "PATTERNS are strings"),
     OPTION("-G", "--basic-regexp", "PATTERNS are basic regular expressions"),
     OPTION("-P", "--perl-regexp",
-           "PATTERNS are Perl regular expressions [NOT SUPPORT]"),
+           "PATTERNS are Perl regular expressions"),
     OPTION("-e", "--regexp", "use PATTERNS for matching", STRING_TYPE),
     OPTION("-f", "--file", "take PATTERNS from FILE", STRING_TYPE),
     OPTION("-i", "--ignore-case",
@@ -230,7 +230,7 @@ auto constexpr GREP_OPTIONS = std::array{
 namespace grep_pipeline {
 namespace cp = core::pipeline;
 
-enum class PatternMode { BasicRegex, ExtendedRegex, Fixed };
+enum class PatternMode { BasicRegex, ExtendedRegex, Fixed, PerlRegex };
 enum class BinaryMode { Binary, Text, WithoutMatch };
 
 struct MatchPiece {
@@ -884,9 +884,12 @@ auto compile_pattern(PatternMode mode, bool ignore_case, std::string_view raw)
 
   if (mode == PatternMode::Fixed) return p;
 
-  auto syntax = mode == PatternMode::ExtendedRegex
-                    ? portable_regex::Syntax::Extended
-                    : portable_regex::Syntax::Basic;
+  auto syntax = portable_regex::Syntax::Basic;
+  if (mode == PatternMode::ExtendedRegex) {
+    syntax = portable_regex::Syntax::Extended;
+  } else if (mode == PatternMode::PerlRegex) {
+    syntax = portable_regex::Syntax::Perl;
+  }
   auto compiled = portable_regex::compile(syntax, p.raw, ignore_case);
   if (!compiled) {
     return std::unexpected("invalid regular expression: " + compiled.error);
@@ -950,22 +953,11 @@ auto load_patterns_from_file(const std::string& path)
   return lines;
 }
 
-auto is_unsupported_used(const CommandContext<GREP_OPTIONS.size()>& ctx)
-    -> std::optional<std::string> {
-  if (ctx.get<bool>("--perl-regexp", false) || ctx.get<bool>("-P", false))
-    return "--perl-regexp is [NOT SUPPORT]";
-  return std::nullopt;
-}
-
 auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx,
                   PatternMode default_mode = PatternMode::BasicRegex)
     -> cp::Result<Config> {
   Config cfg;
   cfg.mode = default_mode;
-
-  if (auto unsupported = is_unsupported_used(ctx); unsupported.has_value()) {
-    return std::unexpected(*unsupported);
-  }
 
   for (const auto& occurrence : ctx.options.occurrences()) {
     if (!ctx.metas || occurrence.index >= GREP_OPTIONS.size()) continue;
@@ -981,6 +973,10 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx,
     }
     if (option_matches(meta, "-G", "--basic-regexp")) {
       cfg.mode = PatternMode::BasicRegex;
+      continue;
+    }
+    if (option_matches(meta, "-P", "--perl-regexp")) {
+      cfg.mode = PatternMode::PerlRegex;
       continue;
     }
     if (option_matches(meta, "-i", "--ignore-case")) {

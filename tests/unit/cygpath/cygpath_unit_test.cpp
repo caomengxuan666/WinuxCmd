@@ -83,7 +83,7 @@ TEST(cygpath, conflicting_output_modes_are_rejected) {
 
 TEST(cygpath, unsupported_upstream_options_are_accepted_with_diagnostic) {
   Pipeline p;
-  p.add(L"cygpath.exe", {L"--codepage", L"UTF8", L"-w", L"/c/A"});
+  p.add(L"cygpath.exe", {L"--option", L"opts.txt", L"-w", L"/c/A"});
 
   auto r = p.run();
 
@@ -99,4 +99,48 @@ TEST(cygpath, ignore_allows_missing_operands) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "");
+}
+
+TEST(cygpath, file_option_reads_paths_line_by_line) {
+  TempDir tmp;
+  tmp.write("paths.txt", "C:\\A\nD:\\B\r\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cygpath.exe", {L"-f", L"paths.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "/c/A\n/d/B\n");
+}
+
+TEST(cygpath, proc_cygdrive_uses_cygwin_style_prefix) {
+  Pipeline p;
+  p.add(L"cygpath.exe", {L"-U", L"C:\\Users\\Alice"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "/proc/cygdrive/c/Users/Alice\n");
+}
+
+TEST(cygpath, mode_reports_native_binmode) {
+  Pipeline p;
+  p.add(L"cygpath.exe", {L"-M", L"C:\\A"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "binmode\n");
+}
+
+TEST(cygpath, special_folder_options_emit_paths) {
+  Pipeline p;
+  p.add(L"cygpath.exe", {L"-W"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_CONTAINS(r.stdout_text, "/");
 }

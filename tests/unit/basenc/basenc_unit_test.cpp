@@ -226,25 +226,65 @@ TEST(basenc, basenc_rejects_wildcard_that_expands_to_multiple_files) {
                  "Try 'basenc --help' for more information.\n");
 }
 
-TEST(basenc, basenc_recognizes_unimplemented_gnu_selectors) {
+TEST(basenc, basenc_base58_selector_encode_decode) {
   Pipeline base58;
-  base58.set_stdin("hello");
-  base58.add(L"basenc.exe", {L"--base58"});
+  base58.set_stdin("hello world");
+  base58.add(L"basenc.exe", {L"--base58", L"--wrap=0"});
 
   auto base58_result = base58.run();
 
-  EXPECT_NE(base58_result.exit_code, 0);
-  EXPECT_TRUE(base58_result.stderr_text.find("base58 encoding is not "
-                                             "implemented") !=
-              std::string::npos);
+  EXPECT_EQ(base58_result.exit_code, 0);
+  EXPECT_EQ_TEXT(base58_result.stdout_text, "StV1DL6CwTryKyV\n");
 
+  Pipeline decoded;
+  decoded.set_stdin("StV1DL6CwTryKyV");
+  decoded.add(L"basenc.exe", {L"--base58", L"-d"});
+
+  auto decoded_result = decoded.run();
+
+  EXPECT_EQ(decoded_result.exit_code, 0);
+  EXPECT_EQ_TEXT(decoded_result.stdout_text, "hello world");
+}
+
+TEST(basenc, basenc_z85_selector_encode_decode) {
   Pipeline z85;
-  z85.set_stdin("hello");
-  z85.add(L"basenc.exe", {L"--z85"});
+  z85.set_stdin(std::string("\x86\x4f\xd2\x6f", 4));
+  z85.add(L"basenc.exe", {L"--z85", L"--wrap=0"});
 
   auto z85_result = z85.run();
 
-  EXPECT_NE(z85_result.exit_code, 0);
-  EXPECT_TRUE(z85_result.stderr_text.find("z85 encoding is not implemented") !=
-              std::string::npos);
+  EXPECT_EQ(z85_result.exit_code, 0);
+  EXPECT_EQ_TEXT(z85_result.stdout_text, "Hello\n");
+
+  Pipeline decoded;
+  decoded.set_stdin("Hello");
+  decoded.add(L"basenc.exe", {L"--z85", L"-d"});
+
+  auto decoded_result = decoded.run();
+
+  EXPECT_EQ(decoded_result.exit_code, 0);
+  EXPECT_EQ_TEXT(decoded_result.stdout_text,
+                 std::string("\x86\x4f\xd2\x6f", 4));
+}
+
+TEST(basenc, basenc_z85_rejects_non_block_sized_input) {
+  Pipeline p;
+  p.set_stdin("hello");
+  p.add(L"basenc.exe", {L"--z85"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_CONTAINS(r.stderr_text, "invalid input length for z85 encoding");
+}
+
+TEST(basenc, basenc_z85_decode_rejects_values_outside_32_bit_range) {
+  Pipeline p;
+  p.set_stdin("#####");
+  p.add(L"basenc.exe", {L"--z85", L"-d"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_CONTAINS(r.stderr_text, "invalid input");
 }

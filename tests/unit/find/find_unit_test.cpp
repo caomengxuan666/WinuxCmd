@@ -721,6 +721,32 @@ TEST(find, find_perm_and_access_primaries_match_winux_permissions) {
   EXPECT_TRUE(access_result.stdout_text.find("plain.txt") == std::string::npos);
 }
 
+TEST(find, find_symbolic_perm_modes_use_winux_permission_mapping) {
+  TempDir tmp;
+  tmp.write("plain.txt", "x");
+  tmp.write("run.cmd", "@echo off\n");
+
+  Pipeline exact_symbolic;
+  exact_symbolic.set_cwd(tmp.wpath());
+  exact_symbolic.add(L"find.exe", {L".", L"-type", L"f", L"-perm", L"u=rw,go=r",
+                                   L"-printf", L"%f\\n"});
+  auto exact_result = exact_symbolic.run();
+
+  EXPECT_EQ(exact_result.exit_code, 0);
+  EXPECT_CONTAINS(exact_result.stdout_text, "plain.txt\n");
+  EXPECT_NOT_CONTAINS(exact_result.stdout_text, "run.cmd\n");
+
+  Pipeline executable_symbolic;
+  executable_symbolic.set_cwd(tmp.wpath());
+  executable_symbolic.add(L"find.exe", {L".", L"-type", L"f", L"-perm", L"/u=x",
+                                        L"-printf", L"%f\\n"});
+  auto executable_result = executable_symbolic.run();
+
+  EXPECT_EQ(executable_result.exit_code, 0);
+  EXPECT_CONTAINS(executable_result.stdout_text, "run.cmd\n");
+  EXPECT_NOT_CONTAINS(executable_result.stdout_text, "plain.txt\n");
+}
+
 TEST(find, find_inum_and_links_predicates_match_win32_metadata) {
   TempDir tmp;
   tmp.write("a.txt", "x");

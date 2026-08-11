@@ -346,11 +346,24 @@ TEST(sed, extended_regex_option) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"sed.exe", {L"-E", L"s/([a-z])(\\d)/X\\2/", L"a.txt"});
+  p.add(L"sed.exe", {L"-E", L"s/([a-z])([[:digit:]])/X\\2/", L"a.txt"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "X1\nX2\n");
+}
+
+TEST(sed, extended_regex_backslash_d_is_literal_d) {
+  TempDir tmp;
+  tmp.write("a.txt", "a1\nad\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"-E", L"s/([a-z])(\\d)/X\\2/", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a1\nXd\n");
 }
 
 TEST(sed, substitution_replacement_ampersand_expands_whole_match) {

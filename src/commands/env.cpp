@@ -87,14 +87,37 @@ auto get_env_utf8(const wchar_t* key) -> std::optional<std::string> {
   return wstring_to_utf8(value);
 }
 
-auto get_path_entries() -> std::vector<std::string> {
-  auto path_env = get_env_utf8(L"PATH");
+auto find_env_value(const std::map<std::string, std::string>& vars,
+                    std::string_view key) -> std::optional<std::string> {
+  auto it = vars.find(std::string(key));
+  if (it != vars.end()) return it->second;
+
+  for (const auto& [name, value] : vars) {
+    if (name.size() != key.size()) continue;
+    bool same = true;
+    for (size_t i = 0; i < key.size(); ++i) {
+      if (std::tolower(static_cast<unsigned char>(name[i])) !=
+          std::tolower(static_cast<unsigned char>(key[i]))) {
+        same = false;
+        break;
+      }
+    }
+    if (same) return value;
+  }
+
+  return std::nullopt;
+}
+
+auto get_path_entries(const std::map<std::string, std::string>& vars)
+    -> std::vector<std::string> {
+  auto path_env = find_env_value(vars, "PATH");
   if (!path_env.has_value() || path_env->empty()) return {};
   return split_semicolon(*path_env);
 }
 
-auto get_pathext_entries() -> std::vector<std::string> {
-  auto ext_env = get_env_utf8(L"PATHEXT");
+auto get_pathext_entries(const std::map<std::string, std::string>& vars)
+    -> std::vector<std::string> {
+  auto ext_env = find_env_value(vars, "PATHEXT");
   if (!ext_env.has_value() || ext_env->empty()) {
     return std::vector<std::string>{".exe", ".cmd", ".bat", ".com"};
   }
@@ -154,9 +177,10 @@ struct ExecutableLookupResult {
 };
 
 auto resolve_executable(std::string_view program,
+                        const std::map<std::string, std::string>& vars,
                         std::string_view working_directory = {})
     -> ExecutableLookupResult {
-  const auto pathext = get_pathext_entries();
+  const auto pathext = get_pathext_entries(vars);
   bool found_non_executable = false;
 
   auto scan_candidates =
@@ -192,7 +216,7 @@ auto resolve_executable(std::string_view program,
     }
   }
 
-  for (const auto& dir : get_path_entries()) {
+  for (const auto& dir : get_path_entries(vars)) {
     if (dir.empty()) continue;
     std::filesystem::path base =
         std::filesystem::path(dir) / std::string(program);
@@ -668,6 +692,11 @@ auto build_config(const CommandContext<ENV_OPTIONS.size()>& ctx)
       continue;
     }
 
+    if (p == "-") {
+      cfg.ignore_environment = true;
+      continue;
+    }
+
     auto assign = parse_assignment(p);
     if (assign.has_value()) {
       cfg.assignments[assign->first] = assign->second;
@@ -802,19 +831,16 @@ auto run_command(const Config& cfg,
     }
   }
 
-  std::optional<std::wstring> application_name;
-  if (!cfg.argv0.empty()) {
-    auto lookup = resolve_executable(cfg.command.front(), cfg.chdir);
-    if (lookup.status != ExecutableLookupStatus::Found) {
-      const DWORD error = lookup.status == ExecutableLookupStatus::NotExecutable
-                              ? ERROR_ACCESS_DENIED
-                              : ERROR_FILE_NOT_FOUND;
-      safeErrorPrint("env: failed to run command '" + cfg.command.front() +
-                     "': " + env_windows_error_text(error) + "\n");
-      return env_command_status_from_create_error(error);
-    }
-    application_name = std::move(lookup.path);
+  auto lookup = resolve_executable(cfg.command.front(), vars, cfg.chdir);
+  if (lookup.status != ExecutableLookupStatus::Found) {
+    const DWORD error = lookup.status == ExecutableLookupStatus::NotExecutable
+                            ? ERROR_ACCESS_DENIED
+                            : ERROR_FILE_NOT_FOUND;
+    safeErrorPrint("env: failed to run command '" + cfg.command.front() +
+                   "': " + env_windows_error_text(error) + "\n");
+    return env_command_status_from_create_error(error);
   }
+  std::optional<std::wstring> application_name = std::move(lookup.path);
 
   auto cmd_line = build_command_line(
       cfg.command,

@@ -38,6 +38,19 @@ TEST(grep, grep_basic_match) {
   EXPECT_EQ_TEXT(r.stdout_text, "alpha\nalpha beta\n");
 }
 
+TEST(grep, grep_extended_backslash_d_is_literal_d) {
+  TempDir tmp;
+  tmp.write("a.txt", "1\nd\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-En", L"\\d", L"a.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "2:d\n");
+}
+
 TEST(grep, grep_crlf_lines_match_line_anchors_and_whole_line) {
   TempDir tmp;
   tmp.write_bytes("a.txt", {'a', '\r', '\n', 'b', '\r', '\n', 'a', '\r', '\n'});
@@ -1027,16 +1040,64 @@ TEST(grep, grep_line_regexp) {
   EXPECT_EQ_TEXT(r.stdout_text, "needle\n");
 }
 
-TEST(grep, grep_unsupported_perl_regexp) {
+TEST(grep, grep_perl_regexp_supports_lookahead_and_ascii_digits) {
   TempDir tmp;
-  tmp.write("a.txt", "x\n");
+  tmp.write("a.txt", "ab\nac\n123\nd\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"grep.exe", {L"-P", L"x", L"a.txt"});
+  p.add(L"grep.exe", {L"-Pn", L"a(?=b)|\\d+", L"a.txt"});
 
   auto r = p.run();
-  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "1:ab\n3:123\n");
+}
+
+TEST(grep, grep_perl_only_matching_supports_lookbehind) {
+  TempDir tmp;
+  tmp.write("a.txt", "foo123bar\nfooabcbar\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-Po", L"(?<=foo)\\d+(?=bar)", L"a.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "123\n");
+}
+
+TEST(grep, grep_perl_only_matching_preserves_lazy_quantifier) {
+  TempDir tmp;
+  tmp.write("a.txt", "aaab\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-Po", L"a+?", L"a.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a\na\na\n");
+}
+
+TEST(grep, grep_perl_backslash_d_differs_from_extended_regex) {
+  TempDir tmp;
+  tmp.write("a.txt", "1\nd\n");
+
+  Pipeline perl;
+  perl.set_cwd(tmp.wpath());
+  perl.add(L"grep.exe", {L"-Pn", L"\\d", L"a.txt"});
+  auto perl_result = perl.run();
+
+  EXPECT_EQ(perl_result.exit_code, 0);
+  EXPECT_EQ_TEXT(perl_result.stdout_text, "1:1\n");
+
+  Pipeline extended;
+  extended.set_cwd(tmp.wpath());
+  extended.add(L"grep.exe", {L"-En", L"\\d", L"a.txt"});
+  auto extended_result = extended.run();
+
+  EXPECT_EQ(extended_result.exit_code, 0);
+  EXPECT_EQ_TEXT(extended_result.stdout_text, "2:d\n");
 }
 
 TEST(grep, grep_devices_action_accepts_read_and_skip) {
