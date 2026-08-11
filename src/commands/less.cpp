@@ -68,6 +68,9 @@ auto constexpr LESS_OPTIONS = std::array{
     OPTION("-R", "--RAW-CONTROL-CHARS",
            "accepted placeholder; ANSI SGR color sequences are passed through",
            BOOL_TYPE),
+    OPTION("", "--no-init",
+           "accepted placeholder; terminal init/deinit sequences are not used",
+           BOOL_TYPE),
     OPTION("-z", "--window", "set scrolling window size", INT_TYPE),
     OPTION("-NUM", "", "same as -z NUM", INT_TYPE)};
 
@@ -87,6 +90,7 @@ struct Config {
   bool never_bell = false;         // -Q accepted; pager does not ring a bell.
   bool raw_control = false;        // -r accepted; pass-through output mode.
   bool raw_control_color = false;  // -R accepted; ANSI SGR is passed through.
+  bool no_init = false;            // --no-init accepted; no alternate screen.
   int window_size = -1;            // -z, -NUM
   bool default_stdin = false;
   SmallVector<std::string, 16> files;
@@ -119,6 +123,7 @@ auto build_config(const CommandContext<LESS_OPTIONS.size()>& ctx)
       ctx.get<bool>("--raw-control-chars", false) || ctx.get<bool>("-r", false);
   cfg.raw_control_color =
       ctx.get<bool>("--RAW-CONTROL-CHARS", false) || ctx.get<bool>("-R", false);
+  cfg.no_init = ctx.get<bool>("--no-init", false);
 
   for (const auto& occurrence : ctx.options.occurrences()) {
     if (!ctx.metas || occurrence.index >= LESS_OPTIONS.size()) continue;
@@ -255,8 +260,7 @@ struct PromptResult {
 };
 
 auto read_search_text(HANDLE input, wchar_t prompt, bool quit_on_intr,
-                      std::vector<std::wstring>& history)
-    -> PromptResult {
+                      std::vector<std::wstring>& history) -> PromptResult {
   std::wstring text;
   std::optional<std::wstring> draft;
   size_t history_index = history.size();
@@ -316,8 +320,8 @@ auto read_search_text(HANDLE input, wchar_t prompt, bool quit_on_intr,
   return {PagerAction::Quit, {}};
 }
 
-auto read_colon_command(HANDLE input, bool quit_on_intr,
-                        size_t number = 0) -> PagerCommand {
+auto read_colon_command(HANDLE input, bool quit_on_intr, size_t number = 0)
+    -> PagerCommand {
   std::wstring text;
   safePrint(":");
 
@@ -672,9 +676,8 @@ auto simple_pager(const Config& cfg, const PagerDocument& doc,
 
     if (at_eof && cfg.quit_first_eof) return {0, PagerAction::Quit};
 
-    PagerCommand command =
-        read_pager_command(input_mode.input(), cfg.quit_on_intr,
-                           search_history);
+    PagerCommand command = read_pager_command(input_mode.input(),
+                                              cfg.quit_on_intr, search_history);
     PagerAction action = command.action;
     if (action == PagerAction::Quit) return {0, PagerAction::Quit};
 

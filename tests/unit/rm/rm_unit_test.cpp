@@ -42,6 +42,26 @@ bool set_readonly(const std::filesystem::path& path) {
                             attrs | FILE_ATTRIBUTE_READONLY) != FALSE;
 }
 
+std::wstring to_slash_drive_path(const std::filesystem::path& path) {
+  std::wstring absolute = std::filesystem::absolute(path).wstring();
+  if (absolute.size() < 3 || absolute[1] != L':' ||
+      (absolute[2] != L'\\' && absolute[2] != L'/')) {
+    return {};
+  }
+
+  std::wstring converted;
+  converted.push_back(L'/');
+  wchar_t drive = absolute[0];
+  if (drive >= L'A' && drive <= L'Z') {
+    drive = static_cast<wchar_t>(drive - L'A' + L'a');
+  }
+  converted.push_back(drive);
+  for (size_t i = 2; i < absolute.size(); ++i) {
+    converted.push_back(absolute[i] == L'\\' ? L'/' : absolute[i]);
+  }
+  return converted;
+}
+
 }  // namespace
 
 TEST(rm, rm_basic) {
@@ -102,6 +122,24 @@ TEST(rm, rm_recursive_accepts_trailing_separator_operand) {
   p.set_cwd(tmp.wpath());
   p.add(L"rm.exe", {L"-r", L"-f", L"dir1/"});
 
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dir1"));
+}
+
+TEST(rm, rm_recursive_accepts_slash_drive_absolute_operand) {
+  TempDir tmp;
+  std::filesystem::create_directories(tmp.path / "dir1" / "subdir");
+  tmp.write("dir1/subdir/file.txt", "content");
+
+  std::wstring operand = to_slash_drive_path(tmp.path / "dir1");
+  EXPECT_FALSE(operand.empty());
+  if (operand.empty()) return;
+
+  Pipeline p;
+  p.set_cwd(std::filesystem::current_path().wstring());
+  p.add(L"rm.exe", {L"-r", L"-f", operand});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);

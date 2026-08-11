@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright (c) 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -2124,6 +2124,49 @@ auto print_package_summary(const nlohmann::json& pkg) -> void {
               pkg.value("description", ""));
 }
 
+auto package_is_installed(const fs::path& root, const nlohmann::json& pkg)
+    -> bool {
+  if (artifact_install_state(pkg) != "ready") return false;
+  auto artifact = artifact_for_current_arch(pkg);
+  if (!artifact) return false;
+  auto destinations = artifact_destination_paths(root, *artifact);
+  if (!destinations || destinations->empty()) return false;
+
+  for (const auto& dest : *destinations) {
+    std::error_code ec;
+    if (!fs::exists(dest, ec)) return false;
+  }
+  return true;
+}
+
+auto print_installed_package_summary(const nlohmann::json& pkg) -> void {
+  std::string version = pkg.value("version", "");
+  if (!version.empty()) version = " " + version;
+  std::string commands = join_json_string_array(pkg, "commands");
+  if (!commands.empty()) commands = " [" + commands + "]";
+  std::string category = pkg.value("category", "");
+  if (!category.empty()) category = " {" + category + "}";
+  safePrintLn("  [installed] " + pkg.value("name", "") + version + commands +
+              category + " - " + pkg.value("description", ""));
+}
+
+auto list_installed_packages(const Options& opts) -> int {
+  auto index = load_index(opts.root);
+  int matched = 0;
+  for (const auto& pkg : package_array(index)) {
+    if (!package_is_installed(opts.root, pkg)) continue;
+    print_installed_package_summary(pkg);
+    ++matched;
+  }
+  if (matched == 0) {
+    safePrintLn("wpm: no installed packages matched the local index");
+    safePrintLn(
+        "wpm: run 'wpm index update' if the index is missing packages you "
+        "installed");
+  }
+  return 0;
+}
+
 auto list_packages(const Options& opts, std::string_view query = {}) -> int {
   auto index = load_index(opts.root);
   int matched = 0;
@@ -2216,6 +2259,8 @@ auto print_usage() -> int {
   safePrintLn(
       "  install <package>             install package from local index");
   safePrintLn(
+      "  installed                     list packages present in this root");
+  safePrintLn(
       "  update winuxcmd               update WinuxCmd from local index");
   safePrintLn("");
   safePrintLn("Options:");
@@ -2295,6 +2340,7 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
   }
 
   if (args[0] == "list") return list_packages(opts);
+  if (args[0] == "installed") return list_installed_packages(opts);
   if (args[0] == "search")
     return list_packages(opts, args.size() >= 2 ? args[1] : std::string_view{});
   if (args[0] == "info") {
