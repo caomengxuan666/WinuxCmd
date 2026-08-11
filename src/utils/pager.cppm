@@ -36,11 +36,13 @@ export struct Options {
 
 export class ConsoleInputMode {
  public:
-  ConsoleInputMode() : input_(GetStdHandle(STD_INPUT_HANDLE)) {
+  explicit ConsoleInputMode(bool processed_input = true)
+      : input_(GetStdHandle(STD_INPUT_HANDLE)) {
     if (input_ == INVALID_HANDLE_VALUE || input_ == nullptr) return;
     if (!GetConsoleMode(input_, &original_mode_)) return;
 
     DWORD raw_mode = original_mode_ & ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT);
+    if (!processed_input) raw_mode &= ~ENABLE_PROCESSED_INPUT;
     if (SetConsoleMode(input_, raw_mode)) active_ = true;
   }
 
