@@ -38,6 +38,13 @@ auto file_url(std::filesystem::path path) -> std::string {
   return "file://" + text;
 }
 
+auto sha256_file_hex(const std::filesystem::path& path) -> std::string {
+  auto result = run_command(build_winuxcmd_path().wstring(),
+                            {L"sha256sum", path.wstring()});
+  if (result.exit_code != 0 || result.stdout_text.size() < 64) return "";
+  return result.stdout_text.substr(0, 64);
+}
+
 auto install_fixture_index_json(const std::filesystem::path& artifact_path)
     -> std::string {
   return "{\n"
@@ -631,6 +638,100 @@ TEST(wpm, wpm_install_uses_valid_cached_artifact_before_downloading) {
   EXPECT_TRUE(install_result.stderr_text.find("download failed") ==
               std::string::npos);
   EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
+}
+
+TEST(wpm, wpm_install_single_exe_can_rename_command) {
+  TempDir tmp;
+  const auto artifact_path = tmp.path / L"source" / L"tealdeer-upstream.exe";
+  tmp.write("source/tealdeer-upstream.exe", "external exe\n");
+  tmp.write(".wpm/indexes/official.json",
+            "{\n"
+            "  \"schema\": 1,\n"
+            "  \"name\": \"fixture\",\n"
+            "  \"version\": \"fixture-single-exe-rename\",\n"
+            "  \"packages\": [\n"
+            "    {\"name\":\"tealdeer\",\"version\":\"1.0.0\","
+            "\"description\":\"single exe rename fixture\","
+            "\"kind\":\"external\",\"commands\":[\"tldr\"],"
+            "\"artifacts\":{\"" +
+                current_arch_key() +
+                "\":{\"type\":\"exe\","
+                "\"sha256\":"
+                "\"5140f4f6bf8b5691b7bccc1c4f00a2027dae00b2110d38a1e090af291226"
+                "f322\","
+                "\"urls\":[\"" +
+                file_url(artifact_path) +
+                "\"],\"files\":[{\"from\":\"tldr.exe\","
+                "\"to\":\"tldr.exe\"}]}}}\n"
+                "  ]\n"
+                "}\n");
+
+  Pipeline install;
+  install.add(L"winuxcmd.exe",
+              {L"wpm", L"install", L"tealdeer", L"--root", tmp.wpath()});
+  auto install_result = install.run();
+
+  EXPECT_EQ(install_result.exit_code, 0);
+  EXPECT_TRUE(install_result.stdout_text.find("installed tealdeer") !=
+              std::string::npos);
+  EXPECT_EQ(tmp.read("tldr.exe"), "external exe\n");
+}
+
+TEST(wpm, wpm_install_tar_gz_with_directory_mapping) {
+  TempDir tmp;
+  const auto payload_dir = tmp.path / L"payload";
+  const auto archive_path = tmp.path / L"tool.tar.gz";
+  tmp.write("payload/bin/tool.exe", "external exe\n");
+  tmp.write("payload/runtime/lang.txt", "runtime file\n");
+
+  auto tar_result = run_command(
+      L"tar.exe",
+      {L"-czf", archive_path.wstring(), L"-C", payload_dir.wstring(), L"."});
+  EXPECT_EQ(tar_result.exit_code, 0);
+  if (tar_result.exit_code != 0) return;
+
+  auto sha256 = sha256_file_hex(archive_path);
+  EXPECT_EQ(sha256.size(), 64u);
+  if (sha256.size() != 64) return;
+  auto size = std::filesystem::file_size(archive_path);
+  tmp.write(".wpm/indexes/official.json",
+            "{\n"
+            "  \"schema\": 1,\n"
+            "  \"name\": \"fixture\",\n"
+            "  \"version\": \"fixture-tar-gz-dir\",\n"
+            "  \"packages\": [\n"
+            "    {\"name\":\"tool\",\"version\":\"1.0.0\","
+            "\"description\":\"tar directory fixture\","
+            "\"kind\":\"external\",\"commands\":[\"tool\"],"
+            "\"artifacts\":{\"" +
+                current_arch_key() + "\":{\"type\":\"tar.gz\",\"size\":" +
+                std::to_string(size) + ",\"sha256\":\"" + sha256 +
+                "\",\"urls\":[\"" + file_url(archive_path) +
+                "\"],\"files\":["
+                "{\"from\":\"bin/tool.exe\",\"to\":\"tool.exe\"},"
+                "{\"from\":\"runtime\",\"to\":\"runtime\","
+                "\"kind\":\"dir\"}]}}}\n"
+                "  ]\n"
+                "}\n");
+
+  Pipeline info;
+  info.add(L"winuxcmd.exe", {L"wpm", L"info", L"tool", L"--root", tmp.wpath()});
+  auto info_result = info.run();
+  EXPECT_EQ(info_result.exit_code, 0);
+  EXPECT_TRUE(info_result.stdout_text.find("Type: tar.gz") !=
+              std::string::npos);
+  EXPECT_TRUE(info_result.stdout_text.find("Size: ") != std::string::npos);
+
+  Pipeline install;
+  install.add(L"winuxcmd.exe",
+              {L"wpm", L"install", L"tool", L"--root", tmp.wpath()});
+  auto install_result = install.run();
+
+  EXPECT_EQ(install_result.exit_code, 0);
+  EXPECT_TRUE(install_result.stdout_text.find("installed tool") !=
+              std::string::npos);
+  EXPECT_EQ(tmp.read("tool.exe"), "external exe\n");
+  EXPECT_EQ(tmp.read("runtime/lang.txt"), "runtime file\n");
 }
 
 TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {

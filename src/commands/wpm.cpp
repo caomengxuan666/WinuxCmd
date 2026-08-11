@@ -1071,6 +1071,43 @@ auto cached_artifact_is_valid(const fs::path& file, std::string expected)
   return actual && *actual == expected;
 }
 
+auto supported_artifact_type(std::string_view type) -> bool {
+  return type == "exe" || type == "zip" || type == "tar.gz" || type == "tgz" ||
+         type == "tar.xz";
+}
+
+auto archive_artifact_type(std::string_view type) -> bool {
+  return type == "zip" || type == "tar.gz" || type == "tgz" || type == "tar.xz";
+}
+
+auto artifact_cache_extension(std::string_view type) -> std::string {
+  if (type == "tgz") return "tar.gz";
+  return std::string(type);
+}
+
+auto artifact_size_bytes(const nlohmann::json& artifact)
+    -> std::optional<unsigned long long> {
+  for (const auto* key : {"size", "size_bytes"}) {
+    if (!artifact.contains(key)) continue;
+    const auto& value = artifact[key];
+    if (value.is_number_unsigned()) {
+      return value.get<unsigned long long>();
+    }
+    if (value.is_number_integer()) {
+      auto signed_value = value.get<long long>();
+      if (signed_value >= 0)
+        return static_cast<unsigned long long>(signed_value);
+    }
+    if (value.is_string()) {
+      try {
+        return std::stoull(value.get<std::string>());
+      } catch (...) {
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 auto run_process(const std::wstring& command, const fs::path& cwd = {}) -> int {
   std::wstring mutable_cmd = command;
   STARTUPINFOW si{};
@@ -1099,17 +1136,45 @@ auto quote(const fs::path& p) -> std::wstring {
   return out;
 }
 
-auto extract_zip(const fs::path& zip, const fs::path& dest) -> bool {
+auto extract_archive(const fs::path& archive, const fs::path& dest,
+                     std::string_view type) -> bool {
   std::error_code ec;
   fs::create_directories(dest, ec);
-  std::wstring command = L"tar.exe -xf " + quote(zip) + L" -C " + quote(dest);
+  std::wstring command =
+      L"tar.exe -xf " + quote(archive) + L" -C " + quote(dest);
   int code = run_process(command);
   if (code != 0) {
-    safeErrorPrintLn("wpm: zip extraction failed; Windows tar.exe returned " +
+    safeErrorPrintLn("wpm: " + std::string(type) +
+                     " extraction failed; Windows tar.exe returned " +
                      std::to_string(code));
     return false;
   }
   return true;
+}
+
+auto trim_trailing_separators(std::string value) -> std::string {
+  while (!value.empty() && (value.back() == '/' || value.back() == '\\')) {
+    value.pop_back();
+  }
+  return value;
+}
+
+auto mapping_is_directory(const nlohmann::json& mapping) -> bool {
+  std::string kind = lower_ascii(mapping.value("kind", ""));
+  if (kind == "dir" || kind == "directory") return true;
+  std::string from = mapping.value("from", "");
+  if (!from.empty() && (from.back() == '/' || from.back() == '\\')) return true;
+  if (mapping.contains("to") && mapping["to"].is_string()) {
+    std::string to = mapping["to"].get<std::string>();
+    if (!to.empty() && (to.back() == '/' || to.back() == '\\')) return true;
+  }
+  return false;
+}
+
+auto mapping_default_to(const std::string& from, bool directory)
+    -> std::string {
+  std::string clean = directory ? trim_trailing_separators(from) : from;
+  return fs::path(clean).filename().string();
 }
 
 auto find_file_recursive(const fs::path& root, std::string_view filename)
@@ -1127,13 +1192,103 @@ auto find_file_recursive(const fs::path& root, std::string_view filename)
   return std::nullopt;
 }
 
-auto find_artifact_file(const fs::path& root, std::string_view from)
+auto find_directory_recursive(const fs::path& root, std::string_view dirname)
     -> std::optional<fs::path> {
-  fs::path requested = fs::path(std::string(from));
+  std::error_code ec;
+  if (!fs::exists(root, ec)) return std::nullopt;
+  for (const auto& entry : fs::recursive_directory_iterator(root, ec)) {
+    if (ec) break;
+    if (!entry.is_directory(ec)) continue;
+    if (lower_ascii(entry.path().filename().string()) ==
+        lower_ascii(std::string(dirname))) {
+      return entry.path();
+    }
+  }
+  return std::nullopt;
+}
+
+auto find_single_regular_file(const fs::path& root) -> std::optional<fs::path> {
+  std::error_code ec;
+  std::optional<fs::path> only;
+  if (!fs::exists(root, ec)) return std::nullopt;
+  for (const auto& entry : fs::recursive_directory_iterator(root, ec)) {
+    if (ec) break;
+    if (!entry.is_regular_file(ec)) continue;
+    if (only) return std::nullopt;
+    only = entry.path();
+  }
+  return only;
+}
+
+auto find_artifact_path(const fs::path& root, std::string_view from,
+                        bool directory, bool allow_single_file_fallback)
+    -> std::optional<fs::path> {
+  std::string clean = directory ? trim_trailing_separators(std::string(from))
+                                : std::string(from);
+  fs::path requested = fs::path(clean);
   std::error_code ec;
   auto direct = root / requested;
+  if (directory) {
+    if (fs::is_directory(direct, ec)) return direct;
+    return find_directory_recursive(root, requested.filename().string());
+  }
   if (fs::is_regular_file(direct, ec)) return direct;
-  return find_file_recursive(root, requested.filename().string());
+  if (auto found = find_file_recursive(root, requested.filename().string()))
+    return found;
+  if (allow_single_file_fallback) return find_single_regular_file(root);
+  return std::nullopt;
+}
+
+auto copy_directory_contents(const fs::path& src, const fs::path& dest,
+                             bool force) -> bool {
+  std::error_code ec;
+  if (fs::exists(dest, ec) && !fs::is_directory(dest, ec)) {
+    safeErrorPrintLn("wpm: destination exists and is not a directory: " +
+                     dest.string());
+    return false;
+  }
+  fs::create_directories(dest, ec);
+  if (ec) {
+    safeErrorPrintLn("wpm: failed to create directory '" + dest.string() +
+                     "': " + ec.message());
+    return false;
+  }
+
+  for (const auto& entry : fs::recursive_directory_iterator(src, ec)) {
+    if (ec) {
+      safeErrorPrintLn("wpm: failed to read directory '" + src.string() +
+                       "': " + ec.message());
+      return false;
+    }
+    auto relative = fs::relative(entry.path(), src, ec);
+    if (ec) {
+      safeErrorPrintLn("wpm: failed to map directory entry '" +
+                       entry.path().string() + "': " + ec.message());
+      return false;
+    }
+    auto target = dest / relative;
+    if (entry.is_directory(ec)) {
+      fs::create_directories(target, ec);
+      if (ec) {
+        safeErrorPrintLn("wpm: failed to create directory '" + target.string() +
+                         "': " + ec.message());
+        return false;
+      }
+      continue;
+    }
+    if (!entry.is_regular_file(ec)) continue;
+    fs::create_directories(target.parent_path(), ec);
+    fs::copy_file(
+        entry.path(), target,
+        force ? fs::copy_options::overwrite_existing : fs::copy_options::none,
+        ec);
+    if (ec) {
+      safeErrorPrintLn("wpm: failed to copy '" + entry.path().string() +
+                       "' to '" + target.string() + "': " + ec.message());
+      return false;
+    }
+  }
+  return true;
 }
 
 auto artifact_for_current_arch(const nlohmann::json& pkg)
@@ -1181,6 +1336,8 @@ auto join_json_string_array(const nlohmann::json& object, std::string_view key)
 auto artifact_install_state(const nlohmann::json& pkg) -> std::string {
   auto artifact = artifact_for_current_arch(pkg);
   if (!artifact) return "metadata-only (no current-arch artifact)";
+  if (!supported_artifact_type(artifact->value("type", "exe")))
+    return "metadata-only (unsupported artifact type)";
   if (artifact_urls(*artifact).empty())
     return "metadata-only (no download URLs)";
   if (artifact->value("sha256", "").empty())
@@ -1223,7 +1380,8 @@ auto download_artifact(const fs::path& root, const std::string& package,
   }
 
   std::string type = artifact.value("type", "exe");
-  fs::path out = cache_dir(root) / (package + "." + type);
+  fs::path out =
+      cache_dir(root) / (package + "." + artifact_cache_extension(type));
   std::string expected_sha = artifact.value("sha256", "");
   if (cached_artifact_is_valid(out, expected_sha)) {
     if (verbose) safePrintLn("wpm: using cached " + out.string());
@@ -1266,17 +1424,20 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
 
   for (const auto& mapping : artifact["files"]) {
     std::string from = mapping.value("from", "");
+    bool directory = mapping_is_directory(mapping);
     std::string to = mapping.contains("to") && mapping["to"].is_string()
                          ? mapping["to"].get<std::string>()
-                         : fs::path(from).filename().string();
+                         : mapping_default_to(from, directory);
     if (from.empty() || to.empty()) {
       safeErrorPrintLn("wpm: invalid file mapping in artifact");
       return false;
     }
 
-    auto src = find_artifact_file(extracted, from);
+    bool single_file_fallback = artifact.value("type", "exe") == "exe";
+    auto src =
+        find_artifact_path(extracted, from, directory, single_file_fallback);
     if (!src) {
-      safeErrorPrintLn("wpm: extracted file not found: " + from);
+      safeErrorPrintLn("wpm: extracted path not found: " + from);
       return false;
     }
 
@@ -1287,7 +1448,17 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
                               same_file(root / "winuxcmd.exe", dest) &&
                               !same_path_name(root / "winuxcmd.exe", dest);
     bool dest_is_legacy_link = is_legacy_link_name(dest.filename().string());
-    if (dest_exists && !dest_is_winux_link && !force &&
+    if (directory && dest_exists && !fs::is_directory(dest, ec)) {
+      safeErrorPrintLn("wpm: destination exists and is not a directory: " +
+                       dest.string());
+      return false;
+    }
+    if (directory && dest_exists && !force) {
+      safeErrorPrintLn("wpm: destination exists; use --force: " +
+                       dest.string());
+      return false;
+    }
+    if (dest_exists && !dest_is_winux_link && !force && !directory &&
         !same_file(*src, dest)) {
       safeErrorPrintLn("wpm: destination exists; use --force: " +
                        dest.string());
@@ -1300,10 +1471,16 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
       return false;
     }
     if (dry_run) {
-      safePrintLn("would copy " + src->string() + " -> " + dest.string());
+      safePrintLn(
+          std::string(directory ? "would copy directory " : "would copy ") +
+          src->string() + " -> " + dest.string());
       continue;
     }
     fs::create_directories(dest.parent_path(), ec);
+    if (directory) {
+      if (!copy_directory_contents(*src, dest, force)) return false;
+      continue;
+    }
     if (dest_is_winux_link) {
       if (!DeleteFileW(dest.wstring().c_str())) {
         safeErrorPrintLn("wpm: failed to break WinuxCmd hardlink '" +
@@ -1333,9 +1510,10 @@ auto artifact_destination_paths(const fs::path& root,
   std::vector<fs::path> destinations;
   for (const auto& mapping : artifact["files"]) {
     std::string from = mapping.value("from", "");
+    bool directory = mapping_is_directory(mapping);
     std::string to = mapping.contains("to") && mapping["to"].is_string()
                          ? mapping["to"].get<std::string>()
-                         : fs::path(from).filename().string();
+                         : mapping_default_to(from, directory);
     if (from.empty() || to.empty()) {
       safeErrorPrintLn("wpm: invalid file mapping in artifact");
       return std::nullopt;
@@ -1460,8 +1638,8 @@ auto install_package(const Options& opts, std::string_view package_name)
   fs::create_directories(extracted, ec);
 
   std::string type = artifact->value("type", "exe");
-  if (type == "zip") {
-    if (!extract_zip(*downloaded, extracted)) return 1;
+  if (archive_artifact_type(type)) {
+    if (!extract_archive(*downloaded, extracted, type)) return 1;
   } else if (type == "exe") {
     fs::copy_file(*downloaded, extracted / downloaded->filename(),
                   fs::copy_options::overwrite_existing, ec);
@@ -1540,15 +1718,19 @@ auto update_winuxcmd(const Options& opts) -> int {
   fs::remove_all(extracted, ec);
   fs::create_directories(extracted, ec);
 
-  if (artifact->value("type", "zip") == "zip") {
-    if (!extract_zip(*downloaded, extracted)) return 1;
-  } else {
+  std::string type = artifact->value("type", "zip");
+  if (archive_artifact_type(type)) {
+    if (!extract_archive(*downloaded, extracted, type)) return 1;
+  } else if (type == "exe") {
     fs::copy_file(*downloaded, extracted / "winuxcmd.exe",
                   fs::copy_options::overwrite_existing, ec);
     if (ec) {
       safeErrorPrintLn("wpm: failed to stage winuxcmd.exe: " + ec.message());
       return 1;
     }
+  } else {
+    safeErrorPrintLn("wpm: unsupported artifact type: " + type);
+    return 1;
   }
 
   auto staged_exe = find_file_recursive(extracted, "winuxcmd.exe");
@@ -1817,6 +1999,9 @@ auto show_info(const Options& opts, std::string_view name) -> int {
   if (artifact) {
     safePrintLn("Type: " + artifact->value("type", ""));
     safePrintLn("URLs: " + std::to_string(artifact_urls(*artifact).size()));
+    if (auto size = artifact_size_bytes(*artifact)) {
+      safePrintLn("Size: " + human_size(*size));
+    }
     std::string sha256 = artifact->value("sha256", "");
     safePrintLn("SHA256: " +
                 std::string(sha256.empty() ? "missing" : "present"));
@@ -1861,7 +2046,7 @@ auto print_usage() -> int {
   safePrintLn(
       "  -n, --dry-run                 show planned changes without writing");
   safePrintLn("  -v, --verbose                 print detailed progress");
-  safePrintLn("  -h, --help                    display this help and exit");
+  safePrintLn("      --help                    display this help and exit");
   safePrintLn(
       "  -V, --version                 output version information and exit");
   return 0;
