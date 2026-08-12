@@ -122,7 +122,7 @@ arm64 shell bundles stay reproducible.
 
 ## What Ships
 
-WinuxCmd currently implements 153 commands, including practical coverage across:
+WinuxCmd currently implements 171 commands, including practical coverage across:
 
 - Files: `ls`, `cp`, `mv`, `rm`, `mkdir`, `ln`, `stat`, `readlink`, `realpath`
 - Text: `cat`, `grep`, `sed`, `sort`, `uniq`, `cut`, `head`, `tail`, `wc`
@@ -159,4 +159,3 @@ ctest --test-dir build-vs -R "^(grep|find|rm)\." --output-on-failure
 - [WPM source](https://github.com/unixwin/wpm-source)
 - [Contributing Guide](CONTRIBUTING.md)
 - [Build Modes](DOCS/en/build_modes_en.md)
-

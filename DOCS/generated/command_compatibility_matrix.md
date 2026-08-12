@@ -8,14 +8,14 @@ Scope excludes `wpm` by release policy.
 
 | Metric | Value |
 | --- | ---: |
-| Commands | 154 |
+| Commands | 170 |
 | P0 hot commands | 33 |
 | P1 commands | 39 |
-| P2 commands | 82 |
+| P2 commands | 98 |
 | Declared unsupported options | 4 |
-| Declared placeholder/no-op options | 16 |
+| Declared placeholder/no-op options | 17 |
 | Commands without direct unit tests | 0 |
-| P0 commands thin vs upstream | 0 |
+| P0 commands thin vs upstream | 1 |
 | Commands with mapped local upstream source | 153 |
 | Commands with performance probes | 154 |
 | Performance/parity probe failures | 0 |
@@ -30,7 +30,7 @@ Scope excludes `wpm` by release policy.
 
 ## Focus Lists
 
-- P0 commands thin vs upstream: _None._.
+- P0 commands thin vs upstream: `rmdir`.
 - Commands without direct unit tests: _None._.
 - Commands with unsupported or placeholder options: `cat`, `find`, `less`, `more`, `touch`, `install`, `kill`, `stat`, `strings`, `hostname`.
 - P0 commands without performance probes yet: _None._.
@@ -39,78 +39,78 @@ Scope excludes `wpm` by release policy.
 
 | Priority | Command | Family | Local LOC | Upstream LOC | Options | Unsupported | Placeholder | Tests | Perf probes | Worst perf | Perf fails | Source | Notes |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| P0 | `[` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 257 | 786 | 39 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/test_bracket.cpp` | Performance probes: 1. |
-| P0 | `cat` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 333 | 834 | 10 | 0 | 1 | 16 | 3 | 1.1x | 0 | `src/commands/cat.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |
+| P0 | `[` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 253 | 786 | 39 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/test_bracket.cpp` | Performance probes: 1. |
+| P0 | `cat` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 331 | 834 | 10 | 0 | 1 | 19 | 3 | 1.1x | 0 | `src/commands/cat.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |
 | P0 | `cp` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 752 | 1173 | 35 | 0 | 0 | 20 | 5 | 1.7x | 0 | `src/commands/cp.cpp` | Performance probes: 5. |
 | P0 | `cut` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 543 | 1233 | 11 | 0 | 0 | 29 | 1 | 0.4x | 0 | `src/commands/cut.cpp` | Performance probes: 1. |
 | P0 | `date` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 613 | 732 | 8 | 0 | 0 | 9 | 1 | 0.9x | 0 | `src/commands/date.cpp` | Performance probes: 1. |
 | P0 | `dirname` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 145 | 110 | 1 | 0 | 0 | 9 | 2 | 1.2x | 0 | `src/commands/dirname.cpp` | Performance probes: 2. |
 | P0 | `du` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 879 | 1034 | 25 | 0 | 0 | 36 | 2 | 1.0x | 0 | `src/commands/du.cpp` | Performance probes: 2. |
 | P0 | `echo` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 459 | 255 | 5 | 0 | 0 | 29 | 1 | 0.7x | 0 | `src/commands/echo.cpp` | Performance probes: 1. |
-| P0 | `env` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 839 | 800 | 12 | 0 | 0 | 36 | 2 | 1.0x | 0 | `src/commands/env.cpp` | Performance probes: 2. |
+| P0 | `env` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 861 | 800 | 12 | 0 | 0 | 38 | 2 | 1.0x | 0 | `src/commands/env.cpp` | Performance probes: 2. |
 | P0 | `head` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 556 | 932 | 6 | 0 | 0 | 28 | 3 | 1.2x | 0 | `src/commands/head.cpp` | Performance probes: 3. |
 | P0 | `ln` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 373 | 647 | 15 | 0 | 0 | 13 | 3 | 1.7x | 0 | `src/commands/ln.cpp` | Performance probes: 3. |
-| P0 | `ls` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 3014 | 4888 | 60 | 0 | 0 | 132 | 5 | 1.1x | 0 | `src/commands/ls.cpp` | Performance probes: 5. |
-| P0 | `mkdir` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 334 | 278 | 4 | 0 | 0 | 8 | 2 | 1.3x | 0 | `src/commands/mkdir.cpp` | Performance probes: 2. |
+| P0 | `ls` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 2999 | 4888 | 60 | 0 | 0 | 133 | 5 | 1.1x | 0 | `src/commands/ls.cpp` | Performance probes: 5. |
+| P0 | `mkdir` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 334 | 278 | 4 | 0 | 0 | 9 | 2 | 1.3x | 0 | `src/commands/mkdir.cpp` | Performance probes: 2. |
 | P0 | `mv` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 485 | 520 | 21 | 0 | 0 | 15 | 4 | 1.0x | 0 | `src/commands/mv.cpp` | Performance probes: 4. |
 | P0 | `pwd` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 225 | 328 | 2 | 0 | 0 | 20 | 1 | 0.9x | 0 | `src/commands/pwd.cpp` | Performance probes: 1. |
-| P0 | `rm` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 589 | 350 | 11 | 0 | 0 | 21 | 4 | 1.4x | 0 | `src/commands/rm.cpp` | Performance probes: 4. |
-| P0 | `rmdir` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 162 | 258 | 3 | 0 | 0 | 10 | 2 | 1.2x | 0 | `src/commands/rmdir.cpp` | Performance probes: 2. |
+| P0 | `rm` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 570 | 350 | 11 | 0 | 0 | 24 | 4 | 1.4x | 0 | `src/commands/rm.cpp` | Performance probes: 4. |
+| P0 | `rmdir` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 149 | 258 | 3 | 0 | 0 | 12 | 2 | 1.2x | 0 | `src/commands/rmdir.cpp` | Performance probes: 2. |
 | P0 | `sort` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 1606 | 4462 | 29 | 0 | 0 | 66 | 6 | 1.9x | 0 | `src/commands/sort.cpp` | Performance probes: 6. |
 | P0 | `tail` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 990 | 2194 | 15 | 0 | 0 | 42 | 4 | 1.1x | 0 | `src/commands/tail.cpp` | Performance probes: 4. |
 | P0 | `tee` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 169 | 293 | 4 | 0 | 0 | 10 | 2 | 1.7x | 0 | `src/commands/tee.cpp` | Performance probes: 2. |
-| P0 | `test` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 282 | 786 | 39 | 0 | 0 | 2 | 2 | 1.7x | 0 | `src/commands/test.cpp` | Performance probes: 2. |
-| P0 | `touch` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 599 | 390 | 9 | 0 | 1 | 12 | 3 | 2.7x | 0 | `src/commands/touch.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |
+| P0 | `test` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 278 | 786 | 39 | 0 | 0 | 2 | 2 | 1.7x | 0 | `src/commands/test.cpp` | Performance probes: 2. |
+| P0 | `touch` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 616 | 390 | 9 | 0 | 1 | 15 | 3 | 2.7x | 0 | `src/commands/touch.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |
 | P0 | `tr` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 476 | 1679 | 5 | 0 | 0 | 16 | 5 | 1.2x | 0 | `src/commands/tr.cpp` | Performance probes: 5. |
 | P0 | `wc` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 721 | 917 | 8 | 0 | 0 | 24 | 3 | 1.8x | 0 | `src/commands/wc.cpp` | Performance probes: 3. |
 | P0 | `diff` | [gnu-diffutils](https://www.gnu.org/software/diffutils/manual/) | 626 | 1507 | 5 | 0 | 0 | 13 | 1 | 0.7x | 0 | `src/commands/diff.cpp` | Performance probes: 1. |
-| P0 | `find` | [gnu-findutils](https://www.gnu.org/software/findutils/manual/) | 2915 | 4965 | 79 | 0 | 1 | 104 | 6 | 2.8x | 0 | `src/commands/find.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 6. |
-| P0 | `xargs` | [gnu-findutils](https://www.gnu.org/software/findutils/manual/) | 1311 | 1905 | 21 | 0 | 0 | 79 | 2 | 0.0x | 0 | `src/commands/xargs.cpp` | Performance probes: 2. |
-| P0 | `egrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 0 | 0 | 2 | 1 | 1.3x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
-| P0 | `fgrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
-| P0 | `grep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2312 | 2686 | 49 | 0 | 0 | 82 | 6 | 1.5x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 6. |
-| P0 | `sed` | [gnu-sed](https://www.gnu.org/software/sed/manual/) | 1960 | 2885 | 13 | 0 | 0 | 86 | 4 | 1.3x | 0 | `src/commands/sed.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 4. |
-| P0 | `less` | [less](https://www.greenwoodsoftware.com/less/) | 512 | 5961 | 14 | 0 | 4 | 4 | 1 | 0.9x | 0 | `src/commands/less.cpp` | Interactive terminal behavior needs PTY/manual coverage.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 1. |
-| P0 | `more` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 365 | 2071 | 10 | 0 | 1 | 10 | 3 | 1.1x | 0 | `src/commands/more.cpp` | Interactive terminal behavior needs PTY/manual coverage.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |
-| P1 | `cygpath` | [cygpath](https://cygwin.com/cygwin-ug-net/cygpath.html) | 340 | 1001 | 23 | 0 | 0 | 8 | 3 | 1.4x | 0 | `src/commands/cygpath.cpp` | Performance probes: 3. |
-| P1 | `strings` | [gnu-binutils](https://www.gnu.org/software/binutils/) | 385 | 1147 | 12 | 0 | 3 | 11 | 1 | 1.2x | 0 | `src/commands/strings.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 1. |
-| P1 | `b2sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 365 | 2346 | 11 | 0 | 0 | 24 | 1 | 0.9x | 0 | `src/commands/b2sum.cpp` | Performance probes: 1. |
+| P0 | `find` | [gnu-findutils](https://www.gnu.org/software/findutils/manual/) | 3009 | 4965 | 79 | 0 | 1 | 105 | 6 | 2.8x | 0 | `src/commands/find.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 6. |
+| P0 | `xargs` | [gnu-findutils](https://www.gnu.org/software/findutils/manual/) | 1306 | 1905 | 21 | 0 | 0 | 79 | 2 | 0.0x | 0 | `src/commands/xargs.cpp` | Performance probes: 2. |
+| P0 | `egrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2310 | 2686 | 49 | 0 | 0 | 2 | 1 | 1.3x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has explicitly unsupported declared option(s).<br>Performance probes: 1. |
+| P0 | `fgrep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2310 | 2686 | 49 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has explicitly unsupported declared option(s).<br>Performance probes: 1. |
+| P0 | `grep` | [gnu-grep](https://www.gnu.org/software/grep/manual/) | 2310 | 2686 | 49 | 0 | 0 | 86 | 6 | 1.5x | 0 | `src/commands/grep.cpp` | Regex behavior is command-owned, not shell-owned.<br>Has explicitly unsupported declared option(s).<br>Performance probes: 6. |
+| P0 | `sed` | [gnu-sed](https://www.gnu.org/software/sed/manual/) | 1960 | 2885 | 13 | 0 | 0 | 87 | 4 | 1.3x | 0 | `src/commands/sed.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 4. |
+| P0 | `less` | [less](https://www.greenwoodsoftware.com/less/) | 839 | 5961 | 16 | 0 | 5 | 6 | 1 | 0.9x | 0 | `src/commands/less.cpp` | Interactive terminal behavior needs PTY/manual coverage.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 1. |
+| P0 | `more` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 612 | 2071 | 10 | 0 | 1 | 10 | 3 | 1.1x | 0 | `src/commands/more.cpp` | Interactive terminal behavior needs PTY/manual coverage.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 3. |
+| P1 | `cygpath` | [cygpath](https://cygwin.com/cygwin-ug-net/cygpath.html) | 501 | 1001 | 23 | 0 | 0 | 12 | 3 | 1.4x | 0 | `src/commands/cygpath.cpp` | Performance probes: 3. |
+| P1 | `strings` | [gnu-binutils](https://www.gnu.org/software/binutils/) | 386 | 1147 | 12 | 0 | 3 | 11 | 1 | 1.2x | 0 | `src/commands/strings.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 1. |
+| P1 | `b2sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 366 | 2346 | 11 | 0 | 0 | 24 | 1 | 0.9x | 0 | `src/commands/b2sum.cpp` | Performance probes: 1. |
 | P1 | `basename` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 159 | 166 | 6 | 0 | 0 | 16 | 1 | 1.5x | 0 | `src/commands/basename.cpp` | Performance probes: 1. |
 | P1 | `chgrp` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 510 | 2 | 14 | 0 | 0 | 16 | 1 | 0.4x | 0 | `src/commands/chgrp.cpp` | Performance probes: 1. |
 | P1 | `chmod` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 633 | 602 | 12 | 0 | 0 | 20 | 2 | 1.0x | 0 | `src/commands/chmod.cpp` | Performance probes: 2. |
 | P1 | `chown` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 635 | 318 | 14 | 0 | 0 | 23 | 1 | 0.7x | 0 | `src/commands/chown.cpp` | Performance probes: 1. |
-| P1 | `cksum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 660 | 2023 | 14 | 0 | 0 | 20 | 1 | 0.8x | 0 | `src/commands/cksum.cpp` | Performance probes: 1. |
+| P1 | `cksum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 667 | 2023 | 14 | 0 | 0 | 20 | 1 | 0.8x | 0 | `src/commands/cksum.cpp` | Performance probes: 1. |
 | P1 | `comm` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 406 | 424 | 8 | 0 | 0 | 16 | 2 | 1.4x | 0 | `src/commands/comm.cpp` | Performance probes: 2. |
-| P1 | `csplit` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 515 | 1210 | 8 | 0 | 0 | 11 | 1 | 0.9x | 0 | `src/commands/csplit.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
+| P1 | `csplit` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 512 | 1210 | 8 | 0 | 0 | 11 | 1 | 0.9x | 0 | `src/commands/csplit.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
 | P1 | `dd` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 417 | 2235 | 11 | 0 | 0 | 8 | 1 | 0.9x | 0 | `src/commands/dd.cpp` | Performance probes: 1. |
-| P1 | `df` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 906 | 1600 | 15 | 0 | 0 | 17 | 2 | 1.2x | 0 | `src/commands/df.cpp` | Performance probes: 2. |
+| P1 | `df` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 903 | 1600 | 15 | 0 | 0 | 17 | 2 | 1.2x | 0 | `src/commands/df.cpp` | Performance probes: 2. |
 | P1 | `dir` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 198 | 4888 | 36 | 0 | 0 | 7 | 1 | 1.0x | 0 | `src/commands/dir.cpp` | Performance probes: 1. |
 | P1 | `install` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 581 | 973 | 19 | 0 | 1 | 19 | 2 | 1.7x | 0 | `src/commands/install.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 2. |
-| P1 | `join` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 605 | 1052 | 13 | 0 | 0 | 12 | 1 | 1.1x | 0 | `src/commands/join.cpp` | Performance probes: 1. |
-| P1 | `kill` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 655 | 1858 | 86 | 0 | 3 | 24 | 2 | 2.5x | 0 | `src/commands/kill.cpp` | Signal conversion follows GNU/procps behavior; Windows signal numbers are aligned to Cygwin/MSYS local references.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 2. |
+| P1 | `join` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 602 | 1052 | 13 | 0 | 0 | 12 | 1 | 1.1x | 0 | `src/commands/join.cpp` | Performance probes: 1. |
+| P1 | `kill` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 654 | 1858 | 86 | 0 | 3 | 24 | 2 | 2.5x | 0 | `src/commands/kill.cpp` | Signal conversion follows GNU/procps behavior; Windows signal numbers are aligned to Cygwin/MSYS local references.<br>Has compatibility placeholder/no-op option(s).<br>Performance probes: 2. |
 | P1 | `md5sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 383 | 1741 | 10 | 0 | 0 | 22 | 1 | 1.2x | 0 | `src/commands/md5sum.cpp` | Performance probes: 1. |
-| P1 | `mktemp` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 348 | 321 | 6 | 0 | 0 | 11 | 1 | 0.9x | 0 | `src/commands/mktemp.cpp` | Performance probes: 1. |
-| P1 | `nl` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 413 | 554 | 11 | 0 | 0 | 13 | 1 | 1.2x | 0 | `src/commands/nl.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
+| P1 | `mktemp` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 405 | 321 | 6 | 0 | 0 | 11 | 1 | 0.9x | 0 | `src/commands/mktemp.cpp` | Performance probes: 1. |
+| P1 | `nl` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 410 | 554 | 11 | 0 | 0 | 13 | 1 | 1.2x | 0 | `src/commands/nl.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
 | P1 | `od` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 607 | 1792 | 13 | 0 | 0 | 15 | 1 | 0.7x | 0 | `src/commands/od.cpp` | Performance probes: 1. |
 | P1 | `paste` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 399 | 477 | 3 | 0 | 0 | 12 | 1 | 0.8x | 0 | `src/commands/paste.cpp` | Performance probes: 1. |
 | P1 | `pr` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 663 | 2466 | 26 | 0 | 0 | 14 | 1 | 1.0x | 0 | `src/commands/pr.cpp` | Performance probes: 1. |
 | P1 | `printf` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 518 | 701 | 1 | 0 | 0 | 8 | 1 | 0.7x | 0 | `src/commands/printf.cpp` | Performance probes: 1. |
-| P1 | `readlink` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 455 | 181 | 8 | 0 | 0 | 15 | 1 | 1.3x | 0 | `src/commands/readlink.cpp` | Performance probes: 1. |
+| P1 | `readlink` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 429 | 181 | 8 | 0 | 0 | 15 | 1 | 1.3x | 0 | `src/commands/readlink.cpp` | Performance probes: 1. |
 | P1 | `realpath` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 412 | 269 | 11 | 0 | 0 | 19 | 1 | 0.7x | 0 | `src/commands/realpath.cpp` | Performance probes: 1. |
-| P1 | `seq` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 413 | 605 | 32 | 0 | 0 | 20 | 1 | 1.4x | 0 | `src/commands/seq.cpp` | Performance probes: 1. |
+| P1 | `seq` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 408 | 605 | 32 | 0 | 0 | 20 | 1 | 1.4x | 0 | `src/commands/seq.cpp` | Performance probes: 1. |
 | P1 | `sha224sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 318 | 1741 | 10 | 0 | 0 | 21 | 1 | 1.1x | 0 | `src/commands/sha224sum.cpp` | Performance probes: 1. |
 | P1 | `sha384sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 318 | 1741 | 10 | 0 | 0 | 21 | 1 | 1.0x | 0 | `src/commands/sha384sum.cpp` | Performance probes: 1. |
 | P1 | `sha512sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 387 | 1741 | 10 | 0 | 0 | 21 | 1 | 1.1x | 0 | `src/commands/sha512sum.cpp` | Performance probes: 1. |
 | P1 | `shuf` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 712 | 530 | 8 | 0 | 0 | 22 | 1 | 1.0x | 0 | `src/commands/shuf.cpp` | Performance probes: 1. |
-| P1 | `split` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 691 | 1546 | 13 | 0 | 0 | 19 | 1 | 1.1x | 0 | `src/commands/split.cpp` | Performance probes: 1. |
+| P1 | `split` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 709 | 1546 | 13 | 0 | 0 | 19 | 1 | 1.1x | 0 | `src/commands/split.cpp` | Performance probes: 1. |
 | P1 | `stat` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 648 | 1862 | 6 | 0 | 1 | 14 | 1 | 0.5x | 0 | `src/commands/stat.cpp` | Has compatibility placeholder/no-op option(s).<br>Performance probes: 1. |
-| P1 | `tac` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 231 | 507 | 3 | 0 | 0 | 11 | 1 | 1.5x | 0 | `src/commands/tac.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
+| P1 | `tac` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 207 | 507 | 3 | 0 | 0 | 13 | 1 | 1.5x | 0 | `src/commands/tac.cpp` | Regex behavior is command-owned, not shell-owned.<br>Performance probes: 1. |
 | P1 | `timeout` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 350 | 593 | 5 | 0 | 0 | 22 | 1 | 1.2x | 0 | `src/commands/timeout.cpp` | Performance probes: 1. |
-| P1 | `uniq` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 349 | 579 | 10 | 0 | 0 | 15 | 4 | 1.6x | 0 | `src/commands/uniq.cpp` | Performance probes: 4. |
-| P1 | `unlink` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 126 | 68 | 1 | 0 | 0 | 10 | 1 | 0.8x | 0 | `src/commands/unlink.cpp` | Performance probes: 1. |
+| P1 | `uniq` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 347 | 579 | 10 | 0 | 0 | 17 | 4 | 1.6x | 0 | `src/commands/uniq.cpp` | Performance probes: 4. |
+| P1 | `unlink` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 134 | 68 | 1 | 0 | 0 | 11 | 1 | 0.8x | 0 | `src/commands/unlink.cpp` | Performance probes: 1. |
 | P1 | `vdir` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 208 | 4888 | 38 | 0 | 0 | 7 | 1 | 1.1x | 0 | `src/commands/vdir.cpp` | Performance probes: 1. |
 | P1 | `cmp` | [gnu-diffutils](https://www.gnu.org/software/diffutils/manual/) | 446 | 637 | 5 | 0 | 0 | 15 | 1 | 0.4x | 0 | `src/commands/cmp.cpp` | Performance probes: 1. |
-| P1 | `column` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 433 | 1158 | 28 | 0 | 0 | 14 | 2 | 1.0x | 0 | `src/commands/column.cpp` | Performance probes: 2. |
+| P1 | `column` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 432 | 1158 | 27 | 0 | 0 | 14 | 2 | 1.0x | 0 | `src/commands/column.cpp` | Performance probes: 2. |
 | P2 | `getconf` | [cygwin](https://cygwin.com/) | 113 | 603 | 2 | 0 | 0 | 4 | 1 | 0.8x | 0 | `src/commands/getconf.cpp` | Performance probes: 1. |
 | P2 | `locale` | [cygwin](https://cygwin.com/) | 143 | 694 | 3 | 0 | 0 | 3 | 1 | 0.5x | 0 | `src/commands/locale.cpp` | Performance probes: 1. |
 | P2 | `d2u` | [dos2unix](https://waterlan.home.xs4all.nl/dos2unix.html) | 145 | 3334 | 1 | 0 | 0 | 3 | 1 | 0.9x | 0 | `src/commands/d2u.cpp` | Performance probes: 1. |
@@ -119,45 +119,45 @@ Scope excludes `wpm` by release policy.
 | P2 | `unix2dos` | [dos2unix](https://waterlan.home.xs4all.nl/dos2unix.html) | 146 | 3334 | 1 | 0 | 0 | 1 | 1 | 0.8x | 0 | `src/commands/unix2dos.cpp` | Performance probes: 1. |
 | P2 | `file` | [file](https://www.darwinsys.com/file/) | 292 | 6615 | 4 | 0 | 0 | 4 | 1 | 0.1x | 0 | `src/commands/file.cpp` | Performance probes: 1. |
 | P2 | `arch` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 98 | 334 | 1 | 0 | 0 | 2 | 1 | 0.4x | 0 | `src/commands/arch.cpp` | Performance probes: 1. |
-| P2 | `base32` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 218 | 1556 | 3 | 0 | 0 | 12 | 2 | 1.0x | 0 | `src/commands/base32.cpp` | Performance probes: 2. |
-| P2 | `base64` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 220 | 1556 | 3 | 0 | 0 | 11 | 2 | 1.3x | 0 | `src/commands/base64.cpp` | Performance probes: 2. |
-| P2 | `basenc` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 479 | 1556 | 13 | 0 | 0 | 16 | 2 | 1.1x | 0 | `src/commands/basenc.cpp` | Performance probes: 2. |
+| P2 | `base32` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 190 | 1556 | 3 | 0 | 0 | 12 | 2 | 1.0x | 0 | `src/commands/base32.cpp` | Performance probes: 2. |
+| P2 | `base64` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 192 | 1556 | 3 | 0 | 0 | 12 | 2 | 1.3x | 0 | `src/commands/base64.cpp` | Performance probes: 2. |
+| P2 | `basenc` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 594 | 1556 | 13 | 0 | 0 | 19 | 2 | 1.1x | 0 | `src/commands/basenc.cpp` | Performance probes: 2. |
 | P2 | `chcon` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 151 | 522 | 14 | 0 | 0 | 6 | 2 | 1.5x | 0 | `src/commands/chcon.cpp` | Performance probes: 2. |
-| P2 | `chroot` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 76 | 372 | 3 | 0 | 0 | 5 | 2 | 1.4x | 0 | `src/commands/chroot.cpp` | Performance probes: 2. |
+| P2 | `chroot` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 75 | 372 | 3 | 0 | 0 | 5 | 2 | 1.4x | 0 | `src/commands/chroot.cpp` | Performance probes: 2. |
 | P2 | `dircolors` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 258 | 467 | 4 | 0 | 0 | 4 | 1 | 1.3x | 0 | `src/commands/dircolors.cpp` | Performance probes: 1. |
 | P2 | `expand` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 301 | 193 | 2 | 0 | 0 | 12 | 1 | 0.8x | 0 | `src/commands/expand.cpp` | Performance probes: 1. |
 | P2 | `expr` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 508 | 856 | 1 | 0 | 0 | 11 | 2 | 1.0x | 0 | `src/commands/expr.cpp` | Performance probes: 2. |
-| P2 | `factor` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 131 | 1756 | 1 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/factor.cpp` | Performance probes: 1. |
+| P2 | `factor` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 140 | 1756 | 1 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/factor.cpp` | Performance probes: 1. |
 | P2 | `false` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 59 | 61 | 1 | 0 | 0 | 2 | 1 | 0.9x | 0 | `src/commands/false.cpp` | Performance probes: 1. |
 | P2 | `fmt` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 659 | 874 | 12 | 0 | 0 | 19 | 1 | 1.1x | 0 | `src/commands/fmt.cpp` | Performance probes: 1. |
 | P2 | `fold` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 334 | 306 | 4 | 0 | 0 | 15 | 1 | 0.6x | 0 | `src/commands/fold.cpp` | Performance probes: 1. |
 | P2 | `groups` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 93 | 122 | 1 | 0 | 0 | 2 | 1 | 1.0x | 0 | `src/commands/groups.cpp` | Performance probes: 1. |
 | P2 | `hostid` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 95 | 64 | 1 | 0 | 0 | 2 | 1 | 1.0x | 0 | `src/commands/hostid.cpp` | Performance probes: 1. |
 | P2 | `hostname` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 184 | 94 | 10 | 4 | 0 | 2 | 1 | 0.7x | 0 | `src/commands/hostname.cpp` | Has explicitly unsupported declared option(s).<br>Performance probes: 1. |
-| P2 | `id` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 308 | 411 | 8 | 0 | 0 | 13 | 3 | 1.1x | 0 | `src/commands/id.cpp` | Performance probes: 3. |
+| P2 | `id` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 234 | 411 | 8 | 0 | 0 | 13 | 3 | 1.1x | 0 | `src/commands/id.cpp` | Performance probes: 3. |
 | P2 | `link` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 114 | 73 | 1 | 0 | 0 | 11 | 1 | 1.0x | 0 | `src/commands/link.cpp` | Performance probes: 1. |
 | P2 | `logname` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 69 | 64 | 1 | 0 | 0 | 2 | 1 | 0.8x | 0 | `src/commands/logname.cpp` | Performance probes: 1. |
 | P2 | `mkfifo` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 110 | 166 | 3 | 0 | 0 | 5 | 2 | 1.8x | 0 | `src/commands/mkfifo.cpp` | Performance probes: 2. |
 | P2 | `mknod` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 160 | 245 | 3 | 0 | 0 | 6 | 4 | 1.4x | 0 | `src/commands/mknod.cpp` | Performance probes: 4. |
-| P2 | `nice` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 169 | 219 | 1 | 0 | 0 | 14 | 1 | 0.8x | 0 | `src/commands/nice.cpp` | Performance probes: 1. |
+| P2 | `nice` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 148 | 219 | 1 | 0 | 0 | 14 | 1 | 0.8x | 0 | `src/commands/nice.cpp` | Performance probes: 1. |
 | P2 | `nohup` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 163 | 198 | 1 | 0 | 0 | 7 | 1 | 1.0x | 0 | `src/commands/nohup.cpp` | Performance probes: 1. |
 | P2 | `nproc` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 82 | 112 | 3 | 0 | 0 | 6 | 1 | 0.8x | 0 | `src/commands/nproc.cpp` | Performance probes: 1. |
-| P2 | `numfmt` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 284 | 1471 | 9 | 0 | 0 | 9 | 1 | 0.9x | 0 | `src/commands/numfmt.cpp` | Performance probes: 1. |
+| P2 | `numfmt` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 280 | 1471 | 9 | 0 | 0 | 9 | 1 | 0.9x | 0 | `src/commands/numfmt.cpp` | Performance probes: 1. |
 | P2 | `pathchk` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 190 | 354 | 2 | 0 | 0 | 14 | 1 | 0.6x | 0 | `src/commands/pathchk.cpp` | Performance probes: 1. |
 | P2 | `pinky` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 127 | 514 | 10 | 0 | 0 | 3 | 3 | 1.3x | 0 | `src/commands/pinky.cpp` | Performance probes: 3. |
 | P2 | `printenv` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 119 | 130 | 1 | 0 | 0 | 9 | 1 | 1.3x | 0 | `src/commands/printenv.cpp` | Performance probes: 1. |
-| P2 | `ptx` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 432 | 1647 | 18 | 0 | 0 | 11 | 3 | 1.0x | 0 | `src/commands/ptx.cpp` | Performance probes: 3. |
+| P2 | `ptx` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 428 | 1647 | 18 | 0 | 0 | 11 | 3 | 1.0x | 0 | `src/commands/ptx.cpp` | Performance probes: 3. |
 | P2 | `runcon` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 91 | 244 | 5 | 0 | 0 | 5 | 2 | 1.2x | 0 | `src/commands/runcon.cpp` | Performance probes: 2. |
 | P2 | `sha1sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 388 | 1741 | 10 | 0 | 0 | 17 | 1 | 0.9x | 0 | `src/commands/sha1sum.cpp` | Performance probes: 1. |
 | P2 | `sha256sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 386 | 1741 | 10 | 0 | 0 | 16 | 1 | 0.8x | 0 | `src/commands/sha256sum.cpp` | Performance probes: 1. |
-| P2 | `shred` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 166 | 1181 | 9 | 0 | 0 | 8 | 1 | 0.7x | 0 | `src/commands/shred.cpp` | Performance probes: 1. |
+| P2 | `shred` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 178 | 1181 | 9 | 0 | 0 | 8 | 1 | 0.7x | 0 | `src/commands/shred.cpp` | Performance probes: 1. |
 | P2 | `sleep` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 153 | 122 | 1 | 0 | 0 | 8 | 1 | 0.8x | 0 | `src/commands/sleep.cpp` | Performance probes: 1. |
 | P2 | `stdbuf` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 239 | 337 | 3 | 0 | 0 | 8 | 1 | 1.2x | 0 | `src/commands/stdbuf.cpp` | Performance probes: 1. |
-| P2 | `stty` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 471 | 2152 | 3 | 0 | 0 | 9 | 6 | 1.4x | 0 | `src/commands/stty.cpp` | Performance probes: 6. |
+| P2 | `stty` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 475 | 2152 | 4 | 0 | 0 | 9 | 6 | 1.4x | 0 | `src/commands/stty.cpp` | Performance probes: 6. |
 | P2 | `sum` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 194 | 190 | 2 | 0 | 0 | 9 | 1 | 0.9x | 0 | `src/commands/sum.cpp` | Performance probes: 1. |
-| P2 | `sync` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 155 | 191 | 2 | 0 | 0 | 12 | 1 | 0.3x | 0 | `src/commands/sync.cpp` | Performance probes: 1. |
+| P2 | `sync` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 153 | 191 | 2 | 0 | 0 | 12 | 1 | 0.3x | 0 | `src/commands/sync.cpp` | Performance probes: 1. |
 | P2 | `true` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 59 | 61 | 1 | 0 | 0 | 2 | 1 | 0.8x | 0 | `src/commands/true.cpp` | Performance probes: 1. |
-| P2 | `truncate` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 443 | 345 | 4 | 0 | 0 | 9 | 1 | 0.4x | 0 | `src/commands/truncate.cpp` | Performance probes: 1. |
+| P2 | `truncate` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 463 | 345 | 4 | 0 | 0 | 12 | 1 | 0.4x | 0 | `src/commands/truncate.cpp` | Performance probes: 1. |
 | P2 | `tsort` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 67 | 477 | 1 | 0 | 0 | 1 | 1 | 1.8x | 0 | `src/commands/tsort.cpp` | Performance probes: 1. |
 | P2 | `tty` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 86 | 112 | 2 | 0 | 0 | 6 | 2 | 1.2x | 0 | `src/commands/tty.cpp` | Performance probes: 2. |
 | P2 | `uname` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 193 | 334 | 9 | 0 | 0 | 3 | 1 | 0.4x | 0 | `src/commands/uname.cpp` | Performance probes: 1. |
@@ -166,21 +166,36 @@ Scope excludes `wpm` by release policy.
 | P2 | `users` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 84 | 118 | 1 | 0 | 0 | 1 | 1 | 0.8x | 0 | `src/commands/users.cpp` | Performance probes: 1. |
 | P2 | `who` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 138 | 724 | 15 | 0 | 0 | 14 | 1 | 1.2x | 0 | `src/commands/who.cpp` | Performance probes: 1. |
 | P2 | `whoami` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 99 | 70 | 1 | 0 | 0 | 2 | 1 | 2.1x | 0 | `src/commands/whoami.cpp` | Performance probes: 1. |
-| P2 | `yes` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 116 | 227 | 1 | 0 | 0 | 5 | 1 | 1.9x | 0 | `src/commands/yes.cpp` | Performance probes: 1. |
+| P2 | `yes` | [gnu-coreutils](https://www.gnu.org/software/coreutils/manual/) | 119 | 227 | 1 | 0 | 0 | 5 | 1 | 1.9x | 0 | `src/commands/yes.cpp` | Performance probes: 1. |
 | P2 | `cpio` | [gnu-cpio](https://www.gnu.org/software/cpio/) | 405 | 4676 | 6 | 0 | 0 | 2 | 1 |  | 0 | `src/commands/cpio.cpp` | Performance probes: 1. |
 | P2 | `diff3` | [gnu-diffutils](https://www.gnu.org/software/diffutils/manual/) | 318 | 1431 | 5 | 0 | 0 | 13 | 2 | 0.1x | 0 | `src/commands/diff3.cpp` | Performance probes: 2. |
-| P2 | `sdiff` | [gnu-diffutils](https://www.gnu.org/software/diffutils/manual/) | 326 | 997 | 8 | 0 | 0 | 10 | 1 | 0.2x | 0 | `src/commands/sdiff.cpp` | Performance probes: 1. |
+| P2 | `sdiff` | [gnu-diffutils](https://www.gnu.org/software/diffutils/manual/) | 324 | 997 | 8 | 0 | 0 | 10 | 1 | 0.2x | 0 | `src/commands/sdiff.cpp` | Performance probes: 1. |
 | P2 | `which` | [gnu-which](https://savannah.gnu.org/projects/which/) | 363 | 691 | 5 | 0 | 0 | 14 | 1 | 1.0x | 0 | `src/commands/which.cpp` | Performance probes: 1. |
 | P2 | `hmac256` | [libgcrypt](https://gnupg.org/software/libgcrypt/) | 99 | 711 | 1 | 0 | 0 | 1 | 2 | 1.4x | 0 | `src/commands/hmac256.cpp` | Performance probes: 2. |
-| P2 | `mpicalc` | [libgcrypt](https://gnupg.org/software/libgcrypt/) | 532 | 575 | 4 | 0 | 0 | 2 | 2 | 0.9x | 0 | `src/commands/mpicalc.cpp` | Performance probes: 2. |
-| P2 | `tzset` | local | 110 | 0 | 2 | 0 | 0 | 2 | 4 | 1.2x | 0 | `src/commands/tzset.cpp` | Performance probes: 4. |
-| P2 | `lsof` | [lsof](https://github.com/lsof-org/lsof) | 818 | 5202 | 7 | 0 | 0 | 7 | 2 |  | 0 | `src/commands/lsof.cpp` | Performance probes: 2. |
-| P2 | `man` | [man-db](https://www.nongnu.org/man-db/) | 82 | 3953 | 1 | 0 | 0 | 4 | 1 |  | 0 | `src/commands/man.cpp` | Performance probes: 1. |
+| P2 | `mpicalc` | [libgcrypt](https://gnupg.org/software/libgcrypt/) | 534 | 575 | 4 | 0 | 0 | 2 | 2 | 0.9x | 0 | `src/commands/mpicalc.cpp` | Performance probes: 2. |
+| P2 | `chattr` | local | 185 | 0 | 2 | 0 | 0 | 4 | 0 |  | 0 | `src/commands/chattr.cpp` |  |
+| P2 | `envsubst` | local | 167 | 0 | 1 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/envsubst.cpp` |  |
+| P2 | `getfacl` | local | 154 | 0 | 2 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/getfacl.cpp` |  |
+| P2 | `killall` | local | 127 | 0 | 10 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/killall.cpp` |  |
+| P2 | `ldd` | local | 213 | 0 | 1 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/ldd.cpp` |  |
+| P2 | `logger` | local | 106 | 0 | 4 | 0 | 0 | 2 | 0 |  | 0 | `src/commands/logger.cpp` |  |
+| P2 | `lsattr` | local | 150 | 0 | 2 | 0 | 0 | 2 | 0 |  | 0 | `src/commands/lsattr.cpp` |  |
+| P2 | `mkgroup` | local | 110 | 0 | 2 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/mkgroup.cpp` |  |
+| P2 | `mkpasswd` | local | 123 | 0 | 4 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/mkpasswd.cpp` |  |
+| P2 | `pgrep` | local | 117 | 0 | 6 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/pgrep.cpp` |  |
+| P2 | `pidof` | local | 81 | 0 | 1 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/pidof.cpp` |  |
+| P2 | `pkill` | local | 115 | 0 | 10 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/pkill.cpp` |  |
+| P2 | `pldd` | local | 67 | 0 | 1 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/pldd.cpp` |  |
+| P2 | `regtool` | local | 301 | 0 | 1 | 0 | 0 | 5 | 0 |  | 0 | `src/commands/regtool.cpp` |  |
+| P2 | `renice` | local | 112 | 0 | 2 | 0 | 0 | 3 | 0 |  | 0 | `src/commands/renice.cpp` |  |
+| P2 | `tzset` | local | 125 | 0 | 2 | 0 | 0 | 2 | 4 | 1.2x | 0 | `src/commands/tzset.cpp` | Performance probes: 4. |
+| P2 | `lsof` | [lsof](https://github.com/lsof-org/lsof) | 821 | 5202 | 7 | 0 | 0 | 7 | 2 |  | 0 | `src/commands/lsof.cpp` | Performance probes: 2. |
+| P2 | `man` | [man-db](https://www.nongnu.org/man-db/) | 85 | 3953 | 1 | 0 | 0 | 4 | 1 |  | 0 | `src/commands/man.cpp` | Performance probes: 1. |
 | P2 | `clear` | [ncurses](https://invisible-island.net/ncurses/) | 62 | 96 | 1 | 0 | 0 | 1 | 1 | 1.1x | 0 | `src/commands/clear.cpp` | Performance probes: 1. |
 | P2 | `infocmp` | [ncurses](https://invisible-island.net/ncurses/) | 27 | 1713 | 1 | 0 | 0 | 1 | 1 | 1.0x | 0 | `src/commands/infocmp.cpp` | Performance probes: 1. |
 | P2 | `reset` | [ncurses](https://invisible-island.net/ncurses/) | 45 | 603 | 6 | 0 | 0 | 3 | 1 | 1.2x | 0 | `src/commands/reset.cpp` | Performance probes: 1. |
 | P2 | `tic` | [ncurses](https://invisible-island.net/ncurses/) | 35 | 3105 | 6 | 0 | 0 | 2 | 2 | 1.2x | 0 | `src/commands/tic.cpp` | Performance probes: 2. |
-| P2 | `toe` | [ncurses](https://invisible-island.net/ncurses/) | 32 | 677 | 7 | 0 | 0 | 1 | 1 | 0.7x | 0 | `src/commands/toe.cpp` | Performance probes: 1. |
+| P2 | `toe` | [ncurses](https://invisible-island.net/ncurses/) | 33 | 677 | 7 | 0 | 0 | 1 | 1 | 0.7x | 0 | `src/commands/toe.cpp` | Performance probes: 1. |
 | P2 | `tput` | [ncurses](https://invisible-island.net/ncurses/) | 41 | 409 | 1 | 0 | 0 | 7 | 1 | 0.8x | 0 | `src/commands/tput.cpp` | Performance probes: 1. |
 | P2 | `patch` | [patch](https://savannah.gnu.org/projects/patch/) | 351 | 4108 | 6 | 0 | 0 | 1 | 1 | 0.6x | 0 | `src/commands/patch.cpp` | Performance probes: 1. |
 | P2 | `free` | [procps-ng](https://gitlab.com/procps-ng/procps) | 211 | 389 | 10 | 0 | 0 | 4 | 1 |  | 0 | `src/commands/free.cpp` | Performance probes: 1. |
@@ -188,8 +203,9 @@ Scope excludes `wpm` by release policy.
 | P2 | `top` | [procps-ng](https://gitlab.com/procps-ng/procps) | 993 | 7004 | 14 | 0 | 0 | 15 | 1 |  | 0 | `src/commands/top.cpp` | Performance probes: 1. |
 | P2 | `watch` | [procps-ng](https://gitlab.com/procps-ng/procps) | 179 | 1284 | 5 | 0 | 0 | 3 | 2 |  | 0 | `src/commands/watch.cpp` | Performance probes: 2. |
 | P2 | `tree` | [tree](https://oldmanprogrammer.net/source.php?dir=projects/tree) | 560 | 1727 | 10 | 0 | 0 | 10 | 1 |  | 0 | `src/commands/tree.cpp` | Performance probes: 1. |
-| P2 | `cal` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 171 | 1212 | 1 | 0 | 0 | 4 | 1 | 0.5x | 0 | `src/commands/cal.cpp` | Performance probes: 1. |
-| P2 | `col` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 181 | 641 | 5 | 0 | 0 | 6 | 1 | 0.6x | 0 | `src/commands/col.cpp` | Performance probes: 1. |
+| P2 | `cal` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 167 | 1212 | 1 | 0 | 0 | 4 | 1 | 0.5x | 0 | `src/commands/cal.cpp` | Performance probes: 1. |
+| P2 | `col` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 182 | 641 | 5 | 0 | 0 | 6 | 1 | 0.6x | 0 | `src/commands/col.cpp` | Performance probes: 1. |
+| P2 | `getopt` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 167 | 0 | 4 | 0 | 0 | 4 | 0 |  | 0 | `src/commands/getopt.cpp` | No local upstream source file mapped yet. |
 | P2 | `hexdump` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 347 | 250 | 11 | 0 | 0 | 10 | 2 | 1.0x | 0 | `src/commands/hexdump.cpp` | Performance probes: 2. |
 | P2 | `rev` | [util-linux](https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/) | 166 | 180 | 1 | 0 | 0 | 8 | 2 | 1.0x | 0 | `src/commands/rev.cpp` | Performance probes: 2. |
 | P2 | `xxd` | [xxd](https://www.vim.org/) | 111 | 1183 | 1 | 0 | 0 | 2 | 1 | 1.1x | 0 | `src/commands/xxd.cpp` | Performance probes: 1. |
