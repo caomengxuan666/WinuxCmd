@@ -116,7 +116,7 @@ winuxsh release 包会自带架构匹配的 `winuxcmd/` 目录。它应该和 wi
 
 ## 自带什么
 
-WinuxCmd 目前实现 153 个命令，覆盖这些常见场景：
+WinuxCmd 目前实现 171 个命令，覆盖这些常见场景：
 
 - 文件：`ls`、`cp`、`mv`、`rm`、`mkdir`、`ln`、`stat`、`readlink`、`realpath`
 - 文本：`cat`、`grep`、`sed`、`sort`、`uniq`、`cut`、`head`、`tail`、`wc`
@@ -152,4 +152,3 @@ ctest --test-dir build-vs -R "^(grep|find|rm)\." --output-on-failure
 - [WPM source](https://github.com/unixwin/wpm-source)
 - [贡献指南](CONTRIBUTING_ZH.MD)
 - [构建模式文档](DOCS/zh/build_modes.md)
-

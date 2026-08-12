@@ -30,7 +30,7 @@
   {
     "command": "b2sum",
     "source_file": "src/commands/b2sum.cpp",
-    "source_line_count": 365,
+    "source_line_count": 366,
     "upstream_source_line_count": 2346,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -128,7 +128,7 @@
   {
     "command": "base32",
     "source_file": "src/commands/base32.cpp",
-    "source_line_count": 218,
+    "source_line_count": 190,
     "upstream_source_line_count": 1556,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -170,7 +170,7 @@
   {
     "command": "base64",
     "source_file": "src/commands/base64.cpp",
-    "source_line_count": 220,
+    "source_line_count": 192,
     "upstream_source_line_count": 1556,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -178,7 +178,7 @@
     "option_count": 3,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 11,
+    "test_count": 12,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.324,
@@ -275,7 +275,7 @@
   {
     "command": "basenc",
     "source_file": "src/commands/basenc.cpp",
-    "source_line_count": 479,
+    "source_line_count": 594,
     "upstream_source_line_count": 1556,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -283,7 +283,7 @@
     "option_count": 13,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 16,
+    "test_count": 19,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.071,
@@ -387,7 +387,7 @@
   {
     "command": "cal",
     "source_file": "src/commands/cal.cpp",
-    "source_line_count": 171,
+    "source_line_count": 167,
     "upstream_source_line_count": 1212,
     "family": "util-linux",
     "reference_url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/",
@@ -415,7 +415,7 @@
   {
     "command": "cat",
     "source_file": "src/commands/cat.cpp",
-    "source_line_count": 333,
+    "source_line_count": 331,
     "upstream_source_line_count": 834,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -423,7 +423,7 @@
     "option_count": 10,
     "placeholder_count": 1,
     "unsupported_count": 0,
-    "test_count": 16,
+    "test_count": 19,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.121,
@@ -503,6 +503,39 @@
       "Has compatibility placeholder/no-op option(s).",
       "Performance probes: 3."
     ]
+  },
+  {
+    "command": "chattr",
+    "source_file": "src/commands/chattr.cpp",
+    "source_line_count": 185,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 2,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 4,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-R",
+        "long": "--recursive",
+        "description": "recursively change attributes of directories",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-V",
+        "long": "--verbose",
+        "description": "print changed files",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
   },
   {
     "command": "chcon",
@@ -969,7 +1002,7 @@
   {
     "command": "chroot",
     "source_file": "src/commands/chroot.cpp",
-    "source_line_count": 76,
+    "source_line_count": 75,
     "upstream_source_line_count": 372,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -1011,7 +1044,7 @@
   {
     "command": "cksum",
     "source_file": "src/commands/cksum.cpp",
-    "source_line_count": 660,
+    "source_line_count": 667,
     "upstream_source_line_count": 2023,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -1214,7 +1247,7 @@
   {
     "command": "col",
     "source_file": "src/commands/col.cpp",
-    "source_line_count": 181,
+    "source_line_count": 182,
     "upstream_source_line_count": 641,
     "family": "util-linux",
     "reference_url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/",
@@ -1270,12 +1303,12 @@
   {
     "command": "column",
     "source_file": "src/commands/column.cpp",
-    "source_line_count": 433,
+    "source_line_count": 432,
     "upstream_source_line_count": 1158,
     "family": "util-linux",
     "reference_url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/",
     "priority": "P1",
-    "option_count": 28,
+    "option_count": 27,
     "placeholder_count": 0,
     "unsupported_count": 0,
     "test_count": 14,
@@ -1468,13 +1501,6 @@
       {
         "short": "",
         "long": "--help",
-        "description": "display this help and exit",
-        "value_type": "BOOL_TYPE",
-        "status": "declared"
-      },
-      {
-        "short": "-h",
-        "long": "help",
         "description": "display this help and exit",
         "value_type": "BOOL_TYPE",
         "status": "declared"
@@ -1893,7 +1919,7 @@
   {
     "command": "csplit",
     "source_file": "src/commands/csplit.cpp",
-    "source_line_count": 515,
+    "source_line_count": 512,
     "upstream_source_line_count": 1210,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -2069,7 +2095,7 @@
   {
     "command": "cygpath",
     "source_file": "src/commands/cygpath.cpp",
-    "source_line_count": 340,
+    "source_line_count": 501,
     "upstream_source_line_count": 1001,
     "family": "cygpath",
     "reference_url": "https://cygwin.com/cygwin-ug-net/cygpath.html",
@@ -2077,7 +2103,7 @@
     "option_count": 23,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 8,
+    "test_count": 12,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.367,
@@ -2120,7 +2146,7 @@
       {
         "short": "-d",
         "long": "--dos",
-        "description": "print DOS short form of NAMEs [accepted, not implemented]",
+        "description": "print DOS short form of NAMEs",
         "value_type": "flag",
         "status": "declared"
       },
@@ -2141,7 +2167,7 @@
       {
         "short": "-f",
         "long": "--file",
-        "description": "read input paths from FILE [not implemented]",
+        "description": "read input paths from FILE",
         "value_type": "STRING_TYPE",
         "status": "declared"
       },
@@ -2155,84 +2181,84 @@
       {
         "short": "-l",
         "long": "--long-name",
-        "description": "print Windows long form [accepted, not implemented]",
+        "description": "print Windows long form",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-s",
         "long": "--short-name",
-        "description": "print DOS short form [accepted, not implemented]",
+        "description": "print DOS short form",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-U",
         "long": "--proc-cygdrive",
-        "description": "emit /proc/cygdrive paths [accepted, not implemented]",
+        "description": "emit /proc/cygdrive paths",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-C",
         "long": "--codepage",
-        "description": "print Windows path in codepage CP [accepted, not implemented]",
+        "description": "print Windows path in codepage CP",
         "value_type": "STRING_TYPE",
         "status": "declared"
       },
       {
         "short": "-M",
         "long": "--mode",
-        "description": "report file text/binary mode [not implemented]",
+        "description": "report file text/binary mode",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-A",
         "long": "--allusers",
-        "description": "use All Users for special folders [not implemented]",
+        "description": "use All Users for special folders",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-D",
         "long": "--desktop",
-        "description": "output Desktop directory [not implemented]",
+        "description": "output Desktop directory",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-H",
         "long": "--homeroot",
-        "description": "output Profiles directory [not implemented]",
+        "description": "output Profiles directory",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-O",
         "long": "--mydocs",
-        "description": "output My Documents directory [not implemented]",
+        "description": "output My Documents directory",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-P",
         "long": "--smprograms",
-        "description": "output Start Menu Programs directory [not implemented]",
+        "description": "output Start Menu Programs directory",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-S",
         "long": "--sysdir",
-        "description": "output system directory [not implemented]",
+        "description": "output system directory",
         "value_type": "flag",
         "status": "declared"
       },
       {
         "short": "-W",
         "long": "--windir",
-        "description": "output Windows directory [not implemented]",
+        "description": "output Windows directory",
         "value_type": "flag",
         "status": "declared"
       },
@@ -2454,7 +2480,7 @@
   {
     "command": "df",
     "source_file": "src/commands/df.cpp",
-    "source_line_count": 906,
+    "source_line_count": 903,
     "upstream_source_line_count": 1600,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -3322,7 +3348,7 @@
   {
     "command": "env",
     "source_file": "src/commands/env.cpp",
-    "source_line_count": 839,
+    "source_line_count": 861,
     "upstream_source_line_count": 800,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -3330,7 +3356,7 @@
     "option_count": 12,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 36,
+    "test_count": 38,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.023,
@@ -3425,6 +3451,32 @@
     ]
   },
   {
+    "command": "envsubst",
+    "source_file": "src/commands/envsubst.cpp",
+    "source_line_count": 167,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 1,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-v",
+        "long": "--variables",
+        "description": "output variables occurring in SHELL-FORMAT",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "expand",
     "source_file": "src/commands/expand.cpp",
     "source_line_count": 301,
@@ -3490,7 +3542,7 @@
   {
     "command": "factor",
     "source_file": "src/commands/factor.cpp",
-    "source_line_count": 131,
+    "source_line_count": 140,
     "upstream_source_line_count": 1756,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -3595,7 +3647,7 @@
   {
     "command": "find",
     "source_file": "src/commands/find.cpp",
-    "source_line_count": 2915,
+    "source_line_count": 3009,
     "upstream_source_line_count": 4965,
     "family": "gnu-findutils",
     "reference_url": "https://www.gnu.org/software/findutils/manual/",
@@ -3603,7 +3655,7 @@
     "option_count": 79,
     "placeholder_count": 1,
     "unsupported_count": 0,
-    "test_count": 104,
+    "test_count": 105,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
     "perf_worst_ratio": 2.802,
@@ -4449,9 +4501,91 @@
     ]
   },
   {
+    "command": "getfacl",
+    "source_file": "src/commands/getfacl.cpp",
+    "source_line_count": 154,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 2,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-p",
+        "long": "--absolute-names",
+        "description": "do not strip leading path separators",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-n",
+        "long": "--numeric",
+        "description": "print numeric IDs instead of account names",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "command": "getopt",
+    "source_file": "src/commands/getopt.cpp",
+    "source_line_count": 167,
+    "upstream_source_line_count": 0,
+    "family": "util-linux",
+    "reference_url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/",
+    "priority": "P2",
+    "option_count": 4,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 4,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-o",
+        "long": "--options",
+        "description": "short option specification",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-n",
+        "long": "--name",
+        "description": "name used in diagnostics",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-q",
+        "long": "--quiet",
+        "description": "disable error reporting by getopt",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-u",
+        "long": "--unquoted",
+        "description": "do not quote the output",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": [
+      "No local upstream source file mapped yet."
+    ]
+  },
+  {
     "command": "grep",
     "source_file": "src/commands/grep.cpp",
-    "source_line_count": 2312,
+    "source_line_count": 2310,
     "upstream_source_line_count": 2686,
     "family": "gnu-grep",
     "reference_url": "https://www.gnu.org/software/grep/manual/",
@@ -4459,7 +4593,7 @@
     "option_count": 49,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 82,
+    "test_count": 86,
     "perf_probe_count": 6,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.469,
@@ -4817,7 +4951,7 @@
   {
     "command": "egrep",
     "source_file": "src/commands/grep.cpp",
-    "source_line_count": 2312,
+    "source_line_count": 2310,
     "upstream_source_line_count": 2686,
     "family": "gnu-grep",
     "reference_url": "https://www.gnu.org/software/grep/manual/",
@@ -5183,7 +5317,7 @@
   {
     "command": "fgrep",
     "source_file": "src/commands/grep.cpp",
-    "source_line_count": 2312,
+    "source_line_count": 2310,
     "upstream_source_line_count": 2686,
     "family": "gnu-grep",
     "reference_url": "https://www.gnu.org/software/grep/manual/",
@@ -5886,7 +6020,7 @@
   {
     "command": "id",
     "source_file": "src/commands/id.cpp",
-    "source_line_count": 308,
+    "source_line_count": 234,
     "upstream_source_line_count": 411,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -6146,7 +6280,7 @@
   {
     "command": "join",
     "source_file": "src/commands/join.cpp",
-    "source_line_count": 605,
+    "source_line_count": 602,
     "upstream_source_line_count": 1052,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -6258,7 +6392,7 @@
   {
     "command": "kill",
     "source_file": "src/commands/kill.cpp",
-    "source_line_count": 655,
+    "source_line_count": 654,
     "upstream_source_line_count": 1858,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -6881,17 +7015,132 @@
     ]
   },
   {
+    "command": "killall",
+    "source_file": "src/commands/killall.cpp",
+    "source_line_count": 127,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 10,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-e",
+        "long": "--exact",
+        "description": "require an exact process-name match",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-I",
+        "long": "--ignore-case",
+        "description": "match case insensitively",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-q",
+        "long": "--quiet",
+        "description": "do not complain if no processes were killed",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-v",
+        "long": "--verbose",
+        "description": "report successful signals",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-0",
+        "long": "",
+        "description": "only check for matching processes",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-9",
+        "long": "",
+        "description": "send SIGKILL; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-TERM",
+        "long": "",
+        "description": "send SIGTERM; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-SIGTERM",
+        "long": "",
+        "description": "send SIGTERM; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-KILL",
+        "long": "",
+        "description": "send SIGKILL; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-SIGKILL",
+        "long": "",
+        "description": "send SIGKILL; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "command": "ldd",
+    "source_file": "src/commands/ldd.cpp",
+    "source_line_count": 213,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 1,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-n",
+        "long": "--name",
+        "description": "print only imported DLL names",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "less",
     "source_file": "src/commands/less.cpp",
-    "source_line_count": 512,
+    "source_line_count": 839,
     "upstream_source_line_count": 5961,
     "family": "less",
     "reference_url": "https://www.greenwoodsoftware.com/less/",
     "priority": "P0",
-    "option_count": 14,
-    "placeholder_count": 4,
+    "option_count": 16,
+    "placeholder_count": 5,
     "unsupported_count": 0,
-    "test_count": 4,
+    "test_count": 6,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
     "perf_worst_ratio": 0.906,
@@ -6928,6 +7177,13 @@
         "short": "-I",
         "long": "--IGNORE-CASE",
         "description": "ignore case in all searches",
+        "value_type": "BOOL_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-K",
+        "long": "--quit-on-intr",
+        "description": "exit less in response to Ctrl+C",
         "value_type": "BOOL_TYPE",
         "status": "declared"
       },
@@ -6976,7 +7232,14 @@
       {
         "short": "-R",
         "long": "--RAW-CONTROL-CHARS",
-        "description": "accepted placeholder; ANSI color parsing is not implemented",
+        "description": "accepted placeholder; ANSI SGR color sequences are passed through",
+        "value_type": "BOOL_TYPE",
+        "status": "placeholder"
+      },
+      {
+        "short": "",
+        "long": "--no-init",
+        "description": "accepted placeholder; terminal init/deinit sequences are not used",
         "value_type": "BOOL_TYPE",
         "status": "placeholder"
       },
@@ -7198,6 +7461,53 @@
     ]
   },
   {
+    "command": "logger",
+    "source_file": "src/commands/logger.cpp",
+    "source_line_count": 106,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 4,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 2,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-p",
+        "long": "--priority",
+        "description": "message priority",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-t",
+        "long": "--tag",
+        "description": "mark every line with this tag",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-s",
+        "long": "--stderr",
+        "description": "also write the message to standard error",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "",
+        "long": "--id",
+        "description": "accepted for compatibility",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "logname",
     "source_file": "src/commands/logname.cpp",
     "source_line_count": 69,
@@ -7228,7 +7538,7 @@
   {
     "command": "ls",
     "source_file": "src/commands/ls.cpp",
-    "source_line_count": 3014,
+    "source_line_count": 2999,
     "upstream_source_line_count": 4888,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -7236,7 +7546,7 @@
     "option_count": 60,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 132,
+    "test_count": 133,
     "perf_probe_count": 5,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.125,
@@ -7667,9 +7977,42 @@
     ]
   },
   {
+    "command": "lsattr",
+    "source_file": "src/commands/lsattr.cpp",
+    "source_line_count": 150,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 2,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 2,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-R",
+        "long": "--recursive",
+        "description": "recursively list attributes of directories",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-d",
+        "long": "--directory",
+        "description": "list directories themselves, not contents",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "lsof",
     "source_file": "src/commands/lsof.cpp",
-    "source_line_count": 818,
+    "source_line_count": 821,
     "upstream_source_line_count": 5202,
     "family": "lsof",
     "reference_url": "https://github.com/lsof-org/lsof",
@@ -7739,7 +8082,7 @@
   {
     "command": "man",
     "source_file": "src/commands/man.cpp",
-    "source_line_count": 82,
+    "source_line_count": 85,
     "upstream_source_line_count": 3953,
     "family": "man-db",
     "reference_url": "https://www.nongnu.org/man-db/",
@@ -7866,7 +8209,7 @@
     "option_count": 4,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 8,
+    "test_count": 9,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.301,
@@ -7947,6 +8290,39 @@
     ]
   },
   {
+    "command": "mkgroup",
+    "source_file": "src/commands/mkgroup.cpp",
+    "source_line_count": 110,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 2,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-c",
+        "long": "--current",
+        "description": "print groups from the current process token",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-l",
+        "long": "--local",
+        "description": "enumerate local machine groups (default)",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "mknod",
     "source_file": "src/commands/mknod.cpp",
     "source_line_count": 160,
@@ -7989,9 +8365,56 @@
     ]
   },
   {
+    "command": "mkpasswd",
+    "source_file": "src/commands/mkpasswd.cpp",
+    "source_line_count": 123,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 4,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-c",
+        "long": "--current",
+        "description": "print only the current process user",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-l",
+        "long": "--local",
+        "description": "enumerate local machine users (default)",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-p",
+        "long": "--path-prefix",
+        "description": "home directory prefix",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-s",
+        "long": "--shell",
+        "description": "login shell path",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "mktemp",
     "source_file": "src/commands/mktemp.cpp",
-    "source_line_count": 348,
+    "source_line_count": 405,
     "upstream_source_line_count": 321,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -8054,7 +8477,7 @@
   {
     "command": "more",
     "source_file": "src/commands/more.cpp",
-    "source_line_count": 365,
+    "source_line_count": 612,
     "upstream_source_line_count": 2071,
     "family": "util-linux",
     "reference_url": "https://mirrors.edge.kernel.org/pub/linux/utils/util-linux/",
@@ -8147,7 +8570,7 @@
   {
     "command": "mpicalc",
     "source_file": "src/commands/mpicalc.cpp",
-    "source_line_count": 532,
+    "source_line_count": 534,
     "upstream_source_line_count": 575,
     "family": "libgcrypt",
     "reference_url": "https://gnupg.org/software/libgcrypt/",
@@ -8364,7 +8787,7 @@
   {
     "command": "nice",
     "source_file": "src/commands/nice.cpp",
-    "source_line_count": 169,
+    "source_line_count": 148,
     "upstream_source_line_count": 219,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -8392,7 +8815,7 @@
   {
     "command": "nl",
     "source_file": "src/commands/nl.cpp",
-    "source_line_count": 413,
+    "source_line_count": 410,
     "upstream_source_line_count": 554,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -8561,7 +8984,7 @@
   {
     "command": "numfmt",
     "source_file": "src/commands/numfmt.cpp",
-    "source_line_count": 284,
+    "source_line_count": 280,
     "upstream_source_line_count": 1471,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -8895,6 +9318,93 @@
     ]
   },
   {
+    "command": "pgrep",
+    "source_file": "src/commands/pgrep.cpp",
+    "source_line_count": 117,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 6,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-f",
+        "long": "--full",
+        "description": "match against full command line",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-i",
+        "long": "--ignore-case",
+        "description": "match case insensitively",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-l",
+        "long": "--list-name",
+        "description": "list PID and process name",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-a",
+        "long": "--list-full",
+        "description": "list PID and full command line",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-x",
+        "long": "--exact",
+        "description": "match the whole name or command line",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-c",
+        "long": "--count",
+        "description": "print only a count of matching processes",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "command": "pidof",
+    "source_file": "src/commands/pidof.cpp",
+    "source_line_count": 81,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 1,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-x",
+        "long": "--scripts",
+        "description": "also match command-line basename",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "pinky",
     "source_file": "src/commands/pinky.cpp",
     "source_line_count": 127,
@@ -8984,6 +9494,121 @@
     "notes": [
       "Performance probes: 3."
     ]
+  },
+  {
+    "command": "pkill",
+    "source_file": "src/commands/pkill.cpp",
+    "source_line_count": 115,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 10,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-f",
+        "long": "--full",
+        "description": "match against full command line",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-i",
+        "long": "--ignore-case",
+        "description": "match case insensitively",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-x",
+        "long": "--exact",
+        "description": "match the whole name or command line",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-e",
+        "long": "--echo",
+        "description": "display what is killed",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-0",
+        "long": "",
+        "description": "only check for matching processes",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-9",
+        "long": "",
+        "description": "send SIGKILL; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-TERM",
+        "long": "",
+        "description": "send SIGTERM; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-SIGTERM",
+        "long": "",
+        "description": "send SIGTERM; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-KILL",
+        "long": "",
+        "description": "send SIGKILL; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      },
+      {
+        "short": "-SIGKILL",
+        "long": "",
+        "description": "send SIGKILL; mapped to Win32 termination",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "command": "pldd",
+    "source_file": "src/commands/pldd.cpp",
+    "source_line_count": 67,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 1,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-n",
+        "long": "--name",
+        "description": "print module basenames instead of paths",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
   },
   {
     "command": "pr",
@@ -9345,7 +9970,7 @@
   {
     "command": "ptx",
     "source_file": "src/commands/ptx.cpp",
-    "source_line_count": 432,
+    "source_line_count": 428,
     "upstream_source_line_count": 1647,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -9527,7 +10152,7 @@
   {
     "command": "readlink",
     "source_file": "src/commands/readlink.cpp",
-    "source_line_count": 455,
+    "source_line_count": 429,
     "upstream_source_line_count": 181,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -9700,6 +10325,65 @@
     ]
   },
   {
+    "command": "regtool",
+    "source_file": "src/commands/regtool.cpp",
+    "source_line_count": 301,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 1,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 5,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "",
+        "long": "",
+        "description": "operate on the Windows registry",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
+    "command": "renice",
+    "source_file": "src/commands/renice.cpp",
+    "source_line_count": 112,
+    "upstream_source_line_count": 0,
+    "family": "local",
+    "reference_url": "",
+    "priority": "P2",
+    "option_count": 2,
+    "placeholder_count": 0,
+    "unsupported_count": 0,
+    "test_count": 3,
+    "perf_probe_count": 0,
+    "perf_failure_count": 0,
+    "perf_worst_ratio": null,
+    "options": [
+      {
+        "short": "-n",
+        "long": "--priority",
+        "description": "set niceness value",
+        "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-p",
+        "long": "--pid",
+        "description": "interpret operands as process IDs",
+        "value_type": "flag",
+        "status": "declared"
+      }
+    ],
+    "notes": []
+  },
+  {
     "command": "reset",
     "source_file": "src/commands/reset.cpp",
     "source_line_count": 45,
@@ -9793,7 +10477,7 @@
   {
     "command": "rm",
     "source_file": "src/commands/rm.cpp",
-    "source_line_count": 589,
+    "source_line_count": 570,
     "upstream_source_line_count": 350,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -9801,7 +10485,7 @@
     "option_count": 11,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 21,
+    "test_count": 24,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.445,
@@ -9891,7 +10575,7 @@
   {
     "command": "rmdir",
     "source_file": "src/commands/rmdir.cpp",
-    "source_line_count": 162,
+    "source_line_count": 149,
     "upstream_source_line_count": 258,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -9899,7 +10583,7 @@
     "option_count": 3,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 10,
+    "test_count": 12,
     "perf_probe_count": 2,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.207,
@@ -9989,7 +10673,7 @@
   {
     "command": "sdiff",
     "source_file": "src/commands/sdiff.cpp",
-    "source_line_count": 326,
+    "source_line_count": 324,
     "upstream_source_line_count": 997,
     "family": "gnu-diffutils",
     "reference_url": "https://www.gnu.org/software/diffutils/manual/",
@@ -10074,7 +10758,7 @@
     "option_count": 13,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 86,
+    "test_count": 87,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.348,
@@ -10179,7 +10863,7 @@
   {
     "command": "seq",
     "source_file": "src/commands/seq.cpp",
-    "source_line_count": 413,
+    "source_line_count": 408,
     "upstream_source_line_count": 605,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -10879,7 +11563,7 @@
   {
     "command": "shred",
     "source_file": "src/commands/shred.cpp",
-    "source_line_count": 166,
+    "source_line_count": 178,
     "upstream_source_line_count": 1181,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -11292,7 +11976,7 @@
   {
     "command": "split",
     "source_file": "src/commands/split.cpp",
-    "source_line_count": 691,
+    "source_line_count": 709,
     "upstream_source_line_count": 1546,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -11510,7 +12194,7 @@
   {
     "command": "strings",
     "source_file": "src/commands/strings.cpp",
-    "source_line_count": 385,
+    "source_line_count": 386,
     "upstream_source_line_count": 1147,
     "family": "gnu-binutils",
     "reference_url": "https://www.gnu.org/software/binutils/",
@@ -11616,12 +12300,12 @@
   {
     "command": "stty",
     "source_file": "src/commands/stty.cpp",
-    "source_line_count": 471,
+    "source_line_count": 475,
     "upstream_source_line_count": 2152,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
     "priority": "P2",
-    "option_count": 3,
+    "option_count": 4,
     "placeholder_count": 0,
     "unsupported_count": 0,
     "test_count": 9,
@@ -11648,6 +12332,13 @@
         "long": "--file",
         "description": "open and use the specified device instead of stdin",
         "value_type": "STRING_TYPE",
+        "status": "declared"
+      },
+      {
+        "short": "-echo",
+        "long": "",
+        "description": "do not echo input characters",
+        "value_type": "flag",
         "status": "declared"
       }
     ],
@@ -11693,7 +12384,7 @@
   {
     "command": "sync",
     "source_file": "src/commands/sync.cpp",
-    "source_line_count": 155,
+    "source_line_count": 153,
     "upstream_source_line_count": 191,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -11728,7 +12419,7 @@
   {
     "command": "tac",
     "source_file": "src/commands/tac.cpp",
-    "source_line_count": 231,
+    "source_line_count": 207,
     "upstream_source_line_count": 507,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -11736,7 +12427,7 @@
     "option_count": 3,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 11,
+    "test_count": 13,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.492,
@@ -11946,7 +12637,7 @@
   {
     "command": "test",
     "source_file": "src/commands/test.cpp",
-    "source_line_count": 282,
+    "source_line_count": 278,
     "upstream_source_line_count": 786,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -12240,7 +12931,7 @@
   {
     "command": "[",
     "source_file": "src/commands/test_bracket.cpp",
-    "source_line_count": 257,
+    "source_line_count": 253,
     "upstream_source_line_count": 786,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -12653,7 +13344,7 @@
   {
     "command": "toe",
     "source_file": "src/commands/toe.cpp",
-    "source_line_count": 32,
+    "source_line_count": 33,
     "upstream_source_line_count": 677,
     "family": "ncurses",
     "reference_url": "https://invisible-island.net/ncurses/",
@@ -12828,7 +13519,7 @@
         "status": "declared"
       },
       {
-        "short": "-h",
+        "short": "",
         "long": "--help",
         "description": "display this help",
         "value_type": "flag",
@@ -12842,7 +13533,7 @@
   {
     "command": "touch",
     "source_file": "src/commands/touch.cpp",
-    "source_line_count": 599,
+    "source_line_count": 616,
     "upstream_source_line_count": 390,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -12850,7 +13541,7 @@
     "option_count": 9,
     "placeholder_count": 1,
     "unsupported_count": 0,
-    "test_count": 12,
+    "test_count": 15,
     "perf_probe_count": 3,
     "perf_failure_count": 0,
     "perf_worst_ratio": 2.651,
@@ -13130,7 +13821,7 @@
   {
     "command": "truncate",
     "source_file": "src/commands/truncate.cpp",
-    "source_line_count": 443,
+    "source_line_count": 463,
     "upstream_source_line_count": 345,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -13138,7 +13829,7 @@
     "option_count": 4,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 9,
+    "test_count": 12,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
     "perf_worst_ratio": 0.405,
@@ -13242,7 +13933,7 @@
   {
     "command": "tzset",
     "source_file": "src/commands/tzset.cpp",
-    "source_line_count": 110,
+    "source_line_count": 125,
     "upstream_source_line_count": 0,
     "family": "local",
     "reference_url": "",
@@ -13256,7 +13947,7 @@
     "perf_worst_ratio": 1.237,
     "options": [
       {
-        "short": "-h",
+        "short": "",
         "long": "--help",
         "description": "output usage information and exit",
         "value_type": "BOOL_TYPE",
@@ -13438,7 +14129,7 @@
   {
     "command": "uniq",
     "source_file": "src/commands/uniq.cpp",
-    "source_line_count": 349,
+    "source_line_count": 347,
     "upstream_source_line_count": 579,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -13446,7 +14137,7 @@
     "option_count": 10,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 15,
+    "test_count": 17,
     "perf_probe_count": 4,
     "perf_failure_count": 0,
     "perf_worst_ratio": 1.599,
@@ -13557,7 +14248,7 @@
   {
     "command": "unlink",
     "source_file": "src/commands/unlink.cpp",
-    "source_line_count": 126,
+    "source_line_count": 134,
     "upstream_source_line_count": 68,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
@@ -13565,7 +14256,7 @@
     "option_count": 1,
     "placeholder_count": 0,
     "unsupported_count": 0,
-    "test_count": 10,
+    "test_count": 11,
     "perf_probe_count": 1,
     "perf_failure_count": 0,
     "perf_worst_ratio": 0.828,
@@ -14278,7 +14969,7 @@
   {
     "command": "xargs",
     "source_file": "src/commands/xargs.cpp",
-    "source_line_count": 1311,
+    "source_line_count": 1306,
     "upstream_source_line_count": 1905,
     "family": "gnu-findutils",
     "reference_url": "https://www.gnu.org/software/findutils/manual/",
@@ -14474,7 +15165,7 @@
   {
     "command": "yes",
     "source_file": "src/commands/yes.cpp",
-    "source_line_count": 116,
+    "source_line_count": 119,
     "upstream_source_line_count": 227,
     "family": "gnu-coreutils",
     "reference_url": "https://www.gnu.org/software/coreutils/manual/",
