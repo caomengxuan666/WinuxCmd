@@ -165,7 +165,13 @@ if ($PullRequestFlow) {
 
     Write-Color "Yellow" "Creating or reusing pull request into $BaseBranch..."
     $existingJson = gh pr list --head $currentBranch --base $BaseBranch --state open --json number,url
-    $existing = @($existingJson | ConvertFrom-Json)
+    $existing = @()
+    if ($existingJson) {
+        $parsedExisting = $existingJson | ConvertFrom-Json
+        if ($null -ne $parsedExisting) {
+            $existing = @($parsedExisting)
+        }
+    }
     if ($existing.Count -gt 0) {
         $prNumber = $existing[0].number
         $prUrl = $existing[0].url
