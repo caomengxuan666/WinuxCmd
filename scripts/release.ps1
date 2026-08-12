@@ -195,12 +195,15 @@ if ($PullRequestFlow) {
 
     Write-Color "Yellow" "Waiting for pull request checks..."
     $oldNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    $oldErrorActionPreference = $ErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
+    $ErrorActionPreference = "Continue"
     try {
         $checksOutput = gh pr checks $prNumber --watch --interval 10 2>&1
         $checksExitCode = $LASTEXITCODE
     } finally {
         $PSNativeCommandUseErrorActionPreference = $oldNativeErrorPreference
+        $ErrorActionPreference = $oldErrorActionPreference
     }
     if ($checksExitCode -ne 0) {
         $checksText = ($checksOutput | Out-String)
