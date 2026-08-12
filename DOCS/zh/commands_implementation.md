@@ -78,6 +78,9 @@
 | `cmp` | ✅ 已实现 | 低 | 逐字节比较两个文件 | `-b, --print-bytes`: 打印不同的字节<br>`-i, --ignore-initial=SKIP` / `-i SKIP1:SKIP2`: 跳过一个或两个输入开头的指定字节数<br>`-l, --verbose`: 为每个差异输出字节编号和差异字节值<br>`-n, --bytes=LIMIT`: 最多比较 LIMIT 个字节<br>`-s, --quiet`: 抑制常规输出<br>`FILE1 FILE2 [SKIP1 [SKIP2]]`: 接受 GNU 风格的位置 skip 参数 | 字节比较；默认差异输出现在会同时包含 byte 和 line 编号，`-l/--verbose` 会按 GNU 风格以相对比较起点的字节号和八进制字节值列出全部差异，`-l/--verbose` 与 `-s/--quiet` 这组输出模式现在按 GNU/uutils 风格“最后一次出现生效”，GNU 的位置参数 `SKIP1`/`SKIP2` 与 `-i SKIP1:SKIP2` 现在也可用，skip 计数接受 GNU 风格的十进制/八进制/十六进制前缀和常见字节后缀，并且“跳过长度超过较短文件”不再把比较范围算下溢 |
 | `cpio` | ✅ 已实现 | 低 | 复制归档中的文件 | `-o, --create`: 创建归档<br>`-i, --extract`: 从归档中提取文件<br>`-t, --list`: 列出归档内容<br>`-d, --make-directories`: 必要时创建前导目录<br>`-m, --preserve-modification-time`: 创建文件时保留修改时间 | 归档复制 |
 | `pathchk` | ✅ 已实现 | 低 | 检查文件名是否有效或可移植 | `-p, --portability`: 按 POSIX 检查<br>`-P, --posix`: 按 POSIX 检查<br>`--help`: 显示帮助<br>`--version`: 输出版本信息<br>GNU 风格 operand 诊断：missing operand 的 help hint 保持在 stderr<br>当前文件系统检查会接受正常的 Windows 盘符绝对路径，而重复分隔符/尾随分隔符现在也不会再在 `-P` 风格检查下被误判成 `empty file name`；默认模式下空路径诊断也改成了 GNU/uutils 形状的 `pathchk: '': No such file or directory`，并且多个非法 operand 会逐条单独报告 | 路径有效性检查 |
+| `lsattr` | ✅ 已实现 | 低 | 显示 Windows 文件属性位 | `-d, --directory`: 列出目录本身而不是目录内容<br>`-R, --recursive`: 递归列出属性 | Windows 原生属性视图，输出 readonly/hidden/system/archive/directory/compressed/encrypted/not-indexed/temporary/offline/sparse/reparse 等稳定标记 |
+| `chattr` | ✅ 已实现 | 低 | 修改 Windows 文件属性位 | `+/-/=` 模式：修改属性位<br>`-R, --recursive`: 递归处理<br>`-V, --verbose`: 输出处理信息 | 使用 `SetFileAttributesW` 修改可安全映射的 Windows 属性位，保留不支持属性的明确诊断 |
+| `getfacl` | ✅ 已实现 | 低 | 读取 Windows 文件 ACL | `-p, --absolute-names`: 不剥离路径前导分隔符<br>`-n, --numeric`: 输出数字 ID 而不是账户名<br>`FILE...`: 要读取 ACL 的文件 | 基于 `GetNamedSecurityInfoW` 输出稳定文本格式，包含 owner/group 和 DACL ACE 权限近似 |
 | `sync` | ✅ 已实现 | 低 | 将缓存写入持久存储 | `-d, --data`: 只同步命名文件的数据<br>`-f, --file-system`: 同步包含这些文件的文件系统 | 文件系统同步；现在已接受 GNU `sync` 的 `-d/--data` 和 `-f/--file-system` 选项表面，已存在目录参数在普通 `sync` 和 `--data` 下现在也会成功，`--data` 缺少文件参数时会按更接近 uutils 的形状报 `--data needs at least one argument`，`--data` 与 `--file-system` 组合时现在也会按互斥选项失败，`--file-system` 现在会把已存在的文件和目录参数都视为文件系统引用并接受，无效选项会输出 GNU 风格 `unrecognized option` 加 help hint，而多个缺失文件参数现在都会逐条输出更接近 GNU/uutils 的 `error opening 'FILE': No such file or directory` 诊断而不是在第一个失败处停止；Windows 侧仍是近似实现 |
 | `shred` | ✅ 已实现 | 中 | 覆盖文件以隐藏其内容 | `-f, --force`: 更改权限以允许写入<br>`-n, --iterations=N`: 覆盖 N 次而不是默认的 3 次<br>`-s, --size=N`: 仅处理 N 字节<br>`-u, --remove`: 覆盖后删除并截断文件<br>`-v, --verbose`: 显示进度<br>`-z, --zero`: 最后再用零覆盖一次 | 安全删除 |
 | `md5sum` | ✅ 已实现 | 低 | 计算并检查 MD5 摘要 | `-b, --binary`: 二进制模式读取<br>`-c, --check`: 读取并检查校验和<br>`--tag`: 创建 BSD 风格校验和<br>`-t, --text`: 文本模式读取<br>`-z, --zero`: 每个输出行以 NUL 结束 | MD5 校验和 |
@@ -138,6 +141,10 @@
 | `iconv` | ✅ 已实现 | 中 | 在两种编码之间转换文本 | `-f, --from-code=NAME`: 原始文本的编码<br>`-t, --to-code=NAME`: 输出编码<br>`-l, --list`: 列出所有已知编码字符集<br>`-c`: 忽略无效字符<br>`-s`: 抑制警告 | 编码转换 |
 | `localedef` | ✅ 已实现 | 中 | 编译 locale 定义文件 | `-f, --charmap=FILE`: FILE 中定义的字符名<br>`-i, --inputfile=FILE`: locale 定义文件<br>`-u, --alias-file=FILE`: locale 名称别名文件 | locale 定义编译 |
 | `renice` | ✅ 已实现 | 中 | 调整正在运行进程的优先级 | `-n, --priority NUM`: 指定调度优先级<br>`-p, --pid PID`: 将参数解释为进程 ID<br>`-u, --user USER`: 将参数解释为用户名<br>`-g, --pgrp PGID`: 将参数解释为进程组 ID | 调整进程优先级 |
+| `pgrep` | ✅ 已实现 | 中 | 按模式查找进程 | `-f`: 匹配完整命令行<br>`-i`: 忽略大小写<br>`-l`: 同时输出进程名<br>`-a`: 输出完整命令行<br>`-x`: 精确匹配<br>`-c`: 只输出匹配数量 | 复用 Win32 进程枚举和命令行读取 helper，默认输出 Windows PID |
+| `pkill` | ✅ 已实现 | 中 | 按模式终止进程 | `-f`: 匹配完整命令行<br>`-i`: 忽略大小写<br>`-x`: 精确匹配<br>`-e`: 回显终止对象<br>`-0`: 只检查匹配，不终止<br>`TERM/KILL` 信号表面 | Windows 上 TERM/KILL 映射为 Win32 termination；跳过自身进程 |
+| `pidof` | ✅ 已实现 | 中 | 按程序名查找进程 ID | `-x, --scripts`: 同时匹配命令行 token<br>`PROGRAM...`: 进程名 | 按 executable basename 和可选命令行 token 匹配，输出 Windows PID |
+| `killall` | ✅ 已实现 | 中 | 按进程名终止进程 | `-e`: 精确匹配<br>`-I`: 忽略大小写<br>`-q`: 静默 no-match<br>`-v`: 回显终止对象<br>`-0`: 只检查匹配，不终止<br>`TERM/KILL` 信号表面 | 按 executable basename 匹配，跳过自身进程 |
 | `test` | ✅ 已实现 | 高 | 检查文件类型并比较值 | `-e FILE`: 文件存在<br>`-f FILE`: 文件是普通文件<br>`-d FILE`: 文件是目录<br>`-z STRING`: 字符串长度为零<br>`-n STRING`: 字符串长度非零<br>`STRING1 = STRING2`: 字符串相等<br>`INTEGER1 -eq INTEGER2`: 整数相等 | 文件类型检查和值比较 |
 | `[` | ✅ 已实现 | 高 | 检查文件类型并比较值 | 同 `test` | `test` 的别名 |
 | `true` | ✅ 已实现 | 低 | 返回成功结果 | 无选项 | 正常执行时始终返回 0，同时 `-V/--version` 现在也会成功，而不是被误判成未知选项 |
@@ -160,6 +167,8 @@
 | `logname` | ✅ 已实现 | 低 | 打印用户的登录名 | 无常规选项 | 登录名显示；dispatcher 层的 `-V/--version` 现在也会成功 |
 | `whoami` | ✅ 已实现 | 低 | 打印有效用户 ID | 无常规选项 | 用户 ID 显示；dispatcher 层的 `-V/--version` 现在也会成功 |
 | `id` | ✅ 已实现 | 中 | 打印用户和组信息 | `-a, --all`: 忽略，仅用于兼容其他版本<br>`-g, --group`: 仅打印有效组 ID<br>`-G, --groups`: 打印所有组 ID<br>`-n, --name`: 打印名称而不是数字<br>`-r, --real`: 打印真实 ID 而不是有效 ID<br>`-u, --user`: 仅打印有效用户 ID | 用户和组信息 |
+| `mkpasswd` | ✅ 已实现 | 低 | 从 Windows 账户生成 passwd-like 记录 | `-c, --current`: 只输出当前进程用户<br>`-l, --local`: 枚举本机用户<br>`-p, --path-prefix PREFIX`: home 路径前缀<br>`-s, --shell SHELL`: login shell 路径 | 复用 SID/account helper，输出 Cygwin/MSYS 风格账户数据库视图 |
+| `mkgroup` | ✅ 已实现 | 低 | 从 Windows 组生成 group-like 记录 | `-c, --current`: 输出当前 token 组<br>`-l, --local`: 枚举本机组 | 复用 token/account helper 和 `NetLocalGroupEnum`，输出稳定 group-like 记录 |
 | `users` | ✅ 已实现 | 低 | 打印当前登录用户的用户名 | 无选项 | 已登录用户显示 |
 | `who` | ✅ 已实现 | 低 | 显示当前登录信息 | `-a, --all`: 等同于 -b -d --login -p -r -t -T -u<br>`-b, --boot`: 上次系统启动时间<br>`-d, --dead`: 打印死进程<br>`-H, --heading`: 打印列标题<br>`-l, --login`: 打印系统登录进程<br>`-m`: 仅显示 stdin 关联的主机名和用户<br>`-p, --process`: 打印 init 派生的活动进程<br>`-q, --count`: 打印登录名和在线人数<br>`-r, --runlevel`: 打印当前 runlevel<br>`-s, --short`: 仅打印名称、行和时间<br>`-t, --time`: 打印上次系统时钟变更时间<br>`-u, --users`: 列出已登录用户 | 用户信息 |
 | `groups` | ✅ 已实现 | 低 | 打印用户所属的组 | `--help`: 显示帮助<br>`--version`: 输出版本信息 | 组信息 |
@@ -170,6 +179,10 @@
 | `uptime` | ✅ 已实现 | 中 | 显示系统运行了多久 | `-p, --pretty`: 以简洁格式显示运行时间<br>`-s, --since`: 显示系统启动时间<br>`-h, --help`: 显示帮助<br>`-V, --version`: 输出版本信息 | 系统运行时间 |
 | `free` | ✅ 已实现 | 中 | 显示系统空闲和已用内存 | `-b, --bytes`: 以字节显示<br>`-k, --kilo`: 以 KB 显示<br>`-m, --mega`: 以 MB 显示<br>`-g, --giga`: 以 GB 显示<br>`--tera`: 以 TB 显示<br>`-h, --human`: 以人类可读格式显示<br>`-l, --lohi`: 显示 low/high memory 统计 | 内存使用显示 |
 | `lsof` | ✅ 已实现 | 低 | 列出打开的文件 | 无选项 | 打开文件列表 |
+| `pldd` | ✅ 已实现 | 低 | 列出进程加载的 DLL/模块 | `-n, --name`: 只输出模块 basename<br>`PID`: 目标进程 ID | 复用 ToolHelp snapshot，为 Windows DLL 视图补充 `ps`/`lsof` |
+| `ldd` | ✅ 已实现 | 低 | 列出 PE 文件导入 DLL | `-n, --name`: 只输出导入 DLL 名<br>`FILE...`: PE executable/DLL 文件 | 解析 PE import table，默认输出 DLL 和 resolved path |
+| `regtool` | ✅ 已实现 | 低 | Windows 注册表小工具 | `list KEY`: 列出子项和值<br>`get KEY [VALUE]`: 读取值<br>`set KEY VALUE DATA`: 写入 REG_SZ<br>`remove KEY [VALUE]`: 删除值或子树 | 支持 `HKCU/...`、`HKLM/...` 等根；写入保持小范围 Win32 API 实现 |
+| `logger` | ✅ 已实现 | 低 | 写入 Windows 日志设施 | `-p, --priority PRIORITY`: 日志级别<br>`-t, --tag TAG`: 消息标签<br>`-s, --stderr`: 同时输出到 stderr<br>`MESSAGE...`: 消息文本 | 使用 Windows Event Log / debug output，并提供 stderr fallback 便于脚本和测试 |
 | `nproc` | ✅ 已实现 | 低 | 打印可用处理单元数量 | `--all`: 打印已安装的处理单元数量<br>`--ignore=N`: 尽量排除 N 个处理单元 | 处理器数量 |
 | `numfmt` | ✅ 已实现 | 低 | 在人类可读字符串和数值之间转换 | `-d, --delimiter=X`: 使用 X 代替空白作为分隔符<br>`-f, --format=FORMAT`: 使用 printf 风格浮点格式<br>`--from=UNIT`: 将输入自动缩放到 UNIT<br>`--to=UNIT`: 将输出自动缩放到 UNIT<br>`--round=METHOD`: 使用指定舍入方式<br>`--padding=N`: 输出填充到 N 个字符 | 数字格式化 |
 | `column` | ✅ 已实现 | 低 | 列化列表 | `-c, --output-width=WIDTH`: 设置输出宽度<br>`-t, --table`: 识别表格列数<br>`-s, --separator SEPARATOR`: 指定输入分隔符<br>`-o, --output-separator STRING`: 指定表格输出列分隔符<br>`-x, --fillrows`: 先填充行再填充列 | 列格式化 |

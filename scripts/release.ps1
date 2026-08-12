@@ -22,7 +22,13 @@ param(
     [switch]$PullRequestFlow,
 
     [Parameter(Mandatory=$false)]
-    [string]$BaseBranch = "main"
+    [string]$BaseBranch = "main",
+
+    [Parameter(Mandatory=$false)]
+    [string]$ReleaseBranch = "",
+
+    [Parameter(Mandatory=$false)]
+    [switch]$CleanupOldRemoteBranches
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,6 +60,37 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 
 Write-Color "Yellow" "Version: $Version"
 Write-Host ""
+
+if ($ReleaseBranch) {
+    Write-Color "Yellow" "Preparing release branch $ReleaseBranch from $BaseBranch..."
+    git fetch origin $BaseBranch --prune
+    $currentBranch = (git branch --show-current).Trim()
+    if (-not $currentBranch) {
+        Write-Color "Red" "Cannot determine current git branch"
+        exit 1
+    }
+    if ($currentBranch -ne $ReleaseBranch) {
+        $localBranchExists = git branch --list $ReleaseBranch
+        if ($localBranchExists) {
+            git switch $ReleaseBranch
+        } else {
+            $pendingChanges = git status --short
+            if ($pendingChanges) {
+                Write-Color "Yellow" "  Preserving pending working tree changes on new release branch"
+                git switch -c $ReleaseBranch
+            } else {
+                git switch -c $ReleaseBranch "origin/$BaseBranch"
+            }
+        }
+    }
+    $currentBranch = (git branch --show-current).Trim()
+    if ($currentBranch -ne $ReleaseBranch) {
+        Write-Color "Red" "Expected to be on $ReleaseBranch, but current branch is $currentBranch"
+        exit 1
+    }
+    Write-Color "Green" "  On release branch $ReleaseBranch"
+    Write-Host ""
+}
 
 # Update version sources
 Write-Color "Yellow" "Updating version metadata..."
@@ -128,7 +165,13 @@ if ($PullRequestFlow) {
 
     Write-Color "Yellow" "Creating or reusing pull request into $BaseBranch..."
     $existingJson = gh pr list --head $currentBranch --base $BaseBranch --state open --json number,url
-    $existing = @($existingJson | ConvertFrom-Json)
+    $existing = @()
+    if ($existingJson) {
+        $parsedExisting = $existingJson | ConvertFrom-Json
+        if ($null -ne $parsedExisting) {
+            $existing = @($parsedExisting)
+        }
+    }
     if ($existing.Count -gt 0) {
         $prNumber = $existing[0].number
         $prUrl = $existing[0].url
@@ -152,12 +195,15 @@ if ($PullRequestFlow) {
 
     Write-Color "Yellow" "Waiting for pull request checks..."
     $oldNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    $oldErrorActionPreference = $ErrorActionPreference
     $PSNativeCommandUseErrorActionPreference = $false
+    $ErrorActionPreference = "Continue"
     try {
         $checksOutput = gh pr checks $prNumber --watch --interval 10 2>&1
         $checksExitCode = $LASTEXITCODE
     } finally {
         $PSNativeCommandUseErrorActionPreference = $oldNativeErrorPreference
+        $ErrorActionPreference = $oldErrorActionPreference
     }
     if ($checksExitCode -ne 0) {
         $checksText = ($checksOutput | Out-String)
@@ -203,6 +249,26 @@ if ($PullRequestFlow) {
     git switch $BaseBranch
     Write-Color "Green" "  Local $BaseBranch is up to date"
     Write-Host ""
+
+    if ($CleanupOldRemoteBranches) {
+        Write-Color "Yellow" "Cleaning old remote branches except $BaseBranch..."
+        $remoteBranches = git branch -r |
+            ForEach-Object { $_.Trim() } |
+            Where-Object {
+                $_ -and
+                $_ -ne "origin/HEAD" -and
+                $_ -ne "origin/$BaseBranch" -and
+                $_ -notmatch "origin/HEAD ->"
+            }
+        foreach ($remoteBranch in $remoteBranches) {
+            $branchName = $remoteBranch -replace '^origin/', ''
+            Write-Color "Yellow" "  Deleting origin/$branchName"
+            git push origin --delete $branchName
+        }
+        git fetch origin --prune
+        Write-Color "Green" "  Remote branch cleanup complete"
+        Write-Host ""
+    }
 
     Write-Color "Cyan" "================================"
     Write-Color "Green" "Release $tagName completed successfully via PR flow!"

@@ -59,10 +59,7 @@ auto constexpr ID_OPTIONS = std::array{
 namespace id_pipeline {
 namespace cp = core::pipeline;
 
-struct AccountInfo {
-  std::string id;
-  std::string name;
-};
+using AccountInfo = Win32AccountInfo;
 
 struct ProcessIdentity {
   AccountInfo user;
@@ -80,113 +77,28 @@ struct Config {
   SmallVector<std::string, 64> users;
 };
 
-auto account_name_from_sid(PSID sid) -> std::string {
-  if (sid == nullptr) return {};
-
-  DWORD name_size = 0;
-  DWORD domain_size = 0;
-  SID_NAME_USE sid_type = SidTypeUnknown;
-  LookupAccountSidW(nullptr, sid, nullptr, &name_size, nullptr, &domain_size,
-                    &sid_type);
-  if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
-    return {};
-  }
-
-  std::wstring name(name_size, wchar_t{});
-  std::wstring domain(domain_size, wchar_t{});
-  if (!LookupAccountSidW(nullptr, sid, name.data(), &name_size, domain.data(),
-                         &domain_size, &sid_type)) {
-    return {};
-  }
-
-  name.resize(name_size);
-  return wstring_to_utf8(name);
-}
-
-auto sid_authority_value(PSID sid) -> unsigned long long {
-  SID_IDENTIFIER_AUTHORITY* authority = GetSidIdentifierAuthority(sid);
-  if (authority == nullptr) return 0;
-
-  unsigned long long value = 0;
-  for (unsigned char byte : authority->Value) {
-    value = (value << 8) | byte;
-  }
-  return value;
-}
-
-auto account_id_from_sid(PSID sid) -> std::string {
-  if (sid == nullptr || !IsValidSid(sid)) return {};
-
-  PUCHAR subauth_count = GetSidSubAuthorityCount(sid);
-  if (subauth_count == nullptr || *subauth_count == 0) return {};
-
-  DWORD* rid = GetSidSubAuthority(sid, *subauth_count - 1);
-  if (rid == nullptr) return {};
-
-  const unsigned long long authority = sid_authority_value(sid);
-  DWORD* first = GetSidSubAuthority(sid, 0);
-  const DWORD first_subauth = first == nullptr ? 0 : *first;
-
-  if (authority == 5 && first_subauth == 21 && *subauth_count >= 5) {
-    return std::to_string(0x30000u + *rid);
-  }
-  if (authority == 16) {
-    return std::to_string(0x60000u + *rid);
-  }
-
-  return std::to_string(*rid);
-}
-
-auto account_from_sid(PSID sid) -> AccountInfo {
-  AccountInfo account{.id = account_id_from_sid(sid),
-                      .name = account_name_from_sid(sid)};
-  if (account.id.empty()) account.id = "0";
-  return account;
-}
-
-auto query_token(HANDLE token, TOKEN_INFORMATION_CLASS token_class)
-    -> std::vector<std::byte> {
-  DWORD size = 0;
-  GetTokenInformation(token, token_class, nullptr, 0, &size);
-  if (size == 0) return {};
-
-  std::vector<std::byte> data(size);
-  if (!GetTokenInformation(token, token_class, data.data(), size, &size)) {
-    return {};
-  }
-  return data;
-}
-
 auto current_identity() -> std::optional<ProcessIdentity> {
-  HANDLE token = nullptr;
-  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+  HANDLE raw_token = nullptr;
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &raw_token))
     return std::nullopt;
-  }
+  UniqueHandle token(raw_token);
 
   ProcessIdentity identity;
-  auto user_data = query_token(token, TokenUser);
-  if (user_data.empty()) {
-    CloseHandle(token);
-    return std::nullopt;
-  }
+  auto user_data = win32_token_information(token.get(), TokenUser);
+  if (user_data.empty()) return std::nullopt;
 
   auto* token_user = reinterpret_cast<TOKEN_USER*>(user_data.data());
-  identity.user = account_from_sid(token_user->User.Sid);
+  identity.user = win32_account_from_sid(token_user->User.Sid);
   if (identity.user.name.empty()) {
-    WCHAR username[256];
-    DWORD username_size = 256;
-    if (GetUserNameW(username, &username_size)) {
-      std::wstring ws(username);
-      identity.user.name = wstring_to_utf8(ws);
-    }
+    identity.user.name = win32_current_username();
   }
 
   identity.groups.push_back(identity.user);
-  auto groups_data = query_token(token, TokenGroups);
+  auto groups_data = win32_token_information(token.get(), TokenGroups);
   if (!groups_data.empty()) {
     auto* token_groups = reinterpret_cast<TOKEN_GROUPS*>(groups_data.data());
     for (DWORD i = 0; i < token_groups->GroupCount; ++i) {
-      AccountInfo group = account_from_sid(token_groups->Groups[i].Sid);
+      AccountInfo group = win32_account_from_sid(token_groups->Groups[i].Sid);
       if (group.id.empty()) continue;
       bool duplicate = false;
       for (const auto& existing : identity.groups) {
@@ -199,7 +111,6 @@ auto current_identity() -> std::optional<ProcessIdentity> {
     }
   }
 
-  CloseHandle(token);
   return identity;
 }
 
