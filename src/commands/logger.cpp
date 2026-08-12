@@ -1,0 +1,122 @@
+/*
+ *  Copyright © 2026 WinuxCmd
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to
+ *  deal in the Software without restriction, including without limitation the
+ *  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ *  sell copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ *  IN THE SOFTWARE.
+ *
+ *  - File: logger.cpp
+ *  - CopyrightYear: 2026
+ */
+/// @Description: Windows-native logger command.
+/// @Version: 0.1.0
+/// @License: MIT
+
+#include "core/command_macros.h"
+#include "pch/pch.h"
+
+import std;
+import core;
+import utils;
+
+using cmd::meta::OptionMeta;
+using cmd::meta::OptionType;
+
+auto constexpr LOGGER_OPTIONS = std::array{
+    OPTION("-p", "--priority", "message priority", STRING_TYPE),
+    OPTION("-t", "--tag", "mark every line with this tag", STRING_TYPE),
+    OPTION("-s", "--stderr", "also write the message to standard error"),
+    OPTION("", "--id", "accepted for compatibility", STRING_TYPE)};
+
+namespace logger_pipeline {
+
+struct Config {
+  std::string priority = "user.notice";
+  std::string tag = "logger";
+  bool stderr_too = false;
+  std::string message;
+};
+
+auto event_type_for_priority(std::string_view priority) -> WORD {
+  std::string lower = ascii_lower_copy(priority);
+  if (lower.find("emerg") != std::string::npos ||
+      lower.find("alert") != std::string::npos ||
+      lower.find("crit") != std::string::npos ||
+      lower.find("err") != std::string::npos) {
+    return EVENTLOG_ERROR_TYPE;
+  }
+  if (lower.find("warning") != std::string::npos ||
+      lower.find("warn") != std::string::npos) {
+    return EVENTLOG_WARNING_TYPE;
+  }
+  return EVENTLOG_INFORMATION_TYPE;
+}
+
+auto join_message(std::span<const std::string_view> args) -> std::string {
+  std::string out;
+  for (auto arg : args) {
+    if (!out.empty()) out.push_back(' ');
+    out.append(arg);
+  }
+  return out;
+}
+
+auto read_stdin_message() -> std::string {
+  std::ostringstream out;
+  out << std::cin.rdbuf();
+  return out.str();
+}
+
+auto write_event_log(const Config& cfg) -> bool {
+  HANDLE raw = RegisterEventSourceW(nullptr, L"WinuxCmd");
+  if (raw == nullptr) return false;
+  UniqueHandle source(raw);
+
+  std::wstring text = utf8_to_wstring(cfg.tag + ": " + cfg.message);
+  const wchar_t* strings[] = {text.c_str()};
+  BOOL ok = ReportEventW(source.get(), event_type_for_priority(cfg.priority), 0,
+                         0, nullptr, 1, 0, strings, nullptr);
+  DeregisterEventSource(source.release());
+  return ok != FALSE;
+}
+
+auto run(const CommandContext<LOGGER_OPTIONS.size()>& ctx) -> int {
+  Config cfg;
+  cfg.priority = ctx.get<std::string>(
+      "-p", ctx.get<std::string>("--priority", cfg.priority));
+  cfg.tag = ctx.get<std::string>("-t", ctx.get<std::string>("--tag", cfg.tag));
+  cfg.stderr_too =
+      ctx.get<bool>("-s", false) || ctx.get<bool>("--stderr", false);
+  cfg.message = join_message(ctx.positionals);
+  if (cfg.message.empty()) cfg.message = read_stdin_message();
+
+  if (cfg.message.empty()) return 0;
+
+  const std::string rendered = cfg.tag + ": " + cfg.message;
+  OutputDebugStringW(utf8_to_wstring(rendered).c_str());
+  (void)write_event_log(cfg);
+  if (cfg.stderr_too) safeErrorPrintLn(rendered);
+  return 0;
+}
+
+}  // namespace logger_pipeline
+
+REGISTER_COMMAND(logger, "logger", "logger [OPTION]... [MESSAGE]",
+                 "Write messages to the Windows event/logging facilities.",
+                 "  logger -t build finished\n"
+                 "  echo finished | logger -s",
+                 "eventcreate(1), regtool(1)", "WinuxCmd",
+                 "Copyright © 2026 WinuxCmd", LOGGER_OPTIONS) {
+  return logger_pipeline::run(ctx);
+}

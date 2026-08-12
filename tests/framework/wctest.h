@@ -120,6 +120,7 @@ struct Registrar {
 // ============================
 
 inline int failures = 0;
+inline int failed_tests = 0;
 inline int current_test_failed = 0;
 
 inline void fail(const char *file, int line, const std::string &msg) {
@@ -128,6 +129,7 @@ inline void fail(const char *file, int line, const std::string &msg) {
     std::cerr << "  FAILED\n";
     reset_color();
     current_test_failed = 1;
+    ++failed_tests;
   }
 
   std::cerr << "    " << file << ":" << line << "\n";
@@ -245,6 +247,22 @@ inline void expect_eq_impl(const std::string &a, const std::string &b,
     }                                                                  \
   } while (0)
 
+#define ASSERT_TRUE(x)                                                \
+  do {                                                                \
+    if (!(x)) {                                                       \
+      wctest::fail(__FILE__, __LINE__, "ASSERT_TRUE(" #x ") failed"); \
+      return;                                                         \
+    }                                                                 \
+  } while (0)
+
+#define ASSERT_FALSE(x)                                                \
+  do {                                                                 \
+    if (x) {                                                           \
+      wctest::fail(__FILE__, __LINE__, "ASSERT_FALSE(" #x ") failed"); \
+      return;                                                          \
+    }                                                                  \
+  } while (0)
+
 /**
  * @brief Generic EXPECT_EQ implementation for streamable types
  *
@@ -334,6 +352,42 @@ inline std::string normalize_newlines(std::string s) {
     }                                                                       \
   } while (0)
 
+#define ASSERT_EQ(a, b)                                             \
+  do {                                                              \
+    if (!((a) == (b))) {                                            \
+      wctest::expect_eq_impl((a), (b), __FILE__, __LINE__, #a, #b); \
+      return;                                                       \
+    }                                                               \
+  } while (0)
+
+#define ASSERT_NE(a, b)                                                     \
+  do {                                                                      \
+    if ((a) == (b)) {                                                       \
+      wctest::fail(__FILE__, __LINE__, "ASSERT_NE(" #a ", " #b ") failed"); \
+      return;                                                               \
+    }                                                                       \
+  } while (0)
+
+#define ASSERT_CONTAINS(haystack, needle)                                    \
+  do {                                                                       \
+    if (std::string_view(haystack).find(std::string_view(needle)) ==         \
+        std::string_view::npos) {                                            \
+      wctest::expect_contains_impl((haystack), (needle), __FILE__, __LINE__, \
+                                   #haystack, #needle, false);               \
+      return;                                                                \
+    }                                                                        \
+  } while (0)
+
+#define ASSERT_NOT_CONTAINS(haystack, needle)                                \
+  do {                                                                       \
+    if (std::string_view(haystack).find(std::string_view(needle)) !=         \
+        std::string_view::npos) {                                            \
+      wctest::expect_contains_impl((haystack), (needle), __FILE__, __LINE__, \
+                                   #haystack, #needle, true);                \
+      return;                                                                \
+    }                                                                        \
+  } while (0)
+
 #define EXPECT_CONTAINS(haystack, needle)                                \
   wctest::expect_contains_impl((haystack), (needle), __FILE__, __LINE__, \
                                #haystack, #needle, false)
@@ -374,6 +428,52 @@ inline std::string normalize_newlines(std::string s) {
     }                                              \
   } while (0)
 
+#define EXPECT_LE(a, b)                            \
+  do {                                             \
+    if (!((a) <= (b))) {                           \
+      std::ostringstream oss;                      \
+      oss << "EXPECT_LE(" #a ", " #b ") failed\n"  \
+          << "      lhs: [" << (a) << "]\n"        \
+          << "      rhs: [" << (b) << "]";         \
+      wctest::fail(__FILE__, __LINE__, oss.str()); \
+    }                                              \
+  } while (0)
+
+#define EXPECT_GE(a, b)                            \
+  do {                                             \
+    if (!((a) >= (b))) {                           \
+      std::ostringstream oss;                      \
+      oss << "EXPECT_GE(" #a ", " #b ") failed\n"  \
+          << "      lhs: [" << (a) << "]\n"        \
+          << "      rhs: [" << (b) << "]";         \
+      wctest::fail(__FILE__, __LINE__, oss.str()); \
+    }                                              \
+  } while (0)
+
+#define ASSERT_LE(a, b)                            \
+  do {                                             \
+    if (!((a) <= (b))) {                           \
+      std::ostringstream oss;                      \
+      oss << "ASSERT_LE(" #a ", " #b ") failed\n"  \
+          << "      lhs: [" << (a) << "]\n"        \
+          << "      rhs: [" << (b) << "]";         \
+      wctest::fail(__FILE__, __LINE__, oss.str()); \
+      return;                                      \
+    }                                              \
+  } while (0)
+
+#define ASSERT_GE(a, b)                            \
+  do {                                             \
+    if (!((a) >= (b))) {                           \
+      std::ostringstream oss;                      \
+      oss << "ASSERT_GE(" #a ", " #b ") failed\n"  \
+          << "      lhs: [" << (a) << "]\n"        \
+          << "      rhs: [" << (b) << "]";         \
+      wctest::fail(__FILE__, __LINE__, oss.str()); \
+      return;                                      \
+    }                                              \
+  } while (0)
+
 /**
  * @brief Assert equality of text content with newline normalization
  *
@@ -384,6 +484,17 @@ inline std::string normalize_newlines(std::string s) {
   wctest::expect_eq_impl(wctest::normalize_newlines(a),                     \
                          wctest::normalize_newlines(b), __FILE__, __LINE__, \
                          #a, #b)
+
+#define ASSERT_EQ_TEXT(a, b)                                                 \
+  do {                                                                       \
+    auto wctest_lhs = wctest::normalize_newlines(a);                         \
+    auto wctest_rhs = wctest::normalize_newlines(b);                         \
+    if (!(wctest_lhs == wctest_rhs)) {                                       \
+      wctest::expect_eq_impl(wctest_lhs, wctest_rhs, __FILE__, __LINE__, #a, \
+                             #b);                                            \
+      return;                                                                \
+    }                                                                        \
+  } while (0)
 
 /**
  * @brief Assert equality of binary data
@@ -628,7 +739,7 @@ inline std::string normalize_newlines(std::string s) {
  */
 inline int run_all() {
   int total = registry().size();
-  int failed_before = failures;
+  int failed_tests_before = failed_tests;
 
   set_color(Color::Cyan);
   std::cout << "[==========] Running " << total << " tests\n";
@@ -641,7 +752,7 @@ inline int run_all() {
     t.fn();
   }
 
-  int failed = failures - failed_before;
+  int failed = failed_tests - failed_tests_before;
 
   std::cout << "\n";
   set_color(failed ? Color::Red : Color::Green);
@@ -653,7 +764,7 @@ inline int run_all() {
 }
 
 inline int run_single(const char *group, const char *name) {
-  int failed_before = failures;
+  int failed_tests_before = failed_tests;
 
   set_color(Color::Cyan);
   std::cout << "[==========] Running single test: " << group << "." << name
@@ -680,7 +791,7 @@ inline int run_single(const char *group, const char *name) {
     return 1;
   }
 
-  int failed = failures - failed_before;
+  int failed = failed_tests - failed_tests_before;
 
   std::cout << "\n";
   set_color(failed ? Color::Red : Color::Green);
@@ -693,7 +804,7 @@ inline int run_single(const char *group, const char *name) {
 
 inline int run_group(const char *group) {
   int total = 0;
-  int failed_before = failures;
+  int failed_tests_before = failed_tests;
 
   set_color(Color::Cyan);
   std::cout << "[==========] Running all tests in group: " << group << "\n";
@@ -716,7 +827,7 @@ inline int run_group(const char *group) {
     return 1;
   }
 
-  int failed = failures - failed_before;
+  int failed = failed_tests - failed_tests_before;
 
   std::cout << "\n";
   set_color(failed ? Color::Red : Color::Green);
@@ -823,7 +934,7 @@ inline bool test_matches_positive_filter(
 
 inline int run_with_filter(const char *filter) {
   int total = 0;
-  int failed_before = failures;
+  int failed_tests_before = failed_tests;
   auto positive_filters = split_filter_patterns(filter);
 
   set_color(Color::Cyan);
@@ -846,7 +957,7 @@ inline int run_with_filter(const char *filter) {
     reset_color();
   }
 
-  int failed = failures - failed_before;
+  int failed = failed_tests - failed_tests_before;
 
   std::cout << "\n";
   set_color(failed ? Color::Red : Color::Green);
@@ -889,7 +1000,7 @@ inline int run_with_posneg_filter(const char *filter) {
   }
 
   int total = 0;
-  int failed_before = failures;
+  int failed_tests_before = failed_tests;
 
   set_color(Color::Cyan);
   std::cout << "[==========] Running tests with filter: " << filter << "\n";
@@ -905,7 +1016,7 @@ inline int run_with_posneg_filter(const char *filter) {
     }
   }
 
-  int failed = failures - failed_before;
+  int failed = failed_tests - failed_tests_before;
 
   std::cout << "\n";
   set_color(failed ? Color::Red : Color::Green);

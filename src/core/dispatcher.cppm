@@ -453,6 +453,61 @@ auto rewrite_chmod_args(std::span<std::string_view> args)
   return rewrite_chmod_gnu_negative_mode_args("chmod", args);
 }
 
+auto is_chattr_mode_arg(std::string_view arg) -> bool {
+  if (arg.size() < 2) return false;
+  if (arg[0] != '+' && arg[0] != '-' && arg[0] != '=') return false;
+  if (arg == "-R" || arg == "-V") return false;
+  if (arg.starts_with("--")) return false;
+
+  return std::ranges::all_of(arg.substr(1), [](unsigned char ch) {
+    switch (ch) {
+      case 'R':
+      case 'r':
+      case 'H':
+      case 'h':
+      case 'S':
+      case 's':
+      case 'A':
+      case 'a':
+      case 'I':
+      case 'i':
+      case 'T':
+      case 't':
+      case 'O':
+      case 'o':
+        return true;
+      default:
+        return false;
+    }
+  });
+}
+
+auto rewrite_chattr_mode_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  bool seen_double_hyphen = false;
+  for (size_t i = 0; i < args.size(); ++i) {
+    auto arg = args[i];
+    if (arg == "--") {
+      seen_double_hyphen = true;
+      continue;
+    }
+    if (seen_double_hyphen || !is_chattr_mode_arg(arg)) continue;
+
+    std::vector<std::string> rewritten;
+    rewritten.reserve(args.size() + 1);
+    for (size_t j = 0; j < i; ++j) rewritten.emplace_back(args[j]);
+    rewritten.emplace_back("--");
+    append_remaining_args(rewritten, args, i);
+    return rewritten;
+  }
+  return std::nullopt;
+}
+
+auto rewrite_chattr_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  return rewrite_chattr_mode_args(args);
+}
+
 auto parse_legacy_nice_adjustment(std::string_view arg) -> std::optional<int> {
   if (arg.size() < 2 || arg[0] != '-') {
     return std::nullopt;
@@ -729,6 +784,8 @@ auto behavior_for(std::string_view name) -> CommandBehavior {
     append_rewrite_hook(behavior, rewrite_tail_obsolete_args);
   } else if (name == "chmod") {
     append_rewrite_hook(behavior, rewrite_chmod_args);
+  } else if (name == "chattr") {
+    append_rewrite_hook(behavior, rewrite_chattr_args);
   } else if (name == "nice") {
     append_rewrite_hook(behavior, rewrite_nice_args);
   } else if (name == "pr") {

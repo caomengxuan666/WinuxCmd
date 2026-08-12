@@ -50,30 +50,6 @@ auto constexpr NICE_OPTIONS =
 namespace {
 constexpr int kNiceNoOverflowBound = 50;
 
-auto current_niceness() -> int {
-  switch (GetPriorityClass(GetCurrentProcess())) {
-    case HIGH_PRIORITY_CLASS:
-      return -10;
-    case ABOVE_NORMAL_PRIORITY_CLASS:
-      return -5;
-    case BELOW_NORMAL_PRIORITY_CLASS:
-      return 10;
-    case IDLE_PRIORITY_CLASS:
-      return 19;
-    case NORMAL_PRIORITY_CLASS:
-    default:
-      return 0;
-  }
-}
-
-auto priority_class_for_niceness(int niceness) -> DWORD {
-  if (niceness <= -10) return HIGH_PRIORITY_CLASS;
-  if (niceness < 0) return ABOVE_NORMAL_PRIORITY_CLASS;
-  if (niceness >= 19) return IDLE_PRIORITY_CLASS;
-  if (niceness >= 10) return BELOW_NORMAL_PRIORITY_CLASS;
-  return NORMAL_PRIORITY_CLASS;
-}
-
 auto nice_command_status_from_create_error(DWORD error) -> int {
   switch (error) {
     case ERROR_FILE_NOT_FOUND:
@@ -159,7 +135,7 @@ REGISTER_COMMAND(
       safeErrorPrintLn("Try 'nice --help' for more information.");
       return 125;
     }
-    safePrintLn(std::to_string(current_niceness()));
+    safePrintLn(std::to_string(win32_current_niceness()));
     return 0;
   }
 
@@ -169,8 +145,9 @@ REGISTER_COMMAND(
   auto cmd_line = build_command_line(ctx.positionals);
 
   // Determine priority class based on adjustment
-  int target_niceness = std::clamp(current_niceness() + adjustment, -20, 19);
-  DWORD priority_class = priority_class_for_niceness(target_niceness);
+  int target_niceness =
+      std::clamp(win32_current_niceness() + adjustment, -20, 19);
+  DWORD priority_class = win32_priority_class_for_niceness(target_niceness);
 
   if (!CreateProcessW(nullptr, cmd_line.data(), nullptr, nullptr, FALSE,
                       priority_class, nullptr, nullptr, &si, &pi)) {

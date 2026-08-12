@@ -80,6 +80,14 @@ inline std::string read_all(const std::filesystem::path &path) {
   return out;
 }
 
+inline DWORD attributes(const std::filesystem::path &path) {
+  return GetFileAttributesW(path.wstring().c_str());
+}
+
+inline bool set_attributes(const std::filesystem::path &path, DWORD attrs) {
+  return SetFileAttributesW(path.wstring().c_str(), attrs) != FALSE;
+}
+
 }  // namespace temp_dir_detail
 
 /**
@@ -150,6 +158,22 @@ struct TempDir {
   }
 
   /**
+   * @brief Write text content and return the created file path
+   *
+   * Convenience wrapper for tests that need to pass the path to a command.
+   *
+   * @param rel Relative path within temporary directory
+   * @param content Text content to write
+   * @return std::filesystem::path Absolute path to the created file
+   */
+  [[nodiscard]]
+  std::filesystem::path write_file(const std::string &rel,
+                                   const std::string &content) const {
+    write(rel, content);
+    return path / rel;
+  }
+
+  /**
    * @brief Write binary data to a file in the temporary directory
    *
    * Creates parent directories as needed and writes raw bytes.
@@ -162,6 +186,22 @@ struct TempDir {
     auto p = path / rel;
     std::filesystem::create_directories(p.parent_path());
     temp_dir_detail::write_all(p, data.data(), data.size());
+  }
+
+  /**
+   * @brief Write binary content and return the created file path
+   *
+   * Convenience wrapper for tests that need to pass the path to a command.
+   *
+   * @param rel Relative path within temporary directory
+   * @param data Raw bytes to write
+   * @return std::filesystem::path Absolute path to the created file
+   */
+  [[nodiscard]]
+  std::filesystem::path write_bytes_file(const std::string &rel,
+                                         const std::vector<char> &data) const {
+    write_bytes(rel, data);
+    return path / rel;
   }
 
   /**
@@ -189,5 +229,26 @@ struct TempDir {
   void mkdir(const std::string &rel) const {
     auto p = path / rel;
     std::filesystem::create_directories(p);
+  }
+
+  [[nodiscard]]
+  DWORD attrs(const std::string &rel) const {
+    return temp_dir_detail::attributes(path / rel);
+  }
+
+  bool set_attrs(const std::string &rel, DWORD attrs) const {
+    return temp_dir_detail::set_attributes(path / rel, attrs);
+  }
+
+  bool add_attrs(const std::string &rel, DWORD bits) const {
+    DWORD current = attrs(rel);
+    if (current == INVALID_FILE_ATTRIBUTES) return false;
+    return set_attrs(rel, current | bits);
+  }
+
+  bool clear_attrs(const std::string &rel, DWORD bits) const {
+    DWORD current = attrs(rel);
+    if (current == INVALID_FILE_ATTRIBUTES) return false;
+    return set_attrs(rel, current & ~bits);
   }
 };
