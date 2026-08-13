@@ -451,6 +451,16 @@ TEST(head, head_stdin_header_uses_standard_input) {
                  "==> standard input <==\nS1\n\n==> a.txt <==\nA1\n");
 }
 
+TEST(head, head_stops_reading_a_live_pipeline_after_requested_lines) {
+  Pipeline p;
+  p.add(L"yes.exe", {L"pipeline"});
+  p.add(L"head.exe", {L"-n", L"3"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "pipeline\npipeline\npipeline\n");
+}
+
 TEST(head, head_missing_file_reports_gnu_shaped_open_error) {
   TempDir tmp;
 

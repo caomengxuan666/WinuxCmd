@@ -407,9 +407,23 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
         return std::unexpected("cannot delete source file '" + src_path + "'");
       }
     } else {
-      // It's a directory, rename failed (maybe cross-volume)
-      return std::unexpected("cannot move directory '" + src_path + "' to '" +
-                             dest_path + "': cross-volume move not supported");
+      // MoveFileEx cannot rename a directory across volumes.  Fall back to a
+      // recursive copy, then remove the source only after the copy succeeds.
+      std::error_code ec;
+      std::filesystem::copy(
+          std::filesystem::path(wsrc_path), std::filesystem::path(wdest_path),
+          std::filesystem::copy_options::recursive |
+              std::filesystem::copy_options::overwrite_existing,
+          ec);
+      if (ec) {
+        return std::unexpected("cannot copy directory '" + src_path +
+                               "' to '" + dest_path + "': " + ec.message());
+      }
+      std::filesystem::remove_all(std::filesystem::path(wsrc_path), ec);
+      if (ec) {
+        return std::unexpected("cannot delete source directory '" + src_path +
+                               "': " + ec.message());
+      }
     }
   }
 

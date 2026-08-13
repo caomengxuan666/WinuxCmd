@@ -560,11 +560,10 @@ REGISTER_COMMAND(
 
     if (file == "-") {
       emit_header();
-      if (config.by_bytes || config.delimiter == '\0') {
-        output_head(std::cin, config);
-      } else {
-        output_text_head(std::cin, config);
-      }
+      // stdin may be a live pipe.  Do not decode the whole stream before
+      // applying the head limit: an unbounded producer such as `yes` must be
+      // able to stop once the requested records have been emitted.
+      output_head(std::cin, config);
       if (std::cin.bad()) {
         safeErrorPrint("head: error reading '-'\n");
         any_error = true;
