@@ -40,6 +40,11 @@ MANUAL_MESSAGES = {
     "utils.pager.end": "(END) ",
     "utils.pager.lines": "lines ",
     "utils.pager.controls": "  SPACE/f:next  j/k:line  b:back  /:search  n/N  g/G  q",
+    "common.error.missing_operand": "missing operand",
+    "common.error.missing_after": "missing operand after '{}'",
+    "common.error.extra_operand": "extra operand '{}'",
+    "common.error.invalid_argument": "invalid argument '{}'",
+    "common.error.reading": "error reading '{}'",
     "command.top.custom_help": (
         "Usage: top [options]\n"
         "  -b, --batch        Batch mode\n"

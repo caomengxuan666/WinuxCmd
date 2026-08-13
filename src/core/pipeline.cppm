@@ -39,7 +39,7 @@ void report_error(const Result<T>& result, std::wstring_view command_name) {
   if (!result) {
     const auto& error_msg = result.error();
     safeErrorPrintLn(std::wstring(command_name) + L": " +
-                     utf8_to_wstring(error_msg));
+                     utf8_to_wstring(winux::i18n::translate_error(error_msg)));
   }
 }
 
@@ -55,8 +55,10 @@ int report_error_with_code(const Result<T>& result,
 
 inline void report_custom_error(std::wstring_view command_name,
                                 std::wstring_view error_message) {
+  const auto translated = winux::i18n::translate_error(
+      wstring_to_utf8(error_message));
   safeErrorPrintLn(std::wstring(command_name) + L": " +
-                   std::wstring(error_message));
+                   utf8_to_wstring(translated));
 }
 
 }  // namespace core::pipeline

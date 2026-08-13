@@ -108,6 +108,32 @@ std::string format(std::string_view key, std::string_view fallback,
   }
 }
 
+export std::string translate_error(std::string_view error) {
+  if (error == "missing operand") {
+    return translate("common.error.missing_operand", error);
+  }
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
+      patterns{{{"missing operand after '", "common.error.missing_after"},
+                {"extra operand '", "common.error.extra_operand"},
+                {"invalid argument '", "common.error.invalid_argument"},
+                {"error reading '", "common.error.reading"}}};
+  for (const auto [prefix, key] : patterns) {
+    if (!error.starts_with(prefix) || error.back() != '\'') continue;
+    const auto value = error.substr(prefix.size(), error.size() - prefix.size() - 1);
+    if (key == "common.error.missing_after") {
+      return ::winux::i18n::format(key, "missing operand after '{}'", value);
+    }
+    if (key == "common.error.extra_operand") {
+      return ::winux::i18n::format(key, "extra operand '{}'", value);
+    }
+    if (key == "common.error.invalid_argument") {
+      return ::winux::i18n::format(key, "invalid argument '{}'", value);
+    }
+    return ::winux::i18n::format(key, "error reading '{}'", value);
+  }
+  return std::string(error);
+}
+
 export bool has_catalog() { return !catalog().messages.empty(); }
 
 }  // namespace winux::i18n
