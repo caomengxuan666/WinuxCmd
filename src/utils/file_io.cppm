@@ -12,6 +12,7 @@ import std;
 import :utf8;
 import :native_path;
 import :win32;
+import :i18n;
 
 namespace {
 constexpr size_t kReadChunkSize = 64 * 1024;
@@ -22,17 +23,18 @@ auto read_open_error(std::string_view path,
   const DWORD attrs = native_path::attributes_w(operand.extended);
   if (operand.had_trailing_separator &&
       native_path::attributes_are_regular_file(attrs)) {
-    return "cannot open '" + std::string(path) +
-           "' for reading: Not a directory";
+    return winux::i18n::format(
+        "utils.file.error.not_directory", "cannot open '{}' for reading: Not a directory", path);
   }
 
   if (native_path::attributes_are_directory(attrs)) {
-    return "cannot open '" + std::string(path) +
-           "' for reading: Is a directory";
+    return winux::i18n::format(
+        "utils.file.error.is_directory", "cannot open '{}' for reading: Is a directory", path);
   }
 
-  return "cannot open '" + std::string(path) + "' for reading: " +
-         win32_posix_error_text(error, {.invalid_name_as_missing = true});
+  return winux::i18n::format(
+      "utils.file.error.open", "cannot open '{}' for reading: {}", path,
+      win32_posix_error_text(error, {.invalid_name_as_missing = true}));
 }
 
 auto reserve_file_size(std::string& content, HANDLE file) -> void {
@@ -55,7 +57,8 @@ auto read_handle_to_string(HANDLE file, std::string_view path)
     DWORD bytes_read = 0;
     if (!ReadFile(file, buffer.data(), static_cast<DWORD>(buffer.size()),
                   &bytes_read, nullptr)) {
-      return std::unexpected("error reading '" + std::string(path) + "'");
+      return std::unexpected(winux::i18n::format(
+          "utils.file.error.read", "error reading '{}'", path));
     }
     if (bytes_read == 0) break;
     content.append(buffer.data(), bytes_read);
@@ -92,7 +95,8 @@ auto read_all_stdin() -> std::expected<std::string, std::string> {
   }
 
   if (std::cin.bad()) {
-    return std::unexpected("error reading from standard input");
+    return std::unexpected(winux::i18n::translate(
+        "utils.file.error.read_stdin", "error reading from standard input"));
   }
 
   return content;

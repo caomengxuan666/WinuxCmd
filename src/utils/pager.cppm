@@ -26,6 +26,7 @@ export module utils:pager;
 
 import std;
 import :console;
+import :i18n;
 
 namespace winux::pager {
 export struct Options {
@@ -485,7 +486,7 @@ auto render(const Options& options, const std::vector<std::string>& lines,
 
   bool at_eof = top_line + page_size >= lines.size();
   safePrint(":");
-  if (at_eof) safePrint("(END) ");
+  if (at_eof) safePrint(winux::i18n::translate("utils.pager.end", "(END) "));
   if (!options.title.empty()) {
     safePrint(options.title);
     safePrint("  ");
@@ -493,13 +494,15 @@ auto render(const Options& options, const std::vector<std::string>& lines,
   size_t top_display = lines.empty() ? 0 : top_line + 1;
   size_t bottom_line =
       lines.empty() ? 0 : std::min(lines.size(), top_line + page_size);
-  safePrint("lines ");
+  safePrint(winux::i18n::translate("utils.pager.lines", "lines "));
   safePrint(std::to_string(top_display));
   safePrint("-");
   safePrint(std::to_string(bottom_line));
   safePrint("/");
   safePrint(std::to_string(lines.size()));
-  safePrint("  SPACE/f:next  j/k:line  b:back  /:search  n/N  g/G  q");
+  safePrint(winux::i18n::translate(
+      "utils.pager.controls",
+      "  SPACE/f:next  j/k:line  b:back  /:search  n/N  g/G  q"));
 }
 }  // namespace
 

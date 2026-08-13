@@ -38,8 +38,8 @@ template <typename T>
 void report_error(const Result<T>& result, std::wstring_view command_name) {
   if (!result) {
     const auto& error_msg = result.error();
-    std::wstring wmsg(error_msg.begin(), error_msg.end());
-    safeErrorPrint(std::wstring(command_name) + L": " + wmsg + L"\n");
+    safeErrorPrintLn(std::wstring(command_name) + L": " +
+                     utf8_to_wstring(error_msg));
   }
 }
 
@@ -55,8 +55,8 @@ int report_error_with_code(const Result<T>& result,
 
 inline void report_custom_error(std::wstring_view command_name,
                                 std::wstring_view error_message) {
-  safeErrorPrint(std::wstring(command_name) + L": " +
-                 std::wstring(error_message) + L"\n");
+  safeErrorPrintLn(std::wstring(command_name) + L": " +
+                   std::wstring(error_message));
 }
 
 }  // namespace core::pipeline

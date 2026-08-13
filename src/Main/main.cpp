@@ -103,15 +103,18 @@ static int printHelp() noexcept {
   const std::string command_style = std::string(ANSI_BOLD) + ansiFg256(117);
   const std::string subtle_style = ansiFg256(245);
 
-  safePrintLn(color ? colorizeStdout("WinuxCmd", title_style) +
-                          " - Windows Compatible Linux Command Set"
-                    : "WinuxCmd - Windows Compatible Linux Command Set");
-  safePrintLn(color ? colorizeStdout("Usage:", section_style) +
+  const auto subtitle = winux::i18n::translate(
+      "main.subtitle", "Windows Compatible Linux Command Set");
+  const auto usage = winux::i18n::translate("common.usage", "Usage:");
+  safePrintLn(color ? colorizeStdout("WinuxCmd", title_style) + " - " + subtitle
+                    : "WinuxCmd - " + subtitle);
+  safePrintLn(color ? colorizeStdout(usage, section_style) +
                           " winuxcmd <command> [options]..."
-                    : "Usage: winuxcmd <command> [options]...");
+                    : usage + " winuxcmd <command> [options]...");
   safePrintLn("");
-  safePrintLn(color ? colorizeStdout("Available Commands:", section_style)
-                    : "Available Commands:");
+  const auto available = winux::i18n::translate(
+      "main.available_commands", "Available Commands:");
+  safePrintLn(color ? colorizeStdout(available, section_style) : available);
 
   // Get all registered commands and display them with brief descriptions
   auto commands = CommandRegistry::getAllCommands();
@@ -120,11 +123,10 @@ static int printHelp() noexcept {
   }
 
   safePrintLn("");
-  safePrintLn(color ? colorizeStdout("Tip:", subtle_style) +
-                          " Use 'winuxcmd <command> --help' for "
-                          "command-specific help."
-                    : "Tip: Use 'winuxcmd <command> --help' for "
-                      "command-specific help.");
+  const auto tip = winux::i18n::translate(
+      "main.help_tip",
+      "Tip: Use 'winuxcmd <command> --help' for command-specific help.");
+  safePrintLn(color ? colorizeStdout("Tip:", subtle_style) + " " + tip : tip);
   return 1;
 }
 
@@ -183,10 +185,13 @@ int main(int argc, char *argv[]) noexcept {
           CommandRegistry::printHelp(lowered);
           return 0;
         }
-        safeErrorPrintLn("winuxcmd: no help topic for '" + topic + "'");
+        safeErrorPrintLn(winux::i18n::format(
+            "main.error.no_help_topic", "winuxcmd: no help topic for '{}'", topic));
         return 1;
       }
-      safeErrorPrintLn("winuxcmd: help accepts at most one command name");
+      safeErrorPrintLn(winux::i18n::translate(
+          "main.error.help_too_many_topics",
+          "winuxcmd: help accepts at most one command name"));
       return 1;
     }
 
@@ -213,7 +218,9 @@ int main(int argc, char *argv[]) noexcept {
     }
 
     if (!CommandRegistry::hasCommand(cmd_name)) {
-      safeErrorPrintLn("winuxcmd: command not found: " + std::string(cmd_name));
+      safeErrorPrintLn(winux::i18n::format(
+          "core.error.command_not_found", "winuxcmd: command not found: {}",
+          cmd_name));
       return 127;
     }
 

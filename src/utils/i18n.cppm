@@ -92,6 +92,22 @@ export std::string translate(std::string_view key, std::string_view fallback) {
   return it->get<std::string>();
 }
 
+export template <typename... Args>
+std::string format(std::string_view key, std::string_view fallback,
+                   Args&&... args) {
+  const auto message = translate(key, fallback);
+  if constexpr (sizeof...(Args) == 0) {
+    return message;
+  } else {
+    try {
+      return std::vformat(message, std::make_format_args(args...));
+    } catch (const std::format_error&) {
+      // A malformed external catalog entry must never terminate a command.
+      return std::vformat(fallback, std::make_format_args(args...));
+    }
+  }
+}
+
 export bool has_catalog() { return !catalog().messages.empty(); }
 
 }  // namespace winux::i18n

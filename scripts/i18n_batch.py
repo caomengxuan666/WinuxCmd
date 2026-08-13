@@ -24,6 +24,22 @@ DEFAULT_MODEL = os.environ.get("OPENAI_I18N_MODEL", "gpt-5.6-luna")
 # Hand-maintained help blocks that bypass REGISTER_COMMAND's generic formatter.
 # Keep these stable IDs and review their translations manually.
 MANUAL_MESSAGES = {
+    "common.usage": "Usage:",
+    "main.subtitle": "Windows Compatible Linux Command Set",
+    "main.available_commands": "Available Commands:",
+    "main.help_tip": "Tip: Use 'winuxcmd <command> --help' for command-specific help.",
+    "main.error.no_help_topic": "winuxcmd: no help topic for '{}'",
+    "main.error.help_too_many_topics": "winuxcmd: help accepts at most one command name",
+    "core.error.command_not_found": "winuxcmd: command not found: {}",
+    "core.error.invalid_option_context": "{}: option used in invalid context -- {}",
+    "utils.file.error.not_directory": "cannot open '{}' for reading: Not a directory",
+    "utils.file.error.is_directory": "cannot open '{}' for reading: Is a directory",
+    "utils.file.error.open": "cannot open '{}' for reading: {}",
+    "utils.file.error.read": "error reading '{}'",
+    "utils.file.error.read_stdin": "error reading from standard input",
+    "utils.pager.end": "(END) ",
+    "utils.pager.lines": "lines ",
+    "utils.pager.controls": "  SPACE/f:next  j/k:line  b:back  /:search  n/N  g/G  q",
     "command.top.custom_help": (
         "Usage: top [options]\n"
         "  -b, --batch        Batch mode\n"
