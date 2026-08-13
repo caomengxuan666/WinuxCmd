@@ -1969,6 +1969,19 @@ auto parse_hidden_value(std::span<const std::string_view> args,
   return {};
 }
 
+auto unique_update_backup_path(const fs::path& root) -> fs::path {
+  fs::path dir = backup_dir(root);
+  std::string stem =
+      "winuxcmd-before-update-" + std::to_string(GetCurrentProcessId());
+  fs::path candidate = dir / (stem + ".exe");
+  std::error_code ec;
+  for (int suffix = 1; fs::exists(candidate, ec); ++suffix) {
+    candidate = dir / (stem + "-" + std::to_string(suffix) + ".exe");
+    ec.clear();
+  }
+  return candidate;
+}
+
 auto apply_update(std::span<const std::string_view> args) -> int {
   fs::path root = parse_hidden_value(args, "--root");
   fs::path payload = parse_hidden_value(args, "--payload");
@@ -1988,22 +2001,15 @@ auto apply_update(std::span<const std::string_view> args) -> int {
   std::error_code ec;
   fs::create_directories(backup_dir(root), ec);
   fs::path target = root / "winuxcmd.exe";
-  fs::path backup =
-      backup_dir(root) /
-      ("winuxcmd-" + std::string(WinuxCmd::VERSION_STRING) + ".exe");
+  fs::path backup = unique_update_backup_path(root);
   if (fs::exists(target, ec)) {
-    fs::copy_file(target, backup, fs::copy_options::overwrite_existing, ec);
+    fs::copy_file(target, backup, fs::copy_options::none, ec);
     if (ec) {
       safeErrorPrintLn("wpm: failed to backup winuxcmd.exe: " + ec.message());
       return 1;
     }
   }
 
-  if (remove_links(root, false) != 0) {
-    safeErrorPrintLn("wpm: failed to remove existing command links");
-    rebuild_links(root, true, false, false);
-    return 1;
-  }
   fs::copy_file(payload, target, fs::copy_options::overwrite_existing, ec);
   if (ec) {
     safeErrorPrintLn("wpm: failed to replace winuxcmd.exe: " + ec.message());
