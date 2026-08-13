@@ -33,7 +33,8 @@ void print_usage_stdout() {
       "      export TZ=$(tzset)\n\n"
       "In csh-compatible shells like tcsh:\n\n"
       "      setenv TZ `tzset`\n";
-  safePrint(winux::i18n::translate("command.tzset.custom_help", help));
+  safePrint(cmd::meta::format_custom_help(
+      "tzset", winux::i18n::translate("command.tzset.custom_help", help)));
 }
 
 void print_usage_stderr() {

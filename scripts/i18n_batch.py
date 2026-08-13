@@ -134,6 +134,15 @@ MANUAL_MESSAGES = {
     "command.wpm.status.links_summary": "wpm: links created={} unchanged={} stale_removed={} failed={}",
     "command.wpm.status.remove": "remove {}",
     "command.wpm.status.links_removed": "wpm: links removed={} failed={}",
+    "command.wpm.error.usage.links": "wpm: usage: wpm links list|rebuild|remove",
+    "command.wpm.error.usage.index": "wpm: usage: wpm index status|update",
+    "command.wpm.error.usage.source": "wpm: usage: wpm source list|use <name>|add <name> <url>",
+    "command.wpm.error.usage.info": "wpm: usage: wpm info <package>",
+    "command.wpm.error.usage.install": "wpm: usage: wpm install <package>",
+    "command.wpm.error.usage.update": "wpm: usage: wpm update winuxcmd",
+    "command.wpm.version": "wpm {}",
+    "command.wpm.error.unknown_command": "wpm: unknown command: {}",
+    "command.wpm.error.exception": "wpm: {}",
 }
 
 

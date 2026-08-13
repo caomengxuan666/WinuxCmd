@@ -424,7 +424,8 @@ f   print the stack
 #   ignore until end of line
 ?   print this help
 )MPICALC";
-  safePrint(winux::i18n::translate("command.mpicalc.custom_help", help));
+  safePrint(cmd::meta::format_custom_help(
+      "mpicalc", winux::i18n::translate("command.mpicalc.custom_help", help)));
 }
 auto process_token(const std::string& token, std::vector<BigInt>& stack)
     -> void {

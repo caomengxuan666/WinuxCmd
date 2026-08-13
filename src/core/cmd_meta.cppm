@@ -493,6 +493,72 @@ auto format_man_text(std::string_view name, std::string_view synopsis,
   return result;
 }
 
+export auto format_custom_help(std::string_view name, std::string_view help)
+    -> std::string {
+  const bool color = shouldUseAnsiColorStdout();
+  const std::string title_style =
+      std::string(ANSI_BOLD) + ansiFgRgb(98, 214, 255);
+  const std::string section_style =
+      std::string(ANSI_BOLD) + ANSI_UNDERLINE + ansiFg256(82);
+  const std::string option_style = std::string(ANSI_BOLD) + ansiFg256(117);
+  const std::string subtle_style = ansiFg256(245);
+
+  std::string result;
+  size_t start = 0;
+  bool first_line = true;
+  while (start <= help.size()) {
+    const size_t end = help.find('\n', start);
+    const size_t length = end == std::string_view::npos ? help.size() - start
+                                                         : end - start;
+    std::string_view line = help.substr(start, length);
+    const size_t indent = line.find_first_not_of(" \t");
+    const bool indented = indent != std::string_view::npos && indent > 0;
+    std::string_view content = indented ? line.substr(indent) : line;
+
+    if (first_line) {
+      const size_t separator = content.find_first_of(":：");
+      if (separator != std::string_view::npos) {
+        append_styled(result, content.substr(0, separator + 1), section_style,
+                      color);
+        result.append(content.substr(separator + 1));
+      } else {
+        append_styled(result, content, title_style, color);
+      }
+    } else if (!indented && !content.empty() &&
+               (content.ends_with(':') || content.ends_with("："))) {
+      append_styled(result, content, section_style, color);
+    } else if (indented) {
+      result.append(line.substr(0, indent));
+      const size_t option_end = content.find("  ");
+      if (option_end != std::string_view::npos && option_end > 0) {
+        append_styled(result, content.substr(0, option_end), option_style,
+                      color);
+        result.append(content.substr(option_end));
+      } else {
+        result.append(content);
+      }
+    } else {
+      result.append(line);
+    }
+    if (end == std::string_view::npos) break;
+    result += '\n';
+    start = end + 1;
+    first_line = false;
+  }
+
+  if (!name.empty() && !result.empty()) {
+    // Custom help blocks are intentionally authored by the command, but the
+    // shared formatter still gives them the same final attribution as normal help.
+    result += '\n';
+    append_styled(result, "WinuxCmd", subtle_style, color);
+    result += " " + winux::i18n::translate(
+                         "common.about",
+                         "is a Windows implementation of GNU CoreUtils for "
+                         "Linux-Windows developers and AI coding assistants.");
+  }
+  return result;
+}
+
 // Compile-time command metadata (fully compile-time)
 export template <size_t OptionCount>
 class CommandMeta {

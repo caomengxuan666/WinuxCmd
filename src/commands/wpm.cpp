@@ -2284,7 +2284,8 @@ auto print_usage() -> int {
       "  -v, --verbose                 print detailed progress\n"
       "      --help                    display this help and exit\n"
       "  -V, --version                 output version information and exit\n";
-  safePrint(winux::i18n::translate("command.wpm.custom_help", help));
+  safePrint(cmd::meta::format_custom_help(
+      "wpm", winux::i18n::translate("command.wpm.custom_help", help)));
   return 0;
 }
 
@@ -2323,7 +2324,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     if (args[1] == "remove") {
       return remove_links(opts.root, opts.dry_run);
     }
-    safeErrorPrintLn("wpm: usage: wpm links list|rebuild|remove");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.links",
+        "wpm: usage: wpm links list|rebuild|remove"));
     return 1;
   }
 
@@ -2332,7 +2335,8 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
       return update_index(opts);
     if (args.size() == 1 || args[1] == "status")
       return print_index_status(opts);
-    safeErrorPrintLn("wpm: usage: wpm index status|update");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.index", "wpm: usage: wpm index status|update"));
     return 1;
   }
 
@@ -2342,7 +2346,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     if (args[1] == "add" && args.size() >= 4)
       return source_add(opts, args[2], args[3]);
     if (args[1] == "test") return update_index(opts);
-    safeErrorPrintLn("wpm: usage: wpm source list|use <name>|add <name> <url>");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.source",
+        "wpm: usage: wpm source list|use <name>|add <name> <url>"));
     return 1;
   }
 
@@ -2352,27 +2358,31 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return list_packages(opts, args.size() >= 2 ? args[1] : std::string_view{});
   if (args[0] == "info") {
     if (args.size() >= 2) return show_info(opts, args[1]);
-    safeErrorPrintLn("wpm: usage: wpm info <package>");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.info", "wpm: usage: wpm info <package>"));
     return 1;
   }
   if (args[0] == "install") {
     if (args.size() >= 2) return install_package(opts, args[1]);
-    safeErrorPrintLn("wpm: usage: wpm install <package>");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.install", "wpm: usage: wpm install <package>"));
     return 1;
   }
   if (args[0] == "update" || args[0] == "upgrade") {
     if (args.size() >= 2 && (args[1] == "winuxcmd" || args[1] == "coreutils")) {
       return update_winuxcmd(opts);
     }
-    safeErrorPrintLn("wpm: usage: wpm update winuxcmd");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.update", "wpm: usage: wpm update winuxcmd"));
     return 1;
   }
   if (args[0] == "version") {
-    safePrintLn("wpm " + std::string(kVersion));
+    safePrintLn(wpm_text("command.wpm.version", "wpm {}", kVersion));
     return 0;
   }
 
-  safeErrorPrintLn("wpm: unknown command: " + std::string(args[0]));
+  safeErrorPrintLn(wpm_text("command.wpm.error.unknown_command",
+                            "wpm: unknown command: {}", args[0]));
   return 1;
 }
 
@@ -2395,7 +2405,8 @@ REGISTER_COMMAND(
         opts, std::span<const std::string_view>(ctx.positionals.data(),
                                                 ctx.positionals.size()));
   } catch (const std::exception& e) {
-    safeErrorPrintLn(std::string("wpm: ") + e.what());
+    safeErrorPrintLn(winux::i18n::format("command.wpm.error.exception", "wpm: {}",
+                                         e.what()));
     return 1;
   }
 }
