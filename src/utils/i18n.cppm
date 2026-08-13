@@ -134,6 +134,22 @@ export std::string translate_error(std::string_view error) {
   return std::string(error);
 }
 
+export std::string translate_help_hint(std::string_view text) {
+  constexpr std::string_view prefix = "Try '";
+  constexpr std::string_view suffix = " --help for more information.";
+  if (!text.starts_with(prefix) || !text.ends_with(suffix)) {
+    return std::string(text);
+  }
+  const auto command = text.substr(
+      prefix.size(), text.size() - prefix.size() - suffix.size());
+  if (command.empty() || command.find_first_of("' \t\r\n") !=
+                             std::string_view::npos) {
+    return std::string(text);
+  }
+  return format("common.try_help", "Try '{}' --help for more information.",
+                command);
+}
+
 export bool has_catalog() { return !catalog().messages.empty(); }
 
 }  // namespace winux::i18n

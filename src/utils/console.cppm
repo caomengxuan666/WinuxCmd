@@ -17,6 +17,7 @@ export module utils:console;
 
 import std;
 import :utf8;
+import :i18n;
 
 /// @brief ANSI escape sequences for terminal text coloring.
 /// These follow the default GNU `ls --color=auto` scheme and are compatible
@@ -514,7 +515,7 @@ export void safePrintLn(std::string_view sv) {
 }
 
 export void safeErrorPrintLn(std::string_view sv) {
-  safeErrorPrint(sv);
+  safeErrorPrint(winux::i18n::translate_help_hint(sv));
   safeErrorPrint("\n");
 }
 
