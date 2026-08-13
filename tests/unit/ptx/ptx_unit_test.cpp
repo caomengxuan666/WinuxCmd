@@ -40,6 +40,18 @@ TEST(ptx, ptx_basic_input) {
   EXPECT_EQ(r.exit_code, 0);
 }
 
+TEST(ptx, ptx_default_width_matches_gnu_alignment) {
+  Pipeline p;
+  p.set_stdin("alpha beta\n");
+  p.add(L"ptx.exe", {});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, std::string(39, ' ') + "alpha beta\n" +
+                                    std::string(31, ' ') + "alpha   beta\n");
+}
+
 TEST(ptx, ptx_file_input) {
   TempDir tmp;
   tmp.write("a.txt", "hello world\nfoo bar\n");

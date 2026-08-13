@@ -87,9 +87,13 @@ std::optional<std::vector<unsigned char>> reverse_xxd(
     if (colon != std::string_view::npos) line.remove_prefix(colon + 1);
     size_t pos = 0;
     while (pos < line.size()) {
-      while (pos < line.size() && std::isspace(static_cast<unsigned char>(line[pos]))) ++pos;
+      while (pos < line.size() &&
+             std::isspace(static_cast<unsigned char>(line[pos])))
+        ++pos;
       size_t token_start = pos;
-      while (pos < line.size() && !std::isspace(static_cast<unsigned char>(line[pos]))) ++pos;
+      while (pos < line.size() &&
+             !std::isspace(static_cast<unsigned char>(line[pos])))
+        ++pos;
       auto token = line.substr(token_start, pos - token_start);
       if (token.empty()) continue;
       if (token.size() % 2 != 0) break;
@@ -97,7 +101,10 @@ std::optional<std::vector<unsigned char>> reverse_xxd(
       bool valid = true;
       for (size_t i = 0; i < token.size(); i += 2) {
         auto byte = parse_hex_byte(token[i], token[i + 1]);
-        if (!byte) { valid = false; break; }
+        if (!byte) {
+          valid = false;
+          break;
+        }
         token_bytes.push_back(*byte);
       }
       if (!valid) break;
@@ -149,22 +156,47 @@ REGISTER_COMMAND(xxd,
       ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
 
   if (reverse) {
-    std::string filename = ctx.positionals.empty() ? "-" : std::string(ctx.positionals[0]);
+    std::string filename =
+        ctx.positionals.empty() ? "-" : std::string(ctx.positionals[0]);
     std::vector<unsigned char> input;
-    if (filename == "-") input = read_stdin_bytes();
+    if (filename == "-")
+      input = read_stdin_bytes();
     else {
       auto file_data = read_file_bytes(filename);
-      if (!file_data) { safeErrorPrintLn("xxd: cannot open " + filename); return 1; }
+      if (!file_data) {
+        safeErrorPrintLn("xxd: cannot open " + filename);
+        return 1;
+      }
       input = std::move(*file_data);
     }
     auto decoded = reverse_xxd(input);
-    if (!decoded) { safeErrorPrintLn("xxd: invalid hex dump"); return 1; }
+    if (!decoded) {
+      safeErrorPrintLn("xxd: invalid hex dump");
+      return 1;
+    }
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE output_file = INVALID_HANDLE_VALUE;
+    if (ctx.positionals.size() > 1) {
+      const auto output_name = utf8_to_wstring(std::string(ctx.positionals[1]));
+      output_file = CreateFileW(output_name.c_str(), GENERIC_WRITE, 0, nullptr,
+                                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+      if (output_file == INVALID_HANDLE_VALUE) {
+        safeErrorPrintLn("xxd: cannot create " +
+                         std::string(ctx.positionals[1]));
+        return 1;
+      }
+      out = output_file;
+    }
     if (!decoded->empty()) {
       DWORD written = 0;
       if (!WriteFile(out, decoded->data(), static_cast<DWORD>(decoded->size()),
-                     &written, nullptr) || written != decoded->size()) return 1;
+                     &written, nullptr) ||
+          written != decoded->size()) {
+        if (output_file != INVALID_HANDLE_VALUE) CloseHandle(output_file);
+        return 1;
+      }
     }
+    if (output_file != INVALID_HANDLE_VALUE) CloseHandle(output_file);
     return 0;
   }
 

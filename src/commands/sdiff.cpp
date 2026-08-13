@@ -277,6 +277,7 @@ REGISTER_COMMAND(
 
   // Compare lines side by side
   std::vector<std::string> output;
+  std::vector<std::string> merged;
   bool any_difference = false;
 
   size_t idx1 = 0;
@@ -286,11 +287,13 @@ REGISTER_COMMAND(
     if (idx1 >= lines1.size()) {
       // Only file2 has remaining lines.
       any_difference = true;
+      merged.push_back(lines2[idx2]);
       output.push_back(
           format_difference_line("", lines2[idx2++], output_width, '>'));
     } else if (idx2 >= lines2.size()) {
       // Only file1 has remaining lines.
       any_difference = true;
+      merged.push_back(lines1[idx1]);
       output.push_back(
           format_difference_line(lines1[idx1++], "", output_width, '<'));
     } else {
@@ -311,6 +314,7 @@ REGISTER_COMMAND(
       if (lines_equal(line1, line2, ignore_whitespace, ignore_all_whitespace,
                       ignore_tab_expansion)) {
         // Lines are equal
+        merged.push_back(line1);
         if (suppress_common) {
           idx1++;
           idx2++;
@@ -327,6 +331,9 @@ REGISTER_COMMAND(
       } else {
         // Lines are different.
         any_difference = true;
+        // With -o, GNU sdiff's non-interactive EOF choice keeps the left
+        // input line in the merged output.
+        merged.push_back(line1);
         output.push_back(
             format_difference_line(line1, line2, output_width, '|'));
         idx1++;
@@ -348,17 +355,21 @@ REGISTER_COMMAND(
     }
 
     std::string content;
-    for (const auto& line : output) {
-      content += line + "\r\n";
+    for (const auto& line : merged) {
+      content += line + "\n";
     }
 
     DWORD bytesWritten;
     WriteFile(hFile, content.data(), static_cast<DWORD>(content.size()),
               &bytesWritten, nullptr);
     CloseHandle(hFile);
+    for (const auto& line : output) safePrintLn(line);
+    if (any_difference) safePrint("%");
   } else {
     for (const auto& line : output) safePrintLn(line);
   }
 
+  // GNU reports differences through the exit status even when -o writes the
+  // selected merge result successfully.
   return any_difference ? 1 : 0;
 }

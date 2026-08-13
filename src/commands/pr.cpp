@@ -406,8 +406,8 @@ auto format_date_header(const std::string& date_format) -> std::string {
     SYSTEMTIME st;
     GetLocalTime(&st);
     char buf[64];
-    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear,
-             st.wMonth, st.wDay, st.wHour, st.wMinute);
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear, st.wMonth,
+             st.wDay, st.wHour, st.wMinute);
     return buf;
   }
   // Custom format not fully implemented, return default

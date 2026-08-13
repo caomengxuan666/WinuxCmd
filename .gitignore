@@ -31,6 +31,8 @@ scripts/manager.py
 
 /Testing
 
+tests/differential
+
 /CMakeSettings.json
 
 # Git protection system (local only, never commit)

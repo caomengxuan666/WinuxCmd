@@ -102,14 +102,15 @@
     inline int invoke(std::span<std::string_view> args) noexcept {             \
       constexpr size_t N = option_count;                                       \
       bool ok = true;                                                          \
-      auto ctx = make_context<N>(args, meta.options(), ok,                  \
-                                 option_policy_for_command(cmd_name));      \
+      auto ctx = make_context<N>(args, meta.options(), ok,                     \
+                                 option_policy_for_command(cmd_name));         \
       if (!ok) {                                                               \
         if (!ctx.parse_error.empty()) {                                        \
           safeErrorPrintLn(std::string(command_name) + ": " +                  \
-                           ctx.parse_error);                                   \
-          safeErrorPrintLn("Try '" + std::string(command_name) +               \
-                           " --help' for more information.");                  \
+                           winux::i18n::translate_error(ctx.parse_error));     \
+          safeErrorPrintLn(winux::i18n::format(                                \
+              "common.try_help", "Try '{}' --help for more information.",      \
+              command_name));                                                  \
         }                                                                      \
         return CommandRegistry::parseErrorExitCode(command_name);              \
       }                                                                        \

@@ -218,7 +218,8 @@ auto io_block_size_for(const std::filesystem::path& p) -> uint32_t {
   auto operand = native_path::make_api_path_operand_w(wdir);
   wchar_t root[32768];
   if (!GetVolumePathNameW(operand.extended.c_str(), root,
-                          static_cast<DWORD>(std::size(root)))) return 4096;
+                          static_cast<DWORD>(std::size(root))))
+    return 4096;
 
   DWORD sectors_per_cluster = 0;
   DWORD bytes_per_sector = 0;

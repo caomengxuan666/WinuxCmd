@@ -24,16 +24,19 @@ namespace {
 void print_usage_stdout() {
   constexpr std::string_view help =
       "Usage: tzset [OPTION]\n\n"
-      "Print POSIX-compatible timezone ID from current Windows timezone setting\n\n"
+      "Print POSIX-compatible timezone ID from current Windows timezone "
+      "setting\n\n"
       "Options:\n"
       "      --help               output usage information and exit.\n"
       "  -V, --version            output version information and exit.\n\n"
-      "Use tzset to set your TZ variable. In POSIX-compatible shells like bash,\n"
+      "Use tzset to set your TZ variable. In POSIX-compatible shells like "
+      "bash,\n"
       "dash, mksh, or zsh:\n\n"
       "      export TZ=$(tzset)\n\n"
       "In csh-compatible shells like tcsh:\n\n"
       "      setenv TZ `tzset`\n";
-  safePrint(winux::i18n::translate("command.tzset.custom_help", help));
+  safePrint(cmd::meta::format_custom_help(
+      "tzset", winux::i18n::translate("command.tzset.custom_help", help)));
 }
 
 void print_usage_stderr() {

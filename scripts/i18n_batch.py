@@ -8,6 +8,7 @@ import ast
 import json
 import os
 import re
+import hashlib
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,6 +18,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_SUFFIXES = {".cpp", ".cppm", ".h", ".hpp"}
 # The configured OpenAI-compatible gateway exposes this model under the LUNA
 # name.  An environment override is useful for testing another gateway model.
 DEFAULT_MODEL = os.environ.get("OPENAI_I18N_MODEL", "gpt-5.6-luna")
@@ -24,6 +26,34 @@ DEFAULT_MODEL = os.environ.get("OPENAI_I18N_MODEL", "gpt-5.6-luna")
 # Hand-maintained help blocks that bypass REGISTER_COMMAND's generic formatter.
 # Keep these stable IDs and review their translations manually.
 MANUAL_MESSAGES = {
+    "common.usage": "Usage:",
+    "common.options": "OPTIONS:",
+    "common.exit_status": "EXIT STATUS:",
+    "common.exit.ok": "if OK,",
+    "common.exit.minor": "if minor problems,",
+    "common.exit.serious": "if serious trouble.",
+    "common.about": "is a Windows implementation of GNU CoreUtils for Linux-Windows developers and AI coding assistants.",
+    "main.subtitle": "Windows Compatible Linux Command Set",
+    "main.available_commands": "Available Commands:",
+    "main.help_tip": "Tip: Use 'winuxcmd <command> --help' for command-specific help.",
+    "main.error.no_help_topic": "winuxcmd: no help topic for '{}'",
+    "main.error.help_too_many_topics": "winuxcmd: help accepts at most one command name",
+    "core.error.command_not_found": "winuxcmd: command not found: {}",
+    "core.error.invalid_option_context": "{}: option used in invalid context -- {}",
+    "utils.file.error.not_directory": "cannot open '{}' for reading: Not a directory",
+    "utils.file.error.is_directory": "cannot open '{}' for reading: Is a directory",
+    "utils.file.error.open": "cannot open '{}' for reading: {}",
+    "utils.file.error.read": "error reading '{}'",
+    "utils.file.error.read_stdin": "error reading from standard input",
+    "utils.pager.end": "(END) ",
+    "utils.pager.lines": "lines ",
+    "utils.pager.controls": "  SPACE/f:next  j/k:line  b:back  /:search  n/N  g/G  q",
+    "common.error.missing_operand": "missing operand",
+    "common.error.missing_after": "missing operand after '{}'",
+    "common.error.extra_operand": "extra operand '{}'",
+    "common.error.invalid_argument": "invalid argument '{}'",
+    "common.error.reading": "error reading '{}'",
+    "common.try_help": "Try '{}' --help for more information.",
     "command.top.custom_help": (
         "Usage: top [options]\n"
         "  -b, --batch        Batch mode\n"
@@ -92,6 +122,82 @@ MANUAL_MESSAGES = {
         "      --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n"
     ),
+    "command.wpm.error.invalid_json": "wpm: invalid JSON: {}",
+    "command.wpm.status.keep_running": "wpm: keeping running executable: {}",
+    "command.wpm.error.refuse_directory": "wpm: refusing to replace directory: {}",
+    "command.wpm.error.remove": "wpm: failed to remove '{}': {}",
+    "command.wpm.status.remove_legacy": "remove legacy link {}",
+    "command.wpm.status.removed_legacy": "removed legacy link {}",
+    "command.wpm.error.remove_legacy": "wpm: failed to remove legacy link '{}': {}",
+    "command.wpm.error.executable_missing": "wpm: winuxcmd.exe not found in root: {}",
+    "command.wpm.status.link": "link {} -> {}",
+    "command.wpm.status.linked": "linked {}",
+    "command.wpm.error.create_link": "wpm: failed to create hard link '{}': {}",
+    "command.wpm.status.links_summary": "wpm: links created={} unchanged={} stale_removed={} failed={}",
+    "command.wpm.status.remove": "remove {}",
+    "command.wpm.status.links_removed": "wpm: links removed={} failed={}",
+    "command.wpm.error.usage.links": "wpm: usage: wpm links list|rebuild|remove",
+    "command.wpm.error.usage.index": "wpm: usage: wpm index status|update",
+    "command.wpm.error.usage.source": "wpm: usage: wpm source list|use <name>|add <name> <url>",
+    "command.wpm.error.usage.info": "wpm: usage: wpm info <package>",
+    "command.wpm.error.usage.install": "wpm: usage: wpm install <package>",
+    "command.wpm.error.usage.update": "wpm: usage: wpm update winuxcmd",
+    "command.wpm.version": "wpm {}",
+    "command.wpm.error.unknown_command": "wpm: unknown command: {}",
+    "command.wpm.error.exception": "wpm: {}",
+    "common.error.invalid_input": "invalid input",
+    "common.error.read_file": "error reading from file",
+    "common.error.read_input": "error reading input",
+    "common.error.read_stdin": "error reading from standard input",
+    "common.error.missing_file": "missing file operand",
+    "common.error.invalid_block_size": "invalid block size",
+    "common.error.invalid_length": "invalid length",
+    "common.error.invalid_range": "invalid range",
+    "common.error.invalid_input_range": "invalid input range",
+    "common.error.invalid_wrap": "invalid wrap size",
+    "common.error.invalid_line_count": "invalid line count",
+    "common.error.invalid_regex": "invalid regular expression",
+    "common.error.target_directory": "target is not a directory",
+    "common.error.create_directory": "cannot create directory",
+    "common.error.open_read": "cannot open for reading",
+    "common.error.open_write": "cannot open for writing",
+    "common.error.read_metadata": "cannot read source metadata",
+    "common.error.write_metadata": "cannot write destination metadata",
+    "common.error.preserve_timestamps": "cannot preserve timestamps",
+    "common.error.preserve_attributes": "cannot preserve attributes",
+    "common.error.create_backup": "cannot create backup for destination",
+    "common.error.same_file": "source and destination are the same file",
+    "common.error.hash_data": "failed to hash data",
+    "common.error.crypto_context": "failed to acquire cryptographic context",
+    "common.error.hash_object": "failed to create hash object",
+    "common.error.hash_value": "failed to get hash value",
+    "common.error.no_such_file": "No such file or directory",
+    "common.error.cannot_open": "cannot open '{}'",
+    "common.error.cannot_access": "cannot access '{}'",
+    "common.error.cannot_stat": "cannot stat '{}'",
+    "common.error.cannot_create": "cannot create '{}'",
+    "common.error.write": "error writing '{}'",
+    "common.error.invalid_mode": "invalid mode: '{}'",
+    "common.error.invalid_group": "invalid group: '{}'",
+    "common.error.invalid_user": "invalid user: '{}'",
+    "common.error.invalid_spec": "invalid spec: '{}'",
+    "common.error.invalid_encoding": "invalid encoding '{}'",
+    "common.error.invalid_type": "invalid type '{}'",
+    "common.error.invalid_device_type": "invalid device type '{}'",
+    "common.error.invalid_suffix": "invalid suffix '{}'",
+    "common.error.invalid_time_interval": "invalid time interval '{}'",
+    "common.error.invalid_char_class": "invalid character class '{}'",
+    "common.error.unknown_registry_root": "unknown registry root '{}'",
+    "common.error.cannot_copy": "cannot copy '{}'",
+    "common.error.cannot_delete_file": "cannot delete source file '{}'",
+    "common.error.cannot_copy_directory": "cannot copy directory '{}'",
+    "common.error.cannot_delete_directory": "cannot delete source directory '{}'",
+    "common.error.create_hardlink": "failed to create hard link '{}'",
+    "common.error.failed_access": "failed to access '{}'",
+    "common.error.create_symlink": "failed to create symbolic link '{}'",
+    "common.error.failed_remove": "failed to remove '{}'",
+    "common.error.open_script": "cannot open script file '{}'",
+    "command.dd.error.open_input": "dd: failed to open '{}': {}",
 }
 
 
@@ -195,6 +301,8 @@ def extract(source_root: Path) -> dict:
             if not re.fullmatch(r"[A-Za-z0-9_]+", command):
                 continue
             description = string_value(args[3])
+            synopsis = string_value(args[2])
+            messages[f"command.{command}.synopsis"] = synopsis
             messages[f"command.{command}.description"] = description
             array_name = strip_comments(args[-1]).strip().split()[-1]
             for option, text, _ in option_arrays.get(array_name, []):
@@ -202,6 +310,33 @@ def extract(source_root: Path) -> dict:
 
     messages["common.option.help"] = "display this help and exit"
     messages["common.option.version"] = "output version information and exit"
+    # Fixed line-oriented output is localized by utils:console at runtime.
+    # Dynamic fragments and structured data remain ordinary output.
+    for path in sorted((ROOT / "src").rglob("*")):
+        if path.suffix not in SOURCE_SUFFIXES:
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        for match in re.finditer(
+                r"safe(?:Error)?Print(?:Ln)?\(\s*(?:L)?\"((?:\\.|[^\"\\])*)\"\s*\)", source):
+            value = string_value('"' + match.group(1) + '"')
+            if (value.strip() and not re.fullmatch(
+                    r"(?:\\[nrt0abfv]|[\\s\\t\\r\\n.,:;+/=<>|{}()\\[\\]-]+)", value)
+                    and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value)):
+                digest = 14695981039346656037
+                for byte in value.encode("utf-8"):
+                    digest ^= byte
+                    digest = (digest * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+                digest = f"{digest:016x}"
+                messages[f"legacy.{digest}"] = value
+        for match in re.finditer(
+                r"std::unexpected\(\s*(?:L)?\"((?:\\.|[^\"\\])*)\"\s*\)", source):
+            value = string_value('"' + match.group(1) + '"')
+            if value.strip() and any(ch.isalpha() for ch in value):
+                digest = 14695981039346656037
+                for byte in value.encode("utf-8"):
+                    digest ^= byte
+                    digest = (digest * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+                messages[f"legacy.{digest:016x}"] = value
     messages.update(MANUAL_MESSAGES)
     return {"schema": 1, "locale": "en-US", "messages": dict(sorted(messages.items()))}
 
@@ -281,6 +416,10 @@ def cmd_translate(args: argparse.Namespace) -> None:
     output_path = Path(args.output)
     checkpoint = output_path.with_suffix(output_path.suffix + ".partial")
     translated = {}
+    if args.seed:
+        seed = json_load(Path(args.seed))
+        translated.update({key: value for key, value in seed["messages"].items()
+                           if key in base["messages"]})
     if checkpoint.exists():
         partial = json_load(checkpoint)
         translated = partial["messages"]
@@ -313,6 +452,7 @@ def main() -> int:
     translate = sub.add_parser("translate")
     translate.add_argument("--input", required=True)
     translate.add_argument("--output", required=True)
+    translate.add_argument("--seed")
     translate.add_argument("--locale", required=True)
     translate.add_argument("--model", default=DEFAULT_MODEL)
     translate.add_argument("--batch-size", type=int, default=40)

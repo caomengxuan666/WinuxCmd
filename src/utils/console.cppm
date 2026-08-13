@@ -17,6 +17,7 @@ export module utils:console;
 
 import std;
 import :utf8;
+import :i18n;
 
 /// @brief ANSI escape sequences for terminal text coloring.
 /// These follow the default GNU `ls --color=auto` scheme and are compatible
@@ -473,6 +474,8 @@ export void safeErrorPrintLn(std::wstring_view wsv) {
 // UTF-8 string overloads (stack conversion)
 // ----------------------------------------------------------------------------
 export void safePrint(std::string_view sv) {
+  const auto translated = winux::i18n::translate_legacy(sv);
+  sv = translated;
   HANDLE h = getStdOut();
   if (isStdoutConsole()) {
     detail::wchar_buffer buf(sv);
@@ -491,6 +494,8 @@ export void safePrint(std::string_view sv) {
 }
 
 export void safeErrorPrint(std::string_view sv) {
+  const auto translated = winux::i18n::translate_legacy(sv);
+  sv = translated;
   HANDLE h = getStdErr();
   if (isStderrConsole()) {
     detail::wchar_buffer buf(sv);
@@ -509,12 +514,12 @@ export void safeErrorPrint(std::string_view sv) {
 }
 
 export void safePrintLn(std::string_view sv) {
-  safePrint(sv);
+  safePrint(winux::i18n::translate_legacy(sv));
   safePrint("\n");
 }
 
 export void safeErrorPrintLn(std::string_view sv) {
-  safeErrorPrint(sv);
+  safeErrorPrint(winux::i18n::translate_help_hint(sv));
   safeErrorPrint("\n");
 }
 

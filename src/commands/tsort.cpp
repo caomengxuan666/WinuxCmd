@@ -78,8 +78,10 @@ REGISTER_COMMAND(tsort,
     if (degree == 0) ready.insert(node);
   size_t emitted = 0;
   while (!ready.empty()) {
-    auto node = *ready.begin(); ready.erase(ready.begin());
-    safePrintLn(node); ++emitted;
+    auto node = *ready.begin();
+    ready.erase(ready.begin());
+    safePrintLn(node);
+    ++emitted;
     for (const auto& dependency : graph[node])
       if (--remaining[dependency] == 0) ready.insert(dependency);
   }

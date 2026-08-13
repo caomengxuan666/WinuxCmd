@@ -66,8 +66,7 @@ TEST(sort, sort_preserves_crlf_input_records) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(r.stdout_text,
-            std::string("apple\r\nbanana\r\npear\r\n", 21));
+  EXPECT_EQ(r.stdout_text, std::string("apple\r\nbanana\r\npear\r\n", 21));
 }
 
 TEST(sort, sort_numeric_reverse_unique) {

@@ -667,20 +667,15 @@ class Pattern {
 
     using MatchDataPtr =
         std::unique_ptr<pcre2_match_data, decltype(&pcre2_match_data_free)>;
-    MatchDataPtr data(pcre2_match_data_create_from_pattern(pcre2_code_.get(),
-                                                           nullptr),
-                      &pcre2_match_data_free);
+    MatchDataPtr data(
+        pcre2_match_data_create_from_pattern(pcre2_code_.get(), nullptr),
+        &pcre2_match_data_free);
     if (!data) return std::nullopt;
 
     uint32_t options = anchored ? PCRE2_ANCHORED : 0;
-    int rc = pcre2_match(
-        pcre2_code_.get(),
-        reinterpret_cast<PCRE2_SPTR>(text.data()),
-        text.size(),
-        start,
-        options,
-        data.get(),
-        nullptr);
+    int rc = pcre2_match(pcre2_code_.get(),
+                         reinterpret_cast<PCRE2_SPTR>(text.data()), text.size(),
+                         start, options, data.get(), nullptr);
     if (rc <= 0) return std::nullopt;
 
     PCRE2_SIZE* ovector = pcre2_get_ovector_pointer(data.get());
@@ -694,9 +689,8 @@ class Pattern {
       if (begin == PCRE2_UNSET || end == PCRE2_UNSET) {
         match.captures[static_cast<size_t>(i)] = Submatch{};
       } else {
-        match.captures[static_cast<size_t>(i)] =
-            Submatch{static_cast<size_t>(begin), static_cast<size_t>(end),
-                     true};
+        match.captures[static_cast<size_t>(i)] = Submatch{
+            static_cast<size_t>(begin), static_cast<size_t>(end), true};
       }
     }
     return match;
@@ -946,18 +940,13 @@ auto compile(Syntax syntax, std::string_view pattern, bool ignore_case = false)
 #endif
 
     pcre2_code* raw_code = pcre2_compile(
-        reinterpret_cast<PCRE2_SPTR>(pattern.data()),
-        pattern.size(),
-        flags,
-        &error_code,
-        &error_offset,
-        context.get());
+        reinterpret_cast<PCRE2_SPTR>(pattern.data()), pattern.size(), flags,
+        &error_code, &error_offset, context.get());
     if (!raw_code) {
       PCRE2_UCHAR message[256]{};
       pcre2_get_error_message(error_code, message, sizeof(message));
-      return CompileResult{
-          Pattern{},
-          std::string(reinterpret_cast<const char*>(message))};
+      return CompileResult{Pattern{},
+                           std::string(reinterpret_cast<const char*>(message))};
     }
 
     Pattern compiled;
@@ -970,7 +959,8 @@ auto compile(Syntax syntax, std::string_view pattern, bool ignore_case = false)
   }
 #else
   if (syntax == Syntax::Perl) {
-    return CompileResult{Pattern{}, "Perl matching not supported in this build"};
+    return CompileResult{Pattern{},
+                         "Perl matching not supported in this build"};
   }
 #endif
 

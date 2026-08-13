@@ -115,7 +115,8 @@ REGISTER_COMMAND(d2u,
   if (ctx.positionals.empty()) {
     std::string content((std::istreambuf_iterator<char>(std::cin)), {});
     for (size_t i = 0; i < content.size(); ++i) {
-      if (content[i] == '\r' && i + 1 < content.size() && content[i + 1] == '\n')
+      if (content[i] == '\r' && i + 1 < content.size() &&
+          content[i + 1] == '\n')
         continue;
       safePrint(content.substr(i, 1));
     }

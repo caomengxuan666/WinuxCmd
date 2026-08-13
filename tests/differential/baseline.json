@@ -1,5 +1,191 @@
 {
-  "oracle": "",
-  "generated_at": "",
-  "cases": {}
+  "format": 1,
+  "oracle": "cat (GNU coreutils) 8.32",
+  "generated_at": "2026-08-13T09:18:05.636811+00:00",
+  "cases": {
+    "corpus/cat/basic.case": {
+      "command": "cat",
+      "bucket": "PASS"
+    },
+    "corpus/head/positive-offset.case": {
+      "command": "head",
+      "bucket": "PASS"
+    },
+    "corpus/split/no-overlap.case": {
+      "command": "split",
+      "bucket": "PASS"
+    },
+    "regressions/01-shred-size-zero.case": {
+      "command": "shred",
+      "bucket": "PASS"
+    },
+    "regressions/02-split-no-overlap.case": {
+      "command": "split",
+      "bucket": "PASS"
+    },
+    "regressions/03-binary-safe-text-tools.case": {
+      "command": "cat",
+      "bucket": "PASS"
+    },
+    "regressions/04-dd-read-error.case": {
+      "command": "dd",
+      "bucket": "PASS"
+    },
+    "regressions/05-tee-downstream-close.case": {
+      "command": "tee",
+      "bucket": "PASS"
+    },
+    "regressions/06-xargs-command-limit.case": {
+      "command": "xargs",
+      "bucket": "PASS"
+    },
+    "regressions/07-streaming-tools.case": {
+      "command": "cat",
+      "bucket": "PASS"
+    },
+    "regressions/08-cp-empty-file.case": {
+      "command": "cp",
+      "bucket": "PASS"
+    },
+    "regressions/09-cp-recursive-error.case": {
+      "command": "cp",
+      "bucket": "PASS"
+    },
+    "regressions/10-diff-unified-header.case": {
+      "command": "diff",
+      "bucket": "PASS"
+    },
+    "regressions/11-diff-crlf.case": {
+      "command": "diff",
+      "bucket": "PASS"
+    },
+    "regressions/12-seq-limit.case": {
+      "command": "seq",
+      "bucket": "PASS"
+    },
+    "regressions/13-tsort-graph.case": {
+      "command": "tsort",
+      "bucket": "PASS"
+    },
+    "regressions/14-stat-mode-time.case": {
+      "command": "stat",
+      "bucket": "PASS"
+    },
+    "regressions/15-tac-crlf.case": {
+      "command": "tac",
+      "bucket": "PASS"
+    },
+    "regressions/16-crlf-consistency.case": {
+      "command": "sort",
+      "bucket": "PASS"
+    },
+    "regressions/17-uniq-crlf.case": {
+      "command": "uniq",
+      "bucket": "PASS"
+    },
+    "regressions/18-cut-no-delimiter.case": {
+      "command": "cut",
+      "bucket": "PASS"
+    },
+    "regressions/19-fmt-width.case": {
+      "command": "fmt",
+      "bucket": "PASS"
+    },
+    "regressions/20-test-file-time.case": {
+      "command": "test",
+      "bucket": "PASS"
+    },
+    "regressions/21-id-group.case": {
+      "command": "id",
+      "bucket": "PASS"
+    },
+    "regressions/22-dirname-basename-root.case": {
+      "command": "dirname",
+      "bucket": "PASS"
+    },
+    "regressions/23-cp-link-option.case": {
+      "command": "cp",
+      "bucket": "PASS"
+    },
+    "regressions/23-date-relative.case": {
+      "command": "date",
+      "bucket": "PASS"
+    },
+    "regressions/24-chmod-short-mode.case": {
+      "command": "chmod",
+      "bucket": "PASS"
+    },
+    "regressions/25-sed-preserve-attributes.case": {
+      "command": "sed",
+      "bucket": "PASS"
+    },
+    "regressions/26-long-path.case": {
+      "command": "stat",
+      "bucket": "PASS"
+    },
+    "regressions/27-xxd-reverse.case": {
+      "command": "xxd",
+      "bucket": "PASS"
+    },
+    "regressions/28-mv-readonly.case": {
+      "command": "mv",
+      "bucket": "PASS"
+    },
+    "regressions/29-join-j-alias.case": {
+      "command": "join",
+      "bucket": "PASS"
+    },
+    "regressions/30-sdiff-output-file.case": {
+      "command": "sdiff",
+      "bucket": "PASS"
+    },
+    "regressions/31-leading-dash-operands.case": {
+      "command": "printf",
+      "bucket": "PASS"
+    },
+    "regressions/32-printf-dynamic-width.case": {
+      "command": "printf",
+      "bucket": "PASS"
+    },
+    "regressions/33-printf-shell-quote.case": {
+      "command": "printf",
+      "bucket": "PASS"
+    },
+    "regressions/34-test-logical-operators.case": {
+      "command": "test",
+      "bucket": "PASS"
+    },
+    "regressions/35-ls-explicit-sort.case": {
+      "command": "ls",
+      "bucket": "PASS"
+    },
+    "regressions/36-head-positive-count.case": {
+      "command": "head",
+      "bucket": "PASS"
+    },
+    "regressions/37-numfmt-options.case": {
+      "command": "numfmt",
+      "bucket": "PASS"
+    },
+    "regressions/38-pr-page-length.case": {
+      "command": "pr",
+      "bucket": "PASS"
+    },
+    "regressions/39-unix2dos-no-final-newline.case": {
+      "command": "unix2dos",
+      "bucket": "PASS"
+    },
+    "regressions/40-ptx-format.case": {
+      "command": "ptx",
+      "bucket": "PASS"
+    },
+    "regressions/41-stdbuf-line-mode.case": {
+      "command": "stdbuf",
+      "bucket": "PASS"
+    },
+    "regressions/42-locale-keyword.case": {
+      "command": "locale",
+      "bucket": "PASS"
+    }
+  }
 }

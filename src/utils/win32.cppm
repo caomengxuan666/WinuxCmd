@@ -13,8 +13,11 @@
  */
 module;
 
+// clang-format off: pch.h must include winsock2.h before Windows headers.
 #include "pch/pch.h"
+
 #include <aclapi.h>
+// clang-format on
 
 export module utils:win32;
 

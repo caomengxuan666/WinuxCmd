@@ -683,9 +683,10 @@ REGISTER_COMMAND(
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {
     safeErrorPrint("chown: ");
-    safeErrorPrint(cfg_result.error());
+    safeErrorPrint(winux::i18n::translate_error(cfg_result.error()));
     safeErrorPrint("\n");
-    safeErrorPrint("Try 'chown --help' for more information.\n");
+    safeErrorPrintLn(winux::i18n::format(
+        "common.try_help", "Try '{}' --help for more information.", "chown"));
     return 1;
   }
 

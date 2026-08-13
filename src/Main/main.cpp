@@ -39,11 +39,8 @@ static void applyInheritedStdbuf(const char* name, FILE* stream) {
     return;
   }
   if (std::strcmp(mode, "L") == 0) {
-    // MSVC's CRT cannot safely apply line buffering to an inherited stdin
-    // pipe. GNU's stdin line mode is not observable for a child that only
-    // reads input, so accept it without mutating the input stream.
-    if (stream == stdin) return;
-    setvbuf(stream, nullptr, _IOLBF, 0);
+    // MSVC's CRT does not support POSIX line buffering reliably. Accept the
+    // inherited GNU-compatible marker without mutating the stream.
     return;
   }
   char* end = nullptr;
@@ -73,6 +70,9 @@ static void printCommandSummary(std::string_view name, std::string_view desc,
       "  " + (color ? colorizeStdout(command, command_style) : command) + " ";
   const std::string continuation_prefix(2 + command_width + 1, ' ');
 
+  const auto translated_desc = winux::i18n::translate(
+      "command." + std::string(name) + ".synopsis", desc);
+  desc = translated_desc;
   bool first_line = true;
   while (true) {
     size_t newline_pos = desc.find('\n');
@@ -103,28 +103,30 @@ static int printHelp() noexcept {
   const std::string command_style = std::string(ANSI_BOLD) + ansiFg256(117);
   const std::string subtle_style = ansiFg256(245);
 
-  safePrintLn(color ? colorizeStdout("WinuxCmd", title_style) +
-                          " - Windows Compatible Linux Command Set"
-                    : "WinuxCmd - Windows Compatible Linux Command Set");
-  safePrintLn(color ? colorizeStdout("Usage:", section_style) +
+  const auto subtitle = winux::i18n::translate(
+      "main.subtitle", "Windows Compatible Linux Command Set");
+  const auto usage = winux::i18n::translate("common.usage", "Usage:");
+  safePrintLn(color ? colorizeStdout("WinuxCmd", title_style) + " - " + subtitle
+                    : "WinuxCmd - " + subtitle);
+  safePrintLn(color ? colorizeStdout(usage, section_style) +
                           " winuxcmd <command> [options]..."
-                    : "Usage: winuxcmd <command> [options]...");
+                    : usage + " winuxcmd <command> [options]...");
   safePrintLn("");
-  safePrintLn(color ? colorizeStdout("Available Commands:", section_style)
-                    : "Available Commands:");
+  const auto available =
+      winux::i18n::translate("main.available_commands", "Available Commands:");
+  safePrintLn(color ? colorizeStdout(available, section_style) : available);
 
   // Get all registered commands and display them with brief descriptions
   auto commands = CommandRegistry::getAllCommands();
-  for (const auto &[cmd_name, cmd_desc] : commands) {
+  for (const auto& [cmd_name, cmd_desc] : commands) {
     printCommandSummary(cmd_name, cmd_desc, command_style, color);
   }
 
   safePrintLn("");
-  safePrintLn(color ? colorizeStdout("Tip:", subtle_style) +
-                          " Use 'winuxcmd <command> --help' for "
-                          "command-specific help."
-                    : "Tip: Use 'winuxcmd <command> --help' for "
-                      "command-specific help.");
+  const auto tip = winux::i18n::translate(
+      "main.help_tip",
+      "Tip: Use 'winuxcmd <command> --help' for command-specific help.");
+  safePrintLn(color ? colorizeStdout("Tip:", subtle_style) + " " + tip : tip);
   return 1;
 }
 
@@ -134,7 +136,7 @@ static int printHelp() noexcept {
  * @param argv Array of command-line arguments
  * @return Exit code from the executed command (0 = success, non-zero = error)
  */
-int main(int argc, char *argv[]) noexcept {
+int main(int argc, char* argv[]) noexcept {
   if (argc < 1) {
     return printHelp();
   }
@@ -183,10 +185,14 @@ int main(int argc, char *argv[]) noexcept {
           CommandRegistry::printHelp(lowered);
           return 0;
         }
-        safeErrorPrintLn("winuxcmd: no help topic for '" + topic + "'");
+        safeErrorPrintLn(winux::i18n::format("main.error.no_help_topic",
+                                             "winuxcmd: no help topic for '{}'",
+                                             topic));
         return 1;
       }
-      safeErrorPrintLn("winuxcmd: help accepts at most one command name");
+      safeErrorPrintLn(winux::i18n::translate(
+          "main.error.help_too_many_topics",
+          "winuxcmd: help accepts at most one command name"));
       return 1;
     }
 
@@ -200,7 +206,7 @@ int main(int argc, char *argv[]) noexcept {
 
     // Check for --version in command arguments
     bool has_version = false;
-    for (const auto &arg : cmd_args) {
+    for (const auto& arg : cmd_args) {
       if (arg == "--version") {
         has_version = true;
         break;
@@ -213,7 +219,9 @@ int main(int argc, char *argv[]) noexcept {
     }
 
     if (!CommandRegistry::hasCommand(cmd_name)) {
-      safeErrorPrintLn("winuxcmd: command not found: " + std::string(cmd_name));
+      safeErrorPrintLn(winux::i18n::format("core.error.command_not_found",
+                                           "winuxcmd: command not found: {}",
+                                           cmd_name));
       return 127;
     }
 

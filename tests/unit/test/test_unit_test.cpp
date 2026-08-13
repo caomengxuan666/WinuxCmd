@@ -41,7 +41,8 @@ TEST(test, test_file_time_and_identity_operators) {
   tmp.write("new.txt", "new");
   std::error_code ec;
   auto old_time = std::filesystem::last_write_time(tmp.path / "old.txt", ec);
-  std::filesystem::last_write_time(tmp.path / "new.txt", old_time + std::chrono::seconds(2), ec);
+  std::filesystem::last_write_time(tmp.path / "new.txt",
+                                   old_time + std::chrono::seconds(2), ec);
 
   Pipeline newer;
   newer.set_cwd(tmp.wpath());
@@ -61,10 +62,12 @@ TEST(test, test_file_time_and_identity_operators) {
 
 TEST(test, test_logical_precedence_and_parentheses) {
   Pipeline p;
-  p.add(L"test.exe", {L"1", L"-eq", L"2", L"-o", L"3", L"-eq", L"3", L"-a", L"4", L"-eq", L"4"});
+  p.add(L"test.exe", {L"1", L"-eq", L"2", L"-o", L"3", L"-eq", L"3", L"-a",
+                      L"4", L"-eq", L"4"});
   EXPECT_EQ(p.run().exit_code, 0);
 
   Pipeline grouped;
-  grouped.add(L"test.exe", {L"(", L"1", L"-eq", L"2", L"-o", L"3", L"-eq", L"3", L")", L"-a", L"4", L"-eq", L"4"});
+  grouped.add(L"test.exe", {L"(", L"1", L"-eq", L"2", L"-o", L"3", L"-eq", L"3",
+                            L")", L"-a", L"4", L"-eq", L"4"});
   EXPECT_EQ(grouped.run().exit_code, 0);
 }

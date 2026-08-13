@@ -870,7 +870,8 @@ auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
         "      --rows N       Limit number of displayed processes\n"
         "      --help         Show help\n"
         "  -v, --version      Show version\n";
-    safePrint(winux::i18n::translate("command.top.custom_help", help));
+    safePrint(cmd::meta::format_custom_help(
+        "top", winux::i18n::translate("command.top.custom_help", help)));
     return true;  // Should exit
   }
 

@@ -422,8 +422,8 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
               std::filesystem::copy_options::overwrite_existing,
           ec);
       if (ec) {
-        return std::unexpected("cannot copy directory '" + src_path +
-                               "' to '" + dest_path + "': " + ec.message());
+        return std::unexpected("cannot copy directory '" + src_path + "' to '" +
+                               dest_path + "': " + ec.message());
       }
       std::filesystem::remove_all(std::filesystem::path(wsrc_path), ec);
       if (ec) {

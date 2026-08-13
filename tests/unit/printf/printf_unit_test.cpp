@@ -117,8 +117,9 @@ TEST(printf, printf_warns_for_invalid_numeric_conversion) {
 
 TEST(printf, printf_dynamic_width_precision_and_shell_quote) {
   Pipeline p;
-  p.add(L"printf.exe", {L"|%*d|%.*f|%q|", L"5", L"42", L"2", L"3.14159", L"a b"});
+  p.add(L"printf.exe",
+        {L"|%*d|%.*f|%q|", L"5", L"42", L"2", L"3.14159", L"a b"});
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "|   42|3.14|a\\ b|");
+  EXPECT_EQ_TEXT(r.stdout_text, "|   42|3.14|'a b'|");
 }

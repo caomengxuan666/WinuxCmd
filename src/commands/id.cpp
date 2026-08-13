@@ -94,11 +94,13 @@ auto current_identity() -> std::optional<ProcessIdentity> {
     identity.user.name = win32_current_username();
   }
 
-  auto primary_group_data = win32_token_information(token.get(), TokenPrimaryGroup);
+  auto primary_group_data =
+      win32_token_information(token.get(), TokenPrimaryGroup);
   if (!primary_group_data.empty()) {
     auto* primary_group =
         reinterpret_cast<TOKEN_PRIMARY_GROUP*>(primary_group_data.data());
-    identity.primary_group = win32_account_from_sid(primary_group->PrimaryGroup);
+    identity.primary_group =
+        win32_account_from_sid(primary_group->PrimaryGroup);
   }
   if (identity.primary_group.id.empty()) {
     identity.primary_group = identity.user;

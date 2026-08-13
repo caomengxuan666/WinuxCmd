@@ -591,8 +591,9 @@ auto run(const Config& cfg) -> int {
         return 1;
       }
     }
-    std::istream& source = input.is_open() ? static_cast<std::istream&>(input)
-                                           : static_cast<std::istream&>(std::cin);
+    std::istream& source = input.is_open()
+                               ? static_cast<std::istream&>(input)
+                               : static_cast<std::istream&>(std::cin);
     uint64_t part_num = 0;
     std::string chunk;
     int64_t records = 0;
@@ -617,7 +618,8 @@ auto run(const Config& cfg) -> int {
         const auto got = source.gcount();
         for (std::streamsize i = 0; i < got; ++i) {
           chunk.push_back(buffer[static_cast<size_t>(i)]);
-          if (chunk.size() == static_cast<size_t>(cfg.chunk_size) && !flush()) return 1;
+          if (chunk.size() == static_cast<size_t>(cfg.chunk_size) && !flush())
+            return 1;
         }
       }
     } else {
@@ -644,7 +646,8 @@ auto run(const Config& cfg) -> int {
       }
       if (!record.empty()) {
         if (cfg.mode == Config::Mode::LineBytes && !chunk.empty() &&
-            chunk.size() + record.size() > static_cast<size_t>(cfg.chunk_size) &&
+            chunk.size() + record.size() >
+                static_cast<size_t>(cfg.chunk_size) &&
             !flush()) {
           return 1;
         }

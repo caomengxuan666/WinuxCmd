@@ -220,8 +220,8 @@ TEST(env, env_modified_path_is_used_for_command_lookup) {
                              std::filesystem::copy_options::overwrite_existing);
 
   Pipeline p;
-  p.add(L"env.exe", {L"-i", L"PATH=" + tmp.wpath(), L"mycmd", L"/C", L"echo",
-                     L"PATH_OK"});
+  p.add(L"env.exe",
+        {L"-i", L"PATH=" + tmp.wpath(), L"mycmd", L"/C", L"echo", L"PATH_OK"});
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);

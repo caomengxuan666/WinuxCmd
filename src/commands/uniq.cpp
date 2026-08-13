@@ -296,8 +296,8 @@ auto run(const Config& cfg) -> int {
     if (input_operand.had_trailing_separator &&
         native_path::attributes_are_regular_file(
             native_path::attributes_w(input_operand.extended))) {
-      cp::report_custom_error(
-          L"uniq", utf8_to_wstring(cfg.input + ": Not a directory"));
+      cp::report_custom_error(L"uniq",
+                              utf8_to_wstring(cfg.input + ": Not a directory"));
       return 1;
     }
     input_file = file_io::open_binary_file(cfg.input);

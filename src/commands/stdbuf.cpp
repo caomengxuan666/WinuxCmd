@@ -155,7 +155,9 @@ auto set_stream_buffering(FILE* stream, const std::string& mode) -> bool {
     return true;
   }
   if (mode == "L") {
-    setvbuf(stream, nullptr, _IOLBF, 0);  // Line buffered
+    // MSVC's CRT does not implement POSIX line buffering reliably for these
+    // streams and may abort through the invalid-parameter handler. Keep L as
+    // an accepted child-inheritance marker and leave the parent stream alone.
     return true;
   }
 
@@ -269,9 +271,12 @@ REGISTER_COMMAND(
     if (mode == "L" || mode == "0" || mode.empty()) return mode;
     return std::to_string(*parse_buffer_size(mode));
   };
-  auto old_i = set_child_buffer_mode("WINUX_STDBUF_I", resolve_mode(input_mode));
-  auto old_o = set_child_buffer_mode("WINUX_STDBUF_O", resolve_mode(output_mode));
-  auto old_e = set_child_buffer_mode("WINUX_STDBUF_E", resolve_mode(error_mode));
+  auto old_i =
+      set_child_buffer_mode("WINUX_STDBUF_I", resolve_mode(input_mode));
+  auto old_o =
+      set_child_buffer_mode("WINUX_STDBUF_O", resolve_mode(output_mode));
+  auto old_e =
+      set_child_buffer_mode("WINUX_STDBUF_E", resolve_mode(error_mode));
 
   // Execute command
   STARTUPINFOW si = {sizeof(si)};

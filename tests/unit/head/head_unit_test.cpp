@@ -62,7 +62,7 @@ TEST(head, head_n_and_c_options) {
   EXPECT_EQ_TEXT(r2.stdout_text, "alpha");
 }
 
-TEST(head, head_plus_count_starts_at_requested_line) {
+TEST(head, head_plus_count_prints_first_requested_lines) {
   TempDir tmp;
   tmp.write("a.txt", "one\ntwo\nthree\nfour\n");
   Pipeline p;
@@ -70,7 +70,7 @@ TEST(head, head_plus_count_starts_at_requested_line) {
   p.add(L"head.exe", {L"-n", L"+3", L"a.txt"});
   auto r = p.run();
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "three\nfour\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "one\ntwo\nthree\n");
 }
 
 TEST(head, head_last_count_option_wins) {

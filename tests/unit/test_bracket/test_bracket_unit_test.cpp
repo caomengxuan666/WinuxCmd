@@ -31,6 +31,7 @@ TEST(test_bracket, test_bracket_numeric_false_expression) {
 
 TEST(test_bracket, test_bracket_logical_precedence_and_negation) {
   Pipeline p;
-  p.add(L"[.exe", {L"!", L"(", L"1", L"-eq", L"2", L")", L"-a", L"3", L"-eq", L"3", L"]"});
+  p.add(L"[.exe", {L"!", L"(", L"1", L"-eq", L"2", L")", L"-a", L"3", L"-eq",
+                   L"3", L"]"});
   EXPECT_EQ(p.run().exit_code, 0);
 }

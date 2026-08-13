@@ -32,7 +32,6 @@
 
 #include "pch/pch.h"
 // include other header after pch.h
-#include <winsock.h>
 #include <winsock2.h>
 
 #include "core/command_macros.h"

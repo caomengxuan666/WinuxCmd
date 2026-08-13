@@ -62,9 +62,8 @@ REGISTER_COMMAND(
   std::optional<LONGLONG> size_limit;
   if (!size_str.empty()) {
     LONGLONG parsed = 0;
-    auto [ptr, ec] =
-        std::from_chars(size_str.data(), size_str.data() + size_str.size(),
-                        parsed);
+    auto [ptr, ec] = std::from_chars(size_str.data(),
+                                     size_str.data() + size_str.size(), parsed);
     if (ec != std::errc() || ptr != size_str.data() + size_str.size() ||
         parsed < 0) {
       safeErrorPrintLn("shred: invalid size");
@@ -145,21 +144,25 @@ REGISTER_COMMAND(
         LONGLONG remaining = size;
         LONGLONG offset = 0;
         while (remaining > 0) {
-          DWORD count = static_cast<DWORD>(std::min<LONGLONG>(remaining, kBufferSize));
+          DWORD count =
+              static_cast<DWORD>(std::min<LONGLONG>(remaining, kBufferSize));
           if (crypt_ok) {
-            if (!CryptGenRandom(hProv, count, reinterpret_cast<BYTE*>(buffer.data()))) {
+            if (!CryptGenRandom(hProv, count,
+                                reinterpret_cast<BYTE*>(buffer.data()))) {
               CloseHandle(hFile);
               exit_code = 1;
               break;
             }
           } else {
             for (DWORD j = 0; j < count; ++j) {
-              buffer[j] = static_cast<char>((i + offset + j +
-                                             static_cast<int>(std::time(nullptr))) % 256);
+              buffer[j] = static_cast<char>(
+                  (i + offset + j + static_cast<int>(std::time(nullptr))) %
+                  256);
             }
           }
           DWORD bytes_written = 0;
-          if (!WriteFile(hFile, buffer.data(), count, &bytes_written, nullptr) ||
+          if (!WriteFile(hFile, buffer.data(), count, &bytes_written,
+                         nullptr) ||
               bytes_written != count) {
             exit_code = 1;
             break;
@@ -183,7 +186,8 @@ REGISTER_COMMAND(
         std::vector<char> zeros(kBufferSize, 0);
         LONGLONG remaining = size;
         while (remaining > 0) {
-          DWORD count = static_cast<DWORD>(std::min<LONGLONG>(remaining, kBufferSize));
+          DWORD count =
+              static_cast<DWORD>(std::min<LONGLONG>(remaining, kBufferSize));
           DWORD bytes_written = 0;
           if (!WriteFile(hFile, zeros.data(), count, &bytes_written, nullptr) ||
               bytes_written != count) {

@@ -323,8 +323,8 @@ auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
   auto dest_operand = native_path::make_api_path_operand(destPath);
 
   WIN32_FILE_ATTRIBUTE_DATA src_data{};
-  if (!GetFileAttributesExW(src_operand.extended.c_str(),
-                            GetFileExInfoStandard, &src_data)) {
+  if (!GetFileAttributesExW(src_operand.extended.c_str(), GetFileExInfoStandard,
+                            &src_data)) {
     return std::unexpected("cannot read source metadata");
   }
 
@@ -388,8 +388,8 @@ auto backup_existing_destination(const std::string& destPath,
     return true;
   }
 
-  std::wstring backup_path = dest_operand.extended +
-                             utf8_to_wstring(backup_suffix(ctx));
+  std::wstring backup_path =
+      dest_operand.extended + utf8_to_wstring(backup_suffix(ctx));
   if (!MoveFileExW(dest_operand.extended.c_str(), backup_path.c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {
     return std::unexpected("cannot create backup for destination");
@@ -442,8 +442,7 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
     return std::unexpected("cannot create hard link");
   }
 
-  if (ctx.get<bool>("--symbolic-link", false) ||
-      ctx.get<bool>("-s", false)) {
+  if (ctx.get<bool>("--symbolic-link", false) || ctx.get<bool>("-s", false)) {
     std::wstring source = utf8_to_wstring(srcPath);
     std::wstring dest = utf8_to_wstring(destPath);
     DWORD attrs = FILE_ATTRIBUTE_NORMAL;
@@ -496,7 +495,8 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
       if (dest_attrs & FILE_ATTRIBUTE_DIRECTORY) {
         RemoveDirectoryW(dest_operand.extended.c_str());
       } else {
-        SetFileAttributesW(dest_operand.extended.c_str(), FILE_ATTRIBUTE_NORMAL);
+        SetFileAttributesW(dest_operand.extended.c_str(),
+                           FILE_ATTRIBUTE_NORMAL);
         DeleteFileW(dest_operand.extended.c_str());
       }
     }
