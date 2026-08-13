@@ -95,13 +95,15 @@ run_case() {
     (cd "$gdir" && printf '%b' "$setup" | sh >/dev/null 2>&1)
   }
   local wout="$work/w.out" werr="$work/w.err" gout="$work/g.out" gerr="$work/g.err"
-  local wrc grc wcmd gcmd bucket case_args timeout_cmd wname gname
+  local wrc grc wcmd gcmd bucket case_args timeout_cmd wname gname wuses_dispatcher
   wcmd="$WINUXCMD_EXE"
+  wuses_dispatcher=false
   if [ -n "$WINUXCMD_BIN" ]; then
     if [ -x "$WINUXCMD_BIN/$cmd.exe" ]; then
       wcmd="$WINUXCMD_BIN/$cmd.exe"
     else
       wcmd="$WINUXCMD_BIN/$WINUXCMD_EXE"
+      wuses_dispatcher=true
     fi
   fi
   gcmd=$(find_oracle "$cmd")
@@ -144,6 +146,9 @@ run_case() {
   wquoted=$(shell_quote "$wname")
   gquoted=$(shell_quote "$gname")
   local wcommand="exec $wquoted $case_args"
+  if [ "$wuses_dispatcher" = true ]; then
+    wcommand="exec $wquoted $(shell_quote "$cmd") $case_args"
+  fi
   local gcommand="exec $gquoted $case_args"
   (cd "$wdir" && export PATH="$(dirname "$wcmd"):$PATH" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
     "$timeout_cmd" "$timeout" bash -c "$wcommand" >"$wout" 2>"$werr"); wrc=$?
