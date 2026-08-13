@@ -73,6 +73,9 @@ static void printCommandSummary(std::string_view name, std::string_view desc,
       "  " + (color ? colorizeStdout(command, command_style) : command) + " ";
   const std::string continuation_prefix(2 + command_width + 1, ' ');
 
+  const auto translated_desc = winux::i18n::translate(
+      "command." + std::string(name) + ".synopsis", desc);
+  desc = translated_desc;
   bool first_line = true;
   while (true) {
     size_t newline_pos = desc.find('\n');

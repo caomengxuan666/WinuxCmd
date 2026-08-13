@@ -245,7 +245,8 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
   const size_t terminal_width =
       static_cast<size_t>(std::clamp(getTerminalWidth(), 80, 120));
 
-  append_styled(result, "Usage:", section_style, color);
+  append_styled(result, winux::i18n::translate("common.usage", "Usage:"),
+                section_style, color);
   result += " ";
   if (synopsis_looks_like_usage(name, synopsis)) {
     append_styled(result, synopsis, title_style, color);
@@ -286,7 +287,9 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
           std::max(max_option_width, format_option_names(opt).size());
     }
 
-    append_styled(result, "OPTIONS:", section_style, color);
+    append_styled(result,
+                  winux::i18n::translate("common.options", "OPTIONS:"),
+                  section_style, color);
     result += "\n";
     for (const auto& opt : display_options) {
       std::string option_str = format_option_names(opt);
@@ -316,15 +319,23 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
     result += "\n";
   }
 
-  append_styled(result, "EXIT STATUS:", section_style, color);
+  append_styled(result, winux::i18n::translate("common.exit_status",
+                                               "EXIT STATUS:"),
+                section_style, color);
   result += "\n";
-  result += "  0  if OK,\n";
-  result += "  1  if minor problems,\n";
-  result += "  2  if serious trouble.\n\n";
+  result += "  0  " + winux::i18n::translate("common.exit.ok", "if OK,") + "\n";
+  result += "  1  " +
+            winux::i18n::translate("common.exit.minor", "if minor problems,") +
+            "\n";
+  result += "  2  " +
+            winux::i18n::translate("common.exit.serious", "if serious trouble.") +
+            "\n\n";
   append_styled(result, "WinuxCmd", subtle_style, color);
   result +=
-      " is a Windows implementation of GNU CoreUtils for Linux-Windows "
-      "developers and AI coding assistants.";
+      " " + winux::i18n::translate(
+                 "common.about",
+                 "is a Windows implementation of GNU CoreUtils for "
+                 "Linux-Windows developers and AI coding assistants.");
 
   return result;
 }
@@ -432,9 +443,15 @@ auto format_man_text(std::string_view name, std::string_view synopsis,
   }
 
   result += "       --help\n";
-  result += "              display this help and exit\n\n";
+  result += "              " +
+            winux::i18n::translate("common.option.help",
+                                   "display this help and exit") +
+            "\n\n";
   result += "       -V, --version\n";
-  result += "              output version information and exit\n\n";
+  result += "              " +
+            winux::i18n::translate("common.option.version",
+                                   "output version information and exit") +
+            "\n\n";
 
   if (!examples.empty()) {
     result += "EXAMPLES\n";

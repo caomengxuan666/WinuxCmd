@@ -25,6 +25,12 @@ DEFAULT_MODEL = os.environ.get("OPENAI_I18N_MODEL", "gpt-5.6-luna")
 # Keep these stable IDs and review their translations manually.
 MANUAL_MESSAGES = {
     "common.usage": "Usage:",
+    "common.options": "OPTIONS:",
+    "common.exit_status": "EXIT STATUS:",
+    "common.exit.ok": "if OK,",
+    "common.exit.minor": "if minor problems,",
+    "common.exit.serious": "if serious trouble.",
+    "common.about": "is a Windows implementation of GNU CoreUtils for Linux-Windows developers and AI coding assistants.",
     "main.subtitle": "Windows Compatible Linux Command Set",
     "main.available_commands": "Available Commands:",
     "main.help_tip": "Tip: Use 'winuxcmd <command> --help' for command-specific help.",
@@ -217,6 +223,8 @@ def extract(source_root: Path) -> dict:
             if not re.fullmatch(r"[A-Za-z0-9_]+", command):
                 continue
             description = string_value(args[3])
+            synopsis = string_value(args[2])
+            messages[f"command.{command}.synopsis"] = synopsis
             messages[f"command.{command}.description"] = description
             array_name = strip_comments(args[-1]).strip().split()[-1]
             for option, text, _ in option_arrays.get(array_name, []):
