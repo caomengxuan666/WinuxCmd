@@ -158,7 +158,7 @@ TEST(stat, stat_format_common_fields) {
   TEST_LOG("stat common fields output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_TRUE(r.stdout_text.starts_with("regular file|666|-rw-rw-rw-|"));
+  EXPECT_TRUE(r.stdout_text.starts_with("regular file|644|-rw-r--r--|"));
   EXPECT_TRUE(r.stdout_text.ends_with("\n"));
 
   auto last_separator = r.stdout_text.find_last_of('|');

@@ -48,7 +48,7 @@ auto constexpr KILLALL_OPTIONS = std::array{
 namespace killall_pipeline {
 
 struct Config {
-  bool exact = false;
+  bool exact = true;
   bool ignore_case = false;
   bool quiet = false;
   bool verbose = false;

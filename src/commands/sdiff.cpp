@@ -335,11 +335,6 @@ REGISTER_COMMAND(
     }
   }
 
-  // Output
-  for (const auto& line : output) {
-    safePrintLn(line);
-  }
-
   // Write to output file if specified
   if (!output_file.empty()) {
     std::wstring woutput = utf8_to_wstring(output_file);
@@ -361,6 +356,8 @@ REGISTER_COMMAND(
     WriteFile(hFile, content.data(), static_cast<DWORD>(content.size()),
               &bytesWritten, nullptr);
     CloseHandle(hFile);
+  } else {
+    for (const auto& line : output) safePrintLn(line);
   }
 
   return any_difference ? 1 : 0;

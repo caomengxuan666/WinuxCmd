@@ -72,3 +72,18 @@ TEST(locale, locale_charmaps) {
   EXPECT_FALSE(r.stdout_text.empty());
   EXPECT_TRUE(r.stdout_text.find("UTF-8") != std::string::npos);
 }
+
+TEST(locale, locale_keyword_values_are_not_full_environment_dump) {
+  Pipeline p;
+  p.add(L"locale.exe", {L"charmap"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "UTF-8\n");
+
+  Pipeline days;
+  days.add(L"locale.exe", {L"abday"});
+  auto days_result = days.run();
+  EXPECT_EQ(days_result.exit_code, 0);
+  EXPECT_TRUE(days_result.stdout_text.find("Sun") != std::string::npos);
+  EXPECT_TRUE(days_result.stdout_text.find("LANG=") == std::string::npos);
+}

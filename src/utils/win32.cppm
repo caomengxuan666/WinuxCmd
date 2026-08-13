@@ -14,6 +14,7 @@
 module;
 
 #include "pch/pch.h"
+#include <aclapi.h>
 
 export module utils:win32;
 
@@ -299,6 +300,28 @@ export auto win32_account_from_sid(PSID sid) -> Win32AccountInfo {
                            .name = win32_account_name_from_sid(sid)};
   if (account.id.empty()) account.id = "0";
   return account;
+}
+
+export struct Win32FileAccounts {
+  Win32AccountInfo owner;
+  Win32AccountInfo group;
+};
+
+export auto win32_file_accounts(std::wstring_view path) -> Win32FileAccounts {
+  PSID owner_sid = nullptr;
+  PSID group_sid = nullptr;
+  PSECURITY_DESCRIPTOR descriptor = nullptr;
+  const auto status = GetNamedSecurityInfoW(
+      const_cast<wchar_t*>(path.data()), SE_FILE_OBJECT,
+      OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION, &owner_sid,
+      &group_sid, nullptr, nullptr, &descriptor);
+  if (status != ERROR_SUCCESS) return {};
+
+  Win32FileAccounts accounts;
+  if (owner_sid) accounts.owner = win32_account_from_sid(owner_sid);
+  if (group_sid) accounts.group = win32_account_from_sid(group_sid);
+  if (descriptor) LocalFree(descriptor);
+  return accounts;
 }
 
 export auto win32_lookup_account(std::wstring_view name)

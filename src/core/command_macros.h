@@ -102,7 +102,8 @@
     inline int invoke(std::span<std::string_view> args) noexcept {             \
       constexpr size_t N = option_count;                                       \
       bool ok = true;                                                          \
-      auto ctx = make_context<N>(args, meta.options(), ok);                    \
+      auto ctx = make_context<N>(args, meta.options(), ok,                  \
+                                 option_policy_for_command(cmd_name));      \
       if (!ok) {                                                               \
         if (!ctx.parse_error.empty()) {                                        \
           safeErrorPrintLn(std::string(command_name) + ": " +                  \

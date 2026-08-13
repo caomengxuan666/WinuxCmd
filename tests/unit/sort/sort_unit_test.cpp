@@ -54,7 +54,7 @@ TEST(sort, sort_missing_file_reports_gnu_shaped_read_error) {
       std::string::npos);
 }
 
-TEST(sort, sort_strips_cr_from_crlf_input_records) {
+TEST(sort, sort_preserves_crlf_input_records) {
   TempDir tmp;
   tmp.write_bytes("a.txt",
                   {'p',  'e',  'a', 'r', '\r', '\n', 'a', 'p', 'p',  'l', 'e',
@@ -66,7 +66,8 @@ TEST(sort, sort_strips_cr_from_crlf_input_records) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "apple\nbanana\npear\n");
+  EXPECT_EQ(r.stdout_text,
+            std::string("apple\r\nbanana\r\npear\r\n", 21));
 }
 
 TEST(sort, sort_numeric_reverse_unique) {
@@ -835,6 +836,19 @@ TEST(sort, sort_uniq_pipeline_accepts_utf16le_stdin_with_bom) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("1 cat") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("2 dog") != std::string::npos);
+}
+
+TEST(sort, sort_preserves_nul_dense_input_without_encoding_bom) {
+  TempDir tmp;
+  tmp.write_bytes("binary.dat", {'b', '\0', 'x', '\n', 'a', '\0', 'y', '\n'});
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sort.exe", {L"binary.dat"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, std::string("a\0y\nb\0x\n", 8));
 }
 
 TEST(sort, sort_wildcard) {

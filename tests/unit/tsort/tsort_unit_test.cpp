@@ -17,3 +17,12 @@ TEST(tsort, tsort_basic) {
 
   EXPECT_EQ(r.exit_code, 0);
 }
+
+TEST(tsort, tsort_respects_dependency_edges) {
+  Pipeline p;
+  p.set_stdin("c b\nb a\n");
+  p.add(L"tsort.exe", {});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "c\nb\na\n");
+}

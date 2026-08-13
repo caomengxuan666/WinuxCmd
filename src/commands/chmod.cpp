@@ -350,7 +350,7 @@ auto parse_mode(std::string_view mode_str) -> cp::Result<ParsedMode> {
   ParsedMode parsed_mode;
 
   // Check if it's a numeric mode (e.g., "755", "644")
-  if (mode_str.size() == 3 || mode_str.size() == 4) {
+  if (mode_str.size() >= 1 && mode_str.size() <= 4) {
     bool all_digits = true;
     for (char c : mode_str) {
       if (c < '0' || c > '7') {

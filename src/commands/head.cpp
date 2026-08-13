@@ -86,6 +86,7 @@ namespace cp = core::pipeline;
 struct CountSpec {
   std::uintmax_t value = 10;
   bool all_but_last = false;
+  bool plus_form = false;
 };
 
 struct HeadConfig {
@@ -185,6 +186,12 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
   if (spec_text[0] == '-') {
     spec.all_but_last = true;
     spec_text = spec_text.substr(1);  // Avoid modifying original string
+    if (spec_text.empty()) {
+      return std::unexpected("invalid number of " + std::string(opt_name));
+    }
+  } else if (spec_text[0] == '+') {
+    spec.plus_form = true;
+    spec_text = spec_text.substr(1);
     if (spec_text.empty()) {
       return std::unexpected("invalid number of " + std::string(opt_name));
     }
@@ -354,6 +361,23 @@ auto output_first_records(std::istream& in, size_t records, char delimiter)
 }
 
 auto output_head(std::istream& in, const HeadConfig& config) -> void {
+  if (config.spec.plus_form) {
+    const size_t skip = config.spec.value > 0
+                            ? static_cast<size_t>(config.spec.value - 1)
+                            : 0;
+    if (config.by_bytes) {
+      in.ignore(static_cast<std::streamsize>(skip));
+    } else {
+      size_t remaining = skip;
+      char ch = '\0';
+      while (remaining > 0 && in.get(ch)) {
+        if (ch == config.delimiter) --remaining;
+      }
+    }
+    stream_all(in);
+    return;
+  }
+
   if (config.by_bytes) {
     size_t n = static_cast<size_t>(config.spec.value);
     if (config.spec.all_but_last) {
@@ -430,13 +454,12 @@ auto output_head(std::istream& in, const HeadConfig& config) -> void {
 }
 
 auto open_input_file(const std::string& file) -> std::ifstream {
-  return std::ifstream(std::filesystem::path(utf8_to_wstring(file)),
-                       std::ios::binary);
+  return file_io::open_binary_file(file);
 }
 
 auto describe_open_failure(const std::string& file) -> std::string {
   std::wstring wfile = utf8_to_wstring(file);
-  DWORD attrs = GetFileAttributesW(wfile.c_str());
+  DWORD attrs = native_path::attributes_w(utf8_to_wstring(file));
   if (attrs == INVALID_FILE_ATTRIBUTES) {
     return "No such file or directory";
   }

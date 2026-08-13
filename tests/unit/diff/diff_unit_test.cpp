@@ -45,6 +45,17 @@ TEST(diff, diff_identical) {
   EXPECT_TRUE(r.stdout_text.empty());
 }
 
+TEST(diff, diff_distinguishes_crlf_and_lf_without_ignore_space) {
+  TempDir tmp;
+  tmp.write_bytes("crlf.txt", {'a', '\r', '\n'});
+  tmp.write_bytes("lf.txt", {'a', '\n'});
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff.exe", {L"crlf.txt", L"lf.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 1);
+}
+
 TEST(diff, diff_different) {
   TempDir tmp;
   tmp.write("file1.txt", "hello\nworld\n");
@@ -102,6 +113,22 @@ TEST(diff, diff_unified) {
   TEST_LOG("diff unified output", r.stdout_text);
 
   EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.find("@@") != std::string::npos);
+}
+
+TEST(diff, diff_unified_pure_insertion_has_valid_header) {
+  TempDir tmp;
+  tmp.write("old.txt", "one\ntwo\n");
+  tmp.write("new.txt", "one\ninserted\ntwo\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff.exe", {L"-u", L"old.txt", L"new.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.find("184467") == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("@@") != std::string::npos);
 }
 

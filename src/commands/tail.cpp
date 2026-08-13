@@ -584,13 +584,12 @@ auto output_tail(std::istream& in, const TailConfig& config) -> void {
 }
 
 auto open_input_file(const std::string& file) -> std::ifstream {
-  return std::ifstream(std::filesystem::path(utf8_to_wstring(file)),
-                       std::ios::binary);
+  return file_io::open_binary_file(file);
 }
 
 auto describe_open_failure(const std::string& file) -> std::string {
   std::wstring wfile = utf8_to_wstring(file);
-  DWORD attrs = GetFileAttributesW(wfile.c_str());
+  DWORD attrs = native_path::attributes_w(utf8_to_wstring(file));
   if (attrs == INVALID_FILE_ATTRIBUTES) {
     return "No such file or directory";
   }

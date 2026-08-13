@@ -922,8 +922,7 @@ auto load_patterns_from_file(const std::string& path)
   if (path == "-") {
     buf = read_text_stream(std::cin);
   } else {
-    std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
-                     std::ios::binary);
+    auto in = file_io::open_binary_file(path);
     if (!in.is_open()) {
       return std::unexpected("cannot open pattern file '" + path + "'");
     }

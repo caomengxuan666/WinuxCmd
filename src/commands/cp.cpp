@@ -201,7 +201,7 @@ auto validate_arguments(const CommandContext<CP_OPTIONS.size()>& ctx)
           "cannot combine --target-directory and --no-target-directory");
     }
 
-    DWORD attr = GetFileAttributesW(utf8_to_wstring(target_dir).c_str());
+    DWORD attr = native_path::attributes_w(utf8_to_wstring(target_dir));
     if (attr == INVALID_FILE_ATTRIBUTES || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
       return std::unexpected("target is not a directory");
     }
@@ -244,8 +244,7 @@ auto check_destination(
     -> cp::Result<std::tuple<std::vector<std::string>, std::string, bool>> {
   const auto& [sourcePaths, destPath] = paths;
 
-  std::wstring wdestPath = utf8_to_wstring(destPath);
-  DWORD attr = GetFileAttributesW(wdestPath.c_str());
+  DWORD attr = native_path::attributes_w(utf8_to_wstring(destPath));
   bool destIsDir = !no_target_directory && (attr != INVALID_FILE_ATTRIBUTES) &&
                    (attr & FILE_ATTRIBUTE_DIRECTORY);
 
@@ -260,8 +259,8 @@ auto check_destination(
 // 3. Create directory recursively
 // ----------------------------------------------
 auto create_directory_recursive(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath = utf8_to_wstring(path);
-  if (CreateDirectoryW(wpath.c_str(), NULL) ||
+  auto operand = native_path::make_api_path_operand(path);
+  if (CreateDirectoryW(operand.extended.c_str(), NULL) ||
       GetLastError() == ERROR_ALREADY_EXISTS) {
     return true;
   }
@@ -279,7 +278,7 @@ auto create_directory_recursive(const std::string& path) -> cp::Result<bool> {
   }
 
   // Now create the current directory
-  if (CreateDirectoryW(wpath.c_str(), NULL) == 0) {
+  if (CreateDirectoryW(operand.extended.c_str(), NULL) == 0) {
     return std::unexpected("cannot create directory");
   }
 
@@ -290,17 +289,15 @@ auto create_directory_recursive(const std::string& path) -> cp::Result<bool> {
 // 4. Check if path exists
 // ----------------------------------------------
 auto path_exists(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath = utf8_to_wstring(path);
-  DWORD attr = GetFileAttributesW(wpath.c_str());
-  return attr != INVALID_FILE_ATTRIBUTES;
+  return native_path::valid_attributes(
+      native_path::attributes_w(utf8_to_wstring(path)));
 }
 
 // ----------------------------------------------
 // 5. Check if path exists and is directory
 // ----------------------------------------------
 auto path_exists_and_is_directory(const std::string& path) -> cp::Result<bool> {
-  std::wstring wpath = utf8_to_wstring(path);
-  DWORD attr = GetFileAttributesW(wpath.c_str());
+  DWORD attr = native_path::attributes_w(utf8_to_wstring(path));
   return (attr != INVALID_FILE_ATTRIBUTES) && (attr & FILE_ATTRIBUTE_DIRECTORY);
 }
 
@@ -322,11 +319,12 @@ auto preserve_metadata_enabled(const CommandContext<CP_OPTIONS.size()>& ctx)
 
 auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
     -> cp::Result<bool> {
-  std::wstring wsrc = utf8_to_wstring(srcPath);
-  std::wstring wdest = utf8_to_wstring(destPath);
+  auto src_operand = native_path::make_api_path_operand(srcPath);
+  auto dest_operand = native_path::make_api_path_operand(destPath);
 
   WIN32_FILE_ATTRIBUTE_DATA src_data{};
-  if (!GetFileAttributesExW(wsrc.c_str(), GetFileExInfoStandard, &src_data)) {
+  if (!GetFileAttributesExW(src_operand.extended.c_str(),
+                            GetFileExInfoStandard, &src_data)) {
     return std::unexpected("cannot read source metadata");
   }
 
@@ -334,7 +332,7 @@ auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
                           ? FILE_FLAG_BACKUP_SEMANTICS
                           : 0;
   HANDLE handle =
-      CreateFileW(wdest.c_str(), FILE_WRITE_ATTRIBUTES,
+      CreateFileW(dest_operand.extended.c_str(), FILE_WRITE_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -349,7 +347,8 @@ auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
     return std::unexpected("cannot preserve timestamps");
   }
 
-  if (!SetFileAttributesW(wdest.c_str(), src_data.dwFileAttributes)) {
+  if (!SetFileAttributesW(dest_operand.extended.c_str(),
+                          src_data.dwFileAttributes)) {
     return std::unexpected("cannot preserve attributes");
   }
   return true;
@@ -383,13 +382,15 @@ auto backup_existing_destination(const std::string& destPath,
     return true;
   }
 
-  std::wstring wdest = utf8_to_wstring(destPath);
-  if (GetFileAttributesW(wdest.c_str()) == INVALID_FILE_ATTRIBUTES) {
+  auto dest_operand = native_path::make_api_path_operand(destPath);
+  if (!native_path::valid_attributes(
+          native_path::attributes_w(dest_operand.extended))) {
     return true;
   }
 
-  std::wstring backup_path = wdest + utf8_to_wstring(backup_suffix(ctx));
-  if (!MoveFileExW(wdest.c_str(), backup_path.c_str(),
+  std::wstring backup_path = dest_operand.extended +
+                             utf8_to_wstring(backup_suffix(ctx));
+  if (!MoveFileExW(dest_operand.extended.c_str(), backup_path.c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {
     return std::unexpected("cannot create backup for destination");
   }
@@ -434,6 +435,24 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
     return copy_self_with_backup(srcPath, ctx);
   }
 
+  if (ctx.get<bool>("--link", false) || ctx.get<bool>("-l", false)) {
+    std::wstring source = utf8_to_wstring(srcPath);
+    std::wstring dest = utf8_to_wstring(destPath);
+    if (CreateHardLinkW(dest.c_str(), source.c_str(), nullptr)) return true;
+    return std::unexpected("cannot create hard link");
+  }
+
+  if (ctx.get<bool>("--symbolic-link", false) ||
+      ctx.get<bool>("-s", false)) {
+    std::wstring source = utf8_to_wstring(srcPath);
+    std::wstring dest = utf8_to_wstring(destPath);
+    DWORD attrs = FILE_ATTRIBUTE_NORMAL;
+    auto is_dir = path_exists_and_is_directory(srcPath);
+    if (is_dir && *is_dir) attrs |= SYMBOLIC_LINK_FLAG_DIRECTORY;
+    if (CreateSymbolicLinkW(dest.c_str(), source.c_str(), attrs)) return true;
+    return std::unexpected("cannot create symbolic link");
+  }
+
   if (no_clobber && std::filesystem::exists(destPath)) {
     return true;
   }
@@ -441,10 +460,12 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
   if (update && std::filesystem::exists(destPath)) {
     WIN32_FILE_ATTRIBUTE_DATA src_data{};
     WIN32_FILE_ATTRIBUTE_DATA dest_data{};
-    std::wstring wsrc = utf8_to_wstring(srcPath);
-    std::wstring wdst = utf8_to_wstring(destPath);
-    if (GetFileAttributesExW(wsrc.c_str(), GetFileExInfoStandard, &src_data) &&
-        GetFileAttributesExW(wdst.c_str(), GetFileExInfoStandard, &dest_data)) {
+    auto src_operand = native_path::make_api_path_operand(srcPath);
+    auto dst_operand = native_path::make_api_path_operand(destPath);
+    if (GetFileAttributesExW(src_operand.extended.c_str(),
+                             GetFileExInfoStandard, &src_data) &&
+        GetFileAttributesExW(dst_operand.extended.c_str(),
+                             GetFileExInfoStandard, &dest_data)) {
       if (CompareFileTime(&src_data.ftLastWriteTime,
                           &dest_data.ftLastWriteTime) <= 0) {
         return true;
@@ -469,14 +490,14 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
 
   // --remove-destination: remove existing dest before opening
   if (remove_dest) {
-    std::wstring wdest = utf8_to_wstring(destPath);
-    DWORD dest_attrs = GetFileAttributesW(wdest.c_str());
+    auto dest_operand = native_path::make_api_path_operand(destPath);
+    DWORD dest_attrs = native_path::attributes_w(dest_operand.extended);
     if (dest_attrs != INVALID_FILE_ATTRIBUTES) {
       if (dest_attrs & FILE_ATTRIBUTE_DIRECTORY) {
-        RemoveDirectoryW(wdest.c_str());
+        RemoveDirectoryW(dest_operand.extended.c_str());
       } else {
-        SetFileAttributesW(wdest.c_str(), FILE_ATTRIBUTE_NORMAL);
-        DeleteFileW(wdest.c_str());
+        SetFileAttributesW(dest_operand.extended.c_str(), FILE_ATTRIBUTE_NORMAL);
+        DeleteFileW(dest_operand.extended.c_str());
       }
     }
   }
@@ -503,23 +524,23 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
   }
 
   // Check if source file exists and is readable
-  std::ifstream src(srcPath, std::ios::binary);
+  std::ifstream src = file_io::open_binary_file(srcPath);
   if (!src) {
     return std::unexpected("cannot open for reading");
   }
 
   // Open destination file
-  std::ofstream dest(destPath, std::ios::binary);
+  std::ofstream dest = file_io::create_binary_file(destPath);
   if (!dest) {
     bool force = ctx.get<bool>("--force", false) || ctx.get<bool>("-f", false);
     if (!force) {
       return std::unexpected("cannot open for writing");
     }
 
-    std::wstring wdest = utf8_to_wstring(destPath);
-    SetFileAttributesW(wdest.c_str(), FILE_ATTRIBUTE_NORMAL);
-    DeleteFileW(wdest.c_str());
-    dest.open(destPath, std::ios::binary);
+    auto dest_operand = native_path::make_api_path_operand(destPath);
+    SetFileAttributesW(dest_operand.extended.c_str(), FILE_ATTRIBUTE_NORMAL);
+    DeleteFileW(dest_operand.extended.c_str());
+    dest = file_io::create_binary_file(destPath);
     if (!dest) {
       return std::unexpected("cannot open for writing");
     }
@@ -527,7 +548,7 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
 
   // Copy file content
   dest << src.rdbuf();
-  if (!dest) {
+  if (dest.bad()) {
     return std::unexpected("error writing");
   }
 
@@ -590,8 +611,8 @@ auto copy_directory_helper(const std::string& srcPath,
   }
 
   // Open source directory
-  std::wstring wsrcPath = utf8_to_wstring(srcPath);
-  std::wstring searchPath = wsrcPath + L"\\*";
+  std::wstring searchPath = utf8_to_wstring(srcPath) + L"\\*";
+  searchPath = native_path::make_api_path_operand_w(searchPath).extended;
   WIN32_FIND_DATAW findData;
   HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
   if (hFind == INVALID_HANDLE_VALUE) {
@@ -635,7 +656,7 @@ auto copy_directory_helper(const std::string& srcPath,
       }
 
       // Verify it's actually a directory
-      DWORD attr = GetFileAttributesW(utf8_to_wstring(srcItemPath).c_str());
+      DWORD attr = native_path::attributes_w(utf8_to_wstring(srcItemPath));
       if (attr != INVALID_FILE_ATTRIBUTES &&
           (attr & FILE_ATTRIBUTE_DIRECTORY)) {
         // Recursively copy subdirectory with increased depth
@@ -726,28 +747,14 @@ auto process_source_paths(
         std::wstring wsrcPath = utf8_to_wstring(srcPath);
         LPWSTR fileName = PathFindFileNameW(wsrcPath.c_str());
 
-        // OPTIMIZED: Use stack buffer
-        char fileNameBuf[MAX_PATH * 3];
-        int fileNameLength =
-            WideCharToMultiByte(CP_UTF8, 0, fileName, -1, fileNameBuf,
-                                sizeof(fileNameBuf), NULL, NULL);
-
-        if (fileNameLength > 0 && fileNameLength < sizeof(fileNameBuf)) {
-          finalDestPath += "\\" + std::string(fileNameBuf);
-        } else {
-          // Fallback to dynamic allocation if needed
-          std::string fileNameStr(fileNameLength, 0);
-          WideCharToMultiByte(CP_UTF8, 0, fileName, -1, &fileNameStr[0],
-                              fileNameLength, NULL, NULL);
-          finalDestPath += "\\" + fileNameStr;
-        }
+        finalDestPath += "\\" + wstring_to_utf8(fileName);
       }
     }
 
     if (srcIsDir) {
       if (recursive) {
         auto dirResult = copy_directory(srcPath, finalDestPath, ctx);
-        if (!dirResult) {
+        if (!dirResult || !*dirResult) {
           // OPTIMIZED: Avoid wstring concatenation
           safeErrorPrint("cp: error copying directory '");
           safeErrorPrint(srcPath);

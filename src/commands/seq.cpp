@@ -405,21 +405,18 @@ auto run(const Config& cfg) -> int {
   // Generate sequence
   SmallVector<std::string, 1024> results;
   double current = cfg.first;
-  int count = 0;
-  const int MAX_COUNT = 1000000;  // Prevent infinite loops
   size_t max_width = 0;
 
   while ((increasing && current <= cfg.last) ||
          (!increasing && current >= cfg.last)) {
-    if (count >= MAX_COUNT) {
-      break;
-    }
-
     auto formatted = format_number(current, cfg);
     max_width = std::max(max_width, formatted.size());
     results.push_back(std::move(formatted));
-    current += cfg.increment;
-    count++;
+    const double next = current + cfg.increment;
+    if (!std::isfinite(next) || next == current) {
+      break;
+    }
+    current = next;
   }
 
   if (cfg.equal_width && cfg.format.empty()) {

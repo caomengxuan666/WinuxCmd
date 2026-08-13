@@ -63,6 +63,7 @@ using AccountInfo = Win32AccountInfo;
 
 struct ProcessIdentity {
   AccountInfo user;
+  AccountInfo primary_group;
   SmallVector<AccountInfo, 16> groups;
 };
 
@@ -91,6 +92,16 @@ auto current_identity() -> std::optional<ProcessIdentity> {
   identity.user = win32_account_from_sid(token_user->User.Sid);
   if (identity.user.name.empty()) {
     identity.user.name = win32_current_username();
+  }
+
+  auto primary_group_data = win32_token_information(token.get(), TokenPrimaryGroup);
+  if (!primary_group_data.empty()) {
+    auto* primary_group =
+        reinterpret_cast<TOKEN_PRIMARY_GROUP*>(primary_group_data.data());
+    identity.primary_group = win32_account_from_sid(primary_group->PrimaryGroup);
+  }
+  if (identity.primary_group.id.empty()) {
+    identity.primary_group = identity.user;
   }
 
   identity.groups.push_back(identity.user);
@@ -220,7 +231,7 @@ auto run(const Config& cfg) -> int {
   }
 
   if (cfg.print_group) {
-    safePrint(format_account(identity->user, cfg.print_name) + term);
+    safePrint(format_account(identity->primary_group, cfg.print_name) + term);
     return 0;
   }
 
@@ -230,7 +241,8 @@ auto run(const Config& cfg) -> int {
   }
 
   std::string out = "uid=" + format_full_account(identity->user) +
-                    " gid=" + format_full_account(identity->user) + " groups=";
+                    " gid=" + format_full_account(identity->primary_group) +
+                    " groups=";
   for (size_t i = 0; i < identity->groups.size(); ++i) {
     if (i > 0) out += ",";
     out += format_full_account(identity->groups[i]);

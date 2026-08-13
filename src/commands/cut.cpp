@@ -457,6 +457,11 @@ auto can_use_fast_field_stream(const Config& cfg) -> bool {
 
 auto append_fast_field_record(std::string_view rec, const Config& cfg,
                               std::string& output) -> bool {
+  if (rec.find(cfg.delimiter) == std::string_view::npos) {
+    if (cfg.only_delimited) return false;
+    output.append(rec);
+    return true;
+  }
   bool has_delim = false;
   bool wrote_selected = false;
   int field_index = 1;
@@ -475,12 +480,6 @@ auto append_fast_field_record(std::string_view rec, const Config& cfg,
 
     ++field_index;
     field_start = i + 1;
-  }
-
-  if (!has_delim) {
-    if (cfg.only_delimited) return false;
-    output.append(rec);
-    return true;
   }
 
   return true;

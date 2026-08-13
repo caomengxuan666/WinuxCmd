@@ -62,6 +62,53 @@ std::string offset_hex(size_t offset) {
   return std::string(buf);
 }
 
+std::optional<unsigned char> parse_hex_byte(char high, char low) {
+  auto digit = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+  };
+  int h = digit(high), l = digit(low);
+  if (h < 0 || l < 0) return std::nullopt;
+  return static_cast<unsigned char>((h << 4) | l);
+}
+
+std::optional<std::vector<unsigned char>> reverse_xxd(
+    const std::vector<unsigned char>& input) {
+  std::string text(input.begin(), input.end());
+  std::vector<unsigned char> output;
+  size_t line_start = 0;
+  while (line_start <= text.size()) {
+    size_t line_end = text.find('\n', line_start);
+    if (line_end == std::string::npos) line_end = text.size();
+    std::string_view line(text.data() + line_start, line_end - line_start);
+    size_t colon = line.find(':');
+    if (colon != std::string_view::npos) line.remove_prefix(colon + 1);
+    size_t pos = 0;
+    while (pos < line.size()) {
+      while (pos < line.size() && std::isspace(static_cast<unsigned char>(line[pos]))) ++pos;
+      size_t token_start = pos;
+      while (pos < line.size() && !std::isspace(static_cast<unsigned char>(line[pos]))) ++pos;
+      auto token = line.substr(token_start, pos - token_start);
+      if (token.empty()) continue;
+      if (token.size() % 2 != 0) break;
+      std::vector<unsigned char> token_bytes;
+      bool valid = true;
+      for (size_t i = 0; i < token.size(); i += 2) {
+        auto byte = parse_hex_byte(token[i], token[i + 1]);
+        if (!byte) { valid = false; break; }
+        token_bytes.push_back(*byte);
+      }
+      if (!valid) break;
+      output.insert(output.end(), token_bytes.begin(), token_bytes.end());
+    }
+    if (line_end == text.size()) break;
+    line_start = line_end + 1;
+  }
+  return output;
+}
+
 void print_default_xxd(const std::vector<unsigned char>& data) {
   constexpr size_t kColumns = 16;
   for (size_t offset = 0; offset < data.size(); offset += kColumns) {
@@ -102,8 +149,23 @@ REGISTER_COMMAND(xxd,
       ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
 
   if (reverse) {
-    safeErrorPrintLn("xxd: reverse mode not fully implemented");
-    return 1;
+    std::string filename = ctx.positionals.empty() ? "-" : std::string(ctx.positionals[0]);
+    std::vector<unsigned char> input;
+    if (filename == "-") input = read_stdin_bytes();
+    else {
+      auto file_data = read_file_bytes(filename);
+      if (!file_data) { safeErrorPrintLn("xxd: cannot open " + filename); return 1; }
+      input = std::move(*file_data);
+    }
+    auto decoded = reverse_xxd(input);
+    if (!decoded) { safeErrorPrintLn("xxd: invalid hex dump"); return 1; }
+    HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (!decoded->empty()) {
+      DWORD written = 0;
+      if (!WriteFile(out, decoded->data(), static_cast<DWORD>(decoded->size()),
+                     &written, nullptr) || written != decoded->size()) return 1;
+    }
+    return 0;
   }
 
   std::string filename =

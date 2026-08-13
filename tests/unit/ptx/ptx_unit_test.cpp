@@ -60,6 +60,20 @@ TEST(ptx, ptx_file_input) {
   EXPECT_EQ(r.exit_code, 0);
 }
 
+TEST(ptx, ptx_context_does_not_cross_line_boundaries) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha one\nbeta two\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ptx.exe", {L"-w", L"80", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("alpha one beta") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("beta two alpha") == std::string::npos);
+}
+
 TEST(ptx, ptx_auto_reference) {
   TempDir tmp;
   tmp.write("a.txt", "hello world\nfoo bar\n");

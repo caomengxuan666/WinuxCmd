@@ -67,6 +67,18 @@ auto read_handle_to_string(HANDLE file, std::string_view path)
 
 export namespace file_io {
 
+export auto open_binary_file(std::string_view filename) -> std::ifstream {
+  auto operand = native_path::make_api_path_operand(filename);
+  return std::ifstream(std::filesystem::path(operand.extended),
+                       std::ios::binary);
+}
+
+export auto create_binary_file(std::string_view filename) -> std::ofstream {
+  auto operand = native_path::make_api_path_operand(filename);
+  return std::ofstream(std::filesystem::path(operand.extended),
+                       std::ios::binary | std::ios::trunc);
+}
+
 auto read_all_stdin() -> std::expected<std::string, std::string> {
   std::string content;
   std::array<char, kReadChunkSize> buffer{};

@@ -154,7 +154,7 @@ TEST(tac, tac_single_line) {
   EXPECT_EQ_TEXT(r.stdout_text, "only one line\n");
 }
 
-TEST(tac, tac_newline_mode_trims_trailing_cr_from_crlf_records) {
+TEST(tac, tac_newline_mode_preserves_crlf_records) {
   TempDir tmp;
   tmp.write_bytes("crlf.txt",
                   {'l', 'i',  'n',  'e', '1', '\r', '\n', 'l', 'i',  'n', 'e',
@@ -167,7 +167,7 @@ TEST(tac, tac_newline_mode_trims_trailing_cr_from_crlf_records) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "line3\nline2\nline1\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "line3\r\nline2\r\nline1\r\n");
 }
 
 TEST(tac, tac_missing_input_reports_no_such_file) {

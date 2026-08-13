@@ -29,6 +29,15 @@ TEST(numfmt, numfmt_from_iec) {
   EXPECT_TRUE(r.stdout_text.find("2097152") != std::string::npos);
 }
 
+TEST(numfmt, numfmt_auto_uses_decimal_for_large_suffixes) {
+  Pipeline p;
+  p.set_stdin("1T\n");
+  p.add(L"numfmt.exe", {L"--from=auto"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("1000000000000") != std::string::npos);
+}
+
 TEST(numfmt, numfmt_to_iec) {
   Pipeline p;
   p.set_stdin("1536\n2097152\n");
@@ -38,6 +47,33 @@ TEST(numfmt, numfmt_to_iec) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find("1.5K") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("2.0M") != std::string::npos);
+}
+
+TEST(numfmt, numfmt_to_iec_i_and_selected_field) {
+  Pipeline p;
+  p.set_stdin("value 1500\n");
+  p.add(L"numfmt.exe", {L"--to=iec-i", L"--delimiter= ", L"--field=2"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "value 1.5Ki\n");
+}
+
+TEST(numfmt, numfmt_to_si_uses_decimal_scaling) {
+  Pipeline p;
+  p.set_stdin("1500\n");
+  p.add(L"numfmt.exe", {L"--to=si"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "1.5k\n");
+}
+
+TEST(numfmt, numfmt_format_preserves_numeric_value) {
+  Pipeline p;
+  p.set_stdin("42\n");
+  p.add(L"numfmt.exe", {L"--format=%05.1f"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "042.0\n");
 }
 
 TEST(numfmt, numfmt_round_up) {

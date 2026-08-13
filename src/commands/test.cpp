@@ -176,7 +176,8 @@ bool is_unary_operator(const std::string& op) {
 bool is_binary_operator(const std::string& op) {
   static const std::unordered_set<std::string> ops = {
       "=",   "==",  "!=",  "<",   "<=", ">",    ">=", "-eq", "-ne",
-      "-lt", "-le", "-gt", "-ge", "-a", "-and", "-o", "-or"};
+      "-lt", "-le", "-gt", "-ge", "-a", "-and", "-o", "-or", "-nt",
+      "-ot", "-ef"};
   return ops.contains(op);
 }
 
@@ -241,6 +242,34 @@ int evaluate_binary(const std::string& a, const std::string& op,
     return compare_integers(op, va, vb) ? 0 : 1;
   }
 
+  if (op == "-nt" || op == "-ot" || op == "-ef") {
+    WIN32_FILE_ATTRIBUTE_DATA left{}, right{};
+    const auto left_path = utf8_to_wstring(a);
+    const auto right_path = utf8_to_wstring(b);
+    if (!GetFileAttributesExW(left_path.c_str(), GetFileExInfoStandard,
+                              &left) ||
+        !GetFileAttributesExW(right_path.c_str(), GetFileExInfoStandard,
+                              &right)) {
+      return 1;
+    }
+    if (op == "-ef") {
+      wchar_t left_full[MAX_PATH * 4]{}, right_full[MAX_PATH * 4]{};
+      if (!GetFullPathNameW(left_path.c_str(), std::size(left_full), left_full,
+                            nullptr) ||
+          !GetFullPathNameW(right_path.c_str(), std::size(right_full),
+                            right_full, nullptr)) {
+        return 1;
+      }
+      return _wcsicmp(left_full, right_full) == 0 ? 0 : 1;
+    }
+    ULARGE_INTEGER left_time{left.ftLastWriteTime.dwLowDateTime,
+                             left.ftLastWriteTime.dwHighDateTime};
+    ULARGE_INTEGER right_time{right.ftLastWriteTime.dwLowDateTime,
+                              right.ftLastWriteTime.dwHighDateTime};
+    return op == "-nt" ? (left_time.QuadPart > right_time.QuadPart ? 0 : 1)
+                       : (left_time.QuadPart < right_time.QuadPart ? 0 : 1);
+  }
+
   if (op == "-a" || op == "-and") return (!a.empty() && !b.empty()) ? 0 : 1;
   if (op == "-o" || op == "-or") return (!a.empty() || !b.empty()) ? 0 : 1;
   return 2;
@@ -252,32 +281,58 @@ int invert_test_status(int status) {
   return status;
 }
 
+class TestExpressionParser {
+ public:
+  explicit TestExpressionParser(std::span<const std::string> args) : args_(args) {}
+  int parse() {
+    if (args_.empty()) return 1;
+    int result = parse_or();
+    return error_ || pos_ != args_.size() ? 2 : result;
+  }
+ private:
+  int parse_or() {
+    int result = parse_and();
+    while (peek("-o") || peek("-or")) { ++pos_; int right = parse_and(); result = combine_or(result, right); }
+    return result;
+  }
+  int parse_and() {
+    int result = parse_not();
+    while (peek("-a") || peek("-and")) { ++pos_; int right = parse_not(); result = combine_and(result, right); }
+    return result;
+  }
+  int parse_not() {
+    if (peek("!")) { ++pos_; return invert_test_status(parse_not()); }
+    if (peek("(")) {
+      ++pos_; int result = parse_or();
+      if (!peek(")")) { error_ = true; return 2; }
+      ++pos_; return result;
+    }
+    return parse_primary();
+  }
+  int parse_primary() {
+    if (pos_ >= args_.size()) { error_ = true; return 2; }
+    if (pos_ + 1 < args_.size() && is_unary_operator(std::string(args_[pos_]))) {
+      auto op = std::string(args_[pos_++]);
+      return evaluate_unary(op, std::string(args_[pos_++]));
+    }
+    if (pos_ + 2 < args_.size() && is_binary_operator(std::string(args_[pos_ + 1]))) {
+      auto left = std::string(args_[pos_++]);
+      auto op = std::string(args_[pos_++]);
+      auto right = std::string(args_[pos_++]);
+      return evaluate_binary(left, op, right);
+    }
+    return args_[pos_++].empty() ? 1 : 0;
+  }
+  static int combine_or(int left, int right) { return left == 0 || right == 0 ? 0 : (left == 2 || right == 2 ? 2 : 1); }
+  static int combine_and(int left, int right) { return left == 0 && right == 0 ? 0 : (left == 2 || right == 2 ? 2 : 1); }
+  bool peek(std::string_view token) const { return pos_ < args_.size() && args_[pos_] == token; }
+  std::span<const std::string> args_;
+  size_t pos_ = 0;
+  bool error_ = false;
+};
+
 int evaluate_test_expression(std::span<const std::string> args) {
-  // GNU test.c's term() treats operators as expression tokens, not command
-  // options.  Keep this parser token-based so constructs like
-  // `test 123 -gt 45` survive the generic Winux option scanner.
-  if (args.empty()) return 1;
-
-  if (args.front() == "!") {
-    return invert_test_status(evaluate_test_expression(args.subspan(1)));
-  }
-
-  if (args.size() == 1) return args[0].empty() ? 1 : 0;
-
-  if (args.size() == 2 && is_unary_operator(args[0])) {
-    return evaluate_unary(args[0], args[1]);
-  }
-
-  if (args.size() == 3 && is_binary_operator(args[1])) {
-    return evaluate_binary(args[0], args[1], args[2]);
-  }
-
-  if (args.size() == 4 && args[1] == "!" &&
-      (args[2] == "=" || args[2] == "==" || args[2] == "!=")) {
-    return invert_test_status(evaluate_binary(args[0], args[2], args[3]));
-  }
-
-  return 2;
+  return TestExpressionParser(args).parse();
 }
 }  // namespace
 

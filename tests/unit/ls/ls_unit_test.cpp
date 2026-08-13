@@ -1139,6 +1139,19 @@ TEST(ls, ls_multiple_file_operands_do_not_print_headers) {
   EXPECT_TRUE(r.stdout_text.find("\n\n") == std::string::npos);
 }
 
+TEST(ls, ls_explicit_file_operands_are_sorted) {
+  TempDir tmp;
+  tmp.write("base.txt", "base\n");
+  tmp.write("od.txt", "od\n");
+  tmp.write("cm.txt", "cm\n");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ls.exe", {L"-1", L"base.txt", L"od.txt", L"cm.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "base.txt\ncm.txt\nod.txt\n");
+}
+
 TEST(ls, ls_mixed_file_and_directory_prints_directory_header) {
   TempDir tmp;
   tmp.write("top.txt", "top");
