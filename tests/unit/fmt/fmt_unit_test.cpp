@@ -49,9 +49,7 @@ TEST(fmt, fmt_width_is_not_exceeded_by_word_combinations) {
   auto r = run_command(fmt_exe(), {L"-w", L"20"},
                        "alpha beta gamma one two three\n");
   EXPECT_EQ(r.exit_code, 0);
-  std::istringstream lines(r.stdout_text);
-  std::string line;
-  while (std::getline(lines, line)) EXPECT_LE(line.size(), 20u);
+  EXPECT_EQ_TEXT(r.stdout_text, "alpha beta gamma\none two three\n");
 }
 
 TEST(fmt, fmt_stdin) {

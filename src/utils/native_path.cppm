@@ -170,9 +170,9 @@ export auto make_api_path_operand(std::string_view path) -> ApiPathOperand {
 export auto attributes_w(std::wstring_view path) -> DWORD {
   // Keep all attribute probes on the same extended-path API boundary as
   // file_io. This avoids MAX_PATH failures for otherwise valid paths.
-  const std::wstring native =
-      path.starts_with(L"\\\\?\\") ? std::wstring(path)
-                                      : to_extended_path(path);
+  const std::wstring native = path.starts_with(L"\\\\?\\")
+                                  ? std::wstring(path)
+                                  : to_extended_path(path);
   return GetFileAttributesW(native.c_str());
 }
 

@@ -365,7 +365,8 @@ auto stream_bytes(std::istream& in, size_t bytes) -> void {
   while (bytes > 0 && in.good()) {
     const auto want = std::min(bytes, buffer.size());
     in.read(buffer.data(), static_cast<std::streamsize>(want));
-    const auto got = static_cast<size_t>(std::max<std::streamsize>(in.gcount(), 0));
+    const auto got =
+        static_cast<size_t>(std::max<std::streamsize>(in.gcount(), 0));
     if (got == 0) break;
     safePrint(std::string_view(buffer.data(), got));
     bytes -= got;

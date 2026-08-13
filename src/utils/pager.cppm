@@ -449,9 +449,8 @@ auto highlighted_line(std::string_view line, const SearchState* search,
     }
 
     out.append(line.substr(cursor, pos - cursor));
-    const bool is_current =
-        current_range && current_range->first == pos &&
-        current_range->second == pos + search->text.size();
+    const bool is_current = current_range && current_range->first == pos &&
+                            current_range->second == pos + search->text.size();
     out += is_current ? "\033[1;30;43m" : "\033[7m";
     out.append(line.substr(pos, search->text.size()));
     out += ANSI_RESET;

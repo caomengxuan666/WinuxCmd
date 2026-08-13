@@ -79,6 +79,31 @@ int hex_value(char c) {
   return -1;
 }
 
+auto shell_quote(std::string_view value) -> std::string {
+  bool needs_quotes = false;
+  for (unsigned char ch : value) {
+    if (!(std::isalnum(ch) || ch == '_' || ch == '-' || ch == '.' ||
+          ch == '/')) {
+      needs_quotes = true;
+      break;
+    }
+  }
+  if (!needs_quotes) return std::string(value);
+
+  std::string quoted;
+  quoted.reserve(value.size() + 2);
+  quoted.push_back('\'');
+  for (char ch : value) {
+    if (ch == '\'') {
+      quoted += "'\\\\''";
+    } else {
+      quoted.push_back(ch);
+    }
+  }
+  quoted.push_back('\'');
+  return quoted;
+}
+
 bool is_octal_digit(char c) { return c >= '0' && c <= '7'; }
 
 void append_utf8(std::string& out, unsigned int codepoint) {
@@ -244,10 +269,11 @@ FormatSpec parse_format_spec(std::string_view format, size_t& pos) {
   if (i < format.size() && format[i] == '*') {
     spec.dynamic_width = true;
     ++i;
-  } else while (i < format.size() &&
-                std::isdigit(static_cast<unsigned char>(format[i]))) {
-    spec.width += format[i++];
-  }
+  } else
+    while (i < format.size() &&
+           std::isdigit(static_cast<unsigned char>(format[i]))) {
+      spec.width += format[i++];
+    }
 
   if (i < format.size() && format[i] == '.') {
     spec.has_precision = true;
@@ -255,10 +281,11 @@ FormatSpec parse_format_spec(std::string_view format, size_t& pos) {
     if (i < format.size() && format[i] == '*') {
       spec.dynamic_precision = true;
       ++i;
-    } else while (i < format.size() &&
-                  std::isdigit(static_cast<unsigned char>(format[i]))) {
-      spec.precision += format[i++];
-    }
+    } else
+      while (i < format.size() &&
+             std::isdigit(static_cast<unsigned char>(format[i]))) {
+        spec.precision += format[i++];
+      }
   }
 
   while (i < format.size() &&
@@ -460,16 +487,7 @@ std::string render_directive(const FormatSpec& spec,
     }
     case 'q': {
       auto value = consume_string_argument(args, arg_index);
-      std::string quoted;
-      for (unsigned char ch : value) {
-        if (std::isalnum(ch) || ch == '_' || ch == '-' || ch == '.' || ch == '/') {
-          quoted.push_back(static_cast<char>(ch));
-        } else {
-          quoted.push_back('\\');
-          quoted.push_back(static_cast<char>(ch));
-        }
-      }
-      return format_string_bytes(std::move(quoted), spec);
+      return format_string_bytes(shell_quote(value), spec);
     }
     case 'c': {
       std::string arg = consume_string_argument(args, arg_index);
@@ -533,7 +551,10 @@ RenderResult render_once(std::string_view format,
 
     if (spec.dynamic_width) {
       long long width = parse_signed_argument(args, arg_index, had_error);
-      if (width < 0) { spec.left_adjust = true; width = -width; }
+      if (width < 0) {
+        spec.left_adjust = true;
+        width = -width;
+      }
       spec.width = std::to_string(width);
     }
     if (spec.dynamic_precision) {

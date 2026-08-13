@@ -55,8 +55,8 @@ int report_error_with_code(const Result<T>& result,
 
 inline void report_custom_error(std::wstring_view command_name,
                                 std::wstring_view error_message) {
-  const auto translated = winux::i18n::translate_error(
-      wstring_to_utf8(error_message));
+  const auto translated =
+      winux::i18n::translate_error(wstring_to_utf8(error_message));
   safeErrorPrintLn(std::wstring(command_name) + L": " +
                    utf8_to_wstring(translated));
 }

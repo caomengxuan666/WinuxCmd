@@ -1648,10 +1648,10 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
   std::vector<ExternalRun> runs;
   size_t run_number = 0;
 
-  std::filesystem::path temp_dir = cfg.temporary_directory_hint.empty()
-                                       ? std::filesystem::temp_directory_path()
-                                       : std::filesystem::path(
-                                             cfg.temporary_directory_hint);
+  std::filesystem::path temp_dir =
+      cfg.temporary_directory_hint.empty()
+          ? std::filesystem::temp_directory_path()
+          : std::filesystem::path(cfg.temporary_directory_hint);
   auto make_run = [&](std::vector<std::string>& records) -> cp::Result<bool> {
     if (records.empty()) return true;
     auto before = [&](const std::string& a, const std::string& b) {
@@ -1662,11 +1662,12 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
     } else {
       std::sort(records.begin(), records.end(), before);
     }
-    const auto path = temp_dir / ("winuxcmd-sort-" +
-                                  std::to_string(GetCurrentProcessId()) +
-                                  "-" + std::to_string(run_number++) + ".tmp");
+    const auto path =
+        temp_dir / ("winuxcmd-sort-" + std::to_string(GetCurrentProcessId()) +
+                    "-" + std::to_string(run_number++) + ".tmp");
     auto output = file_io::create_binary_file(path.string());
-    if (!output.is_open()) return std::unexpected("cannot create temporary file");
+    if (!output.is_open())
+      return std::unexpected("cannot create temporary file");
     for (const auto& record : records) {
       output.write(record.data(), static_cast<std::streamsize>(record.size()));
       output.put(cfg.delimiter);
@@ -1707,7 +1708,7 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
       auto input = file_io::open_binary_file(filename);
       if (!input.is_open()) {
         return std::unexpected("cannot read: " + filename + ": " +
-                              describe_input_open_failure(filename));
+                               describe_input_open_failure(filename));
       }
       auto result = consume(input);
       if (!result) return std::unexpected(result.error());
@@ -1721,7 +1722,8 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
   int stdout_mode = -1;
   if (!cfg.output_file.empty()) {
     output_file = file_io::create_binary_file(cfg.output_file);
-    if (!output_file.is_open()) return std::unexpected("cannot open output file");
+    if (!output_file.is_open())
+      return std::unexpected("cannot open output file");
     output = &output_file;
   } else {
     stdout_mode = _setmode(_fileno(stdout), _O_BINARY);
@@ -1729,9 +1731,10 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
 
   for (auto& path : temporary_paths) {
     ExternalRun run{path, file_io::open_binary_file(path.string())};
-    if (!run.input.is_open()) return std::unexpected("cannot open temporary file");
-    run.has_current = static_cast<bool>(std::getline(run.input, run.current,
-                                                     cfg.delimiter));
+    if (!run.input.is_open())
+      return std::unexpected("cannot open temporary file");
+    run.has_current =
+        static_cast<bool>(std::getline(run.input, run.current, cfg.delimiter));
     runs.push_back(std::move(run));
   }
   auto less = [&](size_t left, size_t right) {
@@ -1740,7 +1743,8 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
     return left > right;
   };
   std::priority_queue<size_t, std::vector<size_t>, decltype(less)> queue(less);
-  for (size_t i = 0; i < runs.size(); ++i) if (runs[i].has_current) queue.push(i);
+  for (size_t i = 0; i < runs.size(); ++i)
+    if (runs[i].has_current) queue.push(i);
 
   std::string previous;
   bool have_previous = false;
@@ -1748,17 +1752,19 @@ auto external_sort(const Config& cfg) -> cp::Result<int> {
     const size_t index = queue.top();
     queue.pop();
     auto& run = runs[index];
-    const bool duplicate = have_previous &&
+    const bool duplicate =
+        have_previous &&
         compare_records_by_sort_key(previous, run.current, cfg) == 0;
     if (!cfg.unique || !duplicate) {
-      output->write(run.current.data(), static_cast<std::streamsize>(run.current.size()));
+      output->write(run.current.data(),
+                    static_cast<std::streamsize>(run.current.size()));
       output->put(cfg.delimiter);
       previous = run.current;
       have_previous = true;
     }
     run.current.clear();
-    run.has_current = static_cast<bool>(std::getline(run.input, run.current,
-                                                     cfg.delimiter));
+    run.has_current =
+        static_cast<bool>(std::getline(run.input, run.current, cfg.delimiter));
     if (run.has_current) queue.push(index);
   }
   output->flush();

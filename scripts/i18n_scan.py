@@ -76,12 +76,44 @@ def scan_file(path: Path) -> list[dict[str, object]]:
         line = text.count("\n", 0, match.start()) + 1
         tail = text[match.end() : min(len(text), match.end() + 280)]
         literal = STRING_RE.search(tail)
+        classification = "review-error-template"
+        if literal:
+            value = literal.group("body")
+            shared = {
+                "invalid input", "error reading from file", "error reading input",
+                "error reading from standard input", "missing operand",
+                "missing file operand", "invalid block size", "invalid length",
+                "invalid range", "invalid input range", "invalid wrap size",
+                "invalid line count", "invalid regular expression",
+                "target is not a directory", "cannot create directory",
+                "cannot open for reading", "cannot open for writing",
+                "cannot read source metadata", "cannot write destination metadata",
+                "cannot preserve timestamps", "cannot preserve attributes",
+                "cannot create backup for destination",
+                "source and destination are the same file", "failed to hash data",
+                "failed to acquire cryptographic context", "failed to create hash object",
+                "failed to get hash value", "No such file or directory",
+            }
+            if (any(ch.isalpha() for ch in value) and
+                    not value.endswith(("'", ": ")) or value in shared or
+                    value.startswith(("missing operand after '",
+                                                    "extra operand '",
+                                                    "invalid argument '",
+                                                    "error reading '",
+                                                    "cannot open '",
+                                                    "cannot access '",
+                                                    "cannot stat '",
+                                                    "cannot create '",
+                                                    "error writing '",
+                                                    "invalid mode: '",
+                                                    "invalid group: '"))):
+                classification = "localized-error"
         rows.append({
             "file": str(path.relative_to(ROOT)).replace("\\", "/"),
             "line": line,
             "call": "std::unexpected",
             "literal": literal.group("body") if literal else None,
-            "classification": "review-error-template",
+            "classification": classification,
         })
     return rows
 

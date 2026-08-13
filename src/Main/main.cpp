@@ -39,11 +39,8 @@ static void applyInheritedStdbuf(const char* name, FILE* stream) {
     return;
   }
   if (std::strcmp(mode, "L") == 0) {
-    // MSVC's CRT cannot safely apply line buffering to an inherited stdin
-    // pipe. GNU's stdin line mode is not observable for a child that only
-    // reads input, so accept it without mutating the input stream.
-    if (stream == stdin) return;
-    setvbuf(stream, nullptr, _IOLBF, 0);
+    // MSVC's CRT does not support POSIX line buffering reliably. Accept the
+    // inherited GNU-compatible marker without mutating the stream.
     return;
   }
   char* end = nullptr;
@@ -115,13 +112,13 @@ static int printHelp() noexcept {
                           " winuxcmd <command> [options]..."
                     : usage + " winuxcmd <command> [options]...");
   safePrintLn("");
-  const auto available = winux::i18n::translate(
-      "main.available_commands", "Available Commands:");
+  const auto available =
+      winux::i18n::translate("main.available_commands", "Available Commands:");
   safePrintLn(color ? colorizeStdout(available, section_style) : available);
 
   // Get all registered commands and display them with brief descriptions
   auto commands = CommandRegistry::getAllCommands();
-  for (const auto &[cmd_name, cmd_desc] : commands) {
+  for (const auto& [cmd_name, cmd_desc] : commands) {
     printCommandSummary(cmd_name, cmd_desc, command_style, color);
   }
 
@@ -139,7 +136,7 @@ static int printHelp() noexcept {
  * @param argv Array of command-line arguments
  * @return Exit code from the executed command (0 = success, non-zero = error)
  */
-int main(int argc, char *argv[]) noexcept {
+int main(int argc, char* argv[]) noexcept {
   if (argc < 1) {
     return printHelp();
   }
@@ -188,8 +185,9 @@ int main(int argc, char *argv[]) noexcept {
           CommandRegistry::printHelp(lowered);
           return 0;
         }
-        safeErrorPrintLn(winux::i18n::format(
-            "main.error.no_help_topic", "winuxcmd: no help topic for '{}'", topic));
+        safeErrorPrintLn(winux::i18n::format("main.error.no_help_topic",
+                                             "winuxcmd: no help topic for '{}'",
+                                             topic));
         return 1;
       }
       safeErrorPrintLn(winux::i18n::translate(
@@ -208,7 +206,7 @@ int main(int argc, char *argv[]) noexcept {
 
     // Check for --version in command arguments
     bool has_version = false;
-    for (const auto &arg : cmd_args) {
+    for (const auto& arg : cmd_args) {
       if (arg == "--version") {
         has_version = true;
         break;
@@ -221,9 +219,9 @@ int main(int argc, char *argv[]) noexcept {
     }
 
     if (!CommandRegistry::hasCommand(cmd_name)) {
-      safeErrorPrintLn(winux::i18n::format(
-          "core.error.command_not_found", "winuxcmd: command not found: {}",
-          cmd_name));
+      safeErrorPrintLn(winux::i18n::format("core.error.command_not_found",
+                                           "winuxcmd: command not found: {}",
+                                           cmd_name));
       return 127;
     }
 

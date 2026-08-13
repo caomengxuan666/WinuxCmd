@@ -430,13 +430,15 @@ auto remove_link_if_safe(const fs::path& source, const fs::path& target,
   if (same_file(source, target)) return true;
   if (same_path_name(current, target)) {
     safePrintLn(wpm_text("command.wpm.status.keep_running",
-                         "wpm: keeping running executable: {}", target.string()));
+                         "wpm: keeping running executable: {}",
+                         target.string()));
     return true;
   }
   if (dry_run) return true;
   if (fs::is_directory(target, ec)) {
     safeErrorPrintLn(wpm_text("command.wpm.error.refuse_directory",
-                              "wpm: refusing to replace directory: {}", target.string()));
+                              "wpm: refusing to replace directory: {}",
+                              target.string()));
     return false;
   }
   if (!DeleteFileW(target.wstring().c_str())) {
@@ -477,7 +479,8 @@ auto remove_stale_legacy_links(const fs::path& root, const fs::path& source,
     } else {
       safeErrorPrintLn(wpm_text("command.wpm.error.remove_legacy",
                                 "wpm: failed to remove legacy link '{}': {}",
-                                target.string(), win32_error_text(GetLastError())));
+                                target.string(),
+                                win32_error_text(GetLastError())));
       ++failed;
     }
   }
@@ -494,7 +497,8 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
 
   if (!fs::exists(source)) {
     safeErrorPrintLn(wpm_text("command.wpm.error.executable_missing",
-                              "wpm: winuxcmd.exe not found in root: {}", root.string()));
+                              "wpm: winuxcmd.exe not found in root: {}",
+                              root.string()));
     return 1;
   }
 
@@ -516,8 +520,8 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
       continue;
     }
     if (dry_run) {
-      safePrintLn(wpm_text("command.wpm.status.link",
-                           "link {} -> {}", target.string(), source.string()));
+      safePrintLn(wpm_text("command.wpm.status.link", "link {} -> {}",
+                           target.string(), source.string()));
       ++created;
       continue;
     }
@@ -525,8 +529,8 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
                         nullptr)) {
       ++created;
       if (verbose)
-        safePrintLn(wpm_text("command.wpm.status.linked",
-                             "linked {}", target.string()));
+        safePrintLn(wpm_text("command.wpm.status.linked", "linked {}",
+                             target.string()));
     } else {
       DWORD err = GetLastError();
       if (same_file(source, target)) {
@@ -540,9 +544,10 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
     }
   }
 
-  safePrintLn(wpm_text("command.wpm.status.links_summary",
-                       "wpm: links created={} unchanged={} stale_removed={} failed={}",
-                       created, unchanged, stale_removed, failed));
+  safePrintLn(
+      wpm_text("command.wpm.status.links_summary",
+               "wpm: links created={} unchanged={} stale_removed={} failed={}",
+               created, unchanged, stale_removed, failed));
   return failed == 0 ? 0 : 1;
 }
 
@@ -560,16 +565,17 @@ auto remove_links(const fs::path& root, bool dry_run) -> int {
     if (!fs::exists(target, ec)) continue;
     if (!same_file(source, target)) continue;
     if (dry_run) {
-      safePrintLn(wpm_text("command.wpm.status.remove", "remove {}", target.string()));
+      safePrintLn(
+          wpm_text("command.wpm.status.remove", "remove {}", target.string()));
       ++removed;
       continue;
     }
     if (DeleteFileW(target.wstring().c_str())) {
       ++removed;
     } else {
-      safeErrorPrintLn(wpm_text("command.wpm.error.remove",
-                                "wpm: failed to remove '{}': {}", target.string(),
-                                win32_error_text(GetLastError())));
+      safeErrorPrintLn(
+          wpm_text("command.wpm.error.remove", "wpm: failed to remove '{}': {}",
+                   target.string(), win32_error_text(GetLastError())));
       ++failed;
     }
   }
@@ -2263,14 +2269,17 @@ auto show_info(const Options& opts, std::string_view name) -> int {
 
 auto print_usage() -> int {
   const std::string help =
-      "Winux Package Manager " + std::string(kVersion) + "\n"
+      "Winux Package Manager " + std::string(kVersion) +
+      "\n"
       "Usage: wpm <command> [args] [options]\n\n"
       "Commands:\n"
       "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
       "  index status|update           inspect or refresh local index\n"
       "  source list|use|add           manage index sources\n"
-      "  list                          list indexed packages and install state\n"
-      "  search <query>                search names, commands, categories, licenses\n"
+      "  list                          list indexed packages and install "
+      "state\n"
+      "  search <query>                search names, commands, categories, "
+      "licenses\n"
       "  info <package>                show package metadata\n"
       "  install <package>             install package from local index\n"
       "  installed                     list packages present in this root\n"
@@ -2278,7 +2287,8 @@ auto print_usage() -> int {
       "Options:\n"
       "  -r, --root <dir>              manage a specific WinuxCmd root\n"
       "  -s, --source <name>           use a specific index source\n"
-      "  -a, --all                     show index-only packages in list output\n"
+      "  -a, --all                     show index-only packages in list "
+      "output\n"
       "  -f, --force                   overwrite existing files when safe\n"
       "  -n, --dry-run                 show planned changes without writing\n"
       "  -v, --verbose                 print detailed progress\n"
@@ -2324,9 +2334,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     if (args[1] == "remove") {
       return remove_links(opts.root, opts.dry_run);
     }
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.links",
-        "wpm: usage: wpm links list|rebuild|remove"));
+    safeErrorPrintLn(
+        winux::i18n::translate("command.wpm.error.usage.links",
+                               "wpm: usage: wpm links list|rebuild|remove"));
     return 1;
   }
 
@@ -2335,8 +2345,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
       return update_index(opts);
     if (args.size() == 1 || args[1] == "status")
       return print_index_status(opts);
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.index", "wpm: usage: wpm index status|update"));
+    safeErrorPrintLn(
+        winux::i18n::translate("command.wpm.error.usage.index",
+                               "wpm: usage: wpm index status|update"));
     return 1;
   }
 
@@ -2358,22 +2369,23 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return list_packages(opts, args.size() >= 2 ? args[1] : std::string_view{});
   if (args[0] == "info") {
     if (args.size() >= 2) return show_info(opts, args[1]);
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.info", "wpm: usage: wpm info <package>"));
+    safeErrorPrintLn(winux::i18n::translate("command.wpm.error.usage.info",
+                                            "wpm: usage: wpm info <package>"));
     return 1;
   }
   if (args[0] == "install") {
     if (args.size() >= 2) return install_package(opts, args[1]);
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.install", "wpm: usage: wpm install <package>"));
+    safeErrorPrintLn(
+        winux::i18n::translate("command.wpm.error.usage.install",
+                               "wpm: usage: wpm install <package>"));
     return 1;
   }
   if (args[0] == "update" || args[0] == "upgrade") {
     if (args.size() >= 2 && (args[1] == "winuxcmd" || args[1] == "coreutils")) {
       return update_winuxcmd(opts);
     }
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.update", "wpm: usage: wpm update winuxcmd"));
+    safeErrorPrintLn(winux::i18n::translate("command.wpm.error.usage.update",
+                                            "wpm: usage: wpm update winuxcmd"));
     return 1;
   }
   if (args[0] == "version") {
@@ -2405,8 +2417,8 @@ REGISTER_COMMAND(
         opts, std::span<const std::string_view>(ctx.positionals.data(),
                                                 ctx.positionals.size()));
   } catch (const std::exception& e) {
-    safeErrorPrintLn(winux::i18n::format("command.wpm.error.exception", "wpm: {}",
-                                         e.what()));
+    safeErrorPrintLn(winux::i18n::format("command.wpm.error.exception",
+                                         "wpm: {}", e.what()));
     return 1;
   }
 }

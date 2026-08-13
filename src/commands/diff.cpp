@@ -345,6 +345,56 @@ auto compare_files(const std::string &path1, const std::string &path2,
   return equal;
 }
 
+auto filetime_ticks(FILETIME ft) -> uint64_t {
+  ULARGE_INTEGER value{};
+  value.LowPart = ft.dwLowDateTime;
+  value.HighPart = ft.dwHighDateTime;
+  return value.QuadPart;
+}
+
+auto format_unified_timestamp(const std::string &path) -> std::string {
+  WIN32_FILE_ATTRIBUTE_DATA data{};
+  if (!GetFileAttributesExW(utf8_to_wstring(path).c_str(),
+                            GetFileExInfoStandard, &data)) {
+    return "";
+  }
+
+  FILETIME utc_ft = data.ftLastWriteTime;
+  FILETIME local_ft{};
+  if (!FileTimeToLocalFileTime(&utc_ft, &local_ft)) {
+    local_ft = utc_ft;
+  }
+
+  SYSTEMTIME st{};
+  FileTimeToSystemTime(&local_ft, &st);
+
+  int64_t offset_ticks = static_cast<int64_t>(filetime_ticks(local_ft)) -
+                         static_cast<int64_t>(filetime_ticks(utc_ft));
+  int offset_minutes = static_cast<int>(offset_ticks / (10'000'000LL * 60LL));
+  char sign = '+';
+  if (offset_minutes < 0) {
+    sign = '-';
+    offset_minutes = -offset_minutes;
+  }
+
+  uint64_t fractional_ns = (filetime_ticks(local_ft) % 10'000'000ULL) * 100ULL;
+  char buf[96]{};
+  snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d:%02d.%09llu %c%02d%02d",
+           st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
+           static_cast<unsigned long long>(fractional_ns), sign,
+           offset_minutes / 60, offset_minutes % 60);
+  return std::string(buf);
+}
+
+auto format_unified_range(size_t start_line, size_t count) -> std::string {
+  std::string out = std::to_string(start_line);
+  if (count != 1) {
+    out += ",";
+    out += std::to_string(count);
+  }
+  return out;
+}
+
 /**
  * @brief Output unified diff format using LCS
  * @param path1 First file path
@@ -404,9 +454,19 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
   // Output header
   safePrint("--- ");
   safePrint(path1);
+  auto timestamp1 = format_unified_timestamp(path1);
+  if (!timestamp1.empty()) {
+    safePrint("\t");
+    safePrint(timestamp1);
+  }
   safePrint("\n");
   safePrint("+++ ");
   safePrint(path2);
+  auto timestamp2 = format_unified_timestamp(path2);
+  if (!timestamp2.empty()) {
+    safePrint("\t");
+    safePrint(timestamp2);
+  }
   safePrint("\n");
 
   // Output each hunk
@@ -456,13 +516,9 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
 
     // Output hunk header
     safePrint("@@ -");
-    safePrint(std::to_string(file1_start + 1));
-    safePrint(",");
-    safePrint(std::to_string(file1_end - file1_start));
+    safePrint(format_unified_range(file1_start + 1, file1_end - file1_start));
     safePrint(" +");
-    safePrint(std::to_string(file2_start + 1));
-    safePrint(",");
-    safePrint(std::to_string(file2_end - file2_start));
+    safePrint(format_unified_range(file2_start + 1, file2_end - file2_start));
     safePrint(" @@\n");
 
     // Output hunk content

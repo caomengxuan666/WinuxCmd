@@ -401,7 +401,8 @@ auto prime_check(const BigInt& value) -> BigInt {
 }
 
 auto print_help_text() -> void {
-  constexpr std::string_view help = R"MPICALC(+   add           [0] := [1] + [0]          {-1}
+  constexpr std::string_view help =
+      R"MPICALC(+   add           [0] := [1] + [0]          {-1}
 -   subtract      [0] := [1] - [0]          {-1}
 *   multiply      [0] := [1] * [0]          {-1}
 /   divide        [0] := [1] / [0]          {-1}

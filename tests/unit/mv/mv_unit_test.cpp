@@ -58,14 +58,15 @@ TEST(mv, mv_basic) {
 TEST(mv, mv_cross_volume_directory_falls_back_to_copy_and_remove) {
   TempDir source_tmp;
   TempDir destination_tmp;
-  std::filesystem::create_directories(source_tmp.path / "source_dir" / "nested");
+  std::filesystem::create_directories(source_tmp.path / "source_dir" /
+                                      "nested");
   source_tmp.write("source_dir/file.txt", "content");
   source_tmp.write("source_dir/nested/child.txt", "child");
 
   Pipeline p;
   p.set_cwd(source_tmp.wpath());
   p.add(L"mv.exe", {source_tmp.wpath() + L"/source_dir",
-                     destination_tmp.wpath() + L"/moved_dir"});
+                    destination_tmp.wpath() + L"/moved_dir"});
 
   auto r = p.run();
 

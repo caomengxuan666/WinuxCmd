@@ -30,6 +30,7 @@
  */
 
 #ifndef PCH_H
+#define PCH_H
 #pragma warning(disable : 4530)
 #pragma warning(disable : 4541)  // Disable typeid warning with /GR-
 #pragma warning(disable : 4129)
@@ -37,10 +38,11 @@
 #define NOMINMAX
 #define STRICT
 #define _CRT_SECURE_NO_WARNINGS
-#include <windows.h>   // For basic windows functions
+// clang-format off: winsock2.h must be included before windows.h.
 #include <winsock2.h>  // Must be before windows.h to avoid conflicts
+#include <windows.h>  // For basic windows functions
+// clang-format on
 // Include these headers after windows.h
-// Fuck clang-format.
 #include <fcntl.h>       // For _setmode
 #include <fileapi.h>     // For FindFirstFileW, FindNextFileW
 #include <handleapi.h>   // For GetStdHandle, INVALID_HANDLE_VALUE

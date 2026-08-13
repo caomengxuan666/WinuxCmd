@@ -373,7 +373,9 @@ REGISTER_COMMAND(dd,
     hIn = CreateFileW(winput.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hIn == INVALID_HANDLE_VALUE) {
-      safeErrorPrintLn("dd: cannot open input file '" + cfg.input_file + "'");
+      safeErrorPrintLn(winux::i18n::format(
+          "command.dd.error.open_input", "dd: failed to open '{}': {}",
+          cfg.input_file, win32_posix_error_text(GetLastError())));
       return 1;
     }
   } else {

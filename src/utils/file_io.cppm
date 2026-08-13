@@ -23,13 +23,15 @@ auto read_open_error(std::string_view path,
   const DWORD attrs = native_path::attributes_w(operand.extended);
   if (operand.had_trailing_separator &&
       native_path::attributes_are_regular_file(attrs)) {
-    return winux::i18n::format(
-        "utils.file.error.not_directory", "cannot open '{}' for reading: Not a directory", path);
+    return winux::i18n::format("utils.file.error.not_directory",
+                               "cannot open '{}' for reading: Not a directory",
+                               path);
   }
 
   if (native_path::attributes_are_directory(attrs)) {
-    return winux::i18n::format(
-        "utils.file.error.is_directory", "cannot open '{}' for reading: Is a directory", path);
+    return winux::i18n::format("utils.file.error.is_directory",
+                               "cannot open '{}' for reading: Is a directory",
+                               path);
   }
 
   return winux::i18n::format(
@@ -57,8 +59,8 @@ auto read_handle_to_string(HANDLE file, std::string_view path)
     DWORD bytes_read = 0;
     if (!ReadFile(file, buffer.data(), static_cast<DWORD>(buffer.size()),
                   &bytes_read, nullptr)) {
-      return std::unexpected(winux::i18n::format(
-          "utils.file.error.read", "error reading '{}'", path));
+      return std::unexpected(winux::i18n::format("utils.file.error.read",
+                                                 "error reading '{}'", path));
     }
     if (bytes_read == 0) break;
     content.append(buffer.data(), bytes_read);

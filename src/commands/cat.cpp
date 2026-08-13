@@ -90,7 +90,7 @@ auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx,
     -> cp::Result<void> {
   for (auto arg : ctx.positionals) {
     std::string file_arg(arg);
-    for (const auto& file : expand_file_operand(file_arg)) {
+    for (const auto &file : expand_file_operand(file_arg)) {
       out_files.push_back(file);
     }
   }

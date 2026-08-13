@@ -67,7 +67,7 @@ struct Config {
   std::string ignore_file;
   std::string only_file;
   bool input_references = false;
-  int width = 72;
+  int width = 78;
   SmallVector<std::string, 64> files;
 };
 
@@ -148,7 +148,7 @@ auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
   cfg.gap_size = std::max(0, *gap);
 
   auto width =
-      parse_int_option(option_value(ctx, "--width", "-w"), 72, "width");
+      parse_int_option(option_value(ctx, "--width", "-w"), 78, "width");
   if (!width) return std::unexpected(width.error());
   cfg.width = std::max(1, *width);
 
@@ -313,9 +313,8 @@ void collect_occurrences(const SourceText& source, size_t source_index,
     }
     if (pos >= text_end) break;
     size_t start = pos;
-    while (pos < text_end &&
-           is_word_char(static_cast<unsigned char>(text[pos]), breaks,
-                         cfg.traditional)) {
+    while (pos < text_end && is_word_char(static_cast<unsigned char>(text[pos]),
+                                          breaks, cfg.traditional)) {
       ++pos;
     }
     size_t end = pos;

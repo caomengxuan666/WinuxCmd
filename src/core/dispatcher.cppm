@@ -849,9 +849,9 @@ class RegistryImpl {
   int run(std::string_view cmdName, std::span<std::string_view> args) {
     auto it = registry_.find(cmdName);
     if (it == registry_.end()) {
-      safeErrorPrintLn(winux::i18n::format(
-          "core.error.command_not_found", "winuxcmd: command not found: {}",
-          cmdName));
+      safeErrorPrintLn(winux::i18n::format("core.error.command_not_found",
+                                           "winuxcmd: command not found: {}",
+                                           cmdName));
       return 127;
     }
 
@@ -859,10 +859,10 @@ class RegistryImpl {
 
     if (behavior.validate_args != nullptr) {
       if (auto invalid_arg = behavior.validate_args(args)) {
-        safeErrorPrintLn(winux::i18n::format(
-            "core.error.invalid_option_context",
-            "{}: option used in invalid context -- {}",
-            behavior.validation_prefix, *invalid_arg));
+        safeErrorPrintLn(
+            winux::i18n::format("core.error.invalid_option_context",
+                                "{}: option used in invalid context -- {}",
+                                behavior.validation_prefix, *invalid_arg));
         return behavior.parse_error_exit_code;
       }
     }
@@ -1004,5 +1004,4 @@ export class CommandRegistry {
   static std::string getManPage(std::string_view cmdName) noexcept {
     return getImpl().man(cmdName);
   }
-
 };

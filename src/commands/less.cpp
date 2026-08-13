@@ -504,8 +504,8 @@ auto compile_search(const Config& cfg, std::string_view text, bool forward)
 }
 
 auto find_search_match(const PagerDocument& doc, const SearchState& search,
-                       size_t anchor_line,
-                       bool forward) -> std::optional<MatchLocation> {
+                       size_t anchor_line, bool forward)
+    -> std::optional<MatchLocation> {
   if (doc.line_count() == 0) return std::nullopt;
 
   auto line_match = [&](size_t index) -> std::optional<MatchLocation> {
@@ -557,9 +557,9 @@ auto highlight_matches(std::string_view text, const SearchState* search,
     }
 
     out.append(text.substr(cursor, match->begin - cursor));
-    const bool is_current =
-        current_range && current_range->first == match->begin &&
-        current_range->second == match->end;
+    const bool is_current = current_range &&
+                            current_range->first == match->begin &&
+                            current_range->second == match->end;
     out += is_current ? "\033[1;30;43m" : "\033[7m";
     out.append(text.substr(match->begin, match->end - match->begin));
     out += ANSI_RESET;

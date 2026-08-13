@@ -3,9 +3,11 @@ set -u
 set -o pipefail
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-CORPUS="$ROOT/corpus"
+CORPUS="${CORPUS:-$ROOT}"
 ONLY=""
 REPORT="$ROOT/report.md"
+RESULTS_FILE=""
+COMMANDS_FILE="$ROOT/commands.txt"
 WINUXCMD_BIN="${WINUXCMD_BIN:-}"
 WINUXCMD_EXE="${WINUXCMD_EXE:-winuxcmd.exe}"
 GNU_BIN="${GNU_BIN:-}"
@@ -16,6 +18,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --corpus) CORPUS=$2; shift 2 ;;
     --report) REPORT=$2; shift 2 ;;
+    --results) RESULTS_FILE=$2; shift 2 ;;
     --only) ONLY=$2; shift 2 ;;
     --baseline) BASELINE=$2; shift 2 ;;
     -h|--help) printf '%s\n' 'runner.sh [--corpus DIR] [--report FILE] [--only CMD]'; exit 0 ;;
@@ -24,7 +27,23 @@ while [ "$#" -gt 0 ]; do
 done
 
 find_oracle() {
-  if [ -n "$GNU_BIN" ] && [ -x "$GNU_BIN/$1" ]; then printf '%s/%s' "$GNU_BIN" "$1"; else command -v "$1" 2>/dev/null || true; fi
+  if [ -n "$GNU_BIN" ] && [ -x "$GNU_BIN/$1" ]; then
+    printf '%s/%s' "$GNU_BIN" "$1"
+  elif [ -n "$GNU_BIN" ] && [ -x "$GNU_BIN/$1.exe" ]; then
+    printf '%s/%s.exe' "$GNU_BIN" "$1"
+  else
+    command -v "$1" 2>/dev/null || command -v "$1.exe" 2>/dev/null || true
+  fi
+}
+
+find_timeout() {
+  if [ -n "$GNU_BIN" ] && [ -x "$GNU_BIN/timeout.exe" ]; then
+    printf '%s/timeout.exe' "$GNU_BIN"
+  elif [ -n "$GNU_BIN" ] && [ -x "$GNU_BIN/timeout" ]; then
+    printf '%s/timeout' "$GNU_BIN"
+  else
+    command -v timeout 2>/dev/null || true
+  fi
 }
 
 absolute_command() {
@@ -40,10 +59,15 @@ absolute_command() {
   fi
 }
 
+shell_quote() {
+  printf "'%s'" "${1//\'/\'\\''}"
+}
+
 run_case() {
-  local case_file=$1 work line block cmd args timeout setup stdin
+  local case_file=$1 work wdir gdir line block cmd args timeout setup stdin files
   work=$(mktemp -d) || return 2
-  cmd=""; args=""; timeout=10; setup=""; stdin=""; block=""
+  wdir="$work/w"; gdir="$work/g"; mkdir -p "$wdir" "$gdir"
+  cmd=""; args=""; timeout=10; setup=""; stdin=""; files=""; block=""
   while IFS= read -r line || [ -n "$line" ]; do
     if [ -n "$block" ]; then
       if [[ "$line" == "  "* ]]; then
@@ -54,20 +78,24 @@ run_case() {
     fi
     case "$line" in
       cmd:*) cmd=${line#cmd: };;
-      args:*) args=${line#args: };;
+      args:*) args=${line#args:}; args=${args# };;
       timeout:*) timeout=${line#timeout: };;
+      files:*) files=${line#files: };;
       setup:\ \|) block=setup;;
       stdin:\ \|) block=stdin;;
     esac
   done < "$case_file"
   if [ -z "$cmd" ]; then
     rm -rf "$work"
-    printf '%s\tSKIP\n' "${case_file#$ROOT/}"
+    printf '%s\t%s\tSKIP\n' "${case_file#$ROOT/}" "$cmd"
     return 0
   fi
-  [ -z "$setup" ] || (cd "$work" && printf '%b' "$setup" | sh)
+  [ -z "$setup" ] || {
+    (cd "$wdir" && printf '%b' "$setup" | sh >/dev/null 2>&1)
+    (cd "$gdir" && printf '%b' "$setup" | sh >/dev/null 2>&1)
+  }
   local wout="$work/w.out" werr="$work/w.err" gout="$work/g.out" gerr="$work/g.err"
-  local wrc grc wcmd gcmd bucket case_args
+  local wrc grc wcmd gcmd bucket case_args timeout_cmd wname gname
   wcmd="$WINUXCMD_EXE"
   if [ -n "$WINUXCMD_BIN" ]; then
     if [ -x "$WINUXCMD_BIN/$cmd.exe" ]; then
@@ -79,32 +107,71 @@ run_case() {
   gcmd=$(find_oracle "$cmd")
   if [ ! -x "$gcmd" ]; then
     rm -rf "$work"
-    printf '%s\tSKIP\n' "${case_file#$ROOT/}"
+    printf '%s\t%s\tSKIP\n' "${case_file#$ROOT/}" "$cmd"
     return 0
   fi
   wcmd=$(absolute_command "$wcmd")
   gcmd=$(absolute_command "$gcmd")
   if [ -z "$wcmd" ] || [ -z "$gcmd" ]; then
     rm -rf "$work"
-    printf '%s\tSKIP\n' "${case_file#$ROOT/}"
+    printf '%s\t%s\tSKIP\n' "${case_file#$ROOT/}" "$cmd"
+    return 0
+  fi
+  timeout_cmd=$(find_timeout)
+  if [ -z "$timeout_cmd" ]; then
+    rm -rf "$work"
+    printf '%s\t%s\tSKIP\n' "${case_file#$ROOT/}" "$cmd"
     return 0
   fi
   case_args=$args
   # Case arguments are intentionally shell-like and come from the checked-in
   # corpus. Keep setup and both command sides in the same isolated directory.
-  (cd "$work" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 timeout "$timeout" "$wcmd" $case_args >"$wout" 2>"$werr"); wrc=$?
-  (cd "$work" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 timeout "$timeout" "$gcmd" $case_args >"$gout" 2>"$gerr"); grc=$?
+  # The checked-in case format intentionally uses shell quoting for args.
+  # Evaluate only this trusted case field so quoted operands stay one argv.
+  local wquoted gquoted
+  wname=$(basename "$wcmd")
+  local wext="${wname##*.}"
+  if [ "$wext" = "$wname" ]; then
+    wname=$cmd
+  fi
+  gname=$(basename "$gcmd")
+  local gext="${gname##*.}"
+  if [ "$gext" != "$gname" ]; then
+    gname="$gname"
+  else
+    gname=$cmd
+  fi
+  wquoted=$(shell_quote "$wname")
+  gquoted=$(shell_quote "$gname")
+  local wcommand="exec $wquoted $case_args"
+  local gcommand="exec $gquoted $case_args"
+  (cd "$wdir" && export PATH="$(dirname "$wcmd"):$PATH" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
+    "$timeout_cmd" "$timeout" bash -c "$wcommand" >"$wout" 2>"$werr"); wrc=$?
+  (cd "$gdir" && export PATH="$(dirname "$gcmd"):$PATH" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
+    "$timeout_cmd" "$timeout" bash -c "$gcommand" >"$gout" 2>"$gerr"); grc=$?
+  files_equal=true
+  if [ -n "$files" ]; then
+    IFS=',' read -ra expected_files <<< "$files"
+    for expected in "${expected_files[@]}"; do
+      if [ ! -f "$wdir/$expected" ] || [ ! -f "$gdir/$expected" ] ||
+         ! cmp -s "$wdir/$expected" "$gdir/$expected"; then
+        files_equal=false
+        break
+      fi
+    done
+  fi
   if [ "$wrc" -ne "$grc" ]; then
     bucket=EXIT_DIFF
-  elif cmp -s "$wout" "$gout" && cmp -s "$werr" "$gerr"; then
+  elif cmp -s "$wout" "$gout" && cmp -s "$werr" "$gerr" && [ "$files_equal" = true ]; then
     bucket=PASS
   elif cmp -s <(tr -d '\r' < "$wout") <(tr -d '\r' < "$gout") &&
-       cmp -s <(tr -d '\r' < "$werr") <(tr -d '\r' < "$gerr"); then
+       cmp -s <(tr -d '\r' < "$werr") <(tr -d '\r' < "$gerr") &&
+       [ "$files_equal" = true ]; then
     bucket=CRLF_DIFF
   else
     bucket=OUT_DIFF
   fi
-  printf '%s\t%s\n' "${case_file#$ROOT/}" "$bucket"
+  printf '%s\t%s\t%s\n' "${case_file#$ROOT/}" "$cmd" "$bucket"
   rm -rf "$work"
 }
 
@@ -112,6 +179,11 @@ oracle_cmd=$(find_oracle cat)
 oracle=$({ "$oracle_cmd" --version 2>/dev/null || true; } | head -1 | tr -d '\r')
 if [ -z "$oracle" ]; then
   echo "ERROR: GNU coreutils oracle not found" >&2
+  exit 2
+fi
+timeout_cmd=$(find_timeout)
+if [ -z "$timeout_cmd" ]; then
+  echo "ERROR: GNU timeout oracle not found; set GNU_BIN to a GNU coreutils bin directory" >&2
   exit 2
 fi
 case_count=$(find "$CORPUS" -type f -name '*.case' | wc -l)
@@ -122,17 +194,22 @@ fi
 printf '# Differential report\n\nOracle: `%s`\n\n| Case | Result |\n|---|---|\n' "$oracle" > "$REPORT"
 results=$(mktemp)
 find "$CORPUS" -type f -name '*.case' | sort | while IFS= read -r file; do
-  [ -n "$ONLY" ] && [ "$(basename "$(dirname "$file")")" != "$ONLY" ] && continue
+  if [ -n "$ONLY" ] && ! awk -v wanted="$ONLY" '$0 == "cmd: " wanted { found=1 } END { exit !found }' "$file"; then
+    continue
+  fi
   run_case "$file"
 done | tee "$results" >> "$REPORT"
+if [ -n "$RESULTS_FILE" ]; then
+  cp "$results" "$RESULTS_FILE"
+fi
 printf '\n## Summary\n\n' >> "$REPORT"
-awk -F '\t' '{ total++; count[$2]++ } END { for (k in count) printf "- %s: %d/%d\n", k, count[k], total }' "$results" >> "$REPORT"
+awk -F '\t' '{ total++; count[$3]++ } END { for (k in count) printf "- %s: %d/%d\n", k, count[k], total }' "$results" >> "$REPORT"
 printf '\n## By command\n\n| Command | PASS | Executed | Rate |\n|---|---:|---:|---:|\n' >> "$REPORT"
 awk -F '\t' '
   {
-    split($1, parts, "/"); command = parts[2];
+    command = $2;
     executed[command]++;
-    if ($2 == "PASS") passed[command]++;
+    if ($3 == "PASS") passed[command]++;
   }
   END {
     for (command in executed) {
@@ -141,9 +218,24 @@ awk -F '\t' '
              executed[command], rate;
     }
   }' "$results" | sort >> "$REPORT"
+if [ -f "$COMMANDS_FILE" ]; then
+  printf '\n## Command coverage\n\n' >> "$REPORT"
+  awk -F '\t' '
+    NR == FNR { expected[$1] = 1; next }
+    { actual[$2] = 1 }
+    END {
+      covered = 0
+      for (command in expected) {
+        if (actual[command]) covered++
+        else missing = missing (missing ? ", " : "") command
+      }
+      printf "Declared commands: %d\\nCovered commands: %d\\nMissing commands: %s\\n",
+             length(expected), covered, (missing ? missing : "none")
+    }' "$COMMANDS_FILE" "$results" >> "$REPORT"
+fi
 total=$(wc -l < "$results")
-pass=$(awk -F '\t' '$2 == "PASS" { count++ } END { print count + 0 }' "$results")
-skip=$(awk -F '\t' '$2 ~ /^SKIP/ { count++ } END { print count + 0 }' "$results")
+pass=$(awk -F '\t' '$3 == "PASS" { count++ } END { print count + 0 }' "$results")
+skip=$(awk -F '\t' '$3 ~ /^SKIP/ { count++ } END { print count + 0 }' "$results")
 diffs=$((total - pass - skip))
 printf '\nCases executed: %d\nPASS: %d\nSKIP: %d\nDifferences: %d\n' "$total" "$pass" "$skip" "$diffs" >> "$REPORT"
 if [ "$total" -eq 0 ]; then
@@ -155,5 +247,8 @@ if [ "$diffs" -gt 0 ]; then
   echo "ERROR: $diffs differential case(s) did not match" >&2
   rm -f "$results"
   exit 1
+fi
+if [ -n "$BASELINE" ] && [ -s "$BASELINE" ] && [ -n "$RESULTS_FILE" ]; then
+  python "$ROOT/compare-baseline.py" "$BASELINE" "$RESULTS_FILE" || exit 1
 fi
 rm -f "$results"

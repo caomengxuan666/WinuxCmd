@@ -343,8 +343,7 @@ auto read_paths_file(std::string_view file)
     buffer << std::cin.rdbuf();
     data = buffer.str();
   } else {
-    std::ifstream in{
-        std::filesystem::path(utf8_to_wstring(std::string(file)))};
+    std::ifstream in{std::filesystem::path(utf8_to_wstring(std::string(file)))};
     if (!in.is_open()) {
       return std::unexpected("cannot open '" + std::string(file) +
                              "' for reading");

@@ -53,7 +53,7 @@ TEST(stdbuf, stdbuf_invalid_option_returns_125) {
   EXPECT_TRUE(r.stdout_text.empty());
   EXPECT_EQ_TEXT(r.stderr_text,
                  "stdbuf: unrecognized option '--invalid'\n"
-                 "Try 'stdbuf --help' for more information.\n");
+                 "Try 'stdbuf' --help for more information.\n");
 }
 
 TEST(stdbuf, stdbuf_attached_output_mode) {
@@ -92,6 +92,19 @@ TEST(stdbuf, stdbuf_accepts_line_buffered_stdin) {
 
   TEST_LOG_EXIT_CODE(r);
   TEST_LOG("stdbuf stderr", r.stderr_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "test\n");
+}
+
+TEST(stdbuf, stdbuf_accepts_line_buffered_stdout) {
+  Pipeline p;
+  p.add(L"stdbuf.exe", {L"-oL", L"echo.exe", L"test"});
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("stdbuf stdout line buffered stderr", r.stderr_text);
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "test\n");

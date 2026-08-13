@@ -422,8 +422,7 @@ auto append_wrapped_words(std::string& out,
             end + 1 == word_count
                 ? 0
                 : squared_distance(length, preferred) + continuation_cost;
-        if (current_cost < chosen_cost ||
-            (current_cost == chosen_cost && end > chosen_end)) {
+        if (current_cost < chosen_cost) {
           chosen_cost = current_cost;
           chosen_end = end;
         }

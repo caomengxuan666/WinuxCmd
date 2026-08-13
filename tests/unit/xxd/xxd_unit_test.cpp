@@ -40,7 +40,8 @@ TEST(xxd, xxd_full_line_has_no_extra_padding_or_blank_line) {
 
 TEST(xxd, xxd_reverse_decodes_hex_dump) {
   TempDir tmp;
-  tmp.write("dump.txt", "00000000: 6865 6c6c 6f                             hello\n");
+  tmp.write("dump.txt",
+            "00000000: 6865 6c6c 6f                             hello\n");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());

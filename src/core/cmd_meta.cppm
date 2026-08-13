@@ -256,9 +256,8 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
   }
   result += "\n\n";
 
-  const auto translated_description =
-      winux::i18n::translate("command." + std::string(name) + ".description",
-                             description);
+  const auto translated_description = winux::i18n::translate(
+      "command." + std::string(name) + ".description", description);
   if (!translated_description.empty()) {
     result.append(translated_description.data(), translated_description.size());
     result += "\n\n";
@@ -287,8 +286,7 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
           std::max(max_option_width, format_option_names(opt).size());
     }
 
-    append_styled(result,
-                  winux::i18n::translate("common.options", "OPTIONS:"),
+    append_styled(result, winux::i18n::translate("common.options", "OPTIONS:"),
                   section_style, color);
     result += "\n";
     for (const auto& opt : display_options) {
@@ -319,23 +317,23 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
     result += "\n";
   }
 
-  append_styled(result, winux::i18n::translate("common.exit_status",
-                                               "EXIT STATUS:"),
+  append_styled(result,
+                winux::i18n::translate("common.exit_status", "EXIT STATUS:"),
                 section_style, color);
   result += "\n";
   result += "  0  " + winux::i18n::translate("common.exit.ok", "if OK,") + "\n";
   result += "  1  " +
             winux::i18n::translate("common.exit.minor", "if minor problems,") +
             "\n";
-  result += "  2  " +
-            winux::i18n::translate("common.exit.serious", "if serious trouble.") +
-            "\n\n";
-  append_styled(result, "WinuxCmd", subtle_style, color);
   result +=
-      " " + winux::i18n::translate(
-                 "common.about",
-                 "is a Windows implementation of GNU CoreUtils for "
-                 "Linux-Windows developers and AI coding assistants.");
+      "  2  " +
+      winux::i18n::translate("common.exit.serious", "if serious trouble.") +
+      "\n\n";
+  append_styled(result, "WinuxCmd", subtle_style, color);
+  result += " " + winux::i18n::translate(
+                      "common.about",
+                      "is a Windows implementation of GNU CoreUtils for "
+                      "Linux-Windows developers and AI coding assistants.");
 
   return result;
 }
@@ -508,8 +506,8 @@ export auto format_custom_help(std::string_view name, std::string_view help)
   bool first_line = true;
   while (start <= help.size()) {
     const size_t end = help.find('\n', start);
-    const size_t length = end == std::string_view::npos ? help.size() - start
-                                                         : end - start;
+    const size_t length =
+        end == std::string_view::npos ? help.size() - start : end - start;
     std::string_view line = help.substr(start, length);
     const size_t indent = line.find_first_not_of(" \t");
     const bool indented = indent != std::string_view::npos && indent > 0;
@@ -548,13 +546,14 @@ export auto format_custom_help(std::string_view name, std::string_view help)
 
   if (!name.empty() && !result.empty()) {
     // Custom help blocks are intentionally authored by the command, but the
-    // shared formatter still gives them the same final attribution as normal help.
+    // shared formatter still gives them the same final attribution as normal
+    // help.
     result += '\n';
     append_styled(result, "WinuxCmd", subtle_style, color);
     result += " " + winux::i18n::translate(
-                         "common.about",
-                         "is a Windows implementation of GNU CoreUtils for "
-                         "Linux-Windows developers and AI coding assistants.");
+                        "common.about",
+                        "is a Windows implementation of GNU CoreUtils for "
+                        "Linux-Windows developers and AI coding assistants.");
   }
   return result;
 }

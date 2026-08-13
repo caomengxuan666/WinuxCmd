@@ -148,7 +148,8 @@ bool parse_number_value(const std::string& s, double& result,
         ((s[i] == '-' || s[i] == '+') && num_str.empty())) {
       num_str += s[i];
     } else {
-      suffix = static_cast<char>(std::toupper(static_cast<unsigned char>(s[i])));
+      suffix =
+          static_cast<char>(std::toupper(static_cast<unsigned char>(s[i])));
       break;
     }
   }
@@ -156,13 +157,25 @@ bool parse_number_value(const std::string& s, double& result,
     result = std::stod(num_str);
     const double base = (from == "si" || from == "auto") ? 1000.0 : 1024.0;
     switch (suffix) {
-      case 'K': result *= base; break;
-      case 'M': result *= std::pow(base, 2); break;
-      case 'G': result *= std::pow(base, 3); break;
-      case 'T': result *= std::pow(base, 4); break;
-      case 'P': result *= std::pow(base, 5); break;
-      case 0: break;
-      default: return false;
+      case 'K':
+        result *= base;
+        break;
+      case 'M':
+        result *= std::pow(base, 2);
+        break;
+      case 'G':
+        result *= std::pow(base, 3);
+        break;
+      case 'T':
+        result *= std::pow(base, 4);
+        break;
+      case 'P':
+        result *= std::pow(base, 5);
+        break;
+      case 0:
+        break;
+      default:
+        return false;
     }
     return true;
   } catch (...) {
@@ -201,14 +214,20 @@ std::string format_iec_i(long long num) {
   static constexpr const char* suffixes[] = {"", "Ki", "Mi", "Gi", "Ti", "Pi"};
   double value = static_cast<double>(num);
   size_t index = 0;
-  while (value >= 1024.0 && index < 5) { value /= 1024.0; ++index; }
+  while (value >= 1024.0 && index < 5) {
+    value /= 1024.0;
+    ++index;
+  }
   char buffer[64];
-  if (index == 0) sprintf_s(buffer, sizeof(buffer), "%lld", num);
-  else sprintf_s(buffer, sizeof(buffer), "%.1f", value);
+  if (index == 0)
+    sprintf_s(buffer, sizeof(buffer), "%lld", num);
+  else
+    sprintf_s(buffer, sizeof(buffer), "%.1f", value);
   return std::string(buffer) + suffixes[index];
 }
 
-std::string format_scaled(long long num, double base, std::string_view suffixes) {
+std::string format_scaled(long long num, double base,
+                          std::string_view suffixes) {
   double value = static_cast<double>(num);
   size_t index = 0;
   while (std::abs(value) >= base && index < suffixes.size()) {

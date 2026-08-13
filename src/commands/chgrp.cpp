@@ -585,9 +585,10 @@ REGISTER_COMMAND(
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {
     safeErrorPrint("chgrp: ");
-    safeErrorPrint(cfg_result.error());
+    safeErrorPrint(winux::i18n::translate_error(cfg_result.error()));
     safeErrorPrint("\n");
-    safeErrorPrint("Try 'chgrp --help' for more information.\n");
+    safeErrorPrintLn(winux::i18n::format(
+        "common.try_help", "Try '{}' --help for more information.", "chgrp"));
     return 1;
   }
 

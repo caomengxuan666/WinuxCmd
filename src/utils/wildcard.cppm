@@ -41,8 +41,8 @@ namespace wildcard_impl {
 
 static bool shell_owns_glob_expansion() {
   char state[8] = {};
-  size_t length = GetEnvironmentVariableA("WINUX_SHELL_GLOB", state,
-                                          sizeof(state));
+  size_t length =
+      GetEnvironmentVariableA("WINUX_SHELL_GLOB", state, sizeof(state));
   // Winuxsh is the default shell contract. Native fallback is opt-in for
   // callers such as PowerShell that do not expand file globs.
   return !(length > 0 && length < sizeof(state) &&
@@ -428,7 +428,7 @@ export std::vector<std::string> expand_file_operand(std::string_view operand) {
   auto result = glob_expand(operand);
   std::vector<std::string> paths;
   paths.reserve(result.files.size());
-  for (const auto& file : result.files) {
+  for (const auto &file : result.files) {
     paths.push_back(wstring_to_utf8(file));
   }
   return paths;
