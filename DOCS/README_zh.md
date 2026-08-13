@@ -28,6 +28,10 @@ release 包应同时附带 Windows binaries 和 `WinuxCmd-skill-v<version>.zip`�
 - GNU 参考只链接官方手册。
 - 兼容性用矩阵维护，不直接复制手册正文。
 - 只有显式接入 `contains_wildcard` / `glob_expand` 的命令才展开通配符。
+- Winuxsh 是 shell 通配符展开的唯一权威；命令层展开只作为直接调用原生
+  WinuxCmd 时的兼容 fallback。
+- 默认就是 shell-owned 展开（`done`）；PowerShell 激活时设置
+  `WINUX_SHELL_GLOB=native`，显式启用 direct-native fallback。
 - 对于 `diff`、`diff3`、`split`、`csplit` 这类固定参数个数的命令，
   通配符展开必须精确匹配命令期望的参数数量。
 - 工作区激活不要污染全局 PATH。

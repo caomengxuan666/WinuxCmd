@@ -130,6 +130,22 @@ TEST(cat, cat_wildcard) {
   EXPECT_TRUE(r.stdout_text.find("log content") == std::string::npos);
 }
 
+TEST(cat, cat_trusts_shell_owned_glob_arguments) {
+  TempDir tmp;
+  tmp.write("file.txt", "content\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"WINUX_SHELL_GLOB", L"done");
+  p.add(L"cat.exe", {L"*.txt"});
+
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find("*.txt") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("content") == std::string::npos);
+}
+
 TEST(cat, cat_wildcard_question_mark) {
   TempDir tmp;
   tmp.write("file1.txt", "content1\n");

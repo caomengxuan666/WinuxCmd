@@ -146,16 +146,9 @@ auto build_config(const CommandContext<BASE64_OPTIONS.size()>& ctx)
   SmallVector<std::string, 16> files;
   for (auto arg : ctx.positionals) {
     std::string file_arg(arg);
-    if (contains_wildcard(file_arg)) {
-      auto glob_result = glob_expand(file_arg);
-      if (glob_result.expanded) {
-        for (const auto& file : glob_result.files) {
-          files.push_back(wstring_to_utf8(file));
-        }
-        continue;
-      }
+    for (const auto& file : expand_file_operand(file_arg)) {
+      files.push_back(file);
     }
-    files.push_back(file_arg);
   }
 
   if (files.size() > 1) {

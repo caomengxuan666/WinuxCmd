@@ -269,6 +269,7 @@ CommandResult Pipeline::run() {
       }
 
       // Apply overrides from test pipeline.
+      vars[L"WINUX_SHELL_GLOB"] = L"native";
       for (auto &[k, v] : this->env_) {
         vars[k] = v;
       }
@@ -287,11 +288,9 @@ CommandResult Pipeline::run() {
     LPVOID env_ptr = nullptr;
     DWORD creation_flags = 0;
 
-    if (!env_.empty()) {
-      env_block = build_env_block();
-      env_ptr = env_block.data();
-      creation_flags |= CREATE_UNICODE_ENVIRONMENT;
-    }
+    env_block = build_env_block();
+    env_ptr = env_block.data();
+    creation_flags |= CREATE_UNICODE_ENVIRONMENT;
 
     auto set_child_inherit = [](HANDLE h, bool inherit) {
       if (h && h != INVALID_HANDLE_VALUE) {
