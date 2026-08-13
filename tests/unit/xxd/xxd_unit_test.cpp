@@ -37,3 +37,16 @@ TEST(xxd, xxd_full_line_has_no_extra_padding_or_blank_line) {
       r.stdout_text,
       "00000000: 3031 3233 3435 3637 3839 6162 6364 6566  0123456789abcdef\n");
 }
+
+TEST(xxd, xxd_reverse_decodes_hex_dump) {
+  TempDir tmp;
+  tmp.write("dump.txt", "00000000: 6865 6c6c 6f                             hello\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"xxd.exe", {L"-r", L"dump.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "hello");
+}

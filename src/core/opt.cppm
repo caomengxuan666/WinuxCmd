@@ -119,6 +119,9 @@ export struct OptionParsePolicy {
   bool allow_short_option_clusters = true;
   bool allow_short_attached_values = true;
   bool allow_optional_short_attached_values = true;
+  // Some utilities accept operands such as -5 or -n after their syntax
+  // establishes that the remaining arguments are operands.
+  bool allow_unknown_short_options_as_positionals = false;
 };
 
 export ParseResultRuntime parse_command_runtime(
@@ -392,6 +395,20 @@ export ParseResultRuntime parse_command_runtime(
         }
 
         continue;
+      }
+
+      if (policy.allow_unknown_short_options_as_positionals) {
+        bool has_registered_short_name = false;
+        for (const auto& m : metas) {
+          if (m.short_name == arg) {
+            has_registered_short_name = true;
+            break;
+          }
+        }
+        if (!has_registered_short_name) {
+          result.positionals.push_back(arg);
+          continue;
+        }
       }
 
       if (policy.allow_numeric_short_options && arg.size() > 1 &&

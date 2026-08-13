@@ -45,6 +45,15 @@ TEST(fmt, fmt_basic) {
   EXPECT_FALSE(r.stdout_text.empty());
 }
 
+TEST(fmt, fmt_width_is_not_exceeded_by_word_combinations) {
+  auto r = run_command(fmt_exe(), {L"-w", L"20"},
+                       "alpha beta gamma one two three\n");
+  EXPECT_EQ(r.exit_code, 0);
+  std::istringstream lines(r.stdout_text);
+  std::string line;
+  while (std::getline(lines, line)) EXPECT_LE(line.size(), 20u);
+}
+
 TEST(fmt, fmt_stdin) {
   Pipeline p;
   p.set_stdin("This is a long line that should be formatted.\n");

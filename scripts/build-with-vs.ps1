@@ -14,7 +14,7 @@ param(
     [string]$BuildDir = "build-vs",
     [string]$Target = "winuxcmd-tests",
     [string]$Configuration = "Debug",
-    [string]$VsEnvScript = "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
+    [string]$VsEnvScript,
     [string[]]$VsEnvArgs,
     [string]$Arch = "x64",
     [string]$Generator = "Ninja",
@@ -44,6 +44,22 @@ function Quote-CmdArg {
 $rootPath = Resolve-Root -Value $Root
 $buildPath = Join-Path $rootPath $BuildDir
 $cmdExe = Join-Path $env:SystemRoot "System32\cmd.exe"
+
+if ([string]::IsNullOrWhiteSpace($VsEnvScript)) {
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path -LiteralPath $vswhere -PathType Leaf) {
+        $VsEnvScript = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find "VC\Auxiliary\Build\vcvars64.bat" |
+            Select-Object -First 1
+    }
+    if ([string]::IsNullOrWhiteSpace($VsEnvScript)) {
+        $candidates = @(
+            "${env:ProgramFiles}\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "${env:ProgramFiles}\Microsoft Visual Studio\17\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "${env:ProgramFiles(x86)}\Microsoft Visual Studio\17\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+        )
+        $VsEnvScript = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    }
+}
 
 if (-not (Test-Path -LiteralPath $VsEnvScript -PathType Leaf)) {
     throw "Visual Studio environment script not found: $VsEnvScript"

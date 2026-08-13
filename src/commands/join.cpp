@@ -405,7 +405,7 @@ auto read_lines(const std::string& filename, char delimiter)
       lines.emplace_back(trim_text_record(content.substr(start), delimiter));
     }
   } else {
-    std::ifstream f(filename, std::ios::binary);
+    auto f = file_io::open_binary_file(filename);
     if (!f) {
       return std::unexpected(join_input_open_error(filename));
     }

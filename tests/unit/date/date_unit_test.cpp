@@ -43,6 +43,14 @@ TEST(date, date_basic) {
   EXPECT_FALSE(r.stdout_text.empty());
 }
 
+TEST(date, date_relative_day_is_accepted) {
+  Pipeline p;
+  p.add(L"date.exe", {L"-u", L"--date", L"+1 day", L"+%s"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+}
+
 TEST(date, date_format) {
   TempDir tmp;
 

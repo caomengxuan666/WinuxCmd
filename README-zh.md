@@ -102,6 +102,16 @@ winuxcmd wpm links rebuild --root "C:\path\to\winuxcmd"
 包在没有架构 URL、SHA-256 和文件映射之前只会显示为 `index-only`。这样
 WPM 可以先展示元数据，但只有经过校验的二进制才会真正安装。
 
+更新 WPM 管理的 WinuxCmd 安装目录：
+
+```sh
+winuxcmd wpm update winuxcmd
+```
+
+WPM 会先下载并校验新产物，再启动辅助进程，等当前进程退出后替换
+`winuxcmd.exe`。它只更新当前 WinuxCmd 根目录，不会修改单独 Winuxsh
+release 包内自带的 `winuxcmd/` 副本。
+
 ## Winuxsh
 
 如果你想要更接近 bash 的 Windows 终端，可以直接用
@@ -113,6 +123,25 @@ winuxsh = rubash shell engine + reedline frontend + winuxcmd command layer
 
 winuxsh release 包会自带架构匹配的 `winuxcmd/` 目录。它应该和 winget
 安装的 WinuxCmd 分开，这样 x64 和 arm64 shell bundle 才能稳定复现。
+
+### 可选 I18N
+
+通过 WPM 安装可选中文语言包，然后显式启用：
+
+```sh
+winuxcmd wpm install winuxcmd-i18n-zh-cn
+```
+
+Winuxsh 是主要支持的使用方式。把下面一行加入 `~/.winuxshrc`，这样每次
+打开新的 Winuxsh 都会自动启用语言包：
+
+```sh
+export WINUX_LANG=zh-CN
+```
+
+重新加载 profile 或启动新的 shell，然后运行 `winuxcmd ls --help`。使用
+`WINUX_LANG=off` 可以关闭语言包。Winuxsh 的 `export` builtin 会修改当前
+shell 及其子进程；把同一行写入 `~/.winuxshrc`，就是持久化的 Winuxsh 配置。
 
 ## 自带什么
 

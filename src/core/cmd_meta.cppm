@@ -86,6 +86,28 @@ auto trim_right_ascii(std::string_view value) -> std::string_view {
   return value;
 }
 
+// Help text is UTF-8, so a byte-based fallback wrap must not split a
+// multi-byte code point. The normal space-based break is already safe.
+auto utf8_boundary_at_or_before(std::string_view value, size_t position)
+    -> size_t {
+  position = std::min(position, value.size());
+  size_t boundary = 0;
+  while (boundary < position) {
+    const auto lead = static_cast<unsigned char>(value[boundary]);
+    size_t length = 1;
+    if ((lead & 0xE0) == 0xC0) {
+      length = 2;
+    } else if ((lead & 0xF0) == 0xE0) {
+      length = 3;
+    } else if ((lead & 0xF8) == 0xF0) {
+      length = 4;
+    }
+    if (boundary + length > position) return boundary;
+    boundary += length;
+  }
+  return boundary;
+}
+
 auto append_wrapped_line(std::string& out, std::string_view line,
                          size_t continuation_indent, size_t text_width,
                          bool indent_first_line) -> void {
@@ -98,6 +120,13 @@ auto append_wrapped_line(std::string& out, std::string_view line,
     if (break_pos == std::string_view::npos || break_pos == 0) {
       break_pos = text_width;
       broke_on_space = false;
+    }
+    if (!broke_on_space) {
+      break_pos = utf8_boundary_at_or_before(line, break_pos);
+      if (break_pos == 0) {
+        // Keep progress guaranteed for an unusually small width.
+        break_pos = std::min(text_width, line.size());
+      }
     }
 
     if (!first_output || indent_first_line) {
@@ -226,15 +255,19 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
   }
   result += "\n\n";
 
-  if (!description.empty()) {
-    result.append(description.data(), description.size());
+  const auto translated_description =
+      winux::i18n::translate("command." + std::string(name) + ".description",
+                             description);
+  if (!translated_description.empty()) {
+    result.append(translated_description.data(), translated_description.size());
     result += "\n\n";
   }
 
   std::vector<OptionMeta> display_options;
   display_options.reserve(options.size() + 2);
   for (const auto& opt : options) {
-    display_options.push_back(opt);
+    // Empty descriptions are parser sentinels, not user-facing options.
+    if (!opt.description.empty()) display_options.push_back(opt);
   }
   if (!has_option(options, "--help")) {
     display_options.emplace_back("", "--help", "display this help and exit",
@@ -257,16 +290,26 @@ auto format_help_text(std::string_view name, std::string_view synopsis,
     result += "\n";
     for (const auto& opt : display_options) {
       std::string option_str = format_option_names(opt);
+      const auto option_key =
+          (opt.long_name == "--help" || opt.long_name == "--version")
+              ? "common.option." +
+                    std::string(opt.long_name == "--help" ? "help" : "version")
+              : "command." + std::string(name) + ".option." +
+                    (opt.long_name.empty()
+                         ? std::string(opt.short_name.substr(1))
+                         : std::string(opt.long_name.substr(2)));
+      const auto translated_option =
+          winux::i18n::translate(option_key, opt.description);
 
       append_styled(result, option_str, option_style, color);
-      if (opt.description.empty()) {
+      if (translated_option.empty()) {
         result += "\n";
       } else {
         size_t padding = max_option_width + 2 - option_str.size();
         if (padding > 0) {
           result.append(padding, ' ');
         }
-        append_wrapped_description(result, opt.description,
+        append_wrapped_description(result, translated_option,
                                    max_option_width + 2, terminal_width);
       }
     }
@@ -522,6 +565,8 @@ export class CommandMetaBase {
   virtual ~CommandMetaBase() = default;
 
   virtual std::string_view name() const = 0;
+  virtual std::string_view synopsis() const = 0;
+  virtual std::string_view description() const = 0;
 
   virtual std::string get_help() const = 0;
 
@@ -540,6 +585,8 @@ class CommandMetaWrapper : public CommandMetaBase {
   CommandMetaWrapper(const CommandMeta<N>& meta) : m_meta(meta) {}
 
   std::string_view name() const override { return m_meta.name(); }
+  std::string_view synopsis() const override { return m_meta.synopsis(); }
+  std::string_view description() const override { return m_meta.description(); }
   std::string get_help() const override { return m_meta.get_help(); }
   std::string get_man() const override { return m_meta.get_man(); }
   std::string_view brief_desc() const override { return m_meta.brief_desc(); }
@@ -561,6 +608,8 @@ export class CommandMetaHandle {
       : m_ptr(std::make_unique<CommandMetaWrapper<N> >(meta)) {}
 
   std::string_view name() const { return m_ptr->name(); }
+  std::string_view synopsis() const { return m_ptr->synopsis(); }
+  std::string_view description() const { return m_ptr->description(); }
   std::string get_help() const { return m_ptr->get_help(); }
   std::string get_man() const { return m_ptr->get_man(); }
   std::string_view brief_desc() const { return m_ptr->brief_desc(); }

@@ -31,6 +31,29 @@ import utils;
 import version;
 
 namespace {
+static void applyInheritedStdbuf(const char* name, FILE* stream) {
+  const char* mode = std::getenv(name);
+  if (mode == nullptr || *mode == '\0') return;
+  if (std::strcmp(mode, "0") == 0) {
+    setvbuf(stream, nullptr, _IONBF, 0);
+    return;
+  }
+  if (std::strcmp(mode, "L") == 0) {
+    // MSVC's CRT cannot safely apply line buffering to an inherited stdin
+    // pipe. GNU's stdin line mode is not observable for a child that only
+    // reads input, so accept it without mutating the input stream.
+    if (stream == stdin) return;
+    setvbuf(stream, nullptr, _IOLBF, 0);
+    return;
+  }
+  char* end = nullptr;
+  const auto size = std::strtoull(mode, &end, 10);
+  if (end != mode && *end == '\0' && size > 0 &&
+      size <= std::numeric_limits<size_t>::max()) {
+    setvbuf(stream, nullptr, _IOFBF, static_cast<size_t>(size));
+  }
+}
+
 static std::string toLowerAscii(std::string s) {
   std::ranges::transform(s, s.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
@@ -117,6 +140,9 @@ int main(int argc, char *argv[]) noexcept {
   }
   // Automatically set console or pipe output.
   setupConsoleForUnicode();
+  applyInheritedStdbuf("WINUX_STDBUF_I", stdin);
+  applyInheritedStdbuf("WINUX_STDBUF_O", stdout);
+  applyInheritedStdbuf("WINUX_STDBUF_E", stderr);
   // Get the executable name (stem only)
   std::string self_name = path::get_executable_name(argv[0]);
 

@@ -304,7 +304,7 @@ REGISTER_COMMAND(
       // Old file
       size_t space = line.find(' ');
       if (space != std::string::npos && space < line.length()) {
-        size_t next_space = line.find(' ', space + 1);
+        size_t next_space = line.find_first_of(" \t", space + 1);
         if (next_space != std::string::npos) {
           std::string file = line.substr(space + 1, next_space - space - 1);
           target_file = strip_path(file, strip_components);
@@ -318,7 +318,7 @@ REGISTER_COMMAND(
       // New file
       size_t space = line.find(' ');
       if (space != std::string::npos && space < line.length()) {
-        size_t next_space = line.find(' ', space + 1);
+        size_t next_space = line.find_first_of(" \t", space + 1);
         if (next_space != std::string::npos) {
           std::string file = line.substr(space + 1, next_space - space - 1);
           if (target_file.empty()) {
@@ -332,22 +332,31 @@ REGISTER_COMMAND(
           }
         }
       }
-    } else if (parse_hunk(line, current_hunk)) {
-      in_hunk = true;
-    } else if (in_hunk) {
-      if (line.empty() || line[0] == ' ' || line[0] == '+' || line[0] == '-') {
-        if (line[0] == ' ' || line[0] == '-') {
-          current_hunk.old_lines.push_back(line.substr(1));
+    } else {
+      Hunk parsed_hunk;
+      if (!parse_hunk(line, parsed_hunk)) {
+        if (in_hunk) {
+          if (line.empty() || line[0] == ' ' || line[0] == '+' ||
+              line[0] == '-') {
+            if (line[0] == ' ' || line[0] == '-') {
+              current_hunk.old_lines.push_back(line.substr(1));
+            }
+            if (line[0] == ' ' || line[0] == '+') {
+              current_hunk.new_lines.push_back(line.substr(1));
+            }
+          } else {
+            hunks.push_back(current_hunk);
+            current_hunk = Hunk();
+            in_hunk = false;
+          }
         }
-        if (line[0] == ' ' || line[0] == '+') {
-          current_hunk.new_lines.push_back(line.substr(1));
-        }
-      } else {
-        // End of hunk
-        hunks.push_back(current_hunk);
-        current_hunk = Hunk();
-        in_hunk = false;
+        continue;
       }
+      if (in_hunk) {
+        hunks.push_back(current_hunk);
+      }
+      current_hunk = std::move(parsed_hunk);
+      in_hunk = true;
     }
   }
 
@@ -378,13 +387,17 @@ REGISTER_COMMAND(
   int applied = 0;
   int failed = 0;
 
-  for (const auto& hunk : hunks) {
+  int cumulative_offset = 0;
+  for (const auto& original_hunk : hunks) {
+    Hunk hunk = original_hunk;
+    hunk.old_start += cumulative_offset;
     if (apply_hunk(lines, hunk, reverse)) {
       applied++;
+      cumulative_offset += hunk.new_count - hunk.old_count;
     } else {
       failed++;
       safeErrorPrintLn("patch: hunk FAILED at line " +
-                       std::to_string(hunk.old_start));
+                       std::to_string(original_hunk.old_start));
     }
   }
 

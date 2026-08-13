@@ -51,6 +51,9 @@ auto constexpr NUMFMT_OPTIONS = std::array{
     OPTION("", "--to", "autoconvert to X", STRING_TYPE),
     OPTION("", "--round", "use METHOD for rounding", STRING_TYPE),
     OPTION("", "--padding", "pad numbers to width N", INT_TYPE),
+    OPTION("", "--pad", "pad numbers to width N", INT_TYPE),
+    OPTION("", "--suffix", "add STRING after formatted numbers", STRING_TYPE),
+    OPTION("", "--field", "replace numbers in field N", INT_TYPE),
     OPTION("-f", "--format", "use printf style floating-point FORMAT",
            STRING_TYPE),
     OPTION("", "--header", "print the first N header lines unchanged",
@@ -86,7 +89,7 @@ double apply_rounding(double value, const std::string& mode) {
 
 // Parse number with SI suffixes (K, M, G, T, P)
 bool parse_number(const std::string& s, long long& result,
-                  const std::string& round_mode = "") {
+                  const std::string& round_mode = "", std::string from = "") {
   std::string num_str;
   char suffix = 0;
 
@@ -104,21 +107,23 @@ bool parse_number(const std::string& s, long long& result,
     double num = std::stod(num_str);
 
     // Apply suffix multiplier
+    const bool si = from == "si" || from == "auto";
+    const double base = si ? 1000.0 : 1024.0;
     switch (suffix) {
       case 'K':
-        num *= 1024;
+        num *= base;
         break;
       case 'M':
-        num *= 1024 * 1024;
+        num *= base * base;
         break;
       case 'G':
-        num *= 1024 * 1024 * 1024;
+        num *= base * base * base;
         break;
       case 'T':
-        num *= 1024LL * 1024 * 1024 * 1024;
+        num *= std::pow(base, 4);
         break;
       case 'P':
-        num *= 1024LL * 1024 * 1024 * 1024 * 1024;
+        num *= std::pow(base, 5);
         break;
       case 0:
         break;
@@ -128,6 +133,37 @@ bool parse_number(const std::string& s, long long& result,
 
     // Apply rounding mode when converting from human-readable
     result = static_cast<long long>(apply_rounding(num, round_mode));
+    return true;
+  } catch (...) {
+    return false;
+  }
+}
+
+bool parse_number_value(const std::string& s, double& result,
+                        std::string from = "") {
+  std::string num_str;
+  char suffix = 0;
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (std::isdigit(static_cast<unsigned char>(s[i])) || s[i] == '.' ||
+        ((s[i] == '-' || s[i] == '+') && num_str.empty())) {
+      num_str += s[i];
+    } else {
+      suffix = static_cast<char>(std::toupper(static_cast<unsigned char>(s[i])));
+      break;
+    }
+  }
+  try {
+    result = std::stod(num_str);
+    const double base = (from == "si" || from == "auto") ? 1000.0 : 1024.0;
+    switch (suffix) {
+      case 'K': result *= base; break;
+      case 'M': result *= std::pow(base, 2); break;
+      case 'G': result *= std::pow(base, 3); break;
+      case 'T': result *= std::pow(base, 4); break;
+      case 'P': result *= std::pow(base, 5); break;
+      case 0: break;
+      default: return false;
+    }
     return true;
   } catch (...) {
     return false;
@@ -160,6 +196,34 @@ std::string format_number(long long num, const std::string& unit = "") {
 
   return result;
 }
+
+std::string format_iec_i(long long num) {
+  static constexpr const char* suffixes[] = {"", "Ki", "Mi", "Gi", "Ti", "Pi"};
+  double value = static_cast<double>(num);
+  size_t index = 0;
+  while (value >= 1024.0 && index < 5) { value /= 1024.0; ++index; }
+  char buffer[64];
+  if (index == 0) sprintf_s(buffer, sizeof(buffer), "%lld", num);
+  else sprintf_s(buffer, sizeof(buffer), "%.1f", value);
+  return std::string(buffer) + suffixes[index];
+}
+
+std::string format_scaled(long long num, double base, std::string_view suffixes) {
+  double value = static_cast<double>(num);
+  size_t index = 0;
+  while (std::abs(value) >= base && index < suffixes.size()) {
+    value /= base;
+    ++index;
+  }
+  char buffer[64];
+  if (index == 0) {
+    sprintf_s(buffer, sizeof(buffer), "%lld", num);
+  } else {
+    sprintf_s(buffer, sizeof(buffer), "%.1f", value);
+  }
+  return std::string(buffer) +
+         (index == 0 ? "" : std::string(1, suffixes[index - 1]));
+}
 }  // namespace
 
 // ======================================================
@@ -185,6 +249,7 @@ REGISTER_COMMAND(
   std::string to_unit = ctx.get<std::string>("--to", "");
   bool to_si = to_unit == "si";
   bool to_iec = to_unit == "iec";
+  bool to_iec_i = to_unit == "iec-i";
   std::string from_unit = ctx.get<std::string>("--from", "");
   std::string format_str = ctx.get<std::string>("--format", "");
   if (format_str.empty()) {
@@ -199,7 +264,9 @@ REGISTER_COMMAND(
   bool grouping = ctx.get<bool>("--grouping", false);
   std::string invalid_policy = ctx.get<std::string>("--invalid", "abort");
   std::string round_mode = ctx.get<std::string>("--round", "");
-  int padding = ctx.get<int>("--padding", 0);
+  int padding = ctx.get<int>("--padding", ctx.get<int>("--pad", 0));
+  std::string suffix = ctx.get<std::string>("--suffix", "");
+  int selected_field = ctx.get<int>("--field", 0);
 
   auto add_grouping = [](const std::string& s) -> std::string {
     // Add thousands separator commas
@@ -220,7 +287,7 @@ REGISTER_COMMAND(
     if (!format_str.empty()) {
       // Simple printf-style format support
       char buf[256];
-      snprintf(buf, sizeof(buf), format_str.c_str(), num);
+      snprintf(buf, sizeof(buf), format_str.c_str(), static_cast<double>(num));
       result = buf;
     } else {
       result = std::to_string(num);
@@ -237,7 +304,7 @@ REGISTER_COMMAND(
   bool had_invalid = false;
   auto process_number = [&](const std::string& s) -> std::string {
     long long num;
-    if (!parse_number(s, num, round_mode)) {
+    if (!parse_number(s, num, round_mode, from_unit)) {
       if (invalid_policy == "warn") {
         safeErrorPrint("numfmt: invalid number: '" + s + "'\n");
       } else if (invalid_policy == "abort") {
@@ -258,10 +325,26 @@ REGISTER_COMMAND(
       }
     }
 
-    if (to_si || to_iec) {
-      return format_number(num);
+    if (to_si || to_iec || to_iec_i) {
+      std::string formatted;
+      if (to_iec_i) {
+        formatted = format_iec_i(num);
+      } else if (to_si) {
+        formatted = format_scaled(num, 1000.0, "kMGTPE");
+      } else {
+        formatted = format_number(num);
+      }
+      return formatted + suffix;
     }
-    return apply_format(num);
+    if (!format_str.empty()) {
+      double value = 0.0;
+      if (parse_number_value(s, value, from_unit)) {
+        char buf[256];
+        snprintf(buf, sizeof(buf), format_str.c_str(), value);
+        return std::string(buf) + suffix;
+      }
+    }
+    return apply_format(num) + suffix;
   };
 
   int line_num = 0;
@@ -274,12 +357,18 @@ REGISTER_COMMAND(
     if (!delimiter.empty()) {
       // Split by delimiter, process each field
       std::istringstream ss(line);
-      std::string field;
+      std::string field_text;
+      int field_number = 1;
       bool first = true;
-      while (std::getline(ss, field, delimiter[0])) {
+      while (std::getline(ss, field_text, delimiter[0])) {
         if (!first) safePrint(delimiter);
-        safePrint(process_number(field));
+        if (selected_field == 0 || selected_field == field_number) {
+          safePrint(process_number(field_text));
+        } else {
+          safePrint(field_text);
+        }
         first = false;
+        ++field_number;
       }
       safePrint("\n");
     } else {

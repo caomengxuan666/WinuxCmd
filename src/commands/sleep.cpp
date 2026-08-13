@@ -137,7 +137,11 @@ auto run(const Config& cfg) -> int {
     return 1;
   }
 
-  Sleep(static_cast<DWORD>(total_ms));
+  while (total_ms > 0) {
+    const auto chunk = std::min<int64_t>(total_ms, std::numeric_limits<DWORD>::max());
+    Sleep(static_cast<DWORD>(chunk));
+    total_ms -= chunk;
+  }
 
   return 0;
 }

@@ -567,6 +567,100 @@ auto collect_record_spans(std::string_view input, char separator)
 }
 
 auto run(const Config& cfg) -> int {
+  // Stream the common fixed-size modes. The filter and record-preserving
+  // number modes still use the existing in-memory path because their output
+  // contract requires a complete record set or a subprocess payload.
+  if (cfg.filter_command.empty() &&
+      (cfg.mode == Config::Mode::Lines || cfg.mode == Config::Mode::Bytes ||
+       cfg.mode == Config::Mode::LineBytes)) {
+    std::ifstream input;
+    if (cfg.input_file.empty() || cfg.input_file == "-") {
+      // stdin is already a stream and is handled by the same byte loop below.
+    } else {
+      auto operand = native_path::make_api_path_operand(cfg.input_file);
+      input.open(std::filesystem::path(operand.extended), std::ios::binary);
+      if (!input) {
+        std::string reason = "No such file or directory";
+        const DWORD attrs = native_path::attributes_w(operand.extended);
+        if (native_path::attributes_are_directory(attrs)) {
+          reason = "Is a directory";
+        }
+        cp::Result<int> result = std::unexpected(
+            "cannot open '" + cfg.input_file + "' for reading: " + reason);
+        cp::report_error(result, L"split");
+        return 1;
+      }
+    }
+    std::istream& source = input.is_open() ? static_cast<std::istream&>(input)
+                                           : static_cast<std::istream&>(std::cin);
+    uint64_t part_num = 0;
+    std::string chunk;
+    int64_t records = 0;
+    size_t used = 0;
+    std::array<char, 64 * 1024> buffer{};
+    auto flush = [&]() -> bool {
+      if (chunk.empty()) return true;
+      auto result = write_chunk(cfg, part_num, chunk);
+      if (!result) {
+        cp::report_error(result, L"split");
+        return false;
+      }
+      if (*result) ++part_num;
+      chunk.clear();
+      used = 0;
+      records = 0;
+      return true;
+    };
+    if (cfg.mode == Config::Mode::Bytes) {
+      while (source) {
+        source.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        const auto got = source.gcount();
+        for (std::streamsize i = 0; i < got; ++i) {
+          chunk.push_back(buffer[static_cast<size_t>(i)]);
+          if (chunk.size() == static_cast<size_t>(cfg.chunk_size) && !flush()) return 1;
+        }
+      }
+    } else {
+      std::string record;
+      char c = 0;
+      while (source.get(c)) {
+        record.push_back(c);
+        if (c != cfg.separator) continue;
+
+        if (cfg.mode == Config::Mode::Lines) {
+          chunk += record;
+          record.clear();
+          ++records;
+          if (records >= cfg.chunk_lines && !flush()) return 1;
+        } else {
+          const auto limit = static_cast<size_t>(cfg.chunk_size);
+          if (!chunk.empty() && chunk.size() + record.size() > limit &&
+              !flush()) {
+            return 1;
+          }
+          chunk += record;
+          record.clear();
+        }
+      }
+      if (!record.empty()) {
+        if (cfg.mode == Config::Mode::LineBytes && !chunk.empty() &&
+            chunk.size() + record.size() > static_cast<size_t>(cfg.chunk_size) &&
+            !flush()) {
+          return 1;
+        }
+        chunk += record;
+      }
+      if (!chunk.empty() && !flush()) return 1;
+    }
+    if (!chunk.empty() && !flush()) return 1;
+    if (source.bad()) {
+      cp::Result<int> result = std::unexpected("error reading from file");
+      cp::report_error(result, L"split");
+      return 1;
+    }
+    return 0;
+  }
+
   // Read input
   std::string input;
   auto split_input_open_error = [](std::string_view path) -> std::string {
@@ -577,8 +671,13 @@ auto run(const Config& cfg) -> int {
              "' for reading: Is a directory";
     }
 
+    auto operand = native_path::make_api_path_operand(path);
+    const DWORD attrs = native_path::attributes_w(operand.extended);
+    const std::string reason = native_path::attributes_are_directory(attrs)
+                                   ? "Is a directory"
+                                   : "No such file or directory";
     return std::string("cannot open '") + std::string(path) +
-           "' for reading: No such file or directory";
+           "' for reading: " + reason;
   };
 
   if (cfg.input_file.empty() || cfg.input_file == "-") {
@@ -674,11 +773,6 @@ auto run(const Config& cfg) -> int {
           end = input.size();
         } else {
           end = static_cast<size_t>((i + 1) * chunk_size);
-          // Try to find a newline boundary
-          size_t nl = input.find(cfg.separator, end);
-          if (nl != std::string::npos && nl < end + chunk_size / 10) {
-            end = nl + 1;
-          }
         }
         if (start >= input.size()) break;
 

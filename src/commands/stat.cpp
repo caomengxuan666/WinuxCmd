@@ -74,6 +74,10 @@ struct FileStatData {
   uint64_t volume_serial = 0;
   uint32_t hard_links = 1;
   uint32_t io_block_size = 4096;
+  std::string owner_name;
+  std::string owner_id;
+  std::string group_name;
+  std::string group_id;
 };
 
 struct FileSystemStatData {
@@ -147,6 +151,8 @@ auto build_config(const CommandContext<STAT_OPTIONS.size()>& ctx)
 }
 
 auto format_timestamp(FILETIME ft) -> std::string {
+  FILETIME local{};
+  if (FileTimeToLocalFileTime(&ft, &local)) ft = local;
   SYSTEMTIME st;
   FileTimeToSystemTime(&ft, &st);
 
@@ -182,17 +188,11 @@ auto format_size(uint64_t size) -> std::string {
 }
 
 auto format_permissions(DWORD attrs) -> std::string {
-  std::string perm;
-  perm += (attrs & FILE_ATTRIBUTE_DIRECTORY) ? 'd' : '-';
-  perm += (attrs & FILE_ATTRIBUTE_READONLY) ? 'r' : 'r';
-  perm += (attrs & FILE_ATTRIBUTE_READONLY) ? '-' : 'w';
-  perm += '-';
-  perm += (attrs & FILE_ATTRIBUTE_READONLY) ? 'r' : 'r';
-  perm += (attrs & FILE_ATTRIBUTE_READONLY) ? '-' : 'w';
-  perm += '-';
-  perm += (attrs & FILE_ATTRIBUTE_READONLY) ? 'r' : 'r';
-  perm += (attrs & FILE_ATTRIBUTE_READONLY) ? '-' : 'w';
-  perm += '-';
+  const bool directory = (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  const bool writable = (attrs & FILE_ATTRIBUTE_READONLY) == 0;
+  std::string perm = directory ? "d" : "-";
+  perm += writable ? (directory ? "rwxr-xr-x" : "rw-r--r--")
+                   : (directory ? "r-xr-xr-x" : "r--r--r--");
   return perm;
 }
 
@@ -204,9 +204,9 @@ auto file_type_name(DWORD attrs) -> std::string {
 
 auto format_mode_octal(DWORD attrs) -> std::string {
   if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-    return (attrs & FILE_ATTRIBUTE_READONLY) ? "555" : "777";
+    return (attrs & FILE_ATTRIBUTE_READONLY) ? "555" : "755";
   }
-  return (attrs & FILE_ATTRIBUTE_READONLY) ? "444" : "666";
+  return (attrs & FILE_ATTRIBUTE_READONLY) ? "444" : "644";
 }
 
 auto io_block_size_for(const std::filesystem::path& p) -> uint32_t {
@@ -215,8 +215,10 @@ auto io_block_size_for(const std::filesystem::path& p) -> uint32_t {
   auto absolute = std::filesystem::absolute(dir, ec);
   auto wdir = ec ? dir.wstring() : absolute.wstring();
 
-  wchar_t root[MAX_PATH];
-  if (!GetVolumePathNameW(wdir.c_str(), root, MAX_PATH)) return 4096;
+  auto operand = native_path::make_api_path_operand_w(wdir);
+  wchar_t root[32768];
+  if (!GetVolumePathNameW(operand.extended.c_str(), root,
+                          static_cast<DWORD>(std::size(root)))) return 4096;
 
   DWORD sectors_per_cluster = 0;
   DWORD bytes_per_sector = 0;
@@ -238,16 +240,24 @@ auto io_block_size_for(const std::filesystem::path& p) -> uint32_t {
 auto load_file_stat(const std::filesystem::path& p)
     -> cp::Result<FileStatData> {
   FileStatData stat;
-  if (!GetFileAttributesExW(p.c_str(), GetFileExInfoStandard, &stat.attrs)) {
+  auto operand = native_path::make_api_path_operand_w(p.wstring());
+  if (!GetFileAttributesExW(operand.extended.c_str(), GetFileExInfoStandard,
+                            &stat.attrs)) {
     return std::unexpected("Access denied");
   }
+
+  auto accounts = win32_file_accounts(operand.extended);
+  stat.owner_name = accounts.owner.name;
+  stat.owner_id = accounts.owner.id;
+  stat.group_name = accounts.group.name;
+  stat.group_id = accounts.group.id;
 
   stat.size = stat.attrs.nFileSizeLow +
               (static_cast<uint64_t>(stat.attrs.nFileSizeHigh) << 32);
   stat.io_block_size = io_block_size_for(p);
 
   HANDLE h =
-      CreateFileW(p.c_str(), FILE_READ_ATTRIBUTES,
+      CreateFileW(operand.extended.c_str(), FILE_READ_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (h != INVALID_HANDLE_VALUE) {
@@ -331,13 +341,16 @@ auto load_file_system_stat(const std::string& filename)
   auto absolute = std::filesystem::absolute(fs_path, ec);
   std::wstring path = ec ? utf8_to_wstring(filename) : absolute.wstring();
 
-  wchar_t root[MAX_PATH];
-  if (!GetVolumePathNameW(path.c_str(), root, MAX_PATH)) {
+  auto path_operand = native_path::make_api_path_operand_w(path);
+  std::array<wchar_t, 32768> root{};
+  if (!GetVolumePathNameW(path_operand.extended.c_str(), root.data(),
+                          static_cast<DWORD>(root.size()))) {
     return std::unexpected("cannot read file system");
   }
 
   ULARGE_INTEGER free_available{}, total_bytes{}, total_free{};
-  if (!GetDiskFreeSpaceExW(root, &free_available, &total_bytes, &total_free)) {
+  if (!GetDiskFreeSpaceExW(root.data(), &free_available, &total_bytes,
+                           &total_free)) {
     return std::unexpected("cannot read file system");
   }
 
@@ -346,7 +359,7 @@ auto load_file_system_stat(const std::string& filename)
   DWORD free_clusters = 0;
   DWORD total_clusters = 0;
   uint32_t block_size = 4096;
-  if (GetDiskFreeSpaceW(root, &sectors_per_cluster, &bytes_per_sector,
+  if (GetDiskFreeSpaceW(root.data(), &sectors_per_cluster, &bytes_per_sector,
                         &free_clusters, &total_clusters)) {
     uint64_t computed =
         static_cast<uint64_t>(sectors_per_cluster) * bytes_per_sector;
@@ -355,12 +368,13 @@ auto load_file_system_stat(const std::string& filename)
     }
   }
 
-  wchar_t fs_name[MAX_PATH] = L"";
+  std::array<wchar_t, 32768> fs_name{};
   DWORD serial = 0;
   DWORD max_component = 0;
   DWORD flags = 0;
-  GetVolumeInformationW(root, nullptr, 0, &serial, &max_component, &flags,
-                        fs_name, MAX_PATH);
+  GetVolumeInformationW(root.data(), nullptr, 0, &serial, &max_component,
+                        &flags, fs_name.data(),
+                        static_cast<DWORD>(fs_name.size()));
 
   return FileSystemStatData{
       .free_available = static_cast<uint64_t>(free_available.QuadPart),
@@ -369,7 +383,7 @@ auto load_file_system_stat(const std::string& filename)
       .block_size = block_size,
       .max_component = max_component,
       .serial = serial,
-      .fs_name = wstring_to_utf8(fs_name)};
+      .fs_name = wstring_to_utf8(fs_name.data())};
 }
 
 auto render_format(std::string_view format, const std::string& filename,
@@ -434,12 +448,16 @@ auto render_format(std::string_view format, const std::string& filename,
         out += std::to_string(stat.io_block_size);
         break;
       case 'u':
+        out += stat.owner_id.empty() ? "0" : stat.owner_id;
+        break;
       case 'g':
-        out += "0";
+        out += stat.group_id.empty() ? "0" : stat.group_id;
         break;
       case 'U':
+        out += stat.owner_name.empty() ? "UNKNOWN" : stat.owner_name;
+        break;
       case 'G':
-        out += "UNKNOWN";
+        out += stat.group_name.empty() ? "UNKNOWN" : stat.group_name;
         break;
       case 'x':
         out += format_timestamp(stat.attrs.ftLastAccessTime);
@@ -471,10 +489,11 @@ auto render_format(std::string_view format, const std::string& filename,
         break;
       case 'm': {
         // Mount point
-        wchar_t volume[MAX_PATH];
-        std::wstring wfilename = utf8_to_wstring(filename);
-        if (GetVolumePathNameW(wfilename.c_str(), volume, MAX_PATH)) {
-          out += wstring_to_utf8(volume);
+        std::array<wchar_t, 32768> volume{};
+        auto operand = native_path::make_api_path_operand(filename);
+        if (GetVolumePathNameW(operand.extended.c_str(), volume.data(),
+                               static_cast<DWORD>(volume.size()))) {
+          out += wstring_to_utf8(volume.data());
         } else {
           out += "/";
         }

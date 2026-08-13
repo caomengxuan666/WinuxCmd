@@ -33,6 +33,7 @@ export import :wildcard;
 export import :path;
 export import :native_path;
 export import :json;
+export import :i18n;
 export import :file_io;
 export import :cppbar;
 export import :encoding;

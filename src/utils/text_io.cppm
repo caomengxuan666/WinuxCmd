@@ -31,28 +31,6 @@ import :utf8;
 namespace {
 enum class EncodingHint { Utf8, Utf16Le, Utf16Be };
 
-auto guess_utf16_from_nuls(std::string_view bytes)
-    -> std::optional<EncodingHint> {
-  if (bytes.size() < 2) return std::nullopt;
-
-  size_t even_nul = 0;
-  size_t odd_nul = 0;
-  for (size_t i = 0; i < bytes.size(); ++i) {
-    if (bytes[i] != '\0') continue;
-    if ((i & 1U) == 0U)
-      ++even_nul;
-    else
-      ++odd_nul;
-  }
-
-  const size_t threshold = bytes.size() / 4;
-  if (odd_nul > threshold && odd_nul > even_nul * 2)
-    return EncodingHint::Utf16Le;
-  if (even_nul > threshold && even_nul > odd_nul * 2)
-    return EncodingHint::Utf16Be;
-  return std::nullopt;
-}
-
 auto decode_utf16(std::string_view bytes, bool little_endian) -> std::string {
   std::wstring wide;
   wide.reserve(bytes.size() / 2);
@@ -90,8 +68,6 @@ export auto read_text_stream(std::istream& in) -> std::string {
   } else if (bytes.size() >= 2 && static_cast<std::uint8_t>(bytes[0]) == 0xFE &&
              static_cast<std::uint8_t>(bytes[1]) == 0xFF) {
     encoding = EncodingHint::Utf16Be;
-  } else if (auto guessed = guess_utf16_from_nuls(bytes); guessed.has_value()) {
-    encoding = *guessed;
   }
 
   if (encoding == EncodingHint::Utf16Le) return decode_utf16(bytes, true);

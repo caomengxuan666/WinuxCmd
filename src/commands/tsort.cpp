@@ -69,8 +69,23 @@ REGISTER_COMMAND(tsort,
     }
   }
 
-  for (const auto& n : nodes) {
-    safePrintLn(n);
+  std::map<std::string, int> remaining;
+  for (const auto& n : nodes) remaining[n] = 0;
+  for (const auto& [node, deps] : graph)
+    for (const auto& dependency : deps) ++remaining[dependency];
+  std::set<std::string> ready;
+  for (const auto& [node, degree] : remaining)
+    if (degree == 0) ready.insert(node);
+  size_t emitted = 0;
+  while (!ready.empty()) {
+    auto node = *ready.begin(); ready.erase(ready.begin());
+    safePrintLn(node); ++emitted;
+    for (const auto& dependency : graph[node])
+      if (--remaining[dependency] == 0) ready.insert(dependency);
+  }
+  if (emitted != nodes.size()) {
+    safeErrorPrintLn("tsort: input contains a loop");
+    return 1;
   }
 
   return 0;

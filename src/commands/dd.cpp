@@ -431,6 +431,7 @@ REGISTER_COMMAND(dd,
   std::vector<char> output_buffer;
   output_buffer.reserve(static_cast<size_t>(cfg.obs));
   CopyStats stats;
+  bool read_failed = false;
 
   while (!cfg.count_set || stats.in_records < cfg.count) {
     DWORD bytes_read = 0;
@@ -439,6 +440,7 @@ REGISTER_COMMAND(dd,
         static_cast<std::uintmax_t>(std::numeric_limits<DWORD>::max())));
     if (!ReadFile(hIn, input_buffer.data(), request, &bytes_read, nullptr)) {
       safeErrorPrintLn("dd: read error");
+      read_failed = true;
       break;
     }
     if (bytes_read == 0) break;
@@ -463,5 +465,5 @@ REGISTER_COMMAND(dd,
 
   report_stats(cfg, stats);
 
-  return flushed ? 0 : 1;
+  return flushed && !read_failed ? 0 : 1;
 }

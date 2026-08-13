@@ -114,9 +114,7 @@ REGISTER_COMMAND(
 
       // Apply --size limit
       if (size_limit) {
-        if (*size_limit > 0 && *size_limit < size) {
-          size = *size_limit;
-        }
+        size = std::min(size, *size_limit);
       }
 
       // Round up to block boundary unless --exact is specified
@@ -140,26 +138,35 @@ REGISTER_COMMAND(
 
       // Overwrite file multiple times with random data
       for (int i = 0; i < passes; ++i) {
-        std::vector<char> buffer(size);
-
-        // Generate random data using CryptGenRandom
-        if (crypt_ok) {
-          CryptGenRandom(hProv, static_cast<DWORD>(size),
-                         reinterpret_cast<BYTE*>(buffer.data()));
-        } else {
-          // Fallback: use pattern (not truly random, but better than nothing)
-          for (LONGLONG j = 0; j < size; ++j) {
-            buffer[j] = static_cast<char>(
-                (i + j + static_cast<int>(std::time(nullptr))) % 256);
-          }
-        }
-
         LARGE_INTEGER li = {0};
         SetFilePointerEx(hFile, li, nullptr, FILE_BEGIN);
-
-        DWORD bytesWritten;
-        WriteFile(hFile, buffer.data(), static_cast<DWORD>(size), &bytesWritten,
-                  nullptr);
+        constexpr DWORD kBufferSize = 64 * 1024;
+        std::vector<char> buffer(kBufferSize);
+        LONGLONG remaining = size;
+        LONGLONG offset = 0;
+        while (remaining > 0) {
+          DWORD count = static_cast<DWORD>(std::min<LONGLONG>(remaining, kBufferSize));
+          if (crypt_ok) {
+            if (!CryptGenRandom(hProv, count, reinterpret_cast<BYTE*>(buffer.data()))) {
+              CloseHandle(hFile);
+              exit_code = 1;
+              break;
+            }
+          } else {
+            for (DWORD j = 0; j < count; ++j) {
+              buffer[j] = static_cast<char>((i + offset + j +
+                                             static_cast<int>(std::time(nullptr))) % 256);
+            }
+          }
+          DWORD bytes_written = 0;
+          if (!WriteFile(hFile, buffer.data(), count, &bytes_written, nullptr) ||
+              bytes_written != count) {
+            exit_code = 1;
+            break;
+          }
+          offset += count;
+          remaining -= count;
+        }
         FlushFileBuffers(hFile);
 
         if (verbose) {
@@ -170,14 +177,21 @@ REGISTER_COMMAND(
 
       // Final zero overwrite if requested
       if (zero_fill) {
-        std::vector<char> zeros(size, 0);
-
         LARGE_INTEGER li = {0};
         SetFilePointerEx(hFile, li, nullptr, FILE_BEGIN);
-
-        DWORD bytesWritten;
-        WriteFile(hFile, zeros.data(), static_cast<DWORD>(size), &bytesWritten,
-                  nullptr);
+        constexpr DWORD kBufferSize = 64 * 1024;
+        std::vector<char> zeros(kBufferSize, 0);
+        LONGLONG remaining = size;
+        while (remaining > 0) {
+          DWORD count = static_cast<DWORD>(std::min<LONGLONG>(remaining, kBufferSize));
+          DWORD bytes_written = 0;
+          if (!WriteFile(hFile, zeros.data(), count, &bytes_written, nullptr) ||
+              bytes_written != count) {
+            exit_code = 1;
+            break;
+          }
+          remaining -= count;
+        }
         FlushFileBuffers(hFile);
 
         if (verbose) {

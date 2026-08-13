@@ -154,6 +154,43 @@ REGISTER_COMMAND(locale,
     return 0;
   }
 
+  if (!ctx.positionals.empty()) {
+    const auto keyword = std::string(ctx.positionals.front());
+    const auto value = get_system_locale();
+    if (keyword == "charmap") { safePrintLn("UTF-8"); return 0; }
+    if (keyword == "default_language") {
+      safePrintLn(value.substr(0, value.find_first_of("_-"))); return 0;
+    }
+    if (keyword == "decimal_point") { safePrintLn("."); return 0; }
+    if (keyword == "thousands_sep") { safePrintLn(""); return 0; }
+    if (keyword == "codeset") { safePrintLn("UTF-8"); return 0; }
+    if (keyword == "yesexpr") { safePrintLn("^[yY]"); return 0; }
+    if (keyword == "noexpr") { safePrintLn("^[nN]"); return 0; }
+    if (keyword == "yesstr") { safePrintLn("yes"); return 0; }
+    if (keyword == "nostr") { safePrintLn("no"); return 0; }
+    if (keyword == "era") { safePrintLn(""); return 0; }
+    if (keyword == "day") { safePrintLn("Sunday;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday"); return 0; }
+    if (keyword == "abday") { safePrintLn("Sun;Mon;Tue;Wed;Thu;Fri;Sat"); return 0; }
+    if (keyword == "month") { safePrintLn("January;February;March;April;May;June;July;August;September;October;November;December"); return 0; }
+    if (keyword == "abmon") { safePrintLn("Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec"); return 0; }
+    if (keyword == "int_curr_symbol") { safePrintLn("USD "); return 0; }
+    if (keyword == "currency_symbol") { safePrintLn("$"); return 0; }
+    if (keyword == "mon_decimal_point") { safePrintLn("."); return 0; }
+    if (keyword == "mon_thousands_sep") { safePrintLn(","); return 0; }
+    if (keyword == "positive_sign" || keyword == "negative_sign") {
+      safePrintLn("");
+      return 0;
+    }
+    if (keyword == "frac_digits" || keyword == "int_frac_digits" ||
+        keyword == "p_cs_precedes" || keyword == "p_sep_by_space" ||
+        keyword == "n_cs_precedes" || keyword == "n_sep_by_space") {
+      safePrintLn("1");
+      return 0;
+    }
+    safeErrorPrintLn("locale: unknown keyword '" + keyword + "'");
+    return 1;
+  }
+
   // Print current locale settings
   print_locale_categories();
 

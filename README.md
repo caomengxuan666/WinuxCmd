@@ -107,6 +107,16 @@ Packages remain `index-only` until the source provides architecture-specific
 URLs, SHA-256 hashes, and file mappings. That keeps WPM simple and auditable:
 metadata can be listed early, but only verified binary artifacts are installed.
 
+To update the WinuxCmd installation managed by WPM, run:
+
+```sh
+winuxcmd wpm update winuxcmd
+```
+
+WPM stages and verifies the new artifact, then uses a helper process to replace
+the executable after the current process exits. This updates that WinuxCmd
+root; it does not change the copy bundled inside a separate Winuxsh release.
+
 ## Winuxsh
 
 [winuxsh](https://github.com/unixwin/winuxsh) is the recommended entry point if
@@ -119,6 +129,26 @@ winuxsh = rubash shell engine + reedline frontend + winuxcmd command layer
 The winuxsh release bundle carries its own architecture-matched `winuxcmd/`
 directory. Keep that copy separate from a winget-installed WinuxCmd so x64 and
 arm64 shell bundles stay reproducible.
+
+### Optional I18N
+
+Install the optional language package through WPM, then enable it explicitly:
+
+```sh
+winuxcmd wpm install winuxcmd-i18n-zh-cn
+```
+
+Winuxsh is the primary supported setup. Add this line to `~/.winuxshrc` so
+every new Winuxsh session enables the catalog:
+
+```sh
+export WINUX_LANG=zh-CN
+```
+
+Reload the profile or start a new shell, then run `winuxcmd ls --help`.
+`WINUX_LANG=off` disables the catalog. The Winuxsh `export` builtin changes the
+current shell and its children; placing the same command in `~/.winuxshrc` is
+the persistent Winuxsh configuration.
 
 ## What Ships
 

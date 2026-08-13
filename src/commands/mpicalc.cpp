@@ -401,7 +401,7 @@ auto prime_check(const BigInt& value) -> BigInt {
 }
 
 auto print_help_text() -> void {
-  safePrint(R"MPICALC(+   add           [0] := [1] + [0]          {-1}
+  constexpr std::string_view help = R"MPICALC(+   add           [0] := [1] + [0]          {-1}
 -   subtract      [0] := [1] - [0]          {-1}
 *   multiply      [0] := [1] * [0]          {-1}
 /   divide        [0] := [1] / [0]          {-1}
@@ -423,7 +423,8 @@ p   print top item
 f   print the stack
 #   ignore until end of line
 ?   print this help
-)MPICALC");
+)MPICALC";
+  safePrint(winux::i18n::translate("command.mpicalc.custom_help", help));
 }
 auto process_token(const std::string& token, std::vector<BigInt>& stack)
     -> void {

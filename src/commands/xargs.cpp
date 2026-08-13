@@ -1193,6 +1193,9 @@ REGISTER_COMMAND(
   if (max_procs == 1) max_procs = ctx.get<int>("-P", 1);
   int max_chars = ctx.get<int>("--max-chars", 0);
   if (max_chars == 0) max_chars = ctx.get<int>("-s", 0);
+  // Windows CreateProcess has a finite command-line limit.  GNU xargs
+  // batches by default, so an omitted -s must still enforce that limit.
+  if (max_chars == 0) max_chars = kWindowsCommandLineLimit;
   bool exit_if_exceeded =
       ctx.get<bool>("--exit", false) || ctx.get<bool>("-x", false);
   bool show_limits = ctx.get<bool>("--show-limits", false);

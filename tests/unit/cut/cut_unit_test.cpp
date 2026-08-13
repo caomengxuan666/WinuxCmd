@@ -13,6 +13,17 @@ TEST(cut, cut_basic_fields_default_tab) {
   EXPECT_EQ_TEXT(r.stdout_text, "a\tc\n1\t3\n");
 }
 
+TEST(cut, cut_undelimited_record_is_emitted_once) {
+  TempDir tmp;
+  tmp.write("a.txt", "a\tb\nnodelim\n");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cut.exe", {L"-f1-2", L"a.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "a\tb\nnodelim\n");
+}
+
 TEST(cut, cut_with_delimiter_and_range) {
   TempDir tmp;
   tmp.write("a.txt", "x,y,z\nm,n,o\n");

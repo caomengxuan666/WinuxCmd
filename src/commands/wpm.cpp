@@ -2242,42 +2242,29 @@ auto show_info(const Options& opts, std::string_view name) -> int {
 }
 
 auto print_usage() -> int {
-  safePrintLn("Winux Package Manager " + std::string(kVersion));
-  safePrintLn("Usage: wpm <command> [args] [options]");
-  safePrintLn("");
-  safePrintLn("Commands:");
-  safePrintLn("  links list|rebuild|remove     manage WinuxCmd hardlinks");
-  safePrintLn("  index status|update           inspect or refresh local index");
-  safePrintLn("  source list|use|add           manage index sources");
-  safePrintLn(
-      "  list                          list indexed packages and install "
-      "state");
-  safePrintLn(
-      "  search <query>                search names, commands, categories, "
-      "licenses");
-  safePrintLn("  info <package>                show package metadata");
-  safePrintLn(
-      "  install <package>             install package from local index");
-  safePrintLn(
-      "  installed                     list packages present in this root");
-  safePrintLn(
-      "  update winuxcmd               update WinuxCmd from local index");
-  safePrintLn("");
-  safePrintLn("Options:");
-  safePrintLn(
-      "  -r, --root <dir>              manage a specific WinuxCmd root");
-  safePrintLn("  -s, --source <name>           use a specific index source");
-  safePrintLn(
-      "  -a, --all                     show index-only packages in list "
-      "output");
-  safePrintLn(
-      "  -f, --force                   overwrite existing files when safe");
-  safePrintLn(
-      "  -n, --dry-run                 show planned changes without writing");
-  safePrintLn("  -v, --verbose                 print detailed progress");
-  safePrintLn("      --help                    display this help and exit");
-  safePrintLn(
-      "  -V, --version                 output version information and exit");
+  const std::string help =
+      "Winux Package Manager " + std::string(kVersion) + "\n"
+      "Usage: wpm <command> [args] [options]\n\n"
+      "Commands:\n"
+      "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
+      "  index status|update           inspect or refresh local index\n"
+      "  source list|use|add           manage index sources\n"
+      "  list                          list indexed packages and install state\n"
+      "  search <query>                search names, commands, categories, licenses\n"
+      "  info <package>                show package metadata\n"
+      "  install <package>             install package from local index\n"
+      "  installed                     list packages present in this root\n"
+      "  update winuxcmd               update WinuxCmd from local index\n\n"
+      "Options:\n"
+      "  -r, --root <dir>              manage a specific WinuxCmd root\n"
+      "  -s, --source <name>           use a specific index source\n"
+      "  -a, --all                     show index-only packages in list output\n"
+      "  -f, --force                   overwrite existing files when safe\n"
+      "  -n, --dry-run                 show planned changes without writing\n"
+      "  -v, --verbose                 print detailed progress\n"
+      "      --help                    display this help and exit\n"
+      "  -V, --version                 output version information and exit\n";
+  safePrint(winux::i18n::translate("command.wpm.custom_help", help));
   return 0;
 }
 

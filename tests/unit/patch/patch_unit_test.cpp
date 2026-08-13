@@ -25,3 +25,26 @@ TEST(patch, patch_basic) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(tmp.read("file.txt"), "world\n");
 }
+
+TEST(patch, patch_multiple_hunks_use_cumulative_offsets) {
+  TempDir tmp;
+  tmp.write("file.txt", "a\nb\nc\nd\n");
+  std::string patch_data =
+      "--- file.txt\t2026-08-13 00:00:00\n"
+      "+++ file.txt\t2026-08-13 00:00:01\n"
+      "@@ -1,1 +1,2 @@\n"
+      " a\n"
+      "+x\n"
+      "@@ -3,1 +4,1 @@\n"
+      "-c\n"
+      "+z\n";
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_stdin(patch_data);
+  p.add(L"patch.exe", {});
+  auto r = p.run();
+  TEST_LOG("patch multi stdout", r.stdout_text);
+  TEST_LOG("patch multi stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(tmp.read("file.txt"), "a\nx\nb\nz\nd\n");
+}

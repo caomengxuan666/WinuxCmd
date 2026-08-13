@@ -544,6 +544,28 @@ auto current_time_value(bool use_utc) -> TimeValue {
 }
 
 auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
+  std::string value = trim_copy(arg);
+  std::string lower = lower_copy(value);
+  FILETIME now{};
+  GetSystemTimeAsFileTime(&now);
+  auto relative = [&](long long amount, long long unit) {
+    return add_seconds(now, amount * unit);
+  };
+  std::smatch match;
+  const std::regex relative_re(R"(^([+-])([0-9]+)\s*(second|seconds|minute|minutes|hour|hours|day|days|week|weeks)$)");
+  if (std::regex_match(lower, match, relative_re)) {
+    long long amount = std::stoll(match[2].str());
+    if (match[1].str() == "-") amount = -amount;
+    const auto unit = match[3].str();
+    long long seconds = 1;
+    if (unit.starts_with("minute")) seconds = 60;
+    else if (unit.starts_with("hour")) seconds = 3600;
+    else if (unit.starts_with("day")) seconds = 86400;
+    else if (unit.starts_with("week")) seconds = 604800;
+    return relative(amount, seconds);
+  }
+  if (lower == "tomorrow") return relative(1, 86400);
+  if (lower == "yesterday") return relative(-1, 86400);
   return parse_fixed_date_time(arg);
 }
 
