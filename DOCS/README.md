@@ -29,6 +29,10 @@ next to the workspace integration scripts.
 - Keep GNU references pointed at the official manuals.
 - Track compatibility as a matrix, not as copied manual text.
 - Keep file-operand wildcard expansion limited to commands that explicitly opt in.
+- Treat Winuxsh as the authoritative owner of shell glob expansion; command-level
+  expansion is only a compatibility fallback for direct native callers.
+- The default is shell-owned expansion (`done`). PowerShell activation sets
+  `WINUX_SHELL_GLOB=native` to opt into the direct-native fallback.
 - For fixed-arity file commands such as `diff`, `diff3`, `split`, and
   `csplit`, wildcard expansion must resolve to the exact number of operands
   the command expects.

@@ -28,9 +28,11 @@ ripgrep through WPM.
 
 ## Wildcard expansion policy
 
-- Only commands wired to `contains_wildcard` / `glob_expand` expand wildcards.
-- WinuxCmd receives arguments after shell parsing; wildcard-aware commands
-  expand file-like operands according to their own command policy.
+- Only commands wired to the shared file-operand helper expand wildcards.
+- Winuxsh owns shell glob expansion. The command-level helper is a compatibility
+  fallback for direct native callers that pass an unexpanded file operand.
+- Shell-owned expansion is the default. PowerShell activation sets
+  `WINUX_SHELL_GLOB=native` to opt into the direct-native fallback.
 - Expansion still prefers the literal path first for ordinary `*` / `?`
   patterns, but `[]` character-class patterns now try glob expansion first
   even when a same-spelling literal path exists; if no `[]` matches are found,
