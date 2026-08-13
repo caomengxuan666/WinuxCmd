@@ -145,6 +145,40 @@ MANUAL_MESSAGES = {
     "command.wpm.version": "wpm {}",
     "command.wpm.error.unknown_command": "wpm: unknown command: {}",
     "command.wpm.error.exception": "wpm: {}",
+    "common.error.invalid_input": "invalid input",
+    "common.error.read_file": "error reading from file",
+    "common.error.read_input": "error reading input",
+    "common.error.read_stdin": "error reading from standard input",
+    "common.error.missing_file": "missing file operand",
+    "common.error.invalid_block_size": "invalid block size",
+    "common.error.invalid_length": "invalid length",
+    "common.error.invalid_range": "invalid range",
+    "common.error.invalid_input_range": "invalid input range",
+    "common.error.invalid_wrap": "invalid wrap size",
+    "common.error.invalid_line_count": "invalid line count",
+    "common.error.invalid_regex": "invalid regular expression",
+    "common.error.target_directory": "target is not a directory",
+    "common.error.create_directory": "cannot create directory",
+    "common.error.open_read": "cannot open for reading",
+    "common.error.open_write": "cannot open for writing",
+    "common.error.read_metadata": "cannot read source metadata",
+    "common.error.write_metadata": "cannot write destination metadata",
+    "common.error.preserve_timestamps": "cannot preserve timestamps",
+    "common.error.preserve_attributes": "cannot preserve attributes",
+    "common.error.create_backup": "cannot create backup for destination",
+    "common.error.same_file": "source and destination are the same file",
+    "common.error.hash_data": "failed to hash data",
+    "common.error.crypto_context": "failed to acquire cryptographic context",
+    "common.error.hash_object": "failed to create hash object",
+    "common.error.hash_value": "failed to get hash value",
+    "common.error.no_such_file": "No such file or directory",
+    "common.error.cannot_open": "cannot open '{}'",
+    "common.error.cannot_access": "cannot access '{}'",
+    "common.error.cannot_stat": "cannot stat '{}'",
+    "common.error.cannot_create": "cannot create '{}'",
+    "common.error.write": "error writing '{}'",
+    "common.error.invalid_mode": "invalid mode: '{}'",
+    "common.error.invalid_group": "invalid group: '{}'",
 }
 
 
@@ -275,6 +309,15 @@ def extract(source_root: Path) -> dict:
                     digest = (digest * 1099511628211) & 0xFFFFFFFFFFFFFFFF
                 digest = f"{digest:016x}"
                 messages[f"legacy.{digest}"] = value
+        for match in re.finditer(
+                r"std::unexpected\(\s*(?:L)?\"((?:\\.|[^\"\\])*)\"\s*\)", source):
+            value = string_value('"' + match.group(1) + '"')
+            if value.strip() and any(ch.isalpha() for ch in value):
+                digest = 14695981039346656037
+                for byte in value.encode("utf-8"):
+                    digest ^= byte
+                    digest = (digest * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+                messages[f"legacy.{digest:016x}"] = value
     messages.update(MANUAL_MESSAGES)
     return {"schema": 1, "locale": "en-US", "messages": dict(sorted(messages.items()))}
 

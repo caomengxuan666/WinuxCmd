@@ -119,9 +119,42 @@ std::string format(std::string_view key, std::string_view fallback,
   }
 }
 
+export std::string translate_legacy(std::string_view text);
+
 export std::string translate_error(std::string_view error) {
   if (error == "missing operand") {
     return translate("common.error.missing_operand", error);
+  }
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 27>
+      exact{{{"invalid input", "common.error.invalid_input"},
+             {"error reading from file", "common.error.read_file"},
+             {"error reading input", "common.error.read_input"},
+             {"error reading from standard input", "common.error.read_stdin"},
+             {"missing file operand", "common.error.missing_file"},
+             {"invalid block size", "common.error.invalid_block_size"},
+             {"invalid length", "common.error.invalid_length"},
+             {"invalid range", "common.error.invalid_range"},
+             {"invalid input range", "common.error.invalid_input_range"},
+             {"invalid wrap size", "common.error.invalid_wrap"},
+             {"invalid line count", "common.error.invalid_line_count"},
+             {"invalid regular expression", "common.error.invalid_regex"},
+             {"target is not a directory", "common.error.target_directory"},
+             {"cannot create directory", "common.error.create_directory"},
+             {"cannot open for reading", "common.error.open_read"},
+             {"cannot open for writing", "common.error.open_write"},
+             {"cannot read source metadata", "common.error.read_metadata"},
+             {"cannot write destination metadata", "common.error.write_metadata"},
+             {"cannot preserve timestamps", "common.error.preserve_timestamps"},
+             {"cannot preserve attributes", "common.error.preserve_attributes"},
+             {"cannot create backup for destination", "common.error.create_backup"},
+             {"source and destination are the same file", "common.error.same_file"},
+             {"failed to hash data", "common.error.hash_data"},
+             {"failed to acquire cryptographic context", "common.error.crypto_context"},
+             {"failed to create hash object", "common.error.hash_object"},
+             {"failed to get hash value", "common.error.hash_value"},
+             {"No such file or directory", "common.error.no_such_file"}}};
+  for (const auto [literal, key] : exact) {
+    if (error == literal) return translate(key, error);
   }
   constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
       patterns{{{"missing operand after '", "common.error.missing_after"},
@@ -142,7 +175,32 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  return std::string(error);
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 7>
+      quoted{{{"cannot open '", "common.error.cannot_open"},
+              {"cannot access '", "common.error.cannot_access"},
+              {"cannot stat '", "common.error.cannot_stat"},
+              {"cannot create '", "common.error.cannot_create"},
+              {"error writing '", "common.error.write"},
+              {"invalid mode: '", "common.error.invalid_mode"},
+              {"invalid group: '", "common.error.invalid_group"}}};
+  for (const auto [prefix, key] : quoted) {
+    if (!error.starts_with(prefix) || error.back() != '\'') continue;
+    const auto value = error.substr(prefix.size(), error.size() - prefix.size() - 1);
+    if (key == "common.error.cannot_open")
+      return ::winux::i18n::format(key, "cannot open '{}'", value);
+    if (key == "common.error.cannot_access")
+      return ::winux::i18n::format(key, "cannot access '{}'", value);
+    if (key == "common.error.cannot_stat")
+      return ::winux::i18n::format(key, "cannot stat '{}'", value);
+    if (key == "common.error.cannot_create")
+      return ::winux::i18n::format(key, "cannot create '{}'", value);
+    if (key == "common.error.write")
+      return ::winux::i18n::format(key, "error writing '{}'", value);
+    if (key == "common.error.invalid_mode")
+      return ::winux::i18n::format(key, "invalid mode: '{}'", value);
+    return ::winux::i18n::format(key, "invalid group: '{}'", value);
+  }
+  return translate_legacy(error);
 }
 
 export std::string translate_help_hint(std::string_view text) {
