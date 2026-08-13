@@ -29,6 +29,17 @@ std::string environment_value(const char* name) {
   return value ? std::string(value) : std::string{};
 }
 
+std::string legacy_key(std::string_view text) {
+  // FNV-1a keeps legacy call sites source-compatible while giving extracted
+  // literals a stable key independent of their file or line number.
+  uint64_t hash = 14695981039346656037ull;
+  for (const unsigned char ch : text) {
+    hash ^= ch;
+    hash *= 1099511628211ull;
+  }
+  return "legacy." + std::format("{:016x}", hash);
+}
+
 std::string normalize_locale(std::string locale) {
   for (char& ch : locale) {
     if (ch == '_') ch = '-';
@@ -148,6 +159,10 @@ export std::string translate_help_hint(std::string_view text) {
   }
   return format("common.try_help", "Try '{}' --help for more information.",
                 command);
+}
+
+export std::string translate_legacy(std::string_view text) {
+  return translate(legacy_key(text), text);
 }
 
 export bool has_catalog() { return !catalog().messages.empty(); }

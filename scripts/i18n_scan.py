@@ -20,6 +20,12 @@ DATA_HINTS = re.compile(
     r"(hash|digest|checksum|binary|content|payload|output|filename|path|file|"
     r"format|pattern|regex|expression|command_line|argv|operand)", re.I
 )
+FORMAT_ONLY = re.compile(
+    r"^(?:\\[nrt0abfv]|\\x[0-9A-Fa-f]{2}|[\\s\\t\\r\\n.,:;+/=<>|{}()\\[\\]-]+)$"
+)
+TECHNICAL_PREFIX = re.compile(
+    r"^(?:[A-Za-z_][A-Za-z0-9_]*=|Usage:|LS_COLORS=|[A-Za-z0-9_.-]+\\([0-9]+\\))"
+)
 
 
 def source_files(root: Path):
@@ -36,6 +42,20 @@ def classify(call: str, context: str) -> str:
     return "translate-candidate"
 
 
+def classify_literal(call: str, literal: str | None, context: str) -> str:
+    category = classify(call, context)
+    if literal is None:
+        return "review-data-or-format"
+    if category != "translate-candidate":
+        return category
+    if (not literal.strip() or FORMAT_ONLY.fullmatch(literal) or
+            literal.startswith("\\x1b") or TECHNICAL_PREFIX.match(literal)):
+        return "review-data-or-format"
+    if call.startswith("safe"):
+        return "localized-legacy"
+    return category
+
+
 def scan_file(path: Path) -> list[dict[str, object]]:
     text = path.read_text(encoding="utf-8", errors="replace")
     rows: list[dict[str, object]] = []
@@ -48,7 +68,9 @@ def scan_file(path: Path) -> list[dict[str, object]]:
             "line": line,
             "call": match.group("call"),
             "literal": literal.group("body") if literal else None,
-            "classification": classify(match.group("call"), tail),
+            "classification": classify_literal(match.group("call"),
+                                                  literal.group("body") if literal else None,
+                                                  tail),
         })
     for match in ERROR_RE.finditer(text):
         line = text.count("\n", 0, match.start()) + 1

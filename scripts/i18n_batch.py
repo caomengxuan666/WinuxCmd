@@ -8,6 +8,7 @@ import ast
 import json
 import os
 import re
+import hashlib
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,6 +18,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_SUFFIXES = {".cpp", ".cppm", ".h", ".hpp"}
 # The configured OpenAI-compatible gateway exposes this model under the LUNA
 # name.  An environment override is useful for testing another gateway model.
 DEFAULT_MODEL = os.environ.get("OPENAI_I18N_MODEL", "gpt-5.6-luna")
@@ -255,6 +257,24 @@ def extract(source_root: Path) -> dict:
 
     messages["common.option.help"] = "display this help and exit"
     messages["common.option.version"] = "output version information and exit"
+    # Fixed line-oriented output is localized by utils:console at runtime.
+    # Dynamic fragments and structured data remain ordinary output.
+    for path in sorted((ROOT / "src").rglob("*")):
+        if path.suffix not in SOURCE_SUFFIXES:
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        for match in re.finditer(
+                r"safe(?:Error)?Print(?:Ln)?\(\s*(?:L)?\"((?:\\.|[^\"\\])*)\"\s*\)", source):
+            value = string_value('"' + match.group(1) + '"')
+            if (value.strip() and not re.fullmatch(
+                    r"(?:\\[nrt0abfv]|[\\s\\t\\r\\n.,:;+/=<>|{}()\\[\\]-]+)", value)
+                    and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value)):
+                digest = 14695981039346656037
+                for byte in value.encode("utf-8"):
+                    digest ^= byte
+                    digest = (digest * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+                digest = f"{digest:016x}"
+                messages[f"legacy.{digest}"] = value
     messages.update(MANUAL_MESSAGES)
     return {"schema": 1, "locale": "en-US", "messages": dict(sorted(messages.items()))}
 
@@ -334,6 +354,10 @@ def cmd_translate(args: argparse.Namespace) -> None:
     output_path = Path(args.output)
     checkpoint = output_path.with_suffix(output_path.suffix + ".partial")
     translated = {}
+    if args.seed:
+        seed = json_load(Path(args.seed))
+        translated.update({key: value for key, value in seed["messages"].items()
+                           if key in base["messages"]})
     if checkpoint.exists():
         partial = json_load(checkpoint)
         translated = partial["messages"]
@@ -366,6 +390,7 @@ def main() -> int:
     translate = sub.add_parser("translate")
     translate.add_argument("--input", required=True)
     translate.add_argument("--output", required=True)
+    translate.add_argument("--seed")
     translate.add_argument("--locale", required=True)
     translate.add_argument("--model", default=DEFAULT_MODEL)
     translate.add_argument("--batch-size", type=int, default=40)

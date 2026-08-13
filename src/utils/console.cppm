@@ -474,6 +474,8 @@ export void safeErrorPrintLn(std::wstring_view wsv) {
 // UTF-8 string overloads (stack conversion)
 // ----------------------------------------------------------------------------
 export void safePrint(std::string_view sv) {
+  const auto translated = winux::i18n::translate_legacy(sv);
+  sv = translated;
   HANDLE h = getStdOut();
   if (isStdoutConsole()) {
     detail::wchar_buffer buf(sv);
@@ -492,6 +494,8 @@ export void safePrint(std::string_view sv) {
 }
 
 export void safeErrorPrint(std::string_view sv) {
+  const auto translated = winux::i18n::translate_legacy(sv);
+  sv = translated;
   HANDLE h = getStdErr();
   if (isStderrConsole()) {
     detail::wchar_buffer buf(sv);
@@ -510,7 +514,7 @@ export void safeErrorPrint(std::string_view sv) {
 }
 
 export void safePrintLn(std::string_view sv) {
-  safePrint(sv);
+  safePrint(winux::i18n::translate_legacy(sv));
   safePrint("\n");
 }
 
