@@ -783,7 +783,22 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
   SmallVector<std::string, 32> paths{};
 
   if (ctx.positionals.empty()) {
-    paths.push_back(".");
+    DWORD logical_drives = GetLogicalDrives();
+    if (logical_drives == 0) {
+      return std::unexpected("cannot enumerate logical drives");
+    }
+    for (unsigned int index = 0; index < 26; ++index) {
+      if ((logical_drives & (1u << index)) == 0) continue;
+      std::string root;
+      root.push_back(static_cast<char>('A' + index));
+      root += ":\\";
+      if (GetDriveTypeW(utf8_to_wstring(root).c_str()) != DRIVE_NO_ROOT_DIR) {
+        paths.push_back(std::move(root));
+      }
+    }
+    if (paths.empty()) {
+      return std::unexpected("no accessible logical drives");
+    }
   } else {
     for (const auto& arg : ctx.positionals) {
       std::string file_arg(arg);

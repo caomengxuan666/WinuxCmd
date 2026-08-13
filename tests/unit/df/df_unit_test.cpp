@@ -44,6 +44,20 @@ TEST(df, df_basic) {
               r.stdout_text.length() > 0);
 }
 
+TEST(df, df_without_operands_lists_all_accessible_logical_drives) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("Filesystem"), std::string::npos);
+  EXPECT_GE(std::count(r.stdout_text.begin(), r.stdout_text.end(), ':'), 1);
+}
+
 TEST(df, df_human_readable) {
   TempDir tmp;
 
