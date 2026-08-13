@@ -483,6 +483,31 @@ TEST(wpm, wpm_links_rebuild_removes_legacy_jq_hardlink) {
   EXPECT_TRUE(std::filesystem::exists(tmp.path / L"wpm.exe"));
 }
 
+TEST(wpm, wpm_apply_update_replaces_root_and_rebuilds_links) {
+  TempDir tmp;
+  auto root_exe = tmp.path / L"winuxcmd.exe";
+  auto wpm_exe = tmp.path / L"wpm.exe";
+  auto old_payload = tmp.path / L"old-winuxcmd.exe";
+
+  tmp.write("old-winuxcmd.exe", "old exe\n");
+  std::filesystem::copy_file(old_payload, root_exe,
+                             std::filesystem::copy_options::overwrite_existing);
+  bool linked = CreateHardLinkW(wpm_exe.wstring().c_str(),
+                                root_exe.wstring().c_str(), nullptr) != 0;
+  EXPECT_TRUE(linked);
+  if (!linked) return;
+
+  auto result = run_command(
+      build_winuxcmd_path().wstring(),
+      {L"wpm", L"--", L"__apply-update", L"--root", tmp.wpath(), L"--payload",
+       build_winuxcmd_path().wstring(), L"--parent", L"0"});
+
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_EQ(run_command(root_exe.wstring(), {L"--version"}).exit_code, 0);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / L".wpm" / L"backup"));
+  EXPECT_TRUE(same_file(root_exe, wpm_exe));
+}
+
 TEST(wpm, wpm_index_update_uses_local_file_source) {
   TempDir tmp;
   const auto index_path = tmp.path / L"fixture-index.json";
