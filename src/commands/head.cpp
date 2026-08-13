@@ -360,21 +360,26 @@ auto output_first_records(std::istream& in, size_t records, char delimiter)
   }
 }
 
+auto stream_bytes(std::istream& in, size_t bytes) -> void {
+  std::array<char, 64 * 1024> buffer{};
+  while (bytes > 0 && in.good()) {
+    const auto want = std::min(bytes, buffer.size());
+    in.read(buffer.data(), static_cast<std::streamsize>(want));
+    const auto got = static_cast<size_t>(std::max<std::streamsize>(in.gcount(), 0));
+    if (got == 0) break;
+    safePrint(std::string_view(buffer.data(), got));
+    bytes -= got;
+  }
+}
+
 auto output_head(std::istream& in, const HeadConfig& config) -> void {
   if (config.spec.plus_form) {
-    const size_t skip = config.spec.value > 0
-                            ? static_cast<size_t>(config.spec.value - 1)
-                            : 0;
     if (config.by_bytes) {
-      in.ignore(static_cast<std::streamsize>(skip));
+      stream_bytes(in, static_cast<size_t>(config.spec.value));
     } else {
-      size_t remaining = skip;
-      char ch = '\0';
-      while (remaining > 0 && in.get(ch)) {
-        if (ch == config.delimiter) --remaining;
-      }
+      output_first_records(in, static_cast<size_t>(config.spec.value),
+                           config.delimiter);
     }
-    stream_all(in);
     return;
   }
 
