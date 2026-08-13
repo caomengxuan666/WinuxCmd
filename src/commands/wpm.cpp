@@ -58,6 +58,13 @@ namespace fs = std::filesystem;
 
 constexpr std::string_view kVersion = "0.2.0";
 constexpr std::string_view kInternalToolName = "wpm";
+
+template <typename... Args>
+auto wpm_text(std::string_view key, std::string_view fallback, Args&&... args)
+    -> std::string {
+  return winux::i18n::format(key, fallback, std::forward<Args>(args)...);
+}
+
 constexpr std::string_view kBuiltinIndex = R"json(
 {
   "schema": 1,
@@ -222,7 +229,8 @@ auto parse_json_text(std::string_view text) -> std::optional<nlohmann::json> {
   try {
     return nlohmann::json::parse(text.begin(), text.end());
   } catch (const std::exception& e) {
-    safeErrorPrintLn(std::string("wpm: invalid JSON: ") + e.what());
+    safeErrorPrintLn(wpm_text("command.wpm.error.invalid_json",
+                              "wpm: invalid JSON: {}", e.what()));
     return std::nullopt;
   }
 }
@@ -421,17 +429,20 @@ auto remove_link_if_safe(const fs::path& source, const fs::path& target,
   if (!fs::exists(target, ec)) return true;
   if (same_file(source, target)) return true;
   if (same_path_name(current, target)) {
-    safePrintLn("wpm: keeping running executable: " + target.string());
+    safePrintLn(wpm_text("command.wpm.status.keep_running",
+                         "wpm: keeping running executable: {}", target.string()));
     return true;
   }
   if (dry_run) return true;
   if (fs::is_directory(target, ec)) {
-    safeErrorPrintLn("wpm: refusing to replace directory: " + target.string());
+    safeErrorPrintLn(wpm_text("command.wpm.error.refuse_directory",
+                              "wpm: refusing to replace directory: {}", target.string()));
     return false;
   }
   if (!DeleteFileW(target.wstring().c_str())) {
-    safeErrorPrintLn("wpm: failed to remove '" + target.string() +
-                     "': " + win32_error_text(GetLastError()));
+    safeErrorPrintLn(wpm_text("command.wpm.error.remove",
+                              "wpm: failed to remove '{}': {}", target.string(),
+                              win32_error_text(GetLastError())));
     return false;
   }
   return true;
@@ -453,16 +464,20 @@ auto remove_stale_legacy_links(const fs::path& root, const fs::path& source,
     if (!same_file(source, target)) continue;
 
     if (dry_run) {
-      safePrintLn("remove legacy link " + target.string());
+      safePrintLn(wpm_text("command.wpm.status.remove_legacy",
+                           "remove legacy link {}", target.string()));
       ++removed;
       continue;
     }
     if (DeleteFileW(target.wstring().c_str())) {
       ++removed;
-      if (verbose) safePrintLn("removed legacy link " + target.string());
+      if (verbose)
+        safePrintLn(wpm_text("command.wpm.status.removed_legacy",
+                             "removed legacy link {}", target.string()));
     } else {
-      safeErrorPrintLn("wpm: failed to remove legacy link '" + target.string() +
-                       "': " + win32_error_text(GetLastError()));
+      safeErrorPrintLn(wpm_text("command.wpm.error.remove_legacy",
+                                "wpm: failed to remove legacy link '{}': {}",
+                                target.string(), win32_error_text(GetLastError())));
       ++failed;
     }
   }
@@ -478,7 +493,8 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
   const fs::path current = current_exe_path();
 
   if (!fs::exists(source)) {
-    safeErrorPrintLn("wpm: winuxcmd.exe not found in root: " + root.string());
+    safeErrorPrintLn(wpm_text("command.wpm.error.executable_missing",
+                              "wpm: winuxcmd.exe not found in root: {}", root.string()));
     return 1;
   }
 
@@ -500,30 +516,33 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
       continue;
     }
     if (dry_run) {
-      safePrintLn("link " + target.string() + " -> " + source.string());
+      safePrintLn(wpm_text("command.wpm.status.link",
+                           "link {} -> {}", target.string(), source.string()));
       ++created;
       continue;
     }
     if (CreateHardLinkW(target.wstring().c_str(), source.wstring().c_str(),
                         nullptr)) {
       ++created;
-      if (verbose) safePrintLn("linked " + target.string());
+      if (verbose)
+        safePrintLn(wpm_text("command.wpm.status.linked",
+                             "linked {}", target.string()));
     } else {
       DWORD err = GetLastError();
       if (same_file(source, target)) {
         ++unchanged;
         continue;
       }
-      safeErrorPrintLn("wpm: failed to create hard link '" + target.string() +
-                       "': " + win32_error_text(err));
+      safeErrorPrintLn(wpm_text("command.wpm.error.create_link",
+                                "wpm: failed to create hard link '{}': {}",
+                                target.string(), win32_error_text(err)));
       ++failed;
     }
   }
 
-  safePrintLn("wpm: links created=" + std::to_string(created) +
-              " unchanged=" + std::to_string(unchanged) +
-              " stale_removed=" + std::to_string(stale_removed) +
-              " failed=" + std::to_string(failed));
+  safePrintLn(wpm_text("command.wpm.status.links_summary",
+                       "wpm: links created={} unchanged={} stale_removed={} failed={}",
+                       created, unchanged, stale_removed, failed));
   return failed == 0 ? 0 : 1;
 }
 
@@ -541,21 +560,22 @@ auto remove_links(const fs::path& root, bool dry_run) -> int {
     if (!fs::exists(target, ec)) continue;
     if (!same_file(source, target)) continue;
     if (dry_run) {
-      safePrintLn("remove " + target.string());
+      safePrintLn(wpm_text("command.wpm.status.remove", "remove {}", target.string()));
       ++removed;
       continue;
     }
     if (DeleteFileW(target.wstring().c_str())) {
       ++removed;
     } else {
-      safeErrorPrintLn("wpm: failed to remove '" + target.string() +
-                       "': " + win32_error_text(GetLastError()));
+      safeErrorPrintLn(wpm_text("command.wpm.error.remove",
+                                "wpm: failed to remove '{}': {}", target.string(),
+                                win32_error_text(GetLastError())));
       ++failed;
     }
   }
 
-  safePrintLn("wpm: links removed=" + std::to_string(removed) +
-              " failed=" + std::to_string(failed));
+  safePrintLn(wpm_text("command.wpm.status.links_removed",
+                       "wpm: links removed={} failed={}", removed, failed));
   return failed == 0 ? 0 : 1;
 }
 

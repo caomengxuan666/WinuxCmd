@@ -120,6 +120,20 @@ MANUAL_MESSAGES = {
         "      --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n"
     ),
+    "command.wpm.error.invalid_json": "wpm: invalid JSON: {}",
+    "command.wpm.status.keep_running": "wpm: keeping running executable: {}",
+    "command.wpm.error.refuse_directory": "wpm: refusing to replace directory: {}",
+    "command.wpm.error.remove": "wpm: failed to remove '{}': {}",
+    "command.wpm.status.remove_legacy": "remove legacy link {}",
+    "command.wpm.status.removed_legacy": "removed legacy link {}",
+    "command.wpm.error.remove_legacy": "wpm: failed to remove legacy link '{}': {}",
+    "command.wpm.error.executable_missing": "wpm: winuxcmd.exe not found in root: {}",
+    "command.wpm.status.link": "link {} -> {}",
+    "command.wpm.status.linked": "linked {}",
+    "command.wpm.error.create_link": "wpm: failed to create hard link '{}': {}",
+    "command.wpm.status.links_summary": "wpm: links created={} unchanged={} stale_removed={} failed={}",
+    "command.wpm.status.remove": "remove {}",
+    "command.wpm.status.links_removed": "wpm: links removed={} failed={}",
 }
 
 
