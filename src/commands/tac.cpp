@@ -189,10 +189,6 @@ auto run(const Config& cfg) -> int {
       return 1;
     }
 
-    if (!cfg.regex && cfg.separator == "\n") {
-      *content = normalize_newline_delimited_text(*content);
-    }
-
     cp::Result<std::vector<std::string>> records =
         cfg.regex ? split_regex_records(*content, cfg.separator, cfg.before)
                   : cp::Result<std::vector<std::string>>{split_literal_records(

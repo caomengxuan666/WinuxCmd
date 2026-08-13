@@ -129,21 +129,15 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
 auto split_records(std::string_view content, char delimiter)
     -> std::vector<std::string> {
   SmallVector<std::string, 4096> out;
-  const auto trim_record = [delimiter](std::string_view record) {
-    if (delimiter == '\n' && !record.empty() && record.back() == '\r') {
-      record.remove_suffix(1);
-    }
-    return std::string(record);
-  };
   size_t start = 0;
   for (size_t i = 0; i < content.size(); ++i) {
     if (content[i] == delimiter) {
-      out.emplace_back(trim_record(content.substr(start, i - start)));
+      out.emplace_back(content.substr(start, i - start));
       start = i + 1;
     }
   }
   if (start < content.size()) {
-    out.emplace_back(trim_record(content.substr(start)));
+    out.emplace_back(content.substr(start));
   }
   return std::vector<std::string>(out.begin(), out.end());
 }
@@ -295,36 +289,50 @@ auto emit_group_separator(std::ostream& out, const Config& cfg) -> void {
 }
 
 auto run(const Config& cfg) -> int {
-  auto content = read_source(cfg.input);
-  if (!content) {
-    cp::report_error(content, L"uniq");
-    return 1;
+  std::ifstream input_file;
+  std::istream* input = &std::cin;
+  if (cfg.input != "-") {
+    auto input_operand = native_path::make_api_path_operand(cfg.input);
+    if (input_operand.had_trailing_separator &&
+        native_path::attributes_are_regular_file(
+            native_path::attributes_w(input_operand.extended))) {
+      cp::report_custom_error(
+          L"uniq", utf8_to_wstring(cfg.input + ": Not a directory"));
+      return 1;
+    }
+    input_file = file_io::open_binary_file(cfg.input);
+    if (!input_file.is_open()) {
+      auto content = read_source(cfg.input);
+      if (!content) {
+        cp::report_error(content, L"uniq");
+        return 1;
+      }
+      cp::report_custom_error(L"uniq", L"cannot open input");
+      return 1;
+    }
+    input = &input_file;
   }
 
-  auto records = split_records(*content, cfg.delimiter);
   std::ostream* out = &std::cout;
   std::ofstream file_out;
+  int stdout_mode = -1;
   if (cfg.output != "-") {
-    file_out.open(cfg.output, std::ios::binary | std::ios::trunc);
+    file_out = file_io::create_binary_file(cfg.output);
     if (!file_out.is_open()) {
       cp::report_custom_error(L"uniq", L"cannot open output file");
       return 1;
     }
     out = &file_out;
+  } else {
+    // Keep record bytes unchanged when stdout is a Windows pipe.
+    stdout_mode = _setmode(_fileno(stdout), _O_BINARY);
   }
 
-  if (records.empty()) return 0;
-
-  size_t i = 0;
   bool first_emitted_group = false;
-  while (i < records.size()) {
-    size_t j = i + 1;
-    const auto key = comparison_key(records[i], cfg);
-    while (j < records.size() && comparison_key(records[j], cfg) == key) {
-      ++j;
-    }
-
-    const size_t count = j - i;
+  std::vector<std::string> group;
+  std::string key;
+  auto emit_group = [&](const std::vector<std::string>& records) {
+    const size_t count = records.size();
     if (should_emit(count, cfg)) {
       if (cfg.group_mode == GroupMode::separate && first_emitted_group) {
         emit_group_separator(*out, cfg);
@@ -335,17 +343,17 @@ auto run(const Config& cfg) -> int {
       }
 
       if (cfg.group_all) {
-        for (size_t k = i; k < j; ++k) {
-          emit_one(*out, records[k], count, cfg, true);
+        for (const auto& record : records) {
+          emit_one(*out, record, count, cfg, true);
         }
       } else if (count == 1) {
-        emit_one(*out, records[i], count, cfg);
+        emit_one(*out, records.front(), count, cfg);
       } else {
         if (cfg.output_first_repeated) {
-          emit_one(*out, records[i], count, cfg);
+          emit_one(*out, records.front(), count, cfg);
         }
         if (cfg.output_later_repeated) {
-          for (size_t k = i + 1; k < j; ++k) {
+          for (size_t k = 1; k < records.size(); ++k) {
             emit_one(*out, records[k], count, cfg, true);
           }
         }
@@ -357,10 +365,28 @@ auto run(const Config& cfg) -> int {
       }
       first_emitted_group = true;
     }
-    i = j;
+  };
+
+  std::string line;
+  while (std::getline(*input, line, cfg.delimiter)) {
+    auto line_key = comparison_key(line, cfg);
+    if (!group.empty() && line_key != key) {
+      emit_group(group);
+      group.clear();
+    }
+    if (group.empty()) key = std::move(line_key);
+    group.push_back(std::move(line));
+    line.clear();
   }
+  if (input->bad()) {
+    cp::report_custom_error(L"uniq", L"error reading input");
+    if (stdout_mode != -1) _setmode(_fileno(stdout), stdout_mode);
+    return 1;
+  }
+  if (!group.empty()) emit_group(group);
 
   out->flush();
+  if (stdout_mode != -1) _setmode(_fileno(stdout), stdout_mode);
   return 0;
 }
 

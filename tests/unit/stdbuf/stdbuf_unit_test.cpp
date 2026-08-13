@@ -82,7 +82,7 @@ TEST(stdbuf, stdbuf_accepts_bare_binary_suffix) {
   EXPECT_EQ(r.exit_code, 0);
 }
 
-TEST(stdbuf, stdbuf_rejects_line_buffered_stdin) {
+TEST(stdbuf, stdbuf_accepts_line_buffered_stdin) {
   Pipeline p;
   p.add(L"stdbuf.exe", {L"-iL", L"echo.exe", L"test"});
 
@@ -93,8 +93,8 @@ TEST(stdbuf, stdbuf_rejects_line_buffered_stdin) {
   TEST_LOG_EXIT_CODE(r);
   TEST_LOG("stdbuf stderr", r.stderr_text);
 
-  EXPECT_EQ(r.exit_code, 125);
-  EXPECT_FALSE(r.stderr_text.empty());
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "test\n");
 }
 
 TEST(stdbuf, stdbuf_rejects_zero_sized_buffer_mode) {

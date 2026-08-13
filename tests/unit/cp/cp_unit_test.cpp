@@ -49,6 +49,34 @@ TEST(cp, cp_basic_copy) {
   EXPECT_EQ(dest_content, "hello world");
 }
 
+TEST(cp, cp_empty_file_succeeds) {
+  TempDir tmp;
+  tmp.write("empty.txt", "");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"empty.txt", L"copy.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "copy.txt"));
+  EXPECT_EQ(tmp.read("copy.txt"), "");
+}
+
+TEST(cp, cp_link_creates_hard_link) {
+  TempDir tmp;
+  tmp.write("source.txt", "payload");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"-l", L"source.txt", L"dest.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "payload");
+  tmp.write("source.txt", "changed");
+  EXPECT_EQ(tmp.read("dest.txt"), "changed");
+}
+
 TEST(cp, cp_copy_multiple_files) {
   TempDir tmp;
   tmp.write("file1.txt", "content1");

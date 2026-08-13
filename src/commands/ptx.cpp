@@ -163,7 +163,7 @@ auto read_all(const std::string& filename) -> std::optional<std::string> {
     buffer << std::cin.rdbuf();
     return buffer.str();
   }
-  std::ifstream input(filename, std::ios::binary);
+  auto input = file_io::open_binary_file(filename);
   if (!input) return std::nullopt;
   std::ostringstream buffer;
   buffer << input.rdbuf();
@@ -303,20 +303,19 @@ void collect_occurrences(const SourceText& source, size_t source_index,
                          const std::set<std::string>& only_words,
                          std::vector<Occurrence>& out) {
   const auto& text = source.text;
-  size_t context_start = 0;
-  size_t context_end = trim_right(text).size();
   size_t pos = 0;
-  while (pos < context_end) {
-    while (pos < context_end &&
+  const size_t text_end = trim_right(text).size();
+  while (pos < text_end) {
+    while (pos < text_end &&
            !is_word_char(static_cast<unsigned char>(text[pos]), breaks,
                          cfg.traditional)) {
       ++pos;
     }
-    if (pos >= context_end) break;
+    if (pos >= text_end) break;
     size_t start = pos;
-    while (pos < context_end &&
+    while (pos < text_end &&
            is_word_char(static_cast<unsigned char>(text[pos]), breaks,
-                        cfg.traditional)) {
+                         cfg.traditional)) {
       ++pos;
     }
     size_t end = pos;
@@ -324,9 +323,14 @@ void collect_occurrences(const SourceText& source, size_t source_index,
     std::string lookup = key_for(word, cfg.ignore_case);
     if (!ignore_words.empty() && ignore_words.contains(lookup)) continue;
     if (!only_words.empty() && !only_words.contains(lookup)) continue;
+    const size_t line_number = line_number_for(source, start);
+    const size_t context_start = source.line_starts[line_number - 1];
+    const size_t next_line = line_number < source.line_starts.size()
+                                 ? source.line_starts[line_number]
+                                 : text.size();
+    const size_t context_end = std::min(next_line, text_end);
     out.push_back(Occurrence{source_index, start, end, context_start,
-                             context_end, line_number_for(source, start),
-                             lookup});
+                             context_end, line_number, lookup});
   }
 }
 

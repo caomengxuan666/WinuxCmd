@@ -1,0 +1,24 @@
+name: GNU differential parity
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  differential:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build WinuxCmd
+        shell: pwsh
+        run: ./scripts/build-with-vs.ps1 -BuildDir build-differential -Target winuxcmd -Configuration Release
+      - name: Run differential corpus
+        shell: bash
+        env:
+          WINUXCMD_BIN: build-differential
+        run: tests/differential/runner.sh
+      - name: Upload report
+        uses: actions/upload-artifact@v7
+        with:
+          name: gnu-differential-report
+          path: tests/differential/report.md

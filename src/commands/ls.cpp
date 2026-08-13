@@ -433,11 +433,12 @@ auto normalize_lookup_path(const std::wstring &path) -> std::wstring {
 auto probe_path(const std::wstring &path) -> PathProbe {
   PathProbe probe{};
   const std::wstring lookup_path = normalize_lookup_path(path);
+  const auto operand = native_path::make_api_path_operand_w(lookup_path);
 
-  probe.attributes = GetFileAttributesW(lookup_path.c_str());
+  probe.attributes = native_path::attributes_w(operand.extended);
   probe.attributes_valid = probe.attributes != INVALID_FILE_ATTRIBUTES;
 
-  HANDLE hfind = FindFirstFileW(lookup_path.c_str(), &probe.find_data);
+  HANDLE hfind = FindFirstFileW(operand.extended.c_str(), &probe.find_data);
   if (hfind != INVALID_HANDLE_VALUE) {
     probe.found = true;
     FindClose(hfind);
@@ -1850,8 +1851,10 @@ auto try_get_dereferenced_find_data(
     return std::nullopt;
   }
 
+  auto target_operand = native_path::make_api_path_operand_w(target.wstring());
   WIN32_FILE_ATTRIBUTE_DATA attrs{};
-  if (!GetFileAttributesExW(target.c_str(), GetFileExInfoStandard, &attrs)) {
+  if (!GetFileAttributesExW(target_operand.extended.c_str(),
+                            GetFileExInfoStandard, &attrs)) {
     return std::nullopt;
   }
 
@@ -2044,8 +2047,9 @@ auto format_scaled_size(uint64_t size, SizeMode mode, uint64_t block_size)
 auto query_directory_standard_size_bytes(const std::wstring &path,
                                          bool allocation_size)
     -> std::optional<uint64_t> {
+  auto operand = native_path::make_api_path_operand_w(path);
   HANDLE handle =
-      CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+      CreateFileW(operand.extended.c_str(), FILE_READ_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -2125,7 +2129,8 @@ auto get_file_index_string(const std::wstring &path,
   }
 
   HANDLE handle =
-      CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+      CreateFileW(native_path::make_api_path_operand_w(path).extended.c_str(),
+                  FILE_READ_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -2139,7 +2144,6 @@ auto get_file_index_string(const std::wstring &path,
                            static_cast<ULONGLONG>(info.nFileIndexLow);
     result = std::to_string(file_index);
   }
-  CloseHandle(handle);
   return result;
 }
 
@@ -2159,7 +2163,8 @@ auto get_link_count(const std::wstring &path, const WIN32_FIND_DATAW &find_data,
   }
 
   HANDLE handle =
-      CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+      CreateFileW(native_path::make_api_path_operand_w(path).extended.c_str(),
+                  FILE_READ_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, flags, nullptr);
   if (handle == INVALID_HANDLE_VALUE) {
@@ -2328,54 +2333,16 @@ auto get_modification_time_string(const WIN32_FIND_DATAW &find_data,
  * @param use_numeric Whether to return numeric UID/GID (-n option)
  * @return Pair of (owner, group) strings
  */
-auto get_file_owner_and_group(bool use_numeric = false)
+auto get_file_owner_and_group(std::wstring_view path, bool use_numeric = false)
     -> std::pair<std::string, std::string> {
+  auto operand = native_path::make_api_path_operand_w(path);
+  auto accounts = win32_file_accounts(operand.extended);
   if (use_numeric) {
-    // Get Windows SID (simulate UID/GID)
-    HANDLE hToken;
-    if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {
-      DWORD bufferSize = 0;
-      GetTokenInformation(hToken, TokenUser, nullptr, 0, &bufferSize);
-      std::vector<BYTE> buffer(bufferSize);
-      PTOKEN_USER pTokenUser = reinterpret_cast<PTOKEN_USER>(buffer.data());
-      if (GetTokenInformation(hToken, TokenUser, pTokenUser, bufferSize,
-                              &bufferSize)) {
-        LPWSTR sidStr = nullptr;
-        if (ConvertSidToStringSidW(pTokenUser->User.Sid, &sidStr)) {
-          // Extract numeric part from SID (simulate UID 197121)
-          std::wstring sid(sidStr,
-                           wcslen(sidStr));  // Construct from known length
-          LocalFree(sidStr);
-
-          size_t lastDash = sid.find_last_of(L'-');
-          std::wstring uid_wstr = (lastDash != std::wstring::npos)
-                                      ? sid.substr(lastDash + 1)
-                                      : L"197121";
-
-          // Convert wide string to UTF-8
-          std::string uid = wstring_to_utf8(uid_wstr);
-          CloseHandle(hToken);
-          return {uid, uid};  // UID = GID (Windows default)
-        }
-      }
-      CloseHandle(hToken);
-    }
-    return {"197121", "197121"};  // Fallback
+    return {accounts.owner.id.empty() ? "0" : accounts.owner.id,
+            accounts.group.id.empty() ? "0" : accounts.group.id};
   }
-
-  // Return username using ANSI version for efficiency
-  char username[UNLEN + 1];
-  DWORD username_len = UNLEN + 1;
-  if (!GetUserNameA(username, &username_len)) {
-    return {"user", "group"};
-  }
-
-  std::string username_str = username;
-  size_t pos = username_str.find('\\');
-  if (pos != std::string::npos) {
-    username_str = username_str.substr(pos + 1);
-  }
-  return {username_str, username_str};
+  return {accounts.owner.name.empty() ? "UNKNOWN" : accounts.owner.name,
+          accounts.group.name.empty() ? "UNKNOWN" : accounts.group.name};
 }
 
 /**
@@ -2590,6 +2557,8 @@ auto list_directory(const std::string &path,
     -> cp::Result<bool> {
   std::wstring wpath = utf8_to_wstring(path);
   const std::wstring lookup_wpath = normalize_lookup_path(wpath);
+  const auto lookup_operand =
+      native_path::make_api_path_operand_w(lookup_wpath);
 
   // Check -d option: list directories themselves, not their contents
   bool list_dir_only =
@@ -2598,7 +2567,7 @@ auto list_directory(const std::string &path,
   if (list_dir_only) {
     // Get directory attributes
     WIN32_FIND_DATAW dir_data;
-    HANDLE hFind = FindFirstFileW(lookup_wpath.c_str(), &dir_data);
+    HANDLE hFind = FindFirstFileW(lookup_operand.extended.c_str(), &dir_data);
 
     if (hFind == INVALID_HANDLE_VALUE) {
       return std::unexpected("cannot access '" + path +
@@ -2612,6 +2581,7 @@ auto list_directory(const std::string &path,
 
   // Normal directory listing
   std::wstring search_path = lookup_wpath + L"\\*";
+  search_path = native_path::make_api_path_operand_w(search_path).extended;
   const std::wstring ignore_pattern = get_ignore_pattern(ctx);
   const std::wstring hide_pattern = get_hide_pattern(ctx);
 
@@ -2775,7 +2745,8 @@ auto list_directory(const std::string &path,
           get_time_string(display_find_data, time_mode, *time_style_selection);
 
       // Get owner and group
-      auto [owner, group] = get_file_owner_and_group(use_numeric);
+      auto [owner, group] =
+          get_file_owner_and_group(entry.full_path, use_numeric);
       info.owner = owner;
       info.author = owner;
       info.group = group;
@@ -2960,11 +2931,13 @@ auto list_file(const std::string &path,
   const std::wstring lookup_wpath = normalize_lookup_path(wpath);
   const std::wstring metadata_probe_wpath =
       normalize_metadata_probe_path(lookup_wpath);
+  const auto metadata_operand =
+      native_path::make_api_path_operand_w(metadata_probe_wpath);
   const std::wstring operand_display_name = wpath;
 
   // Extract just the filename for display
   WIN32_FIND_DATAW find_data;
-  HANDLE hFind = FindFirstFileW(metadata_probe_wpath.c_str(), &find_data);
+  HANDLE hFind = FindFirstFileW(metadata_operand.extended.c_str(), &find_data);
 
   if (hFind == INVALID_HANDLE_VALUE) {
     return std::unexpected("cannot access '" + path +
@@ -3032,7 +3005,7 @@ auto list_file(const std::string &path,
                                      ctx, size_cfg, true);
     auto mtime =
         get_time_string(display_find_data, time_mode, *time_style_selection);
-    auto [owner, group] = get_file_owner_and_group(use_numeric);
+    auto [owner, group] = get_file_owner_and_group(lookup_wpath, use_numeric);
 
     if (!inode.empty()) {
       safePrint(std::string_view(inode));
@@ -3122,6 +3095,7 @@ auto list_directory_recursive(const std::string &path,
   // Collect subdirectories for recursion
   std::wstring wpath = utf8_to_wstring(path);
   std::wstring search_path = wpath + L"\\*";
+  search_path = native_path::make_api_path_operand_w(search_path).extended;
 
   WIN32_FIND_DATAW find_data;
   HANDLE hFind = FindFirstFileW(search_path.c_str(), &find_data);
@@ -3261,6 +3235,22 @@ auto process_paths(const std::vector<std::string> &paths,
   bool success = expanded.success;
   bool printed_any = false;
   const bool multiple_operands = expanded.logical_operand_count > 1;
+
+  bool all_file_operands = !expanded_paths.empty();
+  for (const auto &path : expanded_paths) {
+    auto probe = probe_path(utf8_to_wstring(path));
+    if (!probe.attributes_valid ||
+        (probe.attributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+      all_file_operands = false;
+      break;
+    }
+  }
+  if (all_file_operands) {
+    std::sort(expanded_paths.begin(), expanded_paths.end());
+    if (ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false)) {
+      std::reverse(expanded_paths.begin(), expanded_paths.end());
+    }
+  }
 
   for (const auto &path : expanded_paths) {
     // Check if path exists and determine its type

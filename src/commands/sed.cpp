@@ -1944,6 +1944,7 @@ auto replace_file_atomically(const std::string& path,
                              const std::string& backup_suffix,
                              const std::string& content) -> bool {
   auto original = std::filesystem::path(path);
+  DWORD original_attrs = GetFileAttributesW(utf8_to_wstring(path).c_str());
   auto suffix =
       std::string(".winuxtmp.") + std::to_string(GetCurrentProcessId());
   auto temp = std::filesystem::path(path + suffix);
@@ -1988,6 +1989,9 @@ auto replace_file_atomically(const std::string& path,
     safeErrorPrint("sed: cannot replace '" + path + "'\n");
     return false;
   }
+
+  if (original_attrs != INVALID_FILE_ATTRIBUTES)
+    SetFileAttributesW(utf8_to_wstring(path).c_str(), original_attrs);
 
   std::filesystem::remove(backup, ec);
   return true;

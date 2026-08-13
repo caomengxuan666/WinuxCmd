@@ -179,7 +179,7 @@ auto describe_input_open_failure(std::string_view path) -> std::string {
 auto read_source(std::string_view path) -> cp::Result<std::string> {
   if (path == "-") return read_all(std::cin);
 
-  std::ifstream in(std::string(path), std::ios::binary);
+  auto in = file_io::open_binary_file(path);
   if (!in.is_open()) {
     return std::unexpected("cannot read: " + std::string(path) + ": " +
                            describe_input_open_failure(path));
@@ -187,38 +187,12 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
   return read_all(in);
 }
 
-auto bytes_look_utf16(std::string_view bytes) -> bool {
-  if (bytes.size() >= 2) {
-    const auto b0 = static_cast<std::uint8_t>(bytes[0]);
-    const auto b1 = static_cast<std::uint8_t>(bytes[1]);
-    if ((b0 == 0xFF && b1 == 0xFE) || (b0 == 0xFE && b1 == 0xFF)) {
-      return true;
-    }
-  }
-
-  const size_t sample_size = std::min<size_t>(bytes.size(), 4096);
-  if (sample_size < 2) return false;
-
-  size_t even_nul = 0;
-  size_t odd_nul = 0;
-  for (size_t i = 0; i < sample_size; ++i) {
-    if (bytes[i] != '\0') continue;
-    if ((i & 1U) == 0U)
-      ++even_nul;
-    else
-      ++odd_nul;
-  }
-
-  const size_t threshold = sample_size / 4;
-  return (odd_nul > threshold && odd_nul > even_nul * 2) ||
-         (even_nul > threshold && even_nul > odd_nul * 2);
-}
-
 auto read_simple_lexical_source(std::string_view path)
     -> cp::Result<std::string> {
   if (path == "-") return read_source(path);
 
-  std::ifstream in(std::string(path), std::ios::binary | std::ios::ate);
+  auto in = file_io::open_binary_file(path);
+  in.seekg(0, std::ios::end);
   if (!in.is_open()) {
     return std::unexpected("cannot read: " + std::string(path) + ": " +
                            describe_input_open_failure(path));
@@ -235,8 +209,6 @@ auto read_simple_lexical_source(std::string_view path)
     bytes.resize(static_cast<size_t>(in.gcount()));
   }
 
-  if (bytes_look_utf16(bytes)) return read_source(path);
-
   if (bytes.size() >= 3 && static_cast<std::uint8_t>(bytes[0]) == 0xEF &&
       static_cast<std::uint8_t>(bytes[1]) == 0xBB &&
       static_cast<std::uint8_t>(bytes[2]) == 0xBF) {
@@ -251,7 +223,7 @@ auto read_binary_source(std::string_view path) -> cp::Result<std::string> {
                        std::istreambuf_iterator<char>{}};
   }
 
-  std::ifstream in(std::string(path), std::ios::binary);
+  auto in = file_io::open_binary_file(path);
   if (!in.is_open()) {
     return std::unexpected("cannot read: " + std::string(path) + ": " +
                            describe_input_open_failure(path));
@@ -298,21 +270,15 @@ auto split_records(std::string_view content, char delimiter)
     -> std::vector<std::string> {
   std::vector<std::string> out;
   out.reserve(content.size() / 20);  // Estimate: assume ~20 chars per record
-  const auto trim_record = [delimiter](std::string_view record) {
-    if (delimiter == '\n' && !record.empty() && record.back() == '\r') {
-      record.remove_suffix(1);
-    }
-    return std::string(record);
-  };
   size_t start = 0;
   for (size_t i = 0; i < content.size(); ++i) {
     if (content[i] == delimiter) {
-      out.emplace_back(trim_record(content.substr(start, i - start)));
+      out.emplace_back(content.substr(start, i - start));
       start = i + 1;
     }
   }
   if (start < content.size()) {
-    out.emplace_back(trim_record(content.substr(start)));
+    out.emplace_back(content.substr(start));
   }
   return out;
 }
@@ -1526,22 +1492,15 @@ auto split_record_views(std::string_view content, char delimiter)
   std::vector<std::string_view> out;
   out.reserve(content.size() / 20);
 
-  const auto trim_record = [delimiter](std::string_view record) {
-    if (delimiter == '\n' && !record.empty() && record.back() == '\r') {
-      record.remove_suffix(1);
-    }
-    return record;
-  };
-
   size_t start = 0;
   for (size_t i = 0; i < content.size(); ++i) {
     if (content[i] == delimiter) {
-      out.emplace_back(trim_record(content.substr(start, i - start)));
+      out.emplace_back(content.substr(start, i - start));
       start = i + 1;
     }
   }
   if (start < content.size()) {
-    out.emplace_back(trim_record(content.substr(start)));
+    out.emplace_back(content.substr(start));
   }
   return out;
 }
@@ -1676,12 +1635,141 @@ auto merge_record_chunks(const Config& cfg)
   return records;
 }
 
+struct ExternalRun {
+  std::filesystem::path path;
+  std::ifstream input;
+  std::string current;
+  bool has_current = false;
+};
+
+auto external_sort(const Config& cfg) -> cp::Result<int> {
+  constexpr size_t kChunkBytes = 8 * 1024 * 1024;
+  std::vector<std::filesystem::path> temporary_paths;
+  std::vector<ExternalRun> runs;
+  size_t run_number = 0;
+
+  std::filesystem::path temp_dir = cfg.temporary_directory_hint.empty()
+                                       ? std::filesystem::temp_directory_path()
+                                       : std::filesystem::path(
+                                             cfg.temporary_directory_hint);
+  auto make_run = [&](std::vector<std::string>& records) -> cp::Result<bool> {
+    if (records.empty()) return true;
+    auto before = [&](const std::string& a, const std::string& b) {
+      return is_before(a, b, cfg);
+    };
+    if (cfg.stable || cfg.unique) {
+      std::stable_sort(records.begin(), records.end(), before);
+    } else {
+      std::sort(records.begin(), records.end(), before);
+    }
+    const auto path = temp_dir / ("winuxcmd-sort-" +
+                                  std::to_string(GetCurrentProcessId()) +
+                                  "-" + std::to_string(run_number++) + ".tmp");
+    auto output = file_io::create_binary_file(path.string());
+    if (!output.is_open()) return std::unexpected("cannot create temporary file");
+    for (const auto& record : records) {
+      output.write(record.data(), static_cast<std::streamsize>(record.size()));
+      output.put(cfg.delimiter);
+    }
+    if (!output) return std::unexpected("cannot write temporary file");
+    output.close();
+    temporary_paths.push_back(path);
+    records.clear();
+    return true;
+  };
+
+  std::vector<std::string> records;
+  size_t bytes = 0;
+  auto consume = [&](std::istream& input) -> cp::Result<bool> {
+    std::string record;
+    while (std::getline(input, record, cfg.delimiter)) {
+      bytes += record.size() + 1;
+      records.push_back(std::move(record));
+      record.clear();
+      if (bytes >= kChunkBytes) {
+        auto result = make_run(records);
+        if (!result) return std::unexpected(result.error());
+        bytes = 0;
+      }
+    }
+    if (input.bad()) return std::unexpected("error reading input");
+    return true;
+  };
+
+  for (const auto& filename : cfg.files) {
+    if (filename == "-") {
+      auto stdin_content = read_source(filename);
+      if (!stdin_content) return std::unexpected(stdin_content.error());
+      std::istringstream decoded_input(*stdin_content);
+      auto result = consume(decoded_input);
+      if (!result) return std::unexpected(result.error());
+    } else {
+      auto input = file_io::open_binary_file(filename);
+      if (!input.is_open()) {
+        return std::unexpected("cannot read: " + filename + ": " +
+                              describe_input_open_failure(filename));
+      }
+      auto result = consume(input);
+      if (!result) return std::unexpected(result.error());
+    }
+  }
+  auto final_run = make_run(records);
+  if (!final_run) return std::unexpected(final_run.error());
+
+  std::ofstream output_file;
+  std::ostream* output = &std::cout;
+  int stdout_mode = -1;
+  if (!cfg.output_file.empty()) {
+    output_file = file_io::create_binary_file(cfg.output_file);
+    if (!output_file.is_open()) return std::unexpected("cannot open output file");
+    output = &output_file;
+  } else {
+    stdout_mode = _setmode(_fileno(stdout), _O_BINARY);
+  }
+
+  for (auto& path : temporary_paths) {
+    ExternalRun run{path, file_io::open_binary_file(path.string())};
+    if (!run.input.is_open()) return std::unexpected("cannot open temporary file");
+    run.has_current = static_cast<bool>(std::getline(run.input, run.current,
+                                                     cfg.delimiter));
+    runs.push_back(std::move(run));
+  }
+  auto less = [&](size_t left, size_t right) {
+    if (is_before(runs[left].current, runs[right].current, cfg)) return false;
+    if (is_before(runs[right].current, runs[left].current, cfg)) return true;
+    return left > right;
+  };
+  std::priority_queue<size_t, std::vector<size_t>, decltype(less)> queue(less);
+  for (size_t i = 0; i < runs.size(); ++i) if (runs[i].has_current) queue.push(i);
+
+  std::string previous;
+  bool have_previous = false;
+  while (!queue.empty()) {
+    const size_t index = queue.top();
+    queue.pop();
+    auto& run = runs[index];
+    const bool duplicate = have_previous &&
+        compare_records_by_sort_key(previous, run.current, cfg) == 0;
+    if (!cfg.unique || !duplicate) {
+      output->write(run.current.data(), static_cast<std::streamsize>(run.current.size()));
+      output->put(cfg.delimiter);
+      previous = run.current;
+      have_previous = true;
+    }
+    run.current.clear();
+    run.has_current = static_cast<bool>(std::getline(run.input, run.current,
+                                                     cfg.delimiter));
+    if (run.has_current) queue.push(index);
+  }
+  output->flush();
+  runs.clear();
+  for (const auto& path : temporary_paths) std::filesystem::remove(path);
+  if (stdout_mode != -1) _setmode(_fileno(stdout), stdout_mode);
+  return 0;
+}
+
 auto run(const Config& cfg) -> int {
   emit_debug_diagnostics(cfg);
-
-  if (auto fast_result = try_run_simple_lexical_block_sort(cfg)) {
-    return *fast_result;
-  }
 
   const bool simple_lexical = can_use_simple_lexical_compare(cfg);
   std::vector<std::string> records;
@@ -1716,33 +1804,13 @@ auto run(const Config& cfg) -> int {
     }
     records = std::move(*merged);
   } else {
-    auto loaded = load_records(cfg);
-    if (!loaded) {
-      cp::report_custom_error(L"sort", utf8_to_wstring(loaded.error()));
+    // External runs keep ordinary sorts bounded by a fixed memory chunk.
+    auto external = external_sort(cfg);
+    if (!external) {
+      cp::report_custom_error(L"sort", utf8_to_wstring(external.error()));
       return 2;
     }
-    records = std::move(*loaded);
-
-    if (simple_lexical) {
-      auto lexical_before = [&](const std::string& a, const std::string& b) {
-        return cfg.reverse ? a > b : a < b;
-      };
-      if (cfg.stable || cfg.unique) {
-        std::stable_sort(records.begin(), records.end(), lexical_before);
-      } else {
-        std::sort(records.begin(), records.end(), lexical_before);
-      }
-    } else {
-      if (cfg.stable || cfg.unique) {
-        std::stable_sort(
-            records.begin(), records.end(),
-            [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
-      } else {
-        std::sort(
-            records.begin(), records.end(),
-            [&](const auto& a, const auto& b) { return is_before(a, b, cfg); });
-      }
-    }
+    return *external;
   }
 
   if (cfg.unique) {

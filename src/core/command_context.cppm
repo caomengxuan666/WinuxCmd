@@ -26,6 +26,15 @@
 export module core:command_context;
 import :opt;
 
+export auto option_policy_for_command(std::string_view command)
+    -> OptionParsePolicy {
+  OptionParsePolicy policy;
+  policy.allow_unknown_short_options_as_positionals =
+      command == "printf" || command == "expr" || command == "test" ||
+      command == "[";
+  return policy;
+}
+
 export struct StringOptionOccurrence {
   std::string_view short_name;
   std::string_view long_name;

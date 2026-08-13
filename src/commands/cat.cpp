@@ -303,23 +303,34 @@ REGISTER_COMMAND(cat, "cat",
       return true;
     }
 
-    auto content = file_io::read_all_file(path);
-    if (!content) {
-      const std::string prefix =
-          "cannot open '" + std::string(path) + "' for reading: ";
+    auto operand = native_path::make_api_path_operand(path);
+    const DWORD operand_attrs = native_path::attributes_w(operand.extended);
+    if (operand.had_trailing_separator &&
+        native_path::attributes_are_regular_file(operand_attrs)) {
+      safeErrorPrint("cat: ");
+      safeErrorPrint(path);
+      safeErrorPrintLn(": Not a directory");
+      return false;
+    }
+    std::ifstream file(std::filesystem::path(operand.extended),
+                       std::ios::binary);
+    if (!file) {
       safeErrorPrint("cat: ");
       safeErrorPrint(path);
       safeErrorPrint(": ");
-      if (content.error().starts_with(prefix)) {
-        safeErrorPrint(std::string_view(content.error()).substr(prefix.size()));
+      const DWORD attrs = native_path::attributes_w(operand.extended);
+      if (operand.had_trailing_separator &&
+          native_path::attributes_are_regular_file(attrs)) {
+        safeErrorPrint("Not a directory");
+      } else if (native_path::attributes_are_directory(attrs)) {
+        safeErrorPrint("Is a directory");
       } else {
-        safeErrorPrint(content.error());
+        safeErrorPrint("No such file or directory");
       }
       safeErrorPrint("\n");
       return false;
     }
 
-    std::istringstream file(*content);
     process_stream(file, ctx, state);
 
     if (file.bad()) {

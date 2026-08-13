@@ -18,3 +18,12 @@ TEST(dos2unix, dos2unix_from_stdin) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "line1\nline2\n");
 }
+
+TEST(dos2unix, dos2unix_stdin_preserves_missing_final_newline) {
+  Pipeline p;
+  p.set_stdin("x");
+  p.add(L"dos2unix.exe", {});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "x");
+}

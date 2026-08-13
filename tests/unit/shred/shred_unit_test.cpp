@@ -102,3 +102,17 @@ TEST(shred, shred_nonexistent_file) {
 
   EXPECT_NE(r.exit_code, 0);
 }
+
+TEST(shred, shred_zero_size_does_not_modify_file) {
+  TempDir tmp;
+  tmp.write("data.txt", "must remain intact");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"shred.exe", {L"-s", L"0", L"-n", L"1", L"data.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("data.txt"), "must remain intact");
+}

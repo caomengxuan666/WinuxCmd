@@ -116,6 +116,10 @@ auto get_dirname(std::string_view path) -> std::string {
     return ".";
   }
 
+  if (result.size() == root_len && root_len != 0) {
+    return result.substr(0, root_len);
+  }
+
   if (last_sep <= root_len) {
     return result.substr(0, root_len == 0 ? last_sep + 1 : root_len);
   }

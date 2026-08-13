@@ -122,6 +122,25 @@ TEST(split, split_number_line_mode_preserves_crlf_records) {
   EXPECT_EQ_TEXT(tmp.read("partab"), "b\r\nc\r\n");
 }
 
+TEST(split, split_number_mode_reassembles_without_overlap) {
+  TempDir tmp;
+  const std::string input = "line01\nline02\nline03\nline04\nline05\n";
+  tmp.write("input.txt", input);
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"split.exe", {L"-n", L"4", L"input.txt", L"part"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  std::string rebuilt;
+  for (const char *suffix : {"aa", "ab", "ac", "ad"}) {
+    rebuilt += tmp.read(std::string("part") + suffix);
+  }
+  EXPECT_EQ(rebuilt, input);
+}
+
 TEST(split, split_number_k_of_n_mode_is_rejected) {
   TempDir tmp;
   tmp.write("input.txt", "line1\nline2\n");

@@ -112,23 +112,14 @@ REGISTER_COMMAND(dos2unix,
   };
 
   if (ctx.positionals.empty()) {
-    // Read from stdin, write to stdout
-    std::string line;
-    bool first = true;
-    while (std::getline(std::cin, line)) {
-      // Remove trailing \r if present
-      if (!line.empty() && line.back() == '\r') {
-        line.pop_back();
-      }
-      if (!first) {
-        safePrint("\n");
-      }
-      safePrint(line);
-      first = false;
+    // Preserve stdin byte-for-byte except for CRLF pairs. getline() would
+    // manufacture a final newline for input that does not have one.
+    std::string content((std::istreambuf_iterator<char>(std::cin)), {});
+    size_t pos = 0;
+    while ((pos = content.find("\r\n", pos)) != std::string::npos) {
+      content.erase(pos, 1);
     }
-    if (!first) {
-      safePrint("\n");
-    }
+    safePrint(content);
   } else {
     // Process each file in place
     bool all_ok = true;

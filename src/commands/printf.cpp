@@ -61,6 +61,8 @@ struct FormatSpec {
   bool consumes_argument = false;
   bool valid = false;
   bool left_adjust = false;
+  bool dynamic_width = false;
+  bool dynamic_precision = false;
 };
 
 struct RenderResult {
@@ -239,16 +241,22 @@ FormatSpec parse_format_spec(std::string_view format, size_t& pos) {
     }
   }
 
-  while (i < format.size() &&
-         std::isdigit(static_cast<unsigned char>(format[i]))) {
+  if (i < format.size() && format[i] == '*') {
+    spec.dynamic_width = true;
+    ++i;
+  } else while (i < format.size() &&
+                std::isdigit(static_cast<unsigned char>(format[i]))) {
     spec.width += format[i++];
   }
 
   if (i < format.size() && format[i] == '.') {
     spec.has_precision = true;
     ++i;
-    while (i < format.size() &&
-           std::isdigit(static_cast<unsigned char>(format[i]))) {
+    if (i < format.size() && format[i] == '*') {
+      spec.dynamic_precision = true;
+      ++i;
+    } else while (i < format.size() &&
+                  std::isdigit(static_cast<unsigned char>(format[i]))) {
       spec.precision += format[i++];
     }
   }
@@ -268,7 +276,7 @@ FormatSpec parse_format_spec(std::string_view format, size_t& pos) {
   spec.valid = true;
   pos = i;
   spec.consumes_argument =
-      std::string_view("bcdiuoxXfFeEgGaAs").find(spec.conversion) !=
+      std::string_view("bcdiuoxXfFeEgGaAsq").find(spec.conversion) !=
       std::string_view::npos;
   return spec;
 }
@@ -450,6 +458,19 @@ std::string render_directive(const FormatSpec& spec,
       stop_output = escaped.stop_output;
       return format_string_bytes(std::move(escaped.text), spec);
     }
+    case 'q': {
+      auto value = consume_string_argument(args, arg_index);
+      std::string quoted;
+      for (unsigned char ch : value) {
+        if (std::isalnum(ch) || ch == '_' || ch == '-' || ch == '.' || ch == '/') {
+          quoted.push_back(static_cast<char>(ch));
+        } else {
+          quoted.push_back('\\');
+          quoted.push_back(static_cast<char>(ch));
+        }
+      }
+      return format_string_bytes(std::move(quoted), spec);
+    }
     case 'c': {
       std::string arg = consume_string_argument(args, arg_index);
       int ch = arg.empty() ? 0 : static_cast<unsigned char>(arg[0]);
@@ -508,6 +529,22 @@ RenderResult render_once(std::string_view format,
     if (!spec.valid) {
       result.text += '%';
       continue;
+    }
+
+    if (spec.dynamic_width) {
+      long long width = parse_signed_argument(args, arg_index, had_error);
+      if (width < 0) { spec.left_adjust = true; width = -width; }
+      spec.width = std::to_string(width);
+    }
+    if (spec.dynamic_precision) {
+      long long precision = parse_signed_argument(args, arg_index, had_error);
+      if (precision >= 0) {
+        spec.has_precision = true;
+        spec.precision = std::to_string(precision);
+      } else {
+        spec.has_precision = false;
+        spec.precision.clear();
+      }
     }
 
     if (spec.consumes_argument) {

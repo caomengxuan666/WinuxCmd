@@ -55,7 +55,8 @@ TEST(uniq, uniq_reads_utf8_filename) {
   EXPECT_EQ_TEXT(r.stdout_text, "x\ny\n");
 }
 
-TEST(uniq, uniq_strips_cr_from_crlf_input_records) {
+TEST(uniq, uniq_preserves_crlf_input_records) {
+  // GNU uniq preserves carriage returns as input bytes.
   TempDir tmp;
   tmp.write_bytes("a.txt", {'a', '\r', '\n', 'a', '\r', '\n', 'b', '\r', '\n',
                             'a', '\r', '\n'});
@@ -66,7 +67,7 @@ TEST(uniq, uniq_strips_cr_from_crlf_input_records) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "a\nb\na\n");
+  EXPECT_EQ(r.stdout_text, "a\r\nb\r\na\r\n");
 }
 
 TEST(uniq, uniq_count) {

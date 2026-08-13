@@ -163,7 +163,10 @@ REGISTER_COMMAND(
     if (got == 0) break;
 
     if (!write_stdout_copy(buffer.data(), got)) {
-      if (handle_write_error()) return 1;
+      handle_write_error();
+      // A closed downstream pipe cannot recover. Continuing would repeatedly
+      // hit the same error while consuming stdin indefinitely.
+      return 1;
     }
 
     for (auto& file : file_streams) {

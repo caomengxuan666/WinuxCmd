@@ -294,7 +294,7 @@ auto read_lines(const std::string& filename)
       lines.push_back(line);
     }
   } else {
-    std::ifstream f(filename, std::ios::binary);
+    auto f = file_io::open_binary_file(filename);
     if (!f) {
       return std::unexpected(std::string("cannot open '") + filename +
                              "' for reading");
@@ -402,14 +402,12 @@ auto replace_spaces_with_tabs(const std::string& line, int tab_width)
 // Format a date header
 auto format_date_header(const std::string& date_format) -> std::string {
   if (date_format.empty()) {
-    // Default: "May 27 10:30 2026"
+    // GNU pr's default header uses an ISO-like local timestamp.
     SYSTEMTIME st;
     GetLocalTime(&st);
-    const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     char buf[64];
-    snprintf(buf, sizeof(buf), "%s %02d %02d:%02d %04d", months[st.wMonth - 1],
-             st.wDay, st.wHour, st.wMinute, st.wYear);
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear,
+             st.wMonth, st.wDay, st.wHour, st.wMinute);
     return buf;
   }
   // Custom format not fully implemented, return default
@@ -534,11 +532,7 @@ auto run(const Config& cfg) -> int {
   }
 
   // Apply start_page: skip lines before the start page
-  int lines_per_page =
-      cfg.page_length - 10;  // Reserve lines for header/trailer
-  if (cfg.omit_header || cfg.omit_pagination) {
-    lines_per_page = cfg.page_length;
-  }
+  int lines_per_page = std::max(1, cfg.page_length);
 
   // Process lines with all options
   std::string indent_str(cfg.indent, ' ');

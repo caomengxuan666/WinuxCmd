@@ -140,7 +140,7 @@ auto validate_buffer_mode(std::string_view stream_name, const std::string& mode)
     -> bool {
   if (mode.empty()) return true;
   if (mode == "0") return true;
-  if (mode == "L") return stream_name != "standard input";
+  if (mode == "L") return true;
   auto size = parse_buffer_size(mode);
   return size.has_value() && *size > 0;
 }
@@ -185,6 +185,21 @@ auto stdbuf_windows_error_text(DWORD error) -> std::string {
 auto build_stdbuf_command_line(std::span<const std::string_view> args)
     -> std::wstring {
   return build_windows_command_line(args);
+}
+
+auto set_child_buffer_mode(const char* name, const std::string& mode)
+    -> std::optional<std::string> {
+  const char* old = std::getenv(name);
+  std::optional<std::string> previous;
+  if (old != nullptr) previous = old;
+  _putenv_s(name, mode.c_str());
+  return previous;
+}
+
+auto restore_child_buffer_mode(const char* name,
+                               const std::optional<std::string>& previous)
+    -> void {
+  _putenv_s(name, previous.has_value() ? previous->c_str() : "");
 }
 }  // namespace
 
@@ -233,7 +248,7 @@ REGISTER_COMMAND(
 
   // For Windows, we'll just execute the command directly
   // and set the parent process buffering
-  if (!set_stream_buffering(stdin, input_mode)) {
+  if (input_mode != "L" && !set_stream_buffering(stdin, input_mode)) {
     safeErrorPrintLn("stdbuf: invalid mode for standard input: " + input_mode);
     return kStdbufUsageErrorExitCode;
   }
@@ -247,6 +262,17 @@ REGISTER_COMMAND(
     return kStdbufUsageErrorExitCode;
   }
 
+  // WinuxCmd children apply these inherited settings at their common entry
+  // point. Store resolved byte sizes so the child does not duplicate the
+  // suffix parser; line mode remains the explicit L marker.
+  auto resolve_mode = [](const std::string& mode) {
+    if (mode == "L" || mode == "0" || mode.empty()) return mode;
+    return std::to_string(*parse_buffer_size(mode));
+  };
+  auto old_i = set_child_buffer_mode("WINUX_STDBUF_I", resolve_mode(input_mode));
+  auto old_o = set_child_buffer_mode("WINUX_STDBUF_O", resolve_mode(output_mode));
+  auto old_e = set_child_buffer_mode("WINUX_STDBUF_E", resolve_mode(error_mode));
+
   // Execute command
   STARTUPINFOW si = {sizeof(si)};
   PROCESS_INFORMATION pi;
@@ -254,6 +280,9 @@ REGISTER_COMMAND(
 
   if (!CreateProcessW(nullptr, cmd_line.data(), nullptr, nullptr, TRUE, 0,
                       nullptr, nullptr, &si, &pi)) {
+    restore_child_buffer_mode("WINUX_STDBUF_I", old_i);
+    restore_child_buffer_mode("WINUX_STDBUF_O", old_o);
+    restore_child_buffer_mode("WINUX_STDBUF_E", old_e);
     DWORD error = GetLastError();
     safeErrorPrintLn("stdbuf: failed to run command '" +
                      std::string(ctx.positionals[0]) +
@@ -269,6 +298,10 @@ REGISTER_COMMAND(
 
   CloseHandle(pi.hProcess);
   CloseHandle(pi.hThread);
+
+  restore_child_buffer_mode("WINUX_STDBUF_I", old_i);
+  restore_child_buffer_mode("WINUX_STDBUF_O", old_o);
+  restore_child_buffer_mode("WINUX_STDBUF_E", old_e);
 
   return static_cast<int>(exit_code);
 }

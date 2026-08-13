@@ -385,6 +385,12 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
   auto backup_result = backup_existing_destination(wdest_path, ctx);
   if (!backup_result) return backup_result;
 
+  if (dest_exists) {
+    DWORD attrs = GetFileAttributesW(wdest_path.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_READONLY))
+      SetFileAttributesW(wdest_path.c_str(), attrs & ~FILE_ATTRIBUTE_READONLY);
+  }
+
   // Try to rename first
   if (!MoveFileExW(wsrc_path.c_str(), wdest_path.c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {

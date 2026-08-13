@@ -113,22 +113,11 @@ REGISTER_COMMAND(d2u,
   };
 
   if (ctx.positionals.empty()) {
-    // Read from stdin, write to stdout
-    std::string line;
-    bool first = true;
-    while (std::getline(std::cin, line)) {
-      // Remove trailing \r if present
-      if (!line.empty() && line.back() == '\r') {
-        line.pop_back();
-      }
-      if (!first) {
-        safePrint("\n");
-      }
-      safePrint(line);
-      first = false;
-    }
-    if (!first) {
-      safePrint("\n");
+    std::string content((std::istreambuf_iterator<char>(std::cin)), {});
+    for (size_t i = 0; i < content.size(); ++i) {
+      if (content[i] == '\r' && i + 1 < content.size() && content[i + 1] == '\n')
+        continue;
+      safePrint(content.substr(i, 1));
     }
   } else {
     // Process each file in place

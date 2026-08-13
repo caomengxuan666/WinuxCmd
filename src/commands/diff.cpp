@@ -258,10 +258,6 @@ auto read_file_lines_result(const std::string &path)
   std::vector<std::string> lines;
   std::string line;
   while (std::getline(file, line)) {
-    // Remove carriage return if present
-    if (!line.empty() && line.back() == '\r') {
-      line.pop_back();
-    }
     lines.push_back(line);
   }
 
@@ -436,6 +432,18 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
         file2_start = std::min(file2_start, edit.line2_index);
         file2_end = std::max(file2_end, edit.line2_index + 1);
       }
+    }
+
+    // A pure insertion or deletion has no changed line on the other side.
+    // Use the edit's anchor position so the zero-length range does not
+    // underflow when its unified header is formatted.
+    if (file1_start == lines1.size()) {
+      file1_start = edits[hunk_start].line1_index;
+      file1_end = file1_start;
+    }
+    if (file2_start == lines2.size()) {
+      file2_start = edits[hunk_start].line2_index;
+      file2_end = file2_start;
     }
 
     // Add context lines
