@@ -1,5 +1,7 @@
 build**/
 
+winuxcmd-build-*/
+
 cmake-build-*/
 
 out/

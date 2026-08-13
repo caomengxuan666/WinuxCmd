@@ -737,6 +737,11 @@ auto default_standard_interception_enabled(std::span<std::string_view>)
   return true;
 }
 
+auto command_owned_help_interception_disabled(std::span<std::string_view>)
+    -> bool {
+  return false;
+}
+
 auto dispatch_wpm_help_version(const CommandEntryErased &entry,
                                std::span<std::string_view> args)
     -> std::optional<int> {
@@ -795,6 +800,13 @@ auto behavior_for(std::string_view name) -> CommandBehavior {
     behavior.standard_interception_enabled = echo_standard_interception_enabled;
   } else if (name == "wpm") {
     behavior.special_dispatch = dispatch_wpm_help_version;
+  }
+
+  // These commands own structured help output and translate it themselves.
+  // Let their handlers receive --help instead of the generic metadata path.
+  if (name == "top" || name == "mpicalc" || name == "tzset") {
+    behavior.standard_interception_enabled =
+        command_owned_help_interception_disabled;
   }
 
   return behavior;
@@ -989,4 +1001,5 @@ export class CommandRegistry {
   static std::string getManPage(std::string_view cmdName) noexcept {
     return getImpl().man(cmdName);
   }
+
 };

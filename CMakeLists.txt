@@ -530,6 +530,7 @@ macro(create_command_executable CMD)
             src/utils/utf8.cppm
             src/utils/win32.cppm
             src/utils/json.cppm
+            src/utils/i18n.cppm
             src/utils/file_io.cppm
             src/utils/cppbar.cppm
             src/utils/encoding.cppm
@@ -624,6 +625,7 @@ if(BUILD_STANDALONE)
         src/utils/win32.cppm
         src/utils/wildcard.cppm
         src/utils/json.cppm
+        src/utils/i18n.cppm
         src/utils/file_io.cppm
         src/utils/cppbar.cppm
         src/utils/encoding.cppm
@@ -711,6 +713,7 @@ if(BUILD_STANDALONE)
             src/utils/win32.cppm
             src/utils/wildcard.cppm
             src/utils/json.cppm
+            src/utils/i18n.cppm
             src/utils/file_io.cppm
             src/utils/cppbar.cppm
             src/utils/encoding.cppm

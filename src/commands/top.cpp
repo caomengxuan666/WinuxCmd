@@ -861,14 +861,16 @@ auto parse_config(const CommandContext<TOP_OPTIONS.size()>& ctx)
 auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
     -> cp::Result<bool> {
   if (ctx.get<bool>("--help", false)) {
-    safePrint("Usage: top [options]\n");
-    safePrint("  -b, --batch        Batch mode\n");
-    safePrint("  -d, --delay DELAY  Update interval (default: 3s)\n");
-    safePrint("  -n, --iterations N Exit after N iterations\n");
-    safePrint("  -o, --field-sort F Sort by CPU|MEM|TIME|PID|NAME\n");
-    safePrint("      --rows N       Limit number of displayed processes\n");
-    safePrint("      --help         Show help\n");
-    safePrint("  -v, --version      Show version\n");
+    const std::string help =
+        "Usage: top [options]\n"
+        "  -b, --batch        Batch mode\n"
+        "  -d, --delay DELAY  Update interval (default: 3s)\n"
+        "  -n, --iterations N Exit after N iterations\n"
+        "  -o, --field-sort F Sort by CPU|MEM|TIME|PID|NAME\n"
+        "      --rows N       Limit number of displayed processes\n"
+        "      --help         Show help\n"
+        "  -v, --version      Show version\n";
+    safePrint(winux::i18n::translate("command.top.custom_help", help));
     return true;  // Should exit
   }
 

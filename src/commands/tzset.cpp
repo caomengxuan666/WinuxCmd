@@ -22,27 +22,18 @@ auto constexpr TZSET_OPTIONS = std::array{
 namespace {
 
 void print_usage_stdout() {
-  safePrintLn("Usage: tzset [OPTION]");
-  safePrintLn("");
-  safePrintLn(
-      "Print POSIX-compatible timezone ID from current Windows timezone "
-      "setting");
-  safePrintLn("");
-  safePrintLn("Options:");
-  safePrintLn("      --help               output usage information and exit.");
-  safePrintLn(
-      "  -V, --version            output version information and exit.");
-  safePrintLn("");
-  safePrintLn(
-      "Use tzset to set your TZ variable. In POSIX-compatible shells like "
-      "bash,");
-  safePrintLn("dash, mksh, or zsh:");
-  safePrintLn("");
-  safePrintLn("      export TZ=$(tzset)");
-  safePrintLn("");
-  safePrintLn("In csh-compatible shells like tcsh:");
-  safePrintLn("");
-  safePrintLn("      setenv TZ `tzset`");
+  constexpr std::string_view help =
+      "Usage: tzset [OPTION]\n\n"
+      "Print POSIX-compatible timezone ID from current Windows timezone setting\n\n"
+      "Options:\n"
+      "      --help               output usage information and exit.\n"
+      "  -V, --version            output version information and exit.\n\n"
+      "Use tzset to set your TZ variable. In POSIX-compatible shells like bash,\n"
+      "dash, mksh, or zsh:\n\n"
+      "      export TZ=$(tzset)\n\n"
+      "In csh-compatible shells like tcsh:\n\n"
+      "      setenv TZ `tzset`\n";
+  safePrint(winux::i18n::translate("command.tzset.custom_help", help));
 }
 
 void print_usage_stderr() {
