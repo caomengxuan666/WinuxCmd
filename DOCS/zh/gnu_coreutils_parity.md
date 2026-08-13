@@ -23,8 +23,11 @@ clean-room BRE/ERE matcher。PCRE2 JIT 默认关闭，以保持原生工具集�
 
 ## 通配符展开规则
 
-- 只有显式接入 `contains_wildcard` / `glob_expand` 的命令才会展开通配符。
-- WinuxCmd 接收的是 shell 解析后的参数；支持通配符的命令会按各自的文件参数策略展开。
+- 只有显式接入共享文件参数 helper 的命令才会展开通配符。
+- Winuxsh 负责 shell 通配符展开；命令层 helper 只为直接调用原生 WinuxCmd
+  且仍传入未展开文件参数的场景提供兼容 fallback。
+- 默认就是 shell-owned 展开；PowerShell 激活时设置
+  `WINUX_SHELL_GLOB=native`，显式启用 direct-native fallback。
 - 普通 `*` / `?` 模式仍然优先尝试字面路径；但 `[]` 字符类模式现在会先
   按 glob 展开，即使同名的字面路径真实存在；只有在 `[]` 没有匹配结果时，
   才回退到原始字面路径。

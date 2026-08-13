@@ -90,21 +90,9 @@ auto validate_arguments(const CommandContext<CAT_OPTIONS.size()> &ctx,
     -> cp::Result<void> {
   for (auto arg : ctx.positionals) {
     std::string file_arg(arg);
-
-    // Smart glob expansion for wildcard patterns
-    if (contains_wildcard(file_arg)) {
-      auto glob_result = glob_expand(file_arg);
-      if (glob_result.expanded) {
-        // Pattern was expanded, add all matched files
-        for (const auto &file : glob_result.files) {
-          out_files.push_back(wstring_to_utf8(file));
-        }
-        continue;
-      }
+    for (const auto& file : expand_file_operand(file_arg)) {
+      out_files.push_back(file);
     }
-
-    // Not a wildcard or expansion failed, use as-is
-    out_files.push_back(file_arg);
   }
 
   if (out_files.empty()) {

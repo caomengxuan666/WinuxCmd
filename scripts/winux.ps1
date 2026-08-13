@@ -148,6 +148,10 @@ function Invoke-Activate {
     Save-ConflictedAliases
     Set-WinuxAliases
 
+    # PowerShell leaves wildcard-looking arguments literal. Opt into the
+    # WinuxCmd native fallback while this PowerShell workspace is active.
+    $env:WINUX_SHELL_GLOB = "native"
+
     # Add WinuxCmd bin directory to PATH
     if ($env:PATH -notlike "$ScriptDir*") {
         $env:PATH = "$ScriptDir;$env:PATH"
@@ -167,6 +171,7 @@ function Invoke-Deactivate {
     Write-Host "Deactivating WinuxCmd..." -ForegroundColor Green
 
     Restore-ConflictedAliases
+    Remove-Item Env:WINUX_SHELL_GLOB -ErrorAction SilentlyContinue
 
     Write-Host "Deactivation complete! All original aliases restored." -ForegroundColor Green
 }

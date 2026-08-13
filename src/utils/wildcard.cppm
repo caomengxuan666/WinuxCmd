@@ -39,6 +39,16 @@ import :path;
 
 namespace wildcard_impl {
 
+static bool shell_owns_glob_expansion() {
+  char state[8] = {};
+  size_t length = GetEnvironmentVariableA("WINUX_SHELL_GLOB", state,
+                                          sizeof(state));
+  // Winuxsh is the default shell contract. Native fallback is opt-in for
+  // callers such as PowerShell that do not expand file globs.
+  return !(length > 0 && length < sizeof(state) &&
+           std::string_view(state, length) == "native");
+}
+
 static bool component_contains_wildcard(std::wstring_view segment) {
   return segment.find(L'*') != std::wstring_view::npos ||
          segment.find(L'?') != std::wstring_view::npos ||
@@ -268,14 +278,8 @@ export bool wildcard_match(const std::wstring &pattern,
  * @param str The string to check
  * @return true if the string contains wildcard characters, false otherwise
  *
- * Note: If the string starts with \x01, it was quoted in the shell
- * and should not be treated as a wildcard pattern.
  */
 export bool contains_wildcard(std::wstring_view str) {
-  // Check for quote protection marker
-  if (!str.empty() && str[0] == L'\x01') {
-    return false;
-  }
   return str.find(L'*') != std::wstring_view::npos ||
          str.find(L'?') != std::wstring_view::npos ||
          str.find(L'[') != std::wstring_view::npos;
@@ -290,23 +294,22 @@ export struct GlobResult {
 };
 
 /**
- * @brief Smart glob expansion that handles all environments
+ * @brief Expand a raw file operand using the native Windows fallback
  * @param pattern The wildcard pattern or literal file path
  * @return GlobResult containing matched files and expansion status
  *
- * This function implements smart wildcard expansion:
- * 1. First tries the pattern as a literal file path
- * 2. If that fails, tries wildcard expansion using FindFirstFileW
- * 3. If expansion fails, returns the original pattern as a literal value
- *
- * This approach works correctly in all environments:
- * - PowerShell: expanded parameters don't contain wildcards, used as literal
- * paths
- * - cmd.exe: wildcard arguments are passed through and expanded here
- * - Supports literal filenames like "*.txt" (a file actually named "*.txt")
+ * The shell is the authoritative owner of expansion.  This function exists
+ * only for direct native callers that pass an unexpanded file-like operand;
+ * unmatched patterns remain literal so command diagnostics stay useful.
  */
 export GlobResult glob_expand(std::wstring_view pattern) {
   GlobResult result;
+
+  if (wildcard_impl::shell_owns_glob_expansion()) {
+    result.files.push_back(std::wstring(pattern));
+    result.expanded = false;
+    return result;
+  }
 
   // Character-class patterns behave more like GNU shell globs on Windows:
   // even if a literal "[ab].txt" path exists, treat it as a glob first so it
@@ -406,15 +409,27 @@ export bool wildcard_match(const std::string &pattern, const std::string &text,
  * @param str The string to check
  * @return true if the string contains wildcard characters, false otherwise
  *
- * Note: If the string starts with \x01, it was quoted in the shell
- * and should not be treated as a wildcard pattern.
  */
 export bool contains_wildcard(std::string_view str) {
-  // Check for quote protection marker
-  if (!str.empty() && str[0] == '\x01') {
-    return false;
-  }
   return str.find('*') != std::string_view::npos ||
          str.find('?') != std::string_view::npos ||
          str.find('[') != std::string_view::npos;
+}
+
+/**
+ * @brief Expand one file-like operand for a command.
+ *
+ * Commands should use this boundary instead of duplicating wildcard
+ * detection and UTF-16 conversion. Unmatched patterns remain literal.
+ */
+export std::vector<std::string> expand_file_operand(std::string_view operand) {
+  if (!contains_wildcard(operand)) return {std::string(operand)};
+
+  auto result = glob_expand(operand);
+  std::vector<std::string> paths;
+  paths.reserve(result.files.size());
+  for (const auto& file : result.files) {
+    paths.push_back(wstring_to_utf8(file));
+  }
+  return paths;
 }
