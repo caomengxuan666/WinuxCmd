@@ -32,6 +32,9 @@
 | **file** | `Partial` | 基础识别可用；`-i` / `--mime` 尚未实现完整 MIME 检测。 |
 | **strings** | `Partial` | `-d` / `--data`、`-T` / `--target`、`-U` / `--unicode` 仍为占位或 no-op。 |
 | **sed** | `Partial` / `Tested` | 已覆盖常用脚本命令、地址范围、分支、hold space 和文件命令；完整 GNU 语言仍需差分测试。 |
+| **cmp** | `Registered` / `Partial` | 提供逐字节文件比较入口；完整 GNU 选项组合仍需专项核验。 |
+| **env** | `Registered` / `Partial` | 环境变量操作可用；Windows 子进程环境语义与 GNU 存在平台差异。 |
+| **xargs** | `Registered` / `Partial` | 参数构造入口可用；Windows 启动和引用规则仍需差分核验。 |
 
 ---
 

@@ -249,6 +249,9 @@
 | file | Partial | [file.md](file.md) |
 | strings | Partial | [strings.md](strings.md) |
 | sed | Partial / Tested | [sed.md](sed.md) |
+| cmp | Registered / Partial | [cmp.md](cmp.md) |
+| env | Registered / Partial | [env.md](env.md) |
+| xargs | Registered / Partial | [xargs.md](xargs.md) |
 
 ## 通用选项统计
 
