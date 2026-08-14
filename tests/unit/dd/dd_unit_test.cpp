@@ -1,6 +1,6 @@
 
-#include "framework/winuxtest.h"
 #include "../../../src/commands/dd_recovery.h"
+#include "framework/winuxtest.h"
 
 TEST(dd, dd_copies_with_block_size_and_count) {
   TempDir tmp;
@@ -133,8 +133,8 @@ TEST(dd, dd_conv_noerror_is_accepted_with_sync) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"dd.exe", {L"if=input.bin", L"of=out.bin", L"bs=4",
-                    L"count=1", L"conv=noerror,sync"});
+  p.add(L"dd.exe", {L"if=input.bin", L"of=out.bin", L"bs=4", L"count=1",
+                    L"conv=noerror,sync"});
 
   auto r = p.run();
 

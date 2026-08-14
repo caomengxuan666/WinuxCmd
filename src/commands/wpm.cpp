@@ -1958,15 +1958,16 @@ auto install_package(const Options& opts, std::string_view package_name)
   return 0;
 }
 
-auto install_packages(const Options& opts, std::span<const std::string_view> packages) -> int {
+auto install_packages(const Options& opts,
+                      std::span<const std::string_view> packages) -> int {
   int failed = 0;
   for (const auto package : packages) {
     if (install_package(opts, package) != 0) ++failed;
   }
   if (packages.size() > 1) {
-    safePrintLn(wpm_text(
-        "command.wpm.status.install_summary",
-        "wpm: install summary: requested={} failed={}", packages.size(), failed));
+    safePrintLn(wpm_text("command.wpm.status.install_summary",
+                         "wpm: install summary: requested={} failed={}",
+                         packages.size(), failed));
   }
   return failed == 0 ? 0 : 1;
 }

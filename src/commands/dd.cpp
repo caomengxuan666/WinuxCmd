@@ -1,9 +1,9 @@
 /*
  *  Copyright © 2026 WinuxCmd
  */
+#include "commands/dd_recovery.h"
 #include "core/command_macros.h"
 #include "pch/pch.h"
-#include "commands/dd_recovery.h"
 import std;
 import core;
 import utils;
@@ -460,8 +460,8 @@ REGISTER_COMMAND(dd,
         cfg.noerror && !cfg.input_file.empty(), cfg.sync_blocks, request,
         output_buffer, stats.in_records, input_buffer, bytes_read);
     if (read_error) {
-      safeErrorPrintLn(winux::i18n::translate(
-          "command.dd.error.read", "dd: read error"));
+      safeErrorPrintLn(
+          winux::i18n::translate("command.dd.error.read", "dd: read error"));
     }
     if (action == ReadBlockAction::stop) {
       if (read_error && (!cfg.noerror || cfg.input_file.empty())) {

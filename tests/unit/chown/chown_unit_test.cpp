@@ -447,7 +447,8 @@ TEST(chown, chown_from_matching_group_direct_avoids_placeholder_warning) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_NE(r.stdout_text.find("changing ownership of 'target.txt'"),
             std::string::npos);
-  EXPECT_NE(r.stderr_text.find("chown: changing ownership is not supported on Windows"),
+  EXPECT_NE(r.stderr_text.find(
+                "chown: changing ownership is not supported on Windows"),
             std::string::npos);
 }
 
@@ -542,7 +543,8 @@ TEST(chown, chown_verbose) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("chown: changing ownership is not supported on Windows"),
+  EXPECT_NE(r.stderr_text.find(
+                "chown: changing ownership is not supported on Windows"),
             std::string::npos);
 }
 
@@ -558,6 +560,7 @@ TEST(chown, chown_recursive) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_NE(r.stderr_text.find("chown: changing ownership is not supported on Windows"),
+  EXPECT_NE(r.stderr_text.find(
+                "chown: changing ownership is not supported on Windows"),
             std::string::npos);
 }

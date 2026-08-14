@@ -10,11 +10,11 @@ enum class ReadBlockAction { success, recovered, stop };
 // Keeps noerror recovery deterministic and independently testable.
 template <typename ReadFn, typename SeekFn>
 ReadBlockAction recover_read_block(ReadFn&& read, SeekFn&& seek, bool noerror,
-                                    bool sync_blocks, std::size_t request,
-                                    std::vector<char>& output_buffer,
-                                    std::size_t& input_records,
-                                    std::vector<char>& input_buffer,
-                                    std::size_t& bytes_read) {
+                                   bool sync_blocks, std::size_t request,
+                                   std::vector<char>& output_buffer,
+                                   std::size_t& input_records,
+                                   std::vector<char>& input_buffer,
+                                   std::size_t& bytes_read) {
   bytes_read = 0;
   if (read(input_buffer.data(), request, bytes_read)) {
     return ReadBlockAction::success;

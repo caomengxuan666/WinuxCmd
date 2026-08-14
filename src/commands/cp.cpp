@@ -338,10 +338,9 @@ auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
   if (handle == INVALID_HANDLE_VALUE &&
       GetLastError() == ERROR_FILE_NOT_FOUND &&
       !(src_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
-    handle = CreateFileW(
-        dest_operand.extended.c_str(), FILE_WRITE_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, CREATE_NEW,
-        FILE_ATTRIBUTE_NORMAL, nullptr);
+    handle = CreateFileW(dest_operand.extended.c_str(), FILE_WRITE_ATTRIBUTES,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
   }
   if (handle == INVALID_HANDLE_VALUE) {
     return std::unexpected("cannot write destination metadata");

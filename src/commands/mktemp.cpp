@@ -373,8 +373,8 @@ auto run(const Config& cfg) -> int {
         base_dir.empty() ? std::filesystem::path(filename)
                          : (base_dir / std::filesystem::path(filename));
     temp_file = candidate_path.is_absolute()
-                     ? native_display_path(candidate_path)
-                     : candidate_path.generic_string();
+                    ? native_display_path(candidate_path)
+                    : candidate_path.generic_string();
 
     // Check if file/directory already exists
     DWORD attrs = GetFileAttributesA(temp_file.c_str());
