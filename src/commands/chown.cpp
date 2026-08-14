@@ -687,7 +687,7 @@ REGISTER_COMMAND(
     safeErrorPrint(winux::i18n::translate_error(cfg_result.error()));
     safeErrorPrint("\n");
     safeErrorPrintLn(winux::i18n::format(
-        "common.try_help", "Try '{}' --help for more information.", "chown"));
+        "common.try_help", "Try '{} --help' for more information.", "chown"));
     return 1;
   }
 

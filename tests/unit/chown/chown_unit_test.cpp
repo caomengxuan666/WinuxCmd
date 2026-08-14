@@ -175,7 +175,7 @@ TEST(chown, chown_missing_reference_file_reports_gnu_style_error) {
       r.stderr_text,
       "chown: failed to get attributes of 'missing.txt': No such file or "
       "directory\n"
-      "Try 'chown' --help for more information.\n");
+      "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_reference_verbose_reports_retained_ownership) {
@@ -207,7 +207,7 @@ TEST(chown, chown_invalid_user_fails) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ_TEXT(r.stderr_text,
                  "chown: invalid user: 'nonexistent_user_xyz'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_invalid_group_fails) {
@@ -222,7 +222,7 @@ TEST(chown, chown_invalid_group_fails) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ_TEXT(r.stderr_text,
                  "chown: invalid group: ':nonexistent_group_xyz'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_double_separator_forms_fail_with_invalid_group) {
@@ -237,7 +237,7 @@ TEST(chown, chown_double_separator_forms_fail_with_invalid_group) {
   EXPECT_EQ(colon_result.exit_code, 1);
   EXPECT_EQ_TEXT(colon_result.stderr_text,
                  "chown: invalid group: '::'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 
   Pipeline dot;
   dot.set_cwd(tmp.wpath());
@@ -248,7 +248,7 @@ TEST(chown, chown_double_separator_forms_fail_with_invalid_group) {
   EXPECT_EQ_TEXT(dot_result.stderr_text,
                  "chown: warning: '.' should be ':'\n"
                  "chown: invalid group: '..'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_numeric_owner_with_empty_group_fails_with_invalid_spec) {
@@ -263,7 +263,7 @@ TEST(chown, chown_numeric_owner_with_empty_group_fails_with_invalid_spec) {
   EXPECT_EQ(colon_result.exit_code, 1);
   EXPECT_EQ_TEXT(colon_result.stderr_text,
                  "chown: invalid spec: '1001:'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 
   Pipeline dot;
   dot.set_cwd(tmp.wpath());
@@ -274,7 +274,7 @@ TEST(chown, chown_numeric_owner_with_empty_group_fails_with_invalid_spec) {
   EXPECT_EQ_TEXT(dot_result.stderr_text,
                  "chown: warning: '.' should be ':'\n"
                  "chown: invalid spec: '1001.'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_dot_separator_owner_form_warns) {
@@ -319,7 +319,7 @@ TEST(chown, chown_invalid_from_user_fails) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ_TEXT(r.stderr_text,
                  "chown: invalid user: 'nonexistent_user_xyz'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_invalid_from_group_fails) {
@@ -335,7 +335,7 @@ TEST(chown, chown_invalid_from_group_fails) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_EQ_TEXT(r.stderr_text,
                  "chown: invalid group: ':nonexistent_group_xyz'\n"
-                 "Try 'chown' --help for more information.\n");
+                 "Try 'chown --help' for more information.\n");
 }
 
 TEST(chown, chown_from_mismatching_group_skips_reference_processing) {
