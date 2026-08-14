@@ -36,4 +36,9 @@
  * @param argv Argument vector
  * @return int Exit code (0 for success, non-zero for failures)
  */
-int main(int argc, char** argv) { return wctest::default_main(argc, argv); }
+int main(int argc, char** argv) {
+  // Test snapshots use the built-in English fallback, regardless of the
+  // locale selected by the shell that launched the test process.
+  SetEnvironmentVariableW(L"WINUX_LANG", nullptr);
+  return wctest::default_main(argc, argv);
+}

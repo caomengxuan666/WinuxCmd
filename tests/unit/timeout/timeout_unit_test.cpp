@@ -113,6 +113,28 @@ TEST(timeout, timeout_preserves_argument_with_spaces) {
   EXPECT_TRUE(r.stderr_text.empty());
 }
 
+TEST(timeout, timeout_executes_command_and_preserves_exit_status) {
+  Pipeline p;
+  p.add(L"timeout.exe", {L"5", L"cmd.exe", L"/d", L"/c", L"exit", L"7"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 7);
+}
+
+TEST(timeout, timeout_executes_batch_commands) {
+  TempDir tmp;
+  tmp.write("runner.cmd", "@echo off\r\nexit /b 7\r\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"timeout.exe", {L"-k", L"5s", L"20s", L"runner.cmd"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 7);
+}
+
 TEST(timeout, timeout_verbose_reports_signal_name) {
   Pipeline p;
   p.add(L"timeout.exe", {L"-v", L"0.1", L"sleep.exe", L"1"});
@@ -229,5 +251,5 @@ TEST(timeout, timeout_invalid_option_returns_125_with_help_hint) {
   EXPECT_TRUE(r.stdout_text.empty());
   EXPECT_EQ_TEXT(r.stderr_text,
                  "timeout: unrecognized option '--definitely-invalid'\n"
-                 "Try 'timeout --help' for more information.\n");
+                 "Try 'timeout' --help for more information.\n");
 }

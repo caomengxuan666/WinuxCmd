@@ -79,6 +79,80 @@ auto build_timeout_command_line(std::string_view command,
   return cmd_line;
 }
 
+auto search_path(std::wstring_view file, std::wstring_view extension = {})
+    -> std::optional<std::wstring> {
+  std::wstring file_storage(file);
+  std::wstring extension_storage(extension);
+  DWORD capacity = MAX_PATH;
+  for (;;) {
+    std::wstring buffer(capacity, L'\0');
+    DWORD length = SearchPathW(
+        nullptr, file_storage.c_str(),
+        extension_storage.empty() ? nullptr : extension_storage.c_str(),
+        capacity, buffer.data(), nullptr);
+    if (length == 0) return std::nullopt;
+    if (length < capacity) {
+      buffer.resize(length);
+      return buffer;
+    }
+    if (length >= 32768) return std::nullopt;
+    capacity = length + 1;
+  }
+}
+
+auto lowercase(std::wstring value) -> std::wstring {
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](wchar_t ch) { return std::towlower(ch); });
+  return value;
+}
+
+auto find_batch_command(std::wstring_view command)
+    -> std::optional<std::wstring> {
+  const std::filesystem::path command_path{command};
+  const auto extension = lowercase(command_path.extension().wstring());
+  if (extension == L".cmd" || extension == L".bat") {
+    return search_path(command);
+  }
+  if (!extension.empty()) return std::nullopt;
+
+  for (const auto script_extension : {L".cmd", L".bat"}) {
+    if (auto path = search_path(command, script_extension)) return path;
+  }
+  return std::nullopt;
+}
+
+struct LaunchCommand {
+  std::optional<std::wstring> application_name;
+  std::wstring command_line;
+};
+
+auto build_launch_command(std::string_view command,
+                          std::span<const std::string> args) -> LaunchCommand {
+  const auto wcommand = utf8_to_wstring(std::string(command));
+  if (auto batch_path = find_batch_command(wcommand)) {
+    wchar_t comspec[MAX_PATH]{};
+    DWORD length = GetEnvironmentVariableW(
+        L"COMSPEC", comspec, static_cast<DWORD>(std::size(comspec)));
+    std::wstring comspec_path;
+    if (length > 0 && length < std::size(comspec)) {
+      comspec_path.assign(comspec, length);
+    } else {
+      comspec_path = L"cmd.exe";
+    }
+
+    std::wstring script_command = quote_windows_command_arg(*batch_path);
+    for (const auto& arg : args) {
+      append_windows_command_arg(script_command, utf8_to_wstring(arg));
+    }
+
+    // CreateProcessW cannot launch a batch file directly. Keep the script as
+    // the command being monitored while cmd.exe provides the Windows wrapper.
+    return {std::move(comspec_path), L"/d /s /c \"" + script_command + L"\""};
+  }
+
+  return {std::nullopt, build_timeout_command_line(command, args)};
+}
+
 auto timeout_signal_name(int signal) -> std::string {
   switch (signal) {
     case 0:
@@ -240,7 +314,8 @@ auto build_config(const CommandContext<TIMEOUT_OPTIONS.size()>& ctx)
 
 auto run(const Config& cfg) -> int {
   if (!cfg.command.empty()) {
-    std::wstring wcmd_line = build_timeout_command_line(cfg.command, cfg.args);
+    auto launch = build_launch_command(cfg.command, cfg.args);
+    std::wstring& wcmd_line = launch.command_line;
 
     // Create process
     STARTUPINFOW si = {sizeof(si)};
@@ -250,16 +325,34 @@ auto run(const Config& cfg) -> int {
     si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
     si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 
-    if (!CreateProcessW(NULL,           // No module name
-                        &wcmd_line[0],  // Command line
-                        NULL,           // Process handle not inheritable
-                        NULL,           // Thread handle not inheritable
-                        TRUE,           // Set handle inheritance to TRUE
-                        0,              // No creation flags
-                        NULL,           // Use parent's environment block
-                        NULL,           // Use parent's starting directory
-                        &si,            // Pointer to STARTUPINFO structure
-                        &pi  // Pointer to PROCESS_INFORMATION structure
+    UniqueHandle job;
+    DWORD creation_flags = 0;
+    if (HANDLE raw_job = CreateJobObjectW(nullptr, nullptr);
+        raw_job != nullptr) {
+      JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+      limits.BasicLimitInformation.LimitFlags =
+          JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+      if (SetInformationJobObject(raw_job, JobObjectExtendedLimitInformation,
+                                  &limits, sizeof(limits))) {
+        job.reset(raw_job);
+        creation_flags = CREATE_SUSPENDED;
+      } else {
+        CloseHandle(raw_job);
+      }
+    }
+
+    if (!CreateProcessW(launch.application_name.has_value()
+                            ? launch.application_name->c_str()
+                            : nullptr,
+                        wcmd_line.data(),  // Command line
+                        NULL,              // Process handle not inheritable
+                        NULL,              // Thread handle not inheritable
+                        TRUE,              // Set handle inheritance to TRUE
+                        creation_flags,
+                        NULL,  // Use parent's environment block
+                        NULL,  // Use parent's starting directory
+                        &si,   // Pointer to STARTUPINFO structure
+                        &pi    // Pointer to PROCESS_INFORMATION structure
                         )) {
       DWORD error = GetLastError();
       switch (error) {
@@ -268,6 +361,17 @@ auto run(const Config& cfg) -> int {
           return 127;
         default:
           return 126;
+      }
+    }
+
+    if (job) {
+      if (!AssignProcessToJobObject(job.get(), pi.hProcess) ||
+          ResumeThread(pi.hThread) == static_cast<DWORD>(-1)) {
+        TerminateProcess(pi.hProcess, 125);
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        return 125;
       }
     }
 
@@ -359,9 +463,8 @@ REGISTER_COMMAND(
     "'s' for seconds (default), 'm' for minutes, 'h' for hours or 'd' for "
     "days.\n"
     "\n"
-    "Note: This is a simplified implementation. It doesn't actually\n"
-    "execute the command. It's provided for API compatibility only.\n"
-    "Full implementation would require process management on Windows.",
+    "The command is executed as a child process and terminated when the\n"
+    "time limit expires.",
     "  timeout 5s command\n"
     "  timeout 1m command args\n"
     "  timeout -k 10s 30s command",
