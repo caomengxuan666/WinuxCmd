@@ -109,7 +109,7 @@
           safeErrorPrintLn(std::string(command_name) + ": " +                  \
                            winux::i18n::translate_error(ctx.parse_error));     \
           safeErrorPrintLn(winux::i18n::format(                                \
-              "common.try_help", "Try '{}' --help for more information.",      \
+              "common.try_help", "Try '{} --help' for more information.",      \
               command_name));                                                  \
         }                                                                      \
         return CommandRegistry::parseErrorExitCode(command_name);              \

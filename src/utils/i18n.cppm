@@ -273,7 +273,7 @@ export std::string translate_help_hint(std::string_view text) {
       command.find_first_of("' \t\r\n") != std::string_view::npos) {
     return std::string(text);
   }
-  return format("common.try_help", "Try '{}' --help for more information.",
+  return format("common.try_help", "Try '{} --help' for more information.",
                 command);
 }
 

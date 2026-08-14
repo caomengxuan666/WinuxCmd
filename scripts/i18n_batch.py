@@ -53,7 +53,7 @@ MANUAL_MESSAGES = {
     "common.error.extra_operand": "extra operand '{}'",
     "common.error.invalid_argument": "invalid argument '{}'",
     "common.error.reading": "error reading '{}'",
-    "common.try_help": "Try '{}' --help for more information.",
+    "common.try_help": "Try '{} --help' for more information.",
     "command.top.custom_help": (
         "Usage: top [options]\n"
         "  -b, --batch        Batch mode\n"
