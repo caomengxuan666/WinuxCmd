@@ -232,7 +232,7 @@ TEST(wpm, wpm_install_without_package_shows_usage) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(r.stderr_text.find("wpm: usage: wpm install <package>") !=
+  EXPECT_TRUE(r.stderr_text.find("wpm: usage: wpm install <package>...") !=
               std::string::npos);
   EXPECT_TRUE(r.stderr_text.find("unknown command") == std::string::npos);
 }
@@ -776,6 +776,43 @@ TEST(wpm, wpm_install_tar_gz_with_directory_mapping) {
   EXPECT_EQ(tmp.read("runtime/lang.txt"), "runtime file\n");
 }
 
+TEST(wpm, wpm_clean_dry_run_preserves_transient_state) {
+  TempDir tmp;
+  tmp.write(".wpm/cache/tool.exe", "cached tool\n");
+  tmp.write(".wpm/staging/tool/tool.exe", "staged tool\n");
+  tmp.write(".wpm/indexes/official.json", "index\n");
+
+  Pipeline clean;
+  clean.add(L"winuxcmd.exe",
+            {L"wpm", L"clean", L"--dry-run", L"--root", tmp.wpath()});
+  auto result = clean.run();
+
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_TRUE(result.stdout_text.find("would remove") != std::string::npos);
+  EXPECT_EQ(tmp.read(".wpm/cache/tool.exe"), "cached tool\n");
+  EXPECT_EQ(tmp.read(".wpm/staging/tool/tool.exe"), "staged tool\n");
+  EXPECT_EQ(tmp.read(".wpm/indexes/official.json"), "index\n");
+}
+
+TEST(wpm, wpm_clean_removes_cache_and_staging_only) {
+  TempDir tmp;
+  tmp.write(".wpm/cache/tool.exe", "cached tool\n");
+  tmp.write(".wpm/staging/tool/tool.exe", "staged tool\n");
+  tmp.write(".wpm/indexes/official.json", "index\n");
+  tmp.write(".wpm/config.json", "{}\n");
+
+  Pipeline clean;
+  clean.add(L"winuxcmd.exe", {L"wpm", L"clean", L"--root", tmp.wpath()});
+  auto result = clean.run();
+
+  EXPECT_EQ(result.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / L".wpm/cache"));
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / L".wpm/staging"));
+  EXPECT_TRUE(
+      std::filesystem::exists(tmp.path / L".wpm/indexes/official.json"));
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / L".wpm/config.json"));
+}
+
 TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
   TempDir tmp;
   const auto artifact_path = tmp.path / L"source" / L"jq.exe";
@@ -809,7 +846,7 @@ TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
   EXPECT_EQ(update.run().exit_code, 0);
 
   Pipeline install;
-  install.add(L"winuxcmd.exe", {L"wpm", L"install", L"jq", L"--dry-run",
+  install.add(L"winuxcmd.exe", {L"wpm", L"install", L"jq", L"jq", L"--dry-run",
                                 L"--root", tmp.wpath()});
   auto install_result = install.run();
 
@@ -819,6 +856,8 @@ TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
   EXPECT_TRUE(install_result.stdout_text.find("would install jq") !=
               std::string::npos);
   EXPECT_TRUE(install_result.stdout_text.find("installed jq") ==
+              std::string::npos);
+  EXPECT_TRUE(install_result.stdout_text.find("requested=2 failed=0") !=
               std::string::npos);
   EXPECT_TRUE(same_file(root_exe, legacy_jq));
 }

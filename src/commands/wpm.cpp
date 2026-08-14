@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright (c) 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -770,6 +770,73 @@ auto human_size(unsigned long long bytes) -> std::string {
   return std::format("{:.1f} {}", value, units[unit]);
 }
 
+struct CleanupStats {
+  unsigned long long bytes = 0;
+  size_t files = 0;
+};
+
+auto directory_stats(const fs::path& root) -> CleanupStats {
+  CleanupStats stats;
+  std::error_code ec;
+  if (!fs::exists(root, ec)) return stats;
+  for (const auto& entry : fs::recursive_directory_iterator(root, ec)) {
+    if (ec) break;
+    if (!entry.is_regular_file(ec)) continue;
+    stats.bytes += entry.file_size(ec);
+    if (!ec) ++stats.files;
+  }
+  return stats;
+}
+
+auto clean_state_directory(const fs::path& root, std::string_view kind,
+                           bool dry_run, bool verbose) -> int {
+  const fs::path target = state_dir(root) / std::string(kind);
+  const auto stats = directory_stats(target);
+  std::error_code ec;
+  if (!fs::exists(target, ec)) {
+    safePrintLn(wpm_text("command.wpm.status.clean_empty",
+                         "wpm: {} is already clean", target.string()));
+    return 0;
+  }
+  if (dry_run) {
+    safePrintLn(wpm_text("command.wpm.status.clean_dry_run",
+                         "wpm: would remove {} ({} in {} files)",
+                         target.string(), human_size(stats.bytes),
+                         stats.files));
+    return 0;
+  }
+  fs::remove_all(target, ec);
+  if (ec) {
+    safeErrorPrintLn(wpm_text("command.wpm.error.clean",
+                              "wpm: failed to clean '{}': {}", target.string(),
+                              ec.message()));
+    return 1;
+  }
+  if (verbose) {
+    safePrintLn(wpm_text("command.wpm.status.cleaned_detail",
+                         "wpm: cleaned {} ({} in {} files)", target.string(),
+                         human_size(stats.bytes), stats.files));
+  }
+  return 0;
+}
+
+auto clean_state(const Options& opts, std::string_view selection) -> int {
+  std::string kind(selection);
+  if (kind.empty() || kind == "all") {
+    int result =
+        clean_state_directory(opts.root, "cache", opts.dry_run, opts.verbose);
+    if (result != 0) return result;
+    return clean_state_directory(opts.root, "staging", opts.dry_run,
+                                 opts.verbose);
+  }
+  if (kind == "cache" || kind == "staging")
+    return clean_state_directory(opts.root, kind, opts.dry_run, opts.verbose);
+  safeErrorPrintLn(
+      winux::i18n::translate("command.wpm.error.usage.clean",
+                             "wpm: usage: wpm clean [cache|staging|all]"));
+  return 1;
+}
+
 auto env_var_present(const char* name) -> bool {
   return GetEnvironmentVariableA(name, nullptr, 0) > 0;
 }
@@ -1449,6 +1516,21 @@ auto find_artifact_path(const fs::path& root, std::string_view from,
   return std::nullopt;
 }
 
+auto materialize_file(const fs::path& source, const fs::path& target,
+                      bool force, std::error_code& ec) -> bool {
+  ec.clear();
+  if (force) fs::remove(target, ec);
+  if (ec) return false;
+  if (!force && fs::exists(target, ec)) return false;
+  if (CreateHardLinkW(target.wstring().c_str(), source.wstring().c_str(),
+                      nullptr))
+    return true;
+  const DWORD link_error = GetLastError();
+  ec = std::error_code(static_cast<int>(link_error), std::system_category());
+  fs::copy_file(source, target, fs::copy_options::overwrite_existing, ec);
+  return !ec;
+}
+
 auto copy_directory_contents(const fs::path& src, const fs::path& dest,
                              bool force) -> bool {
   std::error_code ec;
@@ -1699,10 +1781,10 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
         return false;
       }
     }
-    fs::copy_file(*src, dest, fs::copy_options::overwrite_existing, ec);
-    if (ec) {
-      safeErrorPrintLn("wpm: failed to copy '" + src->string() + "' to '" +
-                       dest.string() + "': " + ec.message());
+    if (!materialize_file(*src, dest, true, ec)) {
+      safeErrorPrintLn(wpm_text("command.wpm.error.materialize",
+                                "wpm: failed to install '{}' to '{}': {}",
+                                src->string(), dest.string(), ec.message()));
       return false;
     }
   }
@@ -1851,10 +1933,10 @@ auto install_package(const Options& opts, std::string_view package_name)
   if (archive_artifact_type(type)) {
     if (!extract_archive(*downloaded, extracted, type)) return 1;
   } else if (type == "exe") {
-    fs::copy_file(*downloaded, extracted / downloaded->filename(),
-                  fs::copy_options::overwrite_existing, ec);
-    if (ec) {
-      safeErrorPrintLn("wpm: failed to stage exe: " + ec.message());
+    if (!materialize_file(*downloaded, extracted / downloaded->filename(), true,
+                          ec)) {
+      safeErrorPrintLn(wpm_text("command.wpm.error.stage",
+                                "wpm: failed to stage exe: {}", ec.message()));
       return 1;
     }
   } else {
@@ -1874,6 +1956,19 @@ auto install_package(const Options& opts, std::string_view package_name)
                 pkg->value("name", std::string(package_name)));
   }
   return 0;
+}
+
+auto install_packages(const Options& opts, std::span<const std::string_view> packages) -> int {
+  int failed = 0;
+  for (const auto package : packages) {
+    if (install_package(opts, package) != 0) ++failed;
+  }
+  if (packages.size() > 1) {
+    safePrintLn(wpm_text(
+        "command.wpm.status.install_summary",
+        "wpm: install summary: requested={} failed={}", packages.size(), failed));
+  }
+  return failed == 0 ? 0 : 1;
 }
 
 auto launch_apply_update(const fs::path& staged_exe, const fs::path& root,
@@ -2280,6 +2375,7 @@ auto print_usage() -> int {
       "Usage: wpm <command> [args] [options]\n\n"
       "Commands:\n"
       "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
+      "  clean [cache|staging|all]    remove transient downloads and staging\n"
       "  index status|update           inspect or refresh local index\n"
       "  source list|use|add           manage index sources\n"
       "  list                          list indexed packages and install "
@@ -2287,7 +2383,7 @@ auto print_usage() -> int {
       "  search <query>                search names, commands, categories, "
       "licenses\n"
       "  info <package>                show package metadata\n"
-      "  install <package>             install package from local index\n"
+      "  install <package>...          install one or more packages\n"
       "  installed                     list packages present in this root\n"
       "  update winuxcmd               update WinuxCmd from local index\n\n"
       "Options:\n"
@@ -2346,6 +2442,18 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return 1;
   }
 
+  if (args[0] == "clean") {
+    return clean_state(opts, args.size() >= 2 ? args[1] : std::string_view{});
+  }
+  if (args[0] == "cache") {
+    if (args.size() >= 2 && args[1] == "clean")
+      return clean_state(opts, args.size() >= 3 ? args[2] : std::string_view{});
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.cache",
+        "wpm: usage: wpm cache clean [cache|staging|all]"));
+    return 1;
+  }
+
   if (args[0] == "index" || args[0] == "update-index") {
     if (args[0] == "update-index" || (args.size() >= 2 && args[1] == "update"))
       return update_index(opts);
@@ -2380,10 +2488,15 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return 1;
   }
   if (args[0] == "install") {
-    if (args.size() >= 2) return install_package(opts, args[1]);
+    if (args.size() >= 2) {
+      std::vector<std::string_view> packages;
+      packages.reserve(args.size() - 1);
+      for (size_t i = 1; i < args.size(); ++i) packages.push_back(args[i]);
+      return install_packages(opts, packages);
+    }
     safeErrorPrintLn(
         winux::i18n::translate("command.wpm.error.usage.install",
-                               "wpm: usage: wpm install <package>"));
+                               "wpm: usage: wpm install <package>..."));
     return 1;
   }
   if (args[0] == "update" || args[0] == "upgrade") {
@@ -2409,9 +2522,10 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
 REGISTER_COMMAND(
     wpm, "wpm", "manage WinuxCmd packages and command links",
     "WPM is WinuxCmd's internal package and link manager. It keeps a local "
-    "package index, downloads artifacts with WinHTTP, updates WinuxCmd, and "
-    "rebuilds command hardlinks without external scripts.",
+    "package index, downloads artifacts with WinHTTP, updates WinuxCmd, cleans "
+    "transient state, and rebuilds command hardlinks without external scripts.",
     "  wpm links rebuild\n"
+    "  wpm clean\n"
     "  wpm index update\n"
     "  wpm source list\n"
     "  wpm update winuxcmd",

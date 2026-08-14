@@ -104,12 +104,13 @@ MANUAL_MESSAGES = {
         "Usage: wpm <command> [args] [options]\n\n"
         "Commands:\n"
         "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
+        "  clean [cache|staging|all]    remove transient downloads and staging\n"
         "  index status|update           inspect or refresh local index\n"
         "  source list|use|add           manage index sources\n"
         "  list                          list indexed packages and install state\n"
         "  search <query>                search names, commands, categories, licenses\n"
         "  info <package>                show package metadata\n"
-        "  install <package>             install package from local index\n"
+        "  install <package>...          install one or more packages\n"
         "  installed                     list packages present in this root\n"
         "  update winuxcmd               update WinuxCmd from local index\n\n"
         "Options:\n"
@@ -123,6 +124,13 @@ MANUAL_MESSAGES = {
         "  -V, --version                 output version information and exit\n"
     ),
     "command.wpm.error.invalid_json": "wpm: invalid JSON: {}",
+    "command.wpm.error.clean": "wpm: failed to clean '{}': {}",
+    "command.wpm.error.materialize": "wpm: failed to install '{}' to '{}': {}",
+    "command.wpm.error.stage": "wpm: failed to stage exe: {}",
+    "command.wpm.status.clean_empty": "wpm: {} is already clean",
+    "command.wpm.status.clean_dry_run": "wpm: would remove {} ({} in {} files)",
+    "command.wpm.status.cleaned_detail": "wpm: cleaned {} ({} in {} files)",
+    "command.wpm.status.install_summary": "wpm: install summary: requested={} failed={}",
     "command.wpm.status.keep_running": "wpm: keeping running executable: {}",
     "command.wpm.error.refuse_directory": "wpm: refusing to replace directory: {}",
     "command.wpm.error.remove": "wpm: failed to remove '{}': {}",
@@ -139,8 +147,10 @@ MANUAL_MESSAGES = {
     "command.wpm.error.usage.links": "wpm: usage: wpm links list|rebuild|remove",
     "command.wpm.error.usage.index": "wpm: usage: wpm index status|update",
     "command.wpm.error.usage.source": "wpm: usage: wpm source list|use <name>|add <name> <url>",
+    "command.wpm.error.usage.cache": "wpm: usage: wpm cache clean [cache|staging|all]",
+    "command.wpm.error.usage.clean": "wpm: usage: wpm clean [cache|staging|all]",
     "command.wpm.error.usage.info": "wpm: usage: wpm info <package>",
-    "command.wpm.error.usage.install": "wpm: usage: wpm install <package>",
+    "command.wpm.error.usage.install": "wpm: usage: wpm install <package>...",
     "command.wpm.error.usage.update": "wpm: usage: wpm update winuxcmd",
     "command.wpm.version": "wpm {}",
     "command.wpm.error.unknown_command": "wpm: unknown command: {}",

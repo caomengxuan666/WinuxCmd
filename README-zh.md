@@ -97,7 +97,11 @@ winuxcmd wpm index update
 winuxcmd wpm search editor
 winuxcmd wpm info jq
 winuxcmd wpm links rebuild --root "C:\path\to\winuxcmd"
+winuxcmd wpm clean --dry-run
+winuxcmd wpm clean
 ```
+
+`wpm clean` 默认只删除 `.wpm/cache` 和 `.wpm/staging`，不会删除已安装命令、索引或配置。可用 `wpm clean cache`、`wpm clean staging` 单独清理；外部程序优先使用硬链接安装，跨卷或文件系统不支持硬链接时自动回退为复制。硬链接不需要管理员权限，符号链接则保留给用户明确执行 `ln -s` 的场景。`wpm install <package>...` 支持一次顺序安装多个程序；某个程序失败不会阻止后续程序，最后会汇总失败数量。
 
 包在没有架构 URL、SHA-256 和文件映射之前只会显示为 `index-only`。这样
 WPM 可以先展示元数据，但只有经过校验的二进制才会真正安装。
