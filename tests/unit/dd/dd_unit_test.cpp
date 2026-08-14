@@ -125,3 +125,18 @@ TEST(dd, dd_rejects_invalid_size_operand) {
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stderr_text.find("invalid bs value") != std::string::npos);
 }
+
+TEST(dd, dd_conv_noerror_is_accepted_with_sync) {
+  TempDir tmp;
+  tmp.write("input.bin", "abc");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"dd.exe", {L"if=input.bin", L"of=out.bin", L"bs=4",
+                    L"count=1", L"conv=noerror,sync"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("out.bin"), std::string("abc\0", 4));
+}

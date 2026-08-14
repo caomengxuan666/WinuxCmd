@@ -35,6 +35,7 @@ struct Config {
   std::uintmax_t seek = 0;
   bool count_set = false;
   bool notrunc = false;
+  bool noerror = false;
   bool sync_blocks = false;
   bool status_none = false;
   bool status_noxfer = false;
@@ -150,7 +151,9 @@ auto set_operand(Config& cfg, std::string_view name, std::string_view value)
         cfg.notrunc = true;
       } else if (token == "sync") {
         cfg.sync_blocks = true;
-      } else if (token.empty() || token == "noerror") {
+      } else if (token == "noerror") {
+        cfg.noerror = true;
+      } else if (token.empty()) {
         continue;
       } else {
         safeErrorPrint("dd: unsupported conv flag '");
@@ -225,7 +228,9 @@ auto parse_config(const CommandContext<DD_OPTIONS.size()>& ctx, Config& cfg)
         cfg.notrunc = true;
       } else if (token == "sync") {
         cfg.sync_blocks = true;
-      } else if (token.empty() || token == "noerror") {
+      } else if (token == "noerror") {
+        cfg.noerror = true;
+      } else if (token.empty()) {
         continue;
       } else {
         safeErrorPrint("dd: unsupported conv flag '");
@@ -441,9 +446,17 @@ REGISTER_COMMAND(dd,
         cfg.ibs,
         static_cast<std::uintmax_t>(std::numeric_limits<DWORD>::max())));
     if (!ReadFile(hIn, input_buffer.data(), request, &bytes_read, nullptr)) {
-      safeErrorPrintLn("dd: read error");
-      read_failed = true;
-      break;
+      safeErrorPrintLn(winux::i18n::translate(
+          "command.dd.error.read", "dd: read error"));
+      if (!cfg.noerror || cfg.input_file.empty() || !seek_handle(hIn, request)) {
+        read_failed = true;
+        break;
+      }
+      if (cfg.sync_blocks) {
+        output_buffer.insert(output_buffer.end(), request, '\0');
+      }
+      ++stats.in_records;
+      continue;
     }
     if (bytes_read == 0) break;
 

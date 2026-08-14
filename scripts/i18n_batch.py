@@ -209,6 +209,7 @@ MANUAL_MESSAGES = {
     "common.error.failed_remove": "failed to remove '{}'",
     "common.error.open_script": "cannot open script file '{}'",
     "command.dd.error.open_input": "dd: failed to open '{}': {}",
+    "command.dd.error.read": "dd: read error",
 }
 
 
