@@ -233,6 +233,19 @@
 | numfmt | 8 | 已实现 | [numfmt.md](numfmt.md) |
 | seq | 3 | 已实现 | [seq.md](seq.md) |
 
+## 已注册命令补充
+
+以下命令已注册但不属于完整行为兼容项，详见各自文档：
+
+| 命令 | 状态 | 文档 |
+|------|------|------|
+| chcon | Placeholder / Windows limitation | [chcon.md](chcon.md) |
+| chroot | Windows limitation | [chroot.md](chroot.md) |
+| mkfifo | Windows limitation | [mkfifo.md](mkfifo.md) |
+| mknod | Windows limitation | [mknod.md](mknod.md) |
+| runcon | Placeholder / Windows limitation | [runcon.md](runcon.md) |
+| [ | Registered / Tested | [test-bracket.md](test-bracket.md) |
+
 ## 通用选项统计
 
 所有命令都支持以下通用选项：
