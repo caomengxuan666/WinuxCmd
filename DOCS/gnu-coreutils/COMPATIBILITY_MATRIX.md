@@ -101,7 +101,7 @@
 
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
-| **ls** | 2363 | `-a` Done, `-A` Done, `-b` Done, `-B` Done, `-C` Done, `-D` Done, `-d` Done, `-f` Done, `-F` Done, `-g` Done, `-G` Done, `-h` Done, `-H` Done, `-i` Done, `-I` Done, `-l` Done, `-L` Done, `-m` Done, `-n` Done, `-N` Done, `-o` Done, `-p` Done, `-q` Done, `-Q` Done, `-r` Done, `-R` Done, `-s` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-U` Done, `-v` Done, `-w` Done, `-x` Done, `-X` Done, `-Z` Done, `-1` Done, `--sort` Done, `--format` Done, `--time` Done, `--time-style` Done, `--block-size` Done, `--quoting-style` Done, `--show-control-chars` Done, `--indicator-style` Done, `--file-type` Done, `--color` Done, `--group-directories-first` Done, `--dereference-command-line` Done, `--hide` Done, `--hyperlink` Done, `--si` Done, `--zero` Done | GNU 终端默认引号、时间戳格式 |
+| **ls** | 2363 | `-a/-A/-b/-B/-C/-d/-f/-F/-g/-G/-h/-i/-l/-n/-o/-p/-q/-Q/-r/-R/-s/-T/-U/-v/-w/-X/-1` Done; `-c/-k/-L/-m/-N/-S/-t/-u/-x/-Z` Gap | 时间排序、链接解引用、引号/宽度变体和安全上下文输出仍未与 GNU 对齐 |
 | **dir** | 80 | 通过 ls 执行，所有 ls 选项 Done | ls -C 包装器 |
 | **vdir** | 65 | 通过 ls 执行，所有 ls 选项 Done | ls -l 包装器 |
 | **dircolors** | 180 | `-b` Done, `-c` Done, `-p` Done, `--print-ls-colors` Done | 已完整对齐 |
@@ -110,7 +110,7 @@
 
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
-| **cp** | 763 | `-a` Done, `-b` Done, `-c` Done, `-d` Done, `-f` Done, `-i` Done, `-H` Done, `-l` Done, `-L` Done, `-n` Done, `-P` Done, `-p` Done, `-R/-r` Done, `-s` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-v` Done, `-x` Done, `-Z` Done, `--archive` Done, `--backup` Done, `--context` Done, `--force` Done, `--interactive` Done, `--link` Done, `--dereference` Done, `--no-clobber` Done, `--no-dereference` Done, `--recursive` Done, `--symbolic-link` Done, `--suffix` Done, `--target-directory` Done, `--no-target-directory` Done, `--update` Done, `--verbose` Done, `--one-file-system` Done, `--remove-destination` Done, `--attributes-only` Done, `--parents` Done, `--preserve` Done, `--no-preserve` Done, `--sparse` Done, `--reflink` Done, `--copy-contents` Done | Unix owner/mode 保留 |
+| **cp** | 763 | `-b` Done, `-i` Done, `-R/-r` Done, `-S` Done, `-t` Done, `-v` Done, `--parents` Done; `-a/-d/-f/-H/-l/-L/-n/-P/-p/-s/-T/-u/-x/-Z` Gap | `--archive`、链接/符号链接策略、所有权/模式、属性保留和 `--attributes-only` 仍未与 GNU 对齐 |
 | **dd** | 467 | `if` Done, `of` Done, `bs` Done, `ibs` Done, `obs` Done, `cbs` Done, `count` Done, `skip` Done, `seek` Done, `conv=notrunc,sync,noerror` Done, `status=none,noxfer,progress` Done | 大小后缀 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 已支持 |
 | **install** | 425 | `-b` Done, `-c` Done, `-C` Done, `-d` Done, `-D` Done, `-g` Done, `-m` Done, `-o` Done, `-p` Done, `-s` Done, `--debug` Done, `--strip-program` Done, `-S` Done, `-t` Done, `-T` Done, `-v` Done, `--preserve-context` Done, `-Z` Done, `--context` Done | Windows 上的 owner/mode/strip 效果 |
 | **mv** | 454 | `-b` Done, `-f` Done, `-i` Done, `-I` Done, `-n` Done, `--strip-trailing-slashes` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-v` Done, `-Z` Done, `--backup` Done (with method), `--interactive` Done (with WHEN) | POSIX/GNU 诊断措辞 |
@@ -133,7 +133,7 @@
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
 | **chgrp** | 280 | `-c` Done, `-f` Done, `-v` Done, `-R` Done, `--reference` Done, `-h` Done, `--no-dereference` Done, `--dereference` Done, `-H` Done, `-L` Done, `-P` Done, `--preserve-root` Done | Windows group 变更需要管理员权限 |
-| **chown** | 272 | `-c` Done, `-f` Done, `-v` Done, `-R` Done, `--reference` Done, `-h` Done, `--no-dereference` Done, `--dereference` Done, `-H` Done, `-L` Done, `-P` Done, `--from` Done, `--preserve-root` Done | Windows owner 变更受限（平台限制） |
+| **chown** | 272 | 选项解析与条件筛选 Partial；实际所有权变更 Windows limitation | 不再对未执行的所有权变更静默返回成功；`--from`/`--reference` 的条件路径仍可报告保留状态 |
 | **chmod** | 502 | `-c` Done, `-f` Done, `-v` Done, `-R` Done, `--reference` Done, `-H` Done, `-L` Done, `-P` Done, `--dereference` Done, `--preserve-root` Done, `--no-preserve-root` Done | Windows 只读属性近似 |
 | **touch** | 643 | `-a` Done, `-c` Done, `-d` Done, `-h` Done, `-m` Done, `-r` Done, `-t` Done, `--time` Done | ISO 日期、UTC/GMT/Z/偏移、`@epoch`、相对形式、`-r` 作相对 `-d` 基准 |
 
