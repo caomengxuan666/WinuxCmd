@@ -251,5 +251,5 @@ TEST(timeout, timeout_invalid_option_returns_125_with_help_hint) {
   EXPECT_TRUE(r.stdout_text.empty());
   EXPECT_EQ_TEXT(r.stderr_text,
                  "timeout: unrecognized option '--definitely-invalid'\n"
-                 "Try 'timeout' --help for more information.\n");
+                 "Try 'timeout --help' for more information.\n");
 }
