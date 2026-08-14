@@ -123,6 +123,7 @@ MANUAL_MESSAGES = {
         "      --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n"
     ),
+    "command.chown.error.unsupported_ownership": "chown: changing ownership is not supported on Windows",
     "command.wpm.error.invalid_json": "wpm: invalid JSON: {}",
     "command.wpm.error.clean": "wpm: failed to clean '{}': {}",
     "command.wpm.error.materialize": "wpm: failed to install '{}' to '{}': {}",

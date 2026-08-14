@@ -618,9 +618,10 @@ auto process_file(const std::string& path, const Config& cfg) -> int {
     }
   }
 
-  // Note: Actual ownership change requires administrator privileges
-  // and is not implemented in this version
-  return 0;
+  safeErrorPrintLn(winux::i18n::translate(
+      "command.chown.error.unsupported_ownership",
+      "chown: changing ownership is not supported on Windows"));
+  return 1;
 }
 
 auto process_recursive(const std::string& path, const Config& cfg) -> int {
