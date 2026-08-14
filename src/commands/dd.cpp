@@ -448,8 +448,15 @@ REGISTER_COMMAND(dd,
     if (!ReadFile(hIn, input_buffer.data(), request, &bytes_read, nullptr)) {
       safeErrorPrintLn(winux::i18n::translate(
           "command.dd.error.read", "dd: read error"));
-      if (!cfg.noerror || cfg.input_file.empty() || !seek_handle(hIn, request)) {
+      if (!cfg.noerror || cfg.input_file.empty()) {
         read_failed = true;
+        break;
+      }
+      if (!seek_handle(hIn, request)) {
+        if (cfg.sync_blocks) {
+          output_buffer.insert(output_buffer.end(), request, '\0');
+        }
+        ++stats.in_records;
         break;
       }
       if (cfg.sync_blocks) {
