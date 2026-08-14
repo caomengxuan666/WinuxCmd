@@ -101,7 +101,11 @@ winuxcmd wpm index update
 winuxcmd wpm search editor
 winuxcmd wpm info jq
 winuxcmd wpm links rebuild --root "C:\path\to\winuxcmd"
+winuxcmd wpm clean --dry-run
+winuxcmd wpm clean
 ```
+
+`wpm clean` removes only `.wpm/cache` and `.wpm/staging` by default; installed commands, indexes, and configuration remain untouched. Use `wpm clean cache` or `wpm clean staging` for one area. External files are materialized with hardlinks first and fall back to copies when the filesystem or volume does not support hardlinks. Hardlinks do not require administrator privileges; symbolic links remain an explicit `ln -s` choice. `wpm install <package>...` installs multiple packages sequentially, continues after an individual failure, and reports the final failure count.
 
 Packages remain `index-only` until the source provides architecture-specific
 URLs, SHA-256 hashes, and file mappings. That keeps WPM simple and auditable:

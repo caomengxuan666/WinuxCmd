@@ -1,4 +1,5 @@
 
+#include "../../../src/commands/dd_recovery.h"
 #include "framework/winuxtest.h"
 
 TEST(dd, dd_copies_with_block_size_and_count) {
@@ -124,4 +125,44 @@ TEST(dd, dd_rejects_invalid_size_operand) {
 
   EXPECT_EQ(r.exit_code, 1);
   EXPECT_TRUE(r.stderr_text.find("invalid bs value") != std::string::npos);
+}
+
+TEST(dd, dd_conv_noerror_is_accepted_with_sync) {
+  TempDir tmp;
+  tmp.write("input.bin", "abc");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"dd.exe", {L"if=input.bin", L"of=out.bin", L"bs=4", L"count=1",
+                    L"conv=noerror,sync"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("out.bin"), std::string("abc\0", 4));
+}
+
+TEST(dd, noerror_recovery_skips_failed_block_and_syncs) {
+  std::vector<char> input(4);
+  std::vector<char> output;
+  std::size_t records = 0;
+  std::size_t bytes_read = 0;
+  bool seek_called = false;
+
+  const auto action = dd_pipeline::recover_read_block(
+      [](char*, std::size_t, std::size_t&) { return false; },
+      [&](std::size_t amount) {
+        seek_called = amount == 4;
+        return true;
+      },
+      true, true, 4, output, records, input, bytes_read);
+
+  EXPECT_EQ(static_cast<int>(action),
+            static_cast<int>(dd_pipeline::ReadBlockAction::recovered));
+  EXPECT_TRUE(seek_called);
+  EXPECT_EQ(records, 1u);
+  ASSERT_EQ(output.size(), 4u);
+  EXPECT_TRUE(std::all_of(output.begin(), output.end(),
+                          [](char value) { return value == '\0'; }));
+  EXPECT_EQ(bytes_read, 0u);
 }

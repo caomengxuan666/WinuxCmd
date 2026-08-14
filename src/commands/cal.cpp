@@ -157,7 +157,7 @@ REGISTER_COMMAND(cal,
   if (ctx.positionals.size() > 2) {
     safeErrorPrintLn("cal: too many arguments");
     safeErrorPrintLn(winux::i18n::format(
-        "common.try_help", "Try '{}' --help for more information.", "cal"));
+        "common.try_help", "Try '{} --help' for more information.", "cal"));
     return 1;
   }
 

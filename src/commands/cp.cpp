@@ -335,6 +335,13 @@ auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
       CreateFileW(dest_operand.extended.c_str(), FILE_WRITE_ATTRIBUTES,
                   FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                   nullptr, OPEN_EXISTING, flags, nullptr);
+  if (handle == INVALID_HANDLE_VALUE &&
+      GetLastError() == ERROR_FILE_NOT_FOUND &&
+      !(src_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+    handle = CreateFileW(dest_operand.extended.c_str(), FILE_WRITE_ATTRIBUTES,
+                         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                         nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+  }
   if (handle == INVALID_HANDLE_VALUE) {
     return std::unexpected("cannot write destination metadata");
   }
@@ -509,7 +516,7 @@ auto copy_file(const std::string& srcPath, const std::string& destPath,
 
   if (attrs_only) {
     // --attributes-only: copy only metadata, not file data
-    if (preserve_metadata_enabled(ctx) || true) {
+    {
       auto preserveResult = preserve_metadata(srcPath, destPath);
       if (!preserveResult) return preserveResult;
     }

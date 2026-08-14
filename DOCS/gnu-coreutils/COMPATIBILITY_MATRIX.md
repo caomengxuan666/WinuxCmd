@@ -9,6 +9,32 @@
 > - **Partial** — 选项已解析但行为有差异（见备注）
 > - **Gap** — 选项未实现
 > - **N/A** — Windows 平台不适用
+> - **Placeholder** — 命令已注册并提供诊断，但未执行 GNU 操作
+> - **Windows limitation** — GNU 行为在 Windows 上没有直接等价实现
+
+### 已注册但非完整实现的命令
+
+| 命令 | 状态 | 说明 |
+|------|------|------|
+| **chcon** | `Placeholder` / `Windows limitation` | SELinux 文件上下文在 Windows 上不可用；当前仅报告不支持。 |
+| **chroot** | `Windows limitation` | Windows 没有 GNU chroot 的直接等价行为；当前返回不支持状态。 |
+| **mkfifo** | `Windows limitation` | Win32 普通文件系统不提供 POSIX FIFO；当前不会创建 FIFO。 |
+| **mknod** | `Windows limitation` | Windows 不允许按 GNU 语义创建设备节点或特殊文件。 |
+| **runcon** | `Placeholder` / `Windows limitation` | SELinux 进程上下文在 Windows 上不可用；当前仅报告不支持。 |
+
+这些命令仍然保持注册，以便提供可发现性和明确诊断，但不计入“行为已实现”。
+
+### 其他已审计但存在行为差距的命令
+
+| 命令 | 状态 | 差距 |
+|------|------|------|
+| **find** | `Partial` | `-type f/d/l` 可用；`-type b/c/p/s` 不适用于当前 Windows 文件模型。 |
+| **file** | `Partial` | 基础识别可用；`-i` / `--mime` 尚未实现完整 MIME 检测。 |
+| **strings** | `Partial` | `-d` / `--data`、`-T` / `--target`、`-U` / `--unicode` 仍为占位或 no-op。 |
+| **sed** | `Partial` / `Tested` | 已覆盖常用脚本命令、地址范围、分支、hold space 和文件命令；完整 GNU 语言仍需差分测试。 |
+| **cmp** | `Registered` / `Partial` | 提供逐字节文件比较入口；完整 GNU 选项组合仍需专项核验。 |
+| **env** | `Registered` / `Partial` | 环境变量操作可用；Windows 子进程环境语义与 GNU 存在平台差异。 |
+| **xargs** | `Registered` / `Partial` | 参数构造入口可用；Windows 启动和引用规则仍需差分核验。 |
 
 ---
 
@@ -87,7 +113,7 @@
 
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
-| **ls** | 2363 | `-a` Done, `-A` Done, `-b` Done, `-B` Done, `-C` Done, `-D` Done, `-d` Done, `-f` Done, `-F` Done, `-g` Done, `-G` Done, `-h` Done, `-H` Done, `-i` Done, `-I` Done, `-l` Done, `-L` Done, `-m` Done, `-n` Done, `-N` Done, `-o` Done, `-p` Done, `-q` Done, `-Q` Done, `-r` Done, `-R` Done, `-s` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-U` Done, `-v` Done, `-w` Done, `-x` Done, `-X` Done, `-Z` Done, `-1` Done, `--sort` Done, `--format` Done, `--time` Done, `--time-style` Done, `--block-size` Done, `--quoting-style` Done, `--show-control-chars` Done, `--indicator-style` Done, `--file-type` Done, `--color` Done, `--group-directories-first` Done, `--dereference-command-line` Done, `--hide` Done, `--hyperlink` Done, `--si` Done, `--zero` Done | GNU 终端默认引号、时间戳格式 |
+| **ls** | 2363 | `-a/-A/-b/-B/-C/-d/-f/-F/-g/-G/-h/-i/-l/-n/-o/-p/-q/-Q/-r/-R/-s/-T/-U/-v/-w/-X/-1` Done; `-c/-k/-L/-m/-N/-S/-t/-u/-x/-Z` Gap | 时间排序、链接解引用、引号/宽度变体和安全上下文输出仍未与 GNU 对齐 |
 | **dir** | 80 | 通过 ls 执行，所有 ls 选项 Done | ls -C 包装器 |
 | **vdir** | 65 | 通过 ls 执行，所有 ls 选项 Done | ls -l 包装器 |
 | **dircolors** | 180 | `-b` Done, `-c` Done, `-p` Done, `--print-ls-colors` Done | 已完整对齐 |
@@ -96,8 +122,8 @@
 
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
-| **cp** | 763 | `-a` Done, `-b` Done, `-c` Done, `-d` Done, `-f` Done, `-i` Done, `-H` Done, `-l` Done, `-L` Done, `-n` Done, `-P` Done, `-p` Done, `-R/-r` Done, `-s` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-v` Done, `-x` Done, `-Z` Done, `--archive` Done, `--backup` Done, `--context` Done, `--force` Done, `--interactive` Done, `--link` Done, `--dereference` Done, `--no-clobber` Done, `--no-dereference` Done, `--recursive` Done, `--symbolic-link` Done, `--suffix` Done, `--target-directory` Done, `--no-target-directory` Done, `--update` Done, `--verbose` Done, `--one-file-system` Done, `--remove-destination` Done, `--attributes-only` Done, `--parents` Done, `--preserve` Done, `--no-preserve` Done, `--sparse` Done, `--reflink` Done, `--copy-contents` Done | Unix owner/mode 保留 |
-| **dd** | 467 | `if` Done, `of` Done, `bs` Done, `ibs` Done, `obs` Done, `cbs` Done, `count` Done, `skip` Done, `seek` Done, `conv=notrunc,sync,noerror` Done, `status=none,noxfer,progress` Done | 大小后缀 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 已支持 |
+| **cp** | 763 | `-b` Done, `-i` Done, `-R/-r` Done, `-S` Done, `-t` Done, `-v` Done, `--parents` Done; `-a/-d/-f/-H/-l/-L/-n/-P/-p/-s/-T/-u/-x/-Z` Gap | `--archive`、链接/符号链接策略、所有权/模式、属性保留和 `--attributes-only` 仍未与 GNU 对齐 |
+| **dd** | 467 | `if` Done, `of` Done, `bs` Done, `ibs` Done, `obs` Done, `cbs` Done, `count` Done, `skip` Done, `seek` Done, `conv=notrunc,sync` Done, `conv=noerror` Partial, `status=none,noxfer,progress` Done | 大小后缀 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 已支持；真实 `ReadFile` 错误恢复仍需 Windows fixture 验证 |
 | **install** | 425 | `-b` Done, `-c` Done, `-C` Done, `-d` Done, `-D` Done, `-g` Done, `-m` Done, `-o` Done, `-p` Done, `-s` Done, `--debug` Done, `--strip-program` Done, `-S` Done, `-t` Done, `-T` Done, `-v` Done, `--preserve-context` Done, `-Z` Done, `--context` Done | Windows 上的 owner/mode/strip 效果 |
 | **mv** | 454 | `-b` Done, `-f` Done, `-i` Done, `-I` Done, `-n` Done, `--strip-trailing-slashes` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-v` Done, `-Z` Done, `--backup` Done (with method), `--interactive` Done (with WHEN) | POSIX/GNU 诊断措辞 |
 | **rm** | 582 | `-f` Done, `-i` Done, `-I` Done, `-d` Done, `-r/-R` Done, `-v` Done, `--interactive` Done, `--one-file-system` Done, `--no-preserve-root` Done, `--preserve-root` Done, `--preserve-root=all` Done | POSIX/GNU 诊断措辞 |
@@ -119,7 +145,7 @@
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
 | **chgrp** | 280 | `-c` Done, `-f` Done, `-v` Done, `-R` Done, `--reference` Done, `-h` Done, `--no-dereference` Done, `--dereference` Done, `-H` Done, `-L` Done, `-P` Done, `--preserve-root` Done | Windows group 变更需要管理员权限 |
-| **chown** | 272 | `-c` Done, `-f` Done, `-v` Done, `-R` Done, `--reference` Done, `-h` Done, `--no-dereference` Done, `--dereference` Done, `-H` Done, `-L` Done, `-P` Done, `--from` Done, `--preserve-root` Done | Windows owner 变更受限（平台限制） |
+| **chown** | 272 | 选项解析与条件筛选 Partial；实际所有权变更 Windows limitation | 不再对未执行的所有权变更静默返回成功；`--from`/`--reference` 的条件路径仍可报告保留状态 |
 | **chmod** | 502 | `-c` Done, `-f` Done, `-v` Done, `-R` Done, `--reference` Done, `-H` Done, `-L` Done, `-P` Done, `--dereference` Done, `--preserve-root` Done, `--no-preserve-root` Done | Windows 只读属性近似 |
 | **touch** | 643 | `-a` Done, `-c` Done, `-d` Done, `-h` Done, `-m` Done, `-r` Done, `-t` Done, `--time` Done | ISO 日期、UTC/GMT/Z/偏移、`@epoch`、相对形式、`-r` 作相对 `-d` 基准 |
 

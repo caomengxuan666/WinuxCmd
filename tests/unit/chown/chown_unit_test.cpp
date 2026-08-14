@@ -286,8 +286,10 @@ TEST(chown, chown_dot_separator_owner_form_warns) {
   p.add(L"chown.exe", {L"Users.", L"file.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stderr_text, "chown: warning: '.' should be ':'\n");
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "chown: warning: '.' should be ':'\n"
+                 "chown: changing ownership is not supported on Windows\n");
 }
 
 TEST(chown, chown_dot_separator_owner_group_form_warns) {
@@ -299,8 +301,10 @@ TEST(chown, chown_dot_separator_owner_group_form_warns) {
   p.add(L"chown.exe", {L"Users.Users", L"file.txt"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stderr_text, "chown: warning: '.' should be ':'\n");
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "chown: warning: '.' should be ':'\n"
+                 "chown: changing ownership is not supported on Windows\n");
 }
 
 TEST(chown, chown_invalid_from_user_fails) {
@@ -440,11 +444,12 @@ TEST(chown, chown_from_matching_group_direct_avoids_placeholder_warning) {
 
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.exit_code, 1);
   EXPECT_NE(r.stdout_text.find("changing ownership of 'target.txt'"),
             std::string::npos);
-  EXPECT_EQ(r.stdout_text.find("not supported on Windows"), std::string::npos);
-  EXPECT_EQ(r.stderr_text.find("not supported on Windows"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find(
+                "chown: changing ownership is not supported on Windows"),
+            std::string::npos);
 }
 
 TEST(chown, chown_colon_only_verbose_reports_retained_ownership) {
@@ -537,8 +542,10 @@ TEST(chown, chown_verbose) {
   p.add(L"chown.exe", {L"-v", L"Users", L"file.txt"});
   auto r = p.run();
 
-  // May fail due to permissions, but should handle gracefully
-  EXPECT_TRUE(r.exit_code == 0 || r.exit_code == 1);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find(
+                "chown: changing ownership is not supported on Windows"),
+            std::string::npos);
 }
 
 TEST(chown, chown_recursive) {
@@ -552,6 +559,8 @@ TEST(chown, chown_recursive) {
   p.add(L"chown.exe", {L"-R", L"Users", L"."});
   auto r = p.run();
 
-  // May fail due to permissions, but should handle gracefully
-  EXPECT_TRUE(r.exit_code == 0 || r.exit_code == 1);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find(
+                "chown: changing ownership is not supported on Windows"),
+            std::string::npos);
 }

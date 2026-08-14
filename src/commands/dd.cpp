@@ -1,6 +1,7 @@
 /*
  *  Copyright © 2026 WinuxCmd
  */
+#include "commands/dd_recovery.h"
 #include "core/command_macros.h"
 #include "pch/pch.h"
 import std;
@@ -35,6 +36,7 @@ struct Config {
   std::uintmax_t seek = 0;
   bool count_set = false;
   bool notrunc = false;
+  bool noerror = false;
   bool sync_blocks = false;
   bool status_none = false;
   bool status_noxfer = false;
@@ -150,7 +152,9 @@ auto set_operand(Config& cfg, std::string_view name, std::string_view value)
         cfg.notrunc = true;
       } else if (token == "sync") {
         cfg.sync_blocks = true;
-      } else if (token.empty() || token == "noerror") {
+      } else if (token == "noerror") {
+        cfg.noerror = true;
+      } else if (token.empty()) {
         continue;
       } else {
         safeErrorPrint("dd: unsupported conv flag '");
@@ -225,7 +229,9 @@ auto parse_config(const CommandContext<DD_OPTIONS.size()>& ctx, Config& cfg)
         cfg.notrunc = true;
       } else if (token == "sync") {
         cfg.sync_blocks = true;
-      } else if (token.empty() || token == "noerror") {
+      } else if (token == "noerror") {
+        cfg.noerror = true;
+      } else if (token.empty()) {
         continue;
       } else {
         safeErrorPrint("dd: unsupported conv flag '");
@@ -436,15 +442,34 @@ REGISTER_COMMAND(dd,
   bool read_failed = false;
 
   while (!cfg.count_set || stats.in_records < cfg.count) {
-    DWORD bytes_read = 0;
+    std::size_t bytes_read = 0;
     DWORD request = static_cast<DWORD>(std::min<std::uintmax_t>(
         cfg.ibs,
         static_cast<std::uintmax_t>(std::numeric_limits<DWORD>::max())));
-    if (!ReadFile(hIn, input_buffer.data(), request, &bytes_read, nullptr)) {
-      safeErrorPrintLn("dd: read error");
-      read_failed = true;
+    bool read_error = false;
+    const auto action = recover_read_block(
+        [&](char* data, std::size_t amount, std::size_t& got) {
+          DWORD native_bytes = 0;
+          const bool ok = ReadFile(hIn, data, static_cast<DWORD>(amount),
+                                   &native_bytes, nullptr);
+          got = native_bytes;
+          read_error = !ok;
+          return ok;
+        },
+        [&](std::size_t amount) { return seek_handle(hIn, amount); },
+        cfg.noerror && !cfg.input_file.empty(), cfg.sync_blocks, request,
+        output_buffer, stats.in_records, input_buffer, bytes_read);
+    if (read_error) {
+      safeErrorPrintLn(
+          winux::i18n::translate("command.dd.error.read", "dd: read error"));
+    }
+    if (action == ReadBlockAction::stop) {
+      if (read_error && (!cfg.noerror || cfg.input_file.empty())) {
+        read_failed = true;
+      }
       break;
     }
+    if (action == ReadBlockAction::recovered) continue;
     if (bytes_read == 0) break;
 
     ++stats.in_records;

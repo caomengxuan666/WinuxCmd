@@ -451,3 +451,18 @@ TEST(cp, cp_wildcard_sources_expand) {
   EXPECT_EQ(tmp.read("dest_dir/a.txt"), "alpha");
   EXPECT_EQ(tmp.read("dest_dir/b.txt"), "beta");
 }
+
+TEST(cp, cp_attributes_only_creates_missing_destination) {
+  TempDir tmp;
+  tmp.write("source.txt", "source content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--attributes-only", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / "dest.txt"));
+  EXPECT_EQ(tmp.read("dest.txt"), "");
+}

@@ -17,6 +17,14 @@ when `WINUX_LANG` selects a catalog under `.wpm/i18n/<locale>/catalog.json`.
   adding commands, options, help text, or runtime messages.
 - Use `scripts/i18n_batch.py validate` before publishing a locale catalog.
 
+## Mandatory cross-repository synchronization
+
+- Any change to WinuxCmd source, command help, options, versions, tests that assert user-visible output, or user-visible documentation MUST be reviewed for I18N impact.
+- Every WinuxCmd change with user-visible text MUST update the separate `unixwin/winuxcmd-i18n` repository in the same task. Do not defer this to release time.
+- For small batches, edit `catalogs/zh-CN/catalog.json` directly, preserving stable keys and valid JSON. Add the English fallback in WinuxCmd first, then add or update the Chinese translation in the I18N repository.
+- Validate the catalog against the generated English catalog, commit both repositories separately, and push both before reporting completion.
+- Check the previous WinuxCmd commit and the I18N repository history for missed catalog changes before starting a new sync.
+
 ## Catalog ownership
 
 Catalogs are published in the separate `unixwin/winuxcmd-i18n` repository.

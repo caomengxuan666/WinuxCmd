@@ -4,7 +4,7 @@
 
 ## 文档统计
 
-- **总文档数**: 102 个命令文档 + 1 个 README
+- **总文档数**: 102 个命令文档 + 1 个 README；文档数量不等于行为兼容数量
 - **文档格式**: Markdown
 - **参考版本**: GNU Coreutils 9.11
 
@@ -35,7 +35,7 @@
 | 进程控制 | 1 | 1 | 0 |
 | 延迟操作 | 1 | 1 | 0 |
 | 数值操作 | 3 | 3 | 0 |
-| **总计** | **102** | **102** | **0** |
+| **总计** | **102** | **需重新审计** | **5 个平台限制/占位命令** |
 
 ## 完整命令列表
 
@@ -115,7 +115,7 @@
 | 命令 | 参数数 | 状态 | 文档 |
 |------|--------|------|------|
 | cp | 15 | 已实现 | [cp.md](cp.md) |
-| dd | 8 | 已实现 | [dd.md](dd.md) |
+| dd | 8 | Partial | [dd.md](dd.md) |
 | install | 12 | 已实现 | [install.md](install.md) |
 | mv | 10 | 已实现 | [mv.md](mv.md) |
 | rm | 7 | 已实现 | [rm.md](rm.md) |
@@ -233,6 +233,26 @@
 | numfmt | 8 | 已实现 | [numfmt.md](numfmt.md) |
 | seq | 3 | 已实现 | [seq.md](seq.md) |
 
+## 已注册命令补充
+
+以下命令已注册但不属于完整行为兼容项，详见各自文档：
+
+| 命令 | 状态 | 文档 |
+|------|------|------|
+| chcon | Placeholder / Windows limitation | [chcon.md](chcon.md) |
+| chroot | Windows limitation | [chroot.md](chroot.md) |
+| mkfifo | Windows limitation | [mkfifo.md](mkfifo.md) |
+| mknod | Windows limitation | [mknod.md](mknod.md) |
+| runcon | Placeholder / Windows limitation | [runcon.md](runcon.md) |
+| [ | Registered / Tested | [test-bracket.md](test-bracket.md) |
+| find | Partial | [find.md](find.md) |
+| file | Partial | [file.md](file.md) |
+| strings | Partial | [strings.md](strings.md) |
+| sed | Partial / Tested | [sed.md](sed.md) |
+| cmp | Registered / Partial | [cmp.md](cmp.md) |
+| env | Registered / Partial | [env.md](env.md) |
+| xargs | Registered / Partial | [xargs.md](xargs.md) |
+
 ## 通用选项统计
 
 所有命令都支持以下通用选项：
@@ -244,8 +264,9 @@
 详细的逐选项兼容性对照请参阅 [COMPATIBILITY_MATRIX.md](COMPATIBILITY_MATRIX.md)。
 
 兼容性统计：
-- **完全对齐**: 68 个命令
-- **主要差距**: 34 个命令（主要是平台差异和部分未实现选项）
+- **完全对齐**: 统计仍需按新的多维状态模型重新生成，不再宣称 102/102 已实现
+- **已注册但非完整实现**: 5 个命令（`chcon`、`chroot`、`mkfifo`、`mknod`、`runcon`）
+- **其他差距**: `sed`、`cp`、`ls`、`dd`、`find`、`file`、`strings` 和 `chown` 等行为仍需按矩阵逐项核验
 - 详见 [COMPATIBILITY_MATRIX.md](COMPATIBILITY_MATRIX.md) 的统计表
 
 ## 下一步工作
