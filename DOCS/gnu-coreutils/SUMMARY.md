@@ -245,6 +245,9 @@
 | mknod | Windows limitation | [mknod.md](mknod.md) |
 | runcon | Placeholder / Windows limitation | [runcon.md](runcon.md) |
 | [ | Registered / Tested | [test-bracket.md](test-bracket.md) |
+| find | Partial | [find.md](find.md) |
+| file | Partial | [file.md](file.md) |
+| strings | Partial | [strings.md](strings.md) |
 
 ## 通用选项统计
 

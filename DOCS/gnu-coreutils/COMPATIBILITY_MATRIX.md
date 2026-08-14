@@ -24,6 +24,14 @@
 
 这些命令仍然保持注册，以便提供可发现性和明确诊断，但不计入“行为已实现”。
 
+### 其他已审计但存在行为差距的命令
+
+| 命令 | 状态 | 差距 |
+|------|------|------|
+| **find** | `Partial` | `-type f/d/l` 可用；`-type b/c/p/s` 不适用于当前 Windows 文件模型。 |
+| **file** | `Partial` | 基础识别可用；`-i` / `--mime` 尚未实现完整 MIME 检测。 |
+| **strings** | `Partial` | `-d` / `--data`、`-T` / `--target`、`-U` / `--unicode` 仍为占位或 no-op。 |
+
 ---
 
 ## 1. 文件输出 (Output of entire files)
