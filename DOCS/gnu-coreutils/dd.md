@@ -123,4 +123,4 @@ dd [操作数]...
 
 **Partial / Tested** - 支持 `if`、`of`、`ibs`、`obs`、`bs`、`cbs`、`count`、`skip`、`seek` 操作数，支持 `conv=notrunc,sync,noerror` 转换选项，支持 `status=none,noxfer,progress` 状态选项。支持 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 等大小后缀。
 
-`conv=noerror` 会报告读错误；对可定位输入尝试跳过失败块，对不可恢复输入避免无限重试，并在 `sync` 下填充失败块。当前专项测试覆盖 `conv=noerror,sync` 的解析和稳定执行，但尚未在 Pipeline 中稳定注入真实底层 `ReadFile` 错误，因此真实错误恢复路径仍需 Windows 专用 fixture 验证。
+`conv=noerror` 会报告读错误；对可定位输入尝试跳过失败块，对不可恢复输入避免无限重试，并在 `sync` 下填充失败块。当前 `dd.*` 专项测试共 10 项，其中新增确定性 helper 测试覆盖失败块跳过、同步填充、记录计数和继续状态。Pipeline 仍未能稳定注入真实底层 `ReadFile` 错误，因此真实句柄错误仍需 Windows 专用 fixture 验证。

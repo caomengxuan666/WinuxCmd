@@ -3,6 +3,7 @@
  */
 #include "core/command_macros.h"
 #include "pch/pch.h"
+#include "commands/dd_recovery.h"
 import std;
 import core;
 import utils;
@@ -441,30 +442,34 @@ REGISTER_COMMAND(dd,
   bool read_failed = false;
 
   while (!cfg.count_set || stats.in_records < cfg.count) {
-    DWORD bytes_read = 0;
+    std::size_t bytes_read = 0;
     DWORD request = static_cast<DWORD>(std::min<std::uintmax_t>(
         cfg.ibs,
         static_cast<std::uintmax_t>(std::numeric_limits<DWORD>::max())));
-    if (!ReadFile(hIn, input_buffer.data(), request, &bytes_read, nullptr)) {
+    bool read_error = false;
+    const auto action = recover_read_block(
+        [&](char* data, std::size_t amount, std::size_t& got) {
+          DWORD native_bytes = 0;
+          const bool ok = ReadFile(hIn, data, static_cast<DWORD>(amount),
+                                   &native_bytes, nullptr);
+          got = native_bytes;
+          read_error = !ok;
+          return ok;
+        },
+        [&](std::size_t amount) { return seek_handle(hIn, amount); },
+        cfg.noerror && !cfg.input_file.empty(), cfg.sync_blocks, request,
+        output_buffer, stats.in_records, input_buffer, bytes_read);
+    if (read_error) {
       safeErrorPrintLn(winux::i18n::translate(
           "command.dd.error.read", "dd: read error"));
-      if (!cfg.noerror || cfg.input_file.empty()) {
-        read_failed = true;
-        break;
-      }
-      if (!seek_handle(hIn, request)) {
-        if (cfg.sync_blocks) {
-          output_buffer.insert(output_buffer.end(), request, '\0');
-        }
-        ++stats.in_records;
-        break;
-      }
-      if (cfg.sync_blocks) {
-        output_buffer.insert(output_buffer.end(), request, '\0');
-      }
-      ++stats.in_records;
-      continue;
     }
+    if (action == ReadBlockAction::stop) {
+      if (read_error && (!cfg.noerror || cfg.input_file.empty())) {
+        read_failed = true;
+      }
+      break;
+    }
+    if (action == ReadBlockAction::recovered) continue;
     if (bytes_read == 0) break;
 
     ++stats.in_records;
