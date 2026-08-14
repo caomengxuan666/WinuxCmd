@@ -121,4 +121,6 @@ dd [操作数]...
 
 ## WinuxCmd 实现状态
 
-**已实现** - 支持 `if`、`of`、`ibs`、`obs`、`bs`、`cbs`、`count`、`skip`、`seek` 操作数，支持 `conv=notrunc,sync,noerror` 转换选项，支持 `status=none,noxfer,progress` 状态选项。支持 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 等大小后缀。
+**Partial / Tested** - 支持 `if`、`of`、`ibs`、`obs`、`bs`、`cbs`、`count`、`skip`、`seek` 操作数，支持 `conv=notrunc,sync,noerror` 转换选项，支持 `status=none,noxfer,progress` 状态选项。支持 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 等大小后缀。
+
+`conv=noerror` 会报告读错误；对可定位输入尝试跳过失败块，对不可恢复输入避免无限重试，并在 `sync` 下填充失败块。当前专项测试覆盖 `conv=noerror,sync` 的解析和稳定执行，但尚未在 Pipeline 中稳定注入真实底层 `ReadFile` 错误，因此真实错误恢复路径仍需 Windows 专用 fixture 验证。

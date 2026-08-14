@@ -123,7 +123,7 @@
 | 命令 | 源码行数 | GNU 选项兼容状态 | 差距摘要 |
 |------|---------|-----------------|---------|
 | **cp** | 763 | `-b` Done, `-i` Done, `-R/-r` Done, `-S` Done, `-t` Done, `-v` Done, `--parents` Done; `-a/-d/-f/-H/-l/-L/-n/-P/-p/-s/-T/-u/-x/-Z` Gap | `--archive`、链接/符号链接策略、所有权/模式、属性保留和 `--attributes-only` 仍未与 GNU 对齐 |
-| **dd** | 467 | `if` Done, `of` Done, `bs` Done, `ibs` Done, `obs` Done, `cbs` Done, `count` Done, `skip` Done, `seek` Done, `conv=notrunc,sync,noerror` Done, `status=none,noxfer,progress` Done | 大小后缀 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 已支持 |
+| **dd** | 467 | `if` Done, `of` Done, `bs` Done, `ibs` Done, `obs` Done, `cbs` Done, `count` Done, `skip` Done, `seek` Done, `conv=notrunc,sync` Done, `conv=noerror` Partial, `status=none,noxfer,progress` Done | 大小后缀 `K`/`KiB`/`M`/`MiB`/`G`/`GiB` 已支持；真实 `ReadFile` 错误恢复仍需 Windows fixture 验证 |
 | **install** | 425 | `-b` Done, `-c` Done, `-C` Done, `-d` Done, `-D` Done, `-g` Done, `-m` Done, `-o` Done, `-p` Done, `-s` Done, `--debug` Done, `--strip-program` Done, `-S` Done, `-t` Done, `-T` Done, `-v` Done, `--preserve-context` Done, `-Z` Done, `--context` Done | Windows 上的 owner/mode/strip 效果 |
 | **mv** | 454 | `-b` Done, `-f` Done, `-i` Done, `-I` Done, `-n` Done, `--strip-trailing-slashes` Done, `-S` Done, `-t` Done, `-T` Done, `-u` Done, `-v` Done, `-Z` Done, `--backup` Done (with method), `--interactive` Done (with WHEN) | POSIX/GNU 诊断措辞 |
 | **rm** | 582 | `-f` Done, `-i` Done, `-I` Done, `-d` Done, `-r/-R` Done, `-v` Done, `--interactive` Done, `--one-file-system` Done, `--no-preserve-root` Done, `--preserve-root` Done, `--preserve-root=all` Done | POSIX/GNU 诊断措辞 |

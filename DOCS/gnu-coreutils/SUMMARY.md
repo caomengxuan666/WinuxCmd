@@ -115,7 +115,7 @@
 | 命令 | 参数数 | 状态 | 文档 |
 |------|--------|------|------|
 | cp | 15 | 已实现 | [cp.md](cp.md) |
-| dd | 8 | 已实现 | [dd.md](dd.md) |
+| dd | 8 | Partial | [dd.md](dd.md) |
 | install | 12 | 已实现 | [install.md](install.md) |
 | mv | 10 | 已实现 | [mv.md](mv.md) |
 | rm | 7 | 已实现 | [rm.md](rm.md) |
