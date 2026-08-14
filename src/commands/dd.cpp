@@ -1,13 +1,14 @@
 /*
  *  Copyright © 2026 WinuxCmd
  */
-#include "commands/dd_recovery.h"
+// clang-format off
 #include "core/command_macros.h"
 #include "pch/pch.h"
 import std;
 import core;
 import utils;
 import container;
+// clang-format on
 
 auto constexpr DD_OPTIONS = std::array{
     OPTION("if", "", "read from FILE instead of stdin", STRING_TYPE),
@@ -47,6 +48,26 @@ struct CopyStats {
   std::uintmax_t out_records = 0;
   std::uintmax_t bytes_copied = 0;
 };
+
+enum class ReadBlockAction { success, recovered, stop };
+
+auto recover_read_block(
+    std::function<bool(char*, std::size_t, std::size_t&)> read,
+    std::function<bool(std::size_t)> seek, bool noerror, bool sync_blocks,
+    std::size_t request, std::vector<char>& output_buffer,
+    std::size_t& input_records, std::vector<char>& input_buffer,
+    std::size_t& bytes_read) -> ReadBlockAction {
+  bytes_read = 0;
+  if (read(input_buffer.data(), request, bytes_read)) {
+    return ReadBlockAction::success;
+  }
+  if (!noerror) return ReadBlockAction::stop;
+
+  const bool can_continue = seek(request);
+  if (sync_blocks) output_buffer.insert(output_buffer.end(), request, '\0');
+  ++input_records;
+  return can_continue ? ReadBlockAction::recovered : ReadBlockAction::stop;
+}
 
 auto parse_size_operand(std::string_view text)
     -> std::optional<std::uintmax_t> {
