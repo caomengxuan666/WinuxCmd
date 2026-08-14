@@ -31,6 +31,7 @@
 | **find** | `Partial` | `-type f/d/l` 可用；`-type b/c/p/s` 不适用于当前 Windows 文件模型。 |
 | **file** | `Partial` | 基础识别可用；`-i` / `--mime` 尚未实现完整 MIME 检测。 |
 | **strings** | `Partial` | `-d` / `--data`、`-T` / `--target`、`-U` / `--unicode` 仍为占位或 no-op。 |
+| **sed** | `Partial` / `Tested` | 已覆盖常用脚本命令、地址范围、分支、hold space 和文件命令；完整 GNU 语言仍需差分测试。 |
 
 ---
 

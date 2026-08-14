@@ -248,6 +248,7 @@
 | find | Partial | [find.md](find.md) |
 | file | Partial | [file.md](file.md) |
 | strings | Partial | [strings.md](strings.md) |
+| sed | Partial / Tested | [sed.md](sed.md) |
 
 ## 通用选项统计
 
