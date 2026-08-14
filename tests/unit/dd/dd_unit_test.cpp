@@ -140,4 +140,3 @@ TEST(dd, dd_conv_noerror_is_accepted_with_sync) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(tmp.read("out.bin"), std::string("abc\0", 4));
 }
-
