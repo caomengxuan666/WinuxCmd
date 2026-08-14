@@ -9,6 +9,20 @@
 > - **Partial** — 选项已解析但行为有差异（见备注）
 > - **Gap** — 选项未实现
 > - **N/A** — Windows 平台不适用
+> - **Placeholder** — 命令已注册并提供诊断，但未执行 GNU 操作
+> - **Windows limitation** — GNU 行为在 Windows 上没有直接等价实现
+
+### 已注册但非完整实现的命令
+
+| 命令 | 状态 | 说明 |
+|------|------|------|
+| **chcon** | `Placeholder` / `Windows limitation` | SELinux 文件上下文在 Windows 上不可用；当前仅报告不支持。 |
+| **chroot** | `Windows limitation` | Windows 没有 GNU chroot 的直接等价行为；当前返回不支持状态。 |
+| **mkfifo** | `Windows limitation` | Win32 普通文件系统不提供 POSIX FIFO；当前不会创建 FIFO。 |
+| **mknod** | `Windows limitation` | Windows 不允许按 GNU 语义创建设备节点或特殊文件。 |
+| **runcon** | `Placeholder` / `Windows limitation` | SELinux 进程上下文在 Windows 上不可用；当前仅报告不支持。 |
+
+这些命令仍然保持注册，以便提供可发现性和明确诊断，但不计入“行为已实现”。
 
 ---
 
