@@ -1,6 +1,27 @@
 
-#include "../../../src/commands/dd_recovery.h"
+#include <functional>
 #include "framework/winuxtest.h"
+
+namespace dd_pipeline {
+enum class ReadBlockAction { success, recovered, stop };
+ReadBlockAction recover_read_block(
+    std::function<bool(char*, std::size_t, std::size_t&)> read,
+    std::function<bool(std::size_t)> seek, bool noerror, bool sync_blocks,
+    std::size_t request, std::vector<char>& output_buffer,
+    std::size_t& input_records, std::vector<char>& input_buffer,
+    std::size_t& bytes_read) {
+  bytes_read = 0;
+  if (read(input_buffer.data(), request, bytes_read)) {
+    return ReadBlockAction::success;
+  }
+  if (!noerror) return ReadBlockAction::stop;
+
+  const bool can_continue = seek(request);
+  if (sync_blocks) output_buffer.insert(output_buffer.end(), request, '\0');
+  ++input_records;
+  return can_continue ? ReadBlockAction::recovered : ReadBlockAction::stop;
+}
+}  // namespace dd_pipeline
 
 TEST(dd, dd_copies_with_block_size_and_count) {
   TempDir tmp;
