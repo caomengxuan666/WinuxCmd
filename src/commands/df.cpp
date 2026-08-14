@@ -781,8 +781,9 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
     -> cp::Result<bool> {
   // Use SmallVector for file paths (max 32 drives) - all stack-allocated
   SmallVector<std::string, 32> paths{};
+  const bool auto_enumerated_drives = ctx.positionals.empty();
 
-  if (ctx.positionals.empty()) {
+  if (auto_enumerated_drives) {
     DWORD logical_drives = GetLogicalDrives();
     if (logical_drives == 0) {
       return std::unexpected("cannot enumerate logical drives");
@@ -870,10 +871,12 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
     auto disk_info = get_disk_info(path);
 
     if (!disk_info) {
-      safeErrorPrint("df: cannot access '");
-      safeErrorPrint(path);
-      safeErrorPrint("': No such file or directory\n");
-      all_ok = false;
+      if (!auto_enumerated_drives) {
+        safeErrorPrint("df: cannot access '");
+        safeErrorPrint(path);
+        safeErrorPrint("': No such file or directory\n");
+        all_ok = false;
+      }
       continue;
     }
 
