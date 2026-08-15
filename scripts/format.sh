@@ -64,12 +64,8 @@ printf 'Using %s\n' "$("$clang_format" --version)"
 printf '%s\n' "Searching for files..."
 
 count=0
-git_dir=$(git rev-parse --git-dir)
-file_list="$git_dir/winuxcmd-format-$$.lst"
-trap 'rm -f "$file_list"' EXIT
-git ls-files -co --exclude-standard > "$file_list"
 
-while IFS= read -r file; do
+for file in $(git ls-files -co --exclude-standard); do
   case "$file" in
     third_party/* | */third_party/* | third-party/* | */third-party/*) continue ;;
     src/utils/json.hpp) continue ;;
@@ -86,7 +82,7 @@ while IFS= read -r file; do
   count=$((count + 1))
   printf 'Formatting: %s\n' "$file"
   "$clang_format" -i -style=file "$file"
-done < "$file_list"
+done
 
 if [ "$count" -eq 0 ]; then
   printf '%s\n' "No files found that need formatting"
