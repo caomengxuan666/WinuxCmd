@@ -142,6 +142,10 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+foreach ($relative in @("bin", "usr\bin", "usr\local\bin", "etc", "var", "tmp", "dev")) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $resolvedStagePath $relative) | Out-Null
+}
+
 $resolvedIsccPath = Resolve-IsccPath -Candidate $IsccPath
 $isccArgs = @(
     "/DAppVersion=$projectVersion",

@@ -33,7 +33,7 @@ AppUpdatesURL=https://github.com/unixwin/WinuxCmd/releases
 DefaultDirName={localappdata}\Programs\WinuxCmd
 DefaultGroupName=WinuxCmd
 DisableProgramGroupPage=yes
-UninstallDisplayIcon={app}\winuxcmd.exe
+UninstallDisplayIcon={app}\usr\bin\winuxcmd.exe
 PrivilegesRequired=lowest
 ChangesEnvironment=yes
 SolidCompression=yes
@@ -99,7 +99,7 @@ var
     ResultCode: Integer;
 begin
     if not Exec(
-        ExpandConstant('{app}\winuxcmd.exe'),
+        ExpandConstant('{app}\usr\bin\winuxcmd.exe'),
         'wpm links rebuild --root "' + ExpandConstant('{app}') + '" --force',
         ExpandConstant('{app}'),
         SW_HIDE,
@@ -123,7 +123,7 @@ begin
         Params := '-Uninstall -ProfilesOnly -Quiet';
 
     RunPowerShell(
-        ExpandConstant('{app}\winux-activate.ps1'),
+        ExpandConstant('{app}\usr\bin\winux-activate.ps1'),
         Params,
         ExpandConstant('{app}'),
         'Failed to update PowerShell profiles');
@@ -136,7 +136,7 @@ var
     I, Count: Integer;
     AppPath: String;
 begin
-    AppPath := ExpandConstant('{app}');
+    AppPath := ExpandConstant('{app}\usr\bin');
     if not RegQueryStringValue(HKCU, 'Environment', 'Path', PathValue) then
         PathValue := '';
 

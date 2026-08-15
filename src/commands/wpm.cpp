@@ -175,8 +175,45 @@ auto current_exe_path() -> fs::path {
 }
 
 auto default_root() -> fs::path {
-  auto exe = current_exe_path();
-  return exe.has_parent_path() ? exe.parent_path() : fs::current_path();
+  auto exe_dir = current_exe_path().parent_path();
+  if (exe_dir.filename() == L"bin") {
+    auto parent = exe_dir.parent_path();
+    if (parent.filename() == L"usr") return parent.parent_path();
+    if (parent.filename() == L"local" &&
+        parent.parent_path().filename() == L"usr") {
+      return parent.parent_path().parent_path();
+    }
+    return parent;
+  }
+  return exe_dir.empty() ? fs::current_path() : exe_dir;
+}
+
+auto canonical_bin_dir(const fs::path& root) -> fs::path {
+  return root / "usr" / "bin";
+}
+
+auto canonical_winuxcmd_path(const fs::path& root) -> fs::path {
+  return canonical_bin_dir(root) / "winuxcmd.exe";
+}
+
+auto ensure_install_layout(const fs::path& root) -> bool {
+  std::error_code ec;
+  for (const auto* relative : {"bin", "usr/bin", "usr/local/bin", "etc",
+                               "var", "tmp", "dev"}) {
+    fs::create_directories(root / relative, ec);
+    if (ec) return false;
+  }
+  return true;
+}
+
+auto normalized_package_target(std::string target, bool directory)
+    -> fs::path {
+  std::ranges::replace(target, '\\', '/');
+  while (!target.empty() && target.front() == '/') target.erase(target.begin());
+  if (!directory && target.find('/') == std::string::npos) {
+    return fs::path("usr") / "bin" / target;
+  }
+  return fs::path(target);
 }
 
 auto state_dir(const fs::path& root) -> fs::path { return root / ".wpm"; }
@@ -488,11 +525,31 @@ auto remove_stale_legacy_links(const fs::path& root, const fs::path& source,
   return {removed, failed};
 }
 
+auto materialize_command_link(const fs::path& source, const fs::path& target)
+    -> std::error_code {
+  if (CreateHardLinkW(target.wstring().c_str(), source.wstring().c_str(),
+                      nullptr)) {
+    return {};
+  }
+
+  if (CreateSymbolicLinkW(target.wstring().c_str(), source.wstring().c_str(),
+                          SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)) {
+    return {};
+  }
+
+  std::error_code ec;
+  fs::copy_file(source, target, fs::copy_options::overwrite_existing, ec);
+  return ec;
+}
+
 auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
     -> int {
-  const fs::path source = fs::exists(root / "winuxcmd.exe")
-                              ? root / "winuxcmd.exe"
-                              : current_exe_path();
+  const fs::path canonical_source = canonical_winuxcmd_path(root);
+  const fs::path legacy_source = root / "winuxcmd.exe";
+  const fs::path source = fs::exists(canonical_source)
+                              ? canonical_source
+                              : fs::exists(legacy_source) ? legacy_source
+                                                          : current_exe_path();
   const fs::path current = current_exe_path();
 
   if (!fs::exists(source)) {
@@ -510,7 +567,7 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
   failed += stale_failed;
 
   for (const auto& name : command_names()) {
-    fs::path target = root / exe_suffix(name);
+    fs::path target = canonical_bin_dir(root) / exe_suffix(name);
     if (same_file(source, target)) {
       ++unchanged;
       continue;
@@ -525,21 +582,20 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
       ++created;
       continue;
     }
-    if (CreateHardLinkW(target.wstring().c_str(), source.wstring().c_str(),
-                        nullptr)) {
+    auto link_error = materialize_command_link(source, target);
+    if (!link_error) {
       ++created;
       if (verbose)
         safePrintLn(wpm_text("command.wpm.status.linked", "linked {}",
                              target.string()));
     } else {
-      DWORD err = GetLastError();
       if (same_file(source, target)) {
         ++unchanged;
         continue;
       }
-      safeErrorPrintLn(wpm_text("command.wpm.error.create_link",
+        safeErrorPrintLn(wpm_text("command.wpm.error.create_link",
                                 "wpm: failed to create hard link '{}': {}",
-                                target.string(), win32_error_text(err)));
+                                target.string(), link_error.message()));
       ++failed;
     }
   }
@@ -552,14 +608,18 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
 }
 
 auto remove_links(const fs::path& root, bool dry_run) -> int {
-  fs::path source = fs::exists(root / "winuxcmd.exe") ? root / "winuxcmd.exe"
-                                                      : current_exe_path();
+  fs::path canonical_source = canonical_winuxcmd_path(root);
+  fs::path legacy_source = root / "winuxcmd.exe";
+  fs::path source = fs::exists(canonical_source)
+                        ? canonical_source
+                        : fs::exists(legacy_source) ? legacy_source
+                                                    : current_exe_path();
   fs::path current = current_exe_path();
   int removed = 0;
   int failed = 0;
 
   for (const auto& name : cleanup_link_names()) {
-    fs::path target = root / exe_suffix(name);
+    fs::path target = canonical_bin_dir(root) / exe_suffix(name);
     if (same_path_name(current, target)) continue;
     std::error_code ec;
     if (!fs::exists(target, ec)) continue;
@@ -1733,12 +1793,12 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
       return false;
     }
 
-    fs::path dest = root / to;
+    fs::path dest = root / normalized_package_target(to, directory);
     std::error_code ec;
     bool dest_exists = fs::exists(dest, ec);
-    bool dest_is_winux_link = dest_exists &&
-                              same_file(root / "winuxcmd.exe", dest) &&
-                              !same_path_name(root / "winuxcmd.exe", dest);
+    bool dest_is_winux_link =
+        dest_exists && same_file(canonical_winuxcmd_path(root), dest) &&
+        !same_path_name(canonical_winuxcmd_path(root), dest);
     bool dest_is_legacy_link = is_legacy_link_name(dest.filename().string());
     if (directory && dest_exists && !fs::is_directory(dest, ec)) {
       safeErrorPrintLn("wpm: destination exists and is not a directory: " +
@@ -1810,7 +1870,7 @@ auto artifact_destination_paths(const fs::path& root,
       safeErrorPrintLn("wpm: invalid file mapping in artifact");
       return std::nullopt;
     }
-    destinations.push_back(root / to);
+    destinations.push_back(root / normalized_package_target(to, directory));
   }
   return destinations;
 }
@@ -1829,8 +1889,9 @@ auto preflight_install_destinations(const fs::path& root,
     bool dest_exists = fs::exists(dest, ec);
     if (!dest_exists) continue;
 
-    bool dest_is_winux_link = same_file(root / "winuxcmd.exe", dest) &&
-                              !same_path_name(root / "winuxcmd.exe", dest);
+    bool dest_is_winux_link =
+        same_file(canonical_winuxcmd_path(root), dest) &&
+        !same_path_name(canonical_winuxcmd_path(root), dest);
     bool dest_is_legacy_link = is_legacy_link_name(dest.filename().string());
     if (dest_is_winux_link && dest_is_legacy_link) continue;
 
@@ -2096,7 +2157,7 @@ auto apply_update(std::span<const std::string_view> args) -> int {
 
   std::error_code ec;
   fs::create_directories(backup_dir(root), ec);
-  fs::path target = root / "winuxcmd.exe";
+  fs::path target = canonical_winuxcmd_path(root);
   fs::path backup = unique_update_backup_path(root);
   if (fs::exists(target, ec)) {
     fs::copy_file(target, backup, fs::copy_options::none, ec);
@@ -2415,6 +2476,7 @@ auto build_options(const CommandContext<WPM_OPTIONS.size()>& ctx) -> Options {
       ctx.get<bool>("--dry-run", false) || ctx.get<bool>("-n", false);
   opts.verbose =
       ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
+  if (!opts.dry_run) (void)ensure_install_layout(opts.root);
   return opts;
 }
 

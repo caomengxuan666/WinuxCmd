@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: WinuxCmd - CMD Environment Initializer
-set SCRIPT_VERSION=0.7.2
+set SCRIPT_VERSION=0.16.0
 set SCRIPT_DIR=%~dp0
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
@@ -13,10 +13,14 @@ if /i "%~1"=="--help" goto :show_help
 
 :: Find WinuxCmd Installation
 set WINUXCMD_BIN=
-if exist "%SCRIPT_DIR%\..\build-dev\winuxcmd.exe" (
+if exist "%SCRIPT_DIR%\..\build-dev\usr\bin\winuxcmd.exe" (
+    set WINUXCMD_BIN=%SCRIPT_DIR%\..\build-dev\usr\bin
+) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64\usr\bin\winuxcmd.exe" (
+    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64\usr\bin
+) else if exist "%SCRIPT_DIR%\..\build-dev\winuxcmd.exe" (
     set WINUXCMD_BIN=%SCRIPT_DIR%\..\build-dev
-) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.7.2-win-x64\winuxcmd.exe" (
-    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.7.2-win-x64
+) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64\winuxcmd.exe" (
+    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64
 ) else (
     echo [ERROR] WinuxCmd not found.
     echo Please run from development directory or install WinuxCmd.
@@ -80,10 +84,14 @@ if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
 :: Find WinuxCmd again
 set WINUXCMD_BIN=
-if exist "%SCRIPT_DIR%\..\build-dev\winuxcmd.exe" (
+if exist "%SCRIPT_DIR%\..\build-dev\usr\bin\winuxcmd.exe" (
+    set WINUXCMD_BIN=%SCRIPT_DIR%\..\build-dev\usr\bin
+) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64\usr\bin\winuxcmd.exe" (
+    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64\usr\bin
+) else if exist "%SCRIPT_DIR%\..\build-dev\winuxcmd.exe" (
     set WINUXCMD_BIN=%SCRIPT_DIR%\..\build-dev
-) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.7.2-win-x64\winuxcmd.exe" (
-    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.7.2-win-x64
+) else if exist "%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64\winuxcmd.exe" (
+    set WINUXCMD_BIN=%LOCALAPPDATA%\WinuxCmd\WinuxCmd-0.16.0-win-x64
 )
 
 if "%WINUXCMD_BIN%"=="" (
