@@ -822,9 +822,8 @@ endif ()
 
 include(GNUInstallDirs)
 
-# Override default bin directory to install directly to root (no bin/ subdirectory)
-# This maintains compatibility with older versions
-set(CMAKE_INSTALL_BINDIR "." CACHE PATH "Output directory for executables" FORCE)
+# Install executables into the real Unix-style command directory.
+set(CMAKE_INSTALL_BINDIR "usr/bin" CACHE PATH "Output directory for executables" FORCE)
 
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/install" CACHE PATH "Installation prefix" FORCE)

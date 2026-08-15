@@ -17,7 +17,20 @@
 namespace {
 
 auto build_winuxcmd_path() -> std::filesystem::path {
-  return std::filesystem::path(WINUXCMD_BIN_DIR) / L"winuxcmd.exe";
+  const auto build_dir = std::filesystem::path(WINUXCMD_BIN_DIR);
+  const auto installed = build_dir / L"usr" / L"bin" / L"winuxcmd.exe";
+  if (std::filesystem::is_regular_file(installed)) return installed;
+  return build_dir / L"winuxcmd.exe";
+}
+
+auto canonical_bin_dir(const std::filesystem::path& root)
+    -> std::filesystem::path {
+  return root / L"usr" / L"bin";
+}
+
+auto canonical_exe(const std::filesystem::path& root, const wchar_t* name)
+    -> std::filesystem::path {
+  return canonical_bin_dir(root) / name;
 }
 
 auto current_arch_key() -> std::string {
@@ -352,7 +365,7 @@ TEST(wpm, wpm_list_all_shows_index_only_placeholders) {
 TEST(wpm, wpm_installed_lists_only_present_package_files) {
   TempDir tmp;
   tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
-  tmp.write("jq.exe", "installed jq\n");
+  tmp.write("usr/bin/jq.exe", "installed jq\n");
 
   Pipeline p;
   p.add(L"winuxcmd.exe", {L"wpm", L"installed", L"--root", tmp.wpath()});
@@ -447,7 +460,8 @@ TEST(wpm, wpm_search_filters_source_packages) {
 
 TEST(wpm, wpm_links_rebuild_creates_internal_tool_hardlink) {
   TempDir tmp;
-  auto root_exe = tmp.path / L"winuxcmd.exe";
+  auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
+  std::filesystem::create_directories(root_exe.parent_path());
   std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
                              std::filesystem::copy_options::overwrite_existing);
 
@@ -457,14 +471,15 @@ TEST(wpm, wpm_links_rebuild_creates_internal_tool_hardlink) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  auto wpm_exe = tmp.path / L"wpm.exe";
+  auto wpm_exe = canonical_exe(tmp.path, L"wpm.exe");
   EXPECT_TRUE(std::filesystem::exists(wpm_exe));
   EXPECT_TRUE(same_file(root_exe, wpm_exe));
 }
 
 TEST(wpm, wpm_links_rebuild_removes_legacy_jq_hardlink) {
   TempDir tmp;
-  auto root_exe = tmp.path / L"winuxcmd.exe";
+  auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
+  std::filesystem::create_directories(root_exe.parent_path());
   auto legacy_jq = tmp.path / L"jq.exe";
   std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
                              std::filesystem::copy_options::overwrite_existing);
@@ -480,15 +495,16 @@ TEST(wpm, wpm_links_rebuild_removes_legacy_jq_hardlink) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(std::filesystem::exists(legacy_jq));
-  EXPECT_TRUE(std::filesystem::exists(tmp.path / L"wpm.exe"));
+  EXPECT_TRUE(std::filesystem::exists(canonical_exe(tmp.path, L"wpm.exe")));
 }
 
 TEST(wpm, wpm_apply_update_replaces_root_and_rebuilds_links) {
   TempDir tmp;
-  auto root_exe = tmp.path / L"winuxcmd.exe";
-  auto wpm_exe = tmp.path / L"wpm.exe";
+  auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
+  auto wpm_exe = canonical_exe(tmp.path, L"wpm.exe");
   auto old_payload = tmp.path / L"old-winuxcmd.exe";
 
+  std::filesystem::create_directories(root_exe.parent_path());
   tmp.write("old-winuxcmd.exe", "old exe\n");
   std::filesystem::copy_file(old_payload, root_exe,
                              std::filesystem::copy_options::overwrite_existing);
@@ -557,11 +573,12 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
   TempDir tmp;
   const auto artifact_path = tmp.path / L"source" / L"jq.exe";
   const auto index_path = tmp.path / L"fixture-install-index.json";
-  const auto root_exe = tmp.path / L"winuxcmd.exe";
-  const auto legacy_jq = tmp.path / L"jq.exe";
+  const auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
+  const auto installed_jq = canonical_exe(tmp.path, L"jq.exe");
+  std::filesystem::create_directories(root_exe.parent_path());
   std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
                              std::filesystem::copy_options::overwrite_existing);
-  bool linked = CreateHardLinkW(legacy_jq.wstring().c_str(),
+  bool linked = CreateHardLinkW(installed_jq.wstring().c_str(),
                                 root_exe.wstring().c_str(), nullptr) != 0;
   EXPECT_TRUE(linked);
   if (!linked) return;
@@ -591,8 +608,8 @@ TEST(wpm, wpm_install_downloads_local_exe_with_sha256) {
                                               "sources") != std::string::npos);
   EXPECT_TRUE(install_result.stdout_text.find("installed jq") !=
               std::string::npos);
-  EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
-  EXPECT_FALSE(same_file(root_exe, legacy_jq));
+  EXPECT_EQ(tmp.read("usr/bin/jq.exe"), "external exe\n");
+  EXPECT_FALSE(same_file(root_exe, installed_jq));
 }
 
 TEST(wpm, wpm_update_winuxcmd_refreshes_index_before_staging) {
@@ -643,7 +660,7 @@ TEST(wpm, wpm_install_existing_package_skips_download) {
   const auto missing_artifact_path = tmp.path / L"source" / L"jq.exe";
   tmp.write(".wpm/indexes/official.json",
             install_fixture_index_json(missing_artifact_path));
-  tmp.write("jq.exe", "already here\n");
+  tmp.write("usr/bin/jq.exe", "already here\n");
 
   Pipeline install;
   install.add(L"winuxcmd.exe",
@@ -657,7 +674,7 @@ TEST(wpm, wpm_install_existing_package_skips_download) {
               std::string::npos);
   EXPECT_TRUE(install_result.stderr_text.find("destination exists") ==
               std::string::npos);
-  EXPECT_EQ(tmp.read("jq.exe"), "already here\n");
+  EXPECT_EQ(tmp.read("usr/bin/jq.exe"), "already here\n");
 }
 
 TEST(wpm, wpm_install_uses_valid_cached_artifact_before_downloading) {
@@ -679,7 +696,7 @@ TEST(wpm, wpm_install_uses_valid_cached_artifact_before_downloading) {
               std::string::npos);
   EXPECT_TRUE(install_result.stderr_text.find("download failed") ==
               std::string::npos);
-  EXPECT_EQ(tmp.read("jq.exe"), "external exe\n");
+  EXPECT_EQ(tmp.read("usr/bin/jq.exe"), "external exe\n");
 }
 
 TEST(wpm, wpm_install_single_exe_can_rename_command) {
@@ -716,7 +733,7 @@ TEST(wpm, wpm_install_single_exe_can_rename_command) {
   EXPECT_EQ(install_result.exit_code, 0);
   EXPECT_TRUE(install_result.stdout_text.find("installed tealdeer") !=
               std::string::npos);
-  EXPECT_EQ(tmp.read("tldr.exe"), "external exe\n");
+  EXPECT_EQ(tmp.read("usr/bin/tldr.exe"), "external exe\n");
 }
 
 TEST(wpm, wpm_install_tar_gz_with_directory_mapping) {
@@ -772,7 +789,7 @@ TEST(wpm, wpm_install_tar_gz_with_directory_mapping) {
   EXPECT_EQ(install_result.exit_code, 0);
   EXPECT_TRUE(install_result.stdout_text.find("installed tool") !=
               std::string::npos);
-  EXPECT_EQ(tmp.read("tool.exe"), "external exe\n");
+  EXPECT_EQ(tmp.read("usr/bin/tool.exe"), "external exe\n");
   EXPECT_EQ(tmp.read("runtime/lang.txt"), "runtime file\n");
 }
 
@@ -817,11 +834,12 @@ TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
   TempDir tmp;
   const auto artifact_path = tmp.path / L"source" / L"jq.exe";
   const auto index_path = tmp.path / L"fixture-install-index.json";
-  const auto root_exe = tmp.path / L"winuxcmd.exe";
-  const auto legacy_jq = tmp.path / L"jq.exe";
+  const auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
+  const auto installed_jq = canonical_exe(tmp.path, L"jq.exe");
+  std::filesystem::create_directories(root_exe.parent_path());
   std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
                              std::filesystem::copy_options::overwrite_existing);
-  bool linked = CreateHardLinkW(legacy_jq.wstring().c_str(),
+  bool linked = CreateHardLinkW(installed_jq.wstring().c_str(),
                                 root_exe.wstring().c_str(), nullptr) != 0;
   EXPECT_TRUE(linked);
   if (!linked) return;
@@ -859,5 +877,5 @@ TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
               std::string::npos);
   EXPECT_TRUE(install_result.stdout_text.find("requested=2 failed=0") !=
               std::string::npos);
-  EXPECT_TRUE(same_file(root_exe, legacy_jq));
+  EXPECT_TRUE(same_file(root_exe, installed_jq));
 }

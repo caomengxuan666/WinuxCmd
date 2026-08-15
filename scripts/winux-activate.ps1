@@ -94,7 +94,9 @@ function Get-WinuxVersionDirectories {
 
     foreach ($root in Get-WinuxInstallRoots) {
         $rootName = Split-Path $root -Leaf
-        if ((Test-Path (Join-Path $root "winuxcmd.exe")) -or (Test-Path (Join-Path $root "bin\winuxcmd.exe"))) {
+        if ((Test-Path (Join-Path $root "usr\bin\winuxcmd.exe")) -or
+            (Test-Path (Join-Path $root "bin\winuxcmd.exe")) -or
+            (Test-Path (Join-Path $root "winuxcmd.exe"))) {
             $item = Get-Item $root
             $item | Add-Member -NotePropertyName WinuxPriority -NotePropertyValue 3 -Force
             $versionDirs.Add($item)
@@ -157,8 +159,16 @@ function Remove-LegacyProfileBlocks {
 }
 
 function Get-WinuxBinDir {
+    if (Test-Path ".\usr\bin\winuxcmd.exe") {
+        return (Join-Path (Get-Location).Path "usr\bin")
+    }
+
     if (Test-Path ".\winuxcmd.exe") {
         return (Get-Location).Path
+    }
+
+    if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "usr\bin\winuxcmd.exe"))) {
+        return (Join-Path $PSScriptRoot "usr\bin")
     }
 
     if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "winuxcmd.exe"))) {
@@ -166,17 +176,22 @@ function Get-WinuxBinDir {
     }
 
     if ($env:WINUXCMD_HOME -and (Test-Path $env:WINUXCMD_HOME)) {
-        $winuxExe = Join-Path $env:WINUXCMD_HOME "winuxcmd.exe"
-        if (Test-Path $winuxExe) {
-            return $env:WINUXCMD_HOME
+        foreach ($relative in @("usr\bin\winuxcmd.exe", "winuxcmd.exe")) {
+            $winuxExe = Join-Path $env:WINUXCMD_HOME $relative
+            if (Test-Path $winuxExe) {
+                return Split-Path $winuxExe
+            }
         }
     }
 
     $versionDirs = Get-WinuxVersionDirectories
     if ($versionDirs.Count -gt 0) {
         foreach ($versionDir in $versionDirs) {
-            $binDir = Join-Path $versionDir.FullName "bin"
-            if (-not (Test-Path $binDir)) {
+            $binDir = Join-Path $versionDir.FullName "usr\bin"
+            if (-not (Test-Path (Join-Path $binDir "winuxcmd.exe"))) {
+                $binDir = Join-Path $versionDir.FullName "bin"
+            }
+            if (-not (Test-Path (Join-Path $binDir "winuxcmd.exe"))) {
                 $exeFile = Get-ChildItem -Path $versionDir.FullName -Filter "winuxcmd.exe" -Recurse -File |
                            Select-Object -First 1
                 if ($exeFile) {
@@ -254,7 +269,9 @@ function Get-WinuxVersionDirectories {
 
     foreach ($root in Get-WinuxInstallRoots) {
         $rootName = Split-Path $root -Leaf
-        if ((Test-Path (Join-Path $root 'winuxcmd.exe')) -or (Test-Path (Join-Path $root 'bin\winuxcmd.exe'))) {
+        if ((Test-Path (Join-Path $root 'usr\bin\winuxcmd.exe')) -or
+            (Test-Path (Join-Path $root 'bin\winuxcmd.exe')) -or
+            (Test-Path (Join-Path $root 'winuxcmd.exe'))) {
             $item = Get-Item $root
             $item | Add-Member -NotePropertyName WinuxPriority -NotePropertyValue 3 -Force
             $versionDirs.Add($item)
@@ -294,7 +311,10 @@ function Update-WinuxCmdAlias {
     $latestExe = $null
 
     foreach ($dir in Get-WinuxVersionDirectories) {
-        $exePath = Join-Path $dir.FullName 'bin\winuxcmd.exe'
+        $exePath = Join-Path $dir.FullName 'usr\bin\winuxcmd.exe'
+        if (-not (Test-Path $exePath)) {
+            $exePath = Join-Path $dir.FullName 'bin\winuxcmd.exe'
+        }
         if (-not (Test-Path $exePath)) {
             $exePath = Join-Path $dir.FullName 'winuxcmd.exe'
         }
@@ -353,9 +373,15 @@ function global:winux {
         }
         $latestDir = $sorted[0].FullName
 
-        $binDir = Join-Path $latestDir "bin"
+        $binDir = Join-Path $latestDir "usr\bin"
         $winuxCmdPath = Join-Path $binDir "winuxcmd.exe"
         $winuxPs1Path = Join-Path $binDir "winux.ps1"
+
+        if (-not (Test-Path $winuxCmdPath)) {
+            $binDir = Join-Path $latestDir "bin"
+            $winuxCmdPath = Join-Path $binDir "winuxcmd.exe"
+            $winuxPs1Path = Join-Path $binDir "winux.ps1"
+        }
 
         if (-not (Test-Path $winuxCmdPath)) {
             $exeFile = Get-ChildItem -Path $latestDir -Filter "winuxcmd.exe" -Recurse -File -ErrorAction SilentlyContinue |

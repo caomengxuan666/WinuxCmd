@@ -51,7 +51,12 @@ if ($UseSymbolicLinks) {
 }
 
 $winuxCmdPath = Get-WinuxCmdPath
-$root = Get-Location
+$binDir = Get-Location
+$root = if ($binDir.Name -eq "bin" -and $binDir.Parent.Name -eq "usr") {
+    $binDir.Parent.Parent
+} else {
+    $binDir
+}
 
 if ($Remove) {
     $wpmArgs = @("wpm", "links", "remove", "--root", "$root")
