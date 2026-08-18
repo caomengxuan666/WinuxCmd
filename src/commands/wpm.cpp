@@ -51,7 +51,8 @@ auto constexpr WPM_OPTIONS = std::array{
     OPTION("-a", "--all", "show index-only packages in list output"),
     OPTION("-f", "--force", "overwrite existing files when safe"),
     OPTION("-n", "--dry-run", "show planned changes without writing"),
-    OPTION("-v", "--verbose", "print detailed progress")};
+    OPTION("-v", "--verbose", "print detailed progress"),
+    OPTION("", "--plain", "print only package names for export")};
 
 namespace wpm {
 namespace fs = std::filesystem;
@@ -198,16 +199,15 @@ auto canonical_winuxcmd_path(const fs::path& root) -> fs::path {
 
 auto ensure_install_layout(const fs::path& root) -> bool {
   std::error_code ec;
-  for (const auto* relative : {"bin", "usr/bin", "usr/local/bin", "etc",
-                               "var", "tmp", "dev"}) {
+  for (const auto* relative :
+       {"bin", "usr/bin", "usr/local/bin", "etc", "var", "tmp", "dev"}) {
     fs::create_directories(root / relative, ec);
     if (ec) return false;
   }
   return true;
 }
 
-auto normalized_package_target(std::string target, bool directory)
-    -> fs::path {
+auto normalized_package_target(std::string target, bool directory) -> fs::path {
   std::ranges::replace(target, '\\', '/');
   while (!target.empty() && target.front() == '/') target.erase(target.begin());
   if (!directory && target.find('/') == std::string::npos) {
@@ -546,10 +546,9 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
     -> int {
   const fs::path canonical_source = canonical_winuxcmd_path(root);
   const fs::path legacy_source = root / "winuxcmd.exe";
-  const fs::path source = fs::exists(canonical_source)
-                              ? canonical_source
-                              : fs::exists(legacy_source) ? legacy_source
-                                                          : current_exe_path();
+  const fs::path source = fs::exists(canonical_source) ? canonical_source
+                          : fs::exists(legacy_source)  ? legacy_source
+                                                       : current_exe_path();
   const fs::path current = current_exe_path();
 
   if (!fs::exists(source)) {
@@ -593,7 +592,7 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
         ++unchanged;
         continue;
       }
-        safeErrorPrintLn(wpm_text("command.wpm.error.create_link",
+      safeErrorPrintLn(wpm_text("command.wpm.error.create_link",
                                 "wpm: failed to create hard link '{}': {}",
                                 target.string(), link_error.message()));
       ++failed;
@@ -610,10 +609,9 @@ auto rebuild_links(const fs::path& root, bool force, bool dry_run, bool verbose)
 auto remove_links(const fs::path& root, bool dry_run) -> int {
   fs::path canonical_source = canonical_winuxcmd_path(root);
   fs::path legacy_source = root / "winuxcmd.exe";
-  fs::path source = fs::exists(canonical_source)
-                        ? canonical_source
-                        : fs::exists(legacy_source) ? legacy_source
-                                                    : current_exe_path();
+  fs::path source = fs::exists(canonical_source) ? canonical_source
+                    : fs::exists(legacy_source)  ? legacy_source
+                                                 : current_exe_path();
   fs::path current = current_exe_path();
   int removed = 0;
   int failed = 0;
@@ -2356,6 +2354,54 @@ auto list_installed_packages(const Options& opts) -> int {
   return 0;
 }
 
+auto export_installed_packages_plain(const Options& opts) -> int {
+  auto index = load_index(opts.root);
+  for (const auto& pkg : package_array(index)) {
+    const std::string name = pkg.value("name", "");
+    if (name.empty() || name == "winuxcmd") continue;
+    if (!package_is_installed(opts.root, pkg)) continue;
+    safePrintLn(name);
+  }
+  return 0;
+}
+
+auto package_list_entry(std::string line) -> std::optional<std::string> {
+  line = trim_ascii(std::move(line));
+  if (line.empty() || line.starts_with('#')) return std::nullopt;
+  return line;
+}
+
+auto restore_packages(const Options& opts, const fs::path& package_list) -> int {
+  auto text = read_text(package_list);
+  if (!text) {
+    safeErrorPrintLn(wpm_text("command.wpm.error.read_package_list",
+                              "wpm: failed to read package list: {}",
+                              package_list.string()));
+    return 1;
+  }
+
+  std::vector<std::string> packages;
+  std::istringstream input(*text);
+  std::string line;
+  while (std::getline(input, line)) {
+    if (auto entry = package_list_entry(std::move(line))) {
+      packages.push_back(std::move(*entry));
+    }
+  }
+
+  if (packages.empty()) {
+    safePrintLn(wpm_text("command.wpm.status.restore_empty",
+                         "wpm: package list is empty: {}",
+                         package_list.string()));
+    return 0;
+  }
+
+  std::vector<std::string_view> package_views;
+  package_views.reserve(packages.size());
+  for (const auto& package : packages) package_views.push_back(package);
+  return install_packages(opts, package_views);
+}
+
 auto list_packages(const Options& opts, std::string_view query = {}) -> int {
   auto index = load_index(opts.root);
   int matched = 0;
@@ -2432,14 +2478,16 @@ auto show_info(const Options& opts, std::string_view name) -> int {
 
 auto print_usage() -> int {
   const std::string help =
-      "Winux Package Manager " + std::string(kVersion) +
-      "\n"
+      "Winux Package Manager {}\n"
       "Usage: wpm <command> [args] [options]\n\n"
       "Commands:\n"
       "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
-      "  clean [cache|staging|all]    remove transient downloads and staging\n"
+      "  clean [cache|staging|all]     remove transient downloads and staging\n"
+      "  cache clean [cache|staging|all]\n"
+      "                                alias for clean\n"
       "  index status|update           inspect or refresh local index\n"
-      "  source list|use|add           manage index sources\n"
+      "  update-index                  alias for index update\n"
+      "  source list|use|add|test      manage and test index sources\n"
       "  list                          list indexed packages and install "
       "state\n"
       "  search <query>                search names, commands, categories, "
@@ -2447,7 +2495,10 @@ auto print_usage() -> int {
       "  info <package>                show package metadata\n"
       "  install <package>...          install one or more packages\n"
       "  installed                     list packages present in this root\n"
-      "  update winuxcmd               update WinuxCmd from local index\n\n"
+      "  export [--plain]              print installed package names for "
+      "profiles\n"
+      "  restore <file>                install packages from a plain list\n"
+      "  update|upgrade winuxcmd       update WinuxCmd from local index\n\n"
       "Options:\n"
       "  -r, --root <dir>              manage a specific WinuxCmd root\n"
       "  -s, --source <name>           use a specific index source\n"
@@ -2456,10 +2507,11 @@ auto print_usage() -> int {
       "  -f, --force                   overwrite existing files when safe\n"
       "  -n, --dry-run                 show planned changes without writing\n"
       "  -v, --verbose                 print detailed progress\n"
+      "      --plain                   print only package names for export\n"
       "      --help                    display this help and exit\n"
       "  -V, --version                 output version information and exit\n";
   safePrint(cmd::meta::format_custom_help(
-      "wpm", winux::i18n::translate("command.wpm.custom_help", help)));
+      "wpm", wpm_text("command.wpm.custom_help", help, kVersion)));
   return 0;
 }
 
@@ -2536,12 +2588,28 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     if (args[1] == "test") return update_index(opts);
     safeErrorPrintLn(winux::i18n::translate(
         "command.wpm.error.usage.source",
-        "wpm: usage: wpm source list|use <name>|add <name> <url>"));
+        "wpm: usage: wpm source list|use <name>|add <name> <url>|test"));
     return 1;
   }
 
   if (args[0] == "list") return list_packages(opts);
   if (args[0] == "installed") return list_installed_packages(opts);
+  if (args[0] == "export") {
+    if (args.size() == 1 || (args.size() == 2 && args[1] == "--plain")) {
+      return export_installed_packages_plain(opts);
+    }
+    safeErrorPrintLn(
+        winux::i18n::translate("command.wpm.error.usage.export",
+                               "wpm: usage: wpm export [--plain]"));
+    return 1;
+  }
+  if (args[0] == "restore") {
+    if (args.size() == 2)
+      return restore_packages(opts, fs::path(std::string(args[1])));
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.restore", "wpm: usage: wpm restore <file>"));
+    return 1;
+  }
   if (args[0] == "search")
     return list_packages(opts, args.size() >= 2 ? args[1] : std::string_view{});
   if (args[0] == "info") {
@@ -2566,8 +2634,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     if (args.size() >= 2 && (args[1] == "winuxcmd" || args[1] == "coreutils")) {
       return update_winuxcmd(opts);
     }
-    safeErrorPrintLn(winux::i18n::translate("command.wpm.error.usage.update",
-                                            "wpm: usage: wpm update winuxcmd"));
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.update",
+        "wpm: usage: wpm update|upgrade winuxcmd"));
     return 1;
   }
   if (args[0] == "version") {

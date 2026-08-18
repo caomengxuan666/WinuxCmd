@@ -228,6 +228,16 @@ TEST(wpm, wpm_help_matches_plain_usage) {
                                            "[options]") != std::string::npos);
   EXPECT_TRUE(help_result.stdout_text.find("Commands:") != std::string::npos);
   EXPECT_TRUE(help_result.stdout_text.find("Options:") != std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("clean [cache|staging|all]") !=
+              std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("cache clean [cache|staging|all]") !=
+              std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("source list|use|add|test") !=
+              std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("export [--plain]") !=
+              std::string::npos);
+  EXPECT_TRUE(help_result.stdout_text.find("restore <file>") !=
+              std::string::npos);
 }
 
 TEST(wpm, wpm_standard_version_uses_wpm_version) {
@@ -377,6 +387,42 @@ TEST(wpm, wpm_installed_lists_only_present_package_files) {
   EXPECT_TRUE(r.stdout_text.find("[installed] ripgrep") == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("[installed] fd") == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("[index-only]") == std::string::npos);
+}
+
+TEST(wpm, wpm_export_plain_lists_profile_packages) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("usr/bin/winuxcmd.exe", "core executable\n");
+  tmp.write("usr/bin/jq.exe", "installed jq\n");
+  tmp.write("usr/bin/rg.exe", "installed rg\n");
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"export", L"--plain", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("jq\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("ripgrep\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("winuxcmd") == std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("[installed]") == std::string::npos);
+}
+
+TEST(wpm, wpm_restore_installs_plain_profile_list) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("usr/bin/jq.exe", "installed jq\n");
+  tmp.write("packages.txt", "\n# profile comment\n  jq  \n");
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"restore", (tmp.path / L"packages.txt").wstring(),
+         L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("already installed jq") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("profile comment") == std::string::npos);
 }
 
 TEST(wpm, wpm_info_marks_common_packages_installable_on_windows_x64) {
