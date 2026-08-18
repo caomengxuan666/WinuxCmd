@@ -1,5 +1,6 @@
 
 #include <functional>
+
 #include "framework/winuxtest.h"
 
 namespace dd_pipeline {

@@ -56,7 +56,7 @@ clang_format=$(find_clang_format) || {
 cd "$root_dir"
 
 if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
-  printf '%s\n' "Error: format.sh must run inside the WinuxCmd git checkout." >&2
+  printf '%s\n' "Error: format-read-loop.sh must run inside the WinuxCmd git checkout." >&2
   exit 1
 fi
 
@@ -64,8 +64,12 @@ printf 'Using %s\n' "$("$clang_format" --version)"
 printf '%s\n' "Searching for files..."
 
 count=0
+git_dir=$(git rev-parse --git-dir)
+file_list="$git_dir/winuxcmd-format-$$.lst"
+trap 'rm -f "$file_list"' EXIT
+git ls-files -co --exclude-standard > "$file_list"
 
-for file in $(git ls-files -co --exclude-standard); do
+while IFS= read -r file; do
   case "$file" in
     third_party/* | */third_party/* | third-party/* | */third-party/*) continue ;;
     src/utils/json.hpp) continue ;;
@@ -82,7 +86,7 @@ for file in $(git ls-files -co --exclude-standard); do
   count=$((count + 1))
   printf 'Formatting: %s\n' "$file"
   "$clang_format" -i -style=file "$file"
-done
+done < "$file_list"
 
 if [ "$count" -eq 0 ]; then
   printf '%s\n' "No files found that need formatting"

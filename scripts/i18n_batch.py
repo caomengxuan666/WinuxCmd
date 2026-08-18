@@ -101,18 +101,24 @@ MANUAL_MESSAGES = {
         "      setenv TZ `tzset`\n"
     ),
     "command.wpm.custom_help": (
+        "Winux Package Manager {}\n"
         "Usage: wpm <command> [args] [options]\n\n"
         "Commands:\n"
         "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
-        "  clean [cache|staging|all]    remove transient downloads and staging\n"
+        "  clean [cache|staging|all]     remove transient downloads and staging\n"
+        "  cache clean [cache|staging|all]\n"
+        "                                alias for clean\n"
         "  index status|update           inspect or refresh local index\n"
-        "  source list|use|add           manage index sources\n"
+        "  update-index                  alias for index update\n"
+        "  source list|use|add|test      manage and test index sources\n"
         "  list                          list indexed packages and install state\n"
         "  search <query>                search names, commands, categories, licenses\n"
         "  info <package>                show package metadata\n"
         "  install <package>...          install one or more packages\n"
         "  installed                     list packages present in this root\n"
-        "  update winuxcmd               update WinuxCmd from local index\n\n"
+        "  export [--plain]              print installed package names for profiles\n"
+        "  restore <file>                install packages from a plain list\n"
+        "  update|upgrade winuxcmd       update WinuxCmd from local index\n\n"
         "Options:\n"
         "  -r, --root <dir>              manage a specific WinuxCmd root\n"
         "  -s, --source <name>           use a specific index source\n"
@@ -120,6 +126,7 @@ MANUAL_MESSAGES = {
         "  -f, --force                   overwrite existing files when safe\n"
         "  -n, --dry-run                 show planned changes without writing\n"
         "  -v, --verbose                 print detailed progress\n"
+        "      --plain                   print only package names for export\n"
         "      --help                    display this help and exit\n"
         "  -V, --version                 output version information and exit\n"
     ),
@@ -147,12 +154,16 @@ MANUAL_MESSAGES = {
     "command.wpm.status.links_removed": "wpm: links removed={} failed={}",
     "command.wpm.error.usage.links": "wpm: usage: wpm links list|rebuild|remove",
     "command.wpm.error.usage.index": "wpm: usage: wpm index status|update",
-    "command.wpm.error.usage.source": "wpm: usage: wpm source list|use <name>|add <name> <url>",
+    "command.wpm.error.usage.source": "wpm: usage: wpm source list|use <name>|add <name> <url>|test",
     "command.wpm.error.usage.cache": "wpm: usage: wpm cache clean [cache|staging|all]",
     "command.wpm.error.usage.clean": "wpm: usage: wpm clean [cache|staging|all]",
+    "command.wpm.error.usage.export": "wpm: usage: wpm export [--plain]",
+    "command.wpm.error.usage.restore": "wpm: usage: wpm restore <file>",
+    "command.wpm.error.read_package_list": "wpm: failed to read package list: {}",
+    "command.wpm.status.restore_empty": "wpm: package list is empty: {}",
     "command.wpm.error.usage.info": "wpm: usage: wpm info <package>",
     "command.wpm.error.usage.install": "wpm: usage: wpm install <package>...",
-    "command.wpm.error.usage.update": "wpm: usage: wpm update winuxcmd",
+    "command.wpm.error.usage.update": "wpm: usage: wpm update|upgrade winuxcmd",
     "command.wpm.version": "wpm {}",
     "command.wpm.error.unknown_command": "wpm: unknown command: {}",
     "command.wpm.error.exception": "wpm: {}",
