@@ -22,6 +22,10 @@
   #define OutputDir "."
 #endif
 
+#ifndef IconPath
+  #define IconPath "..\resources\winuxcmd.ico"
+#endif
+
 [Setup]
 AppId={{A39D4B7F-01E6-4E40-8183-FD317A1C4C12}
 AppName=WinuxCmd
@@ -34,6 +38,7 @@ DefaultDirName={localappdata}\Programs\WinuxCmd
 DefaultGroupName=WinuxCmd
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\usr\bin\winuxcmd.exe
+SetupIconFile={#IconPath}
 PrivilegesRequired=lowest
 ChangesEnvironment=yes
 SolidCompression=yes

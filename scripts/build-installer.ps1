@@ -71,10 +71,14 @@ $resolvedStagePath = [System.IO.Path]::GetFullPath($stagePath)
 $resolvedOutputDir = [System.IO.Path]::GetFullPath($outputPath)
 $projectVersion = Get-ProjectVersion -ProjectRoot $rootPath
 $issPath = Join-Path $rootPath "packaging\winuxcmd.iss"
+$iconPath = Join-Path $rootPath "resources\winuxcmd.ico"
 $buildScript = Join-Path $rootPath "scripts\build-with-vs.ps1"
 
 if (-not (Test-Path -LiteralPath $issPath)) {
     throw "Installer script not found: $issPath"
+}
+if (-not (Test-Path -LiteralPath $iconPath)) {
+    throw "Installer icon not found: $iconPath"
 }
 
 if (-not $SkipBuild) {
@@ -150,6 +154,7 @@ $resolvedIsccPath = Resolve-IsccPath -Candidate $IsccPath
 $isccArgs = @(
     "/DAppVersion=$projectVersion",
     "/DArchSlug=$Arch",
+    "/DIconPath=$iconPath",
     "/DStageDir=$resolvedStagePath",
     "/DOutputDir=$resolvedOutputDir",
     $issPath

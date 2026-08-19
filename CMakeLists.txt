@@ -23,7 +23,7 @@ if(DEFINED BUILD_MODE)
         unset(BUILD_MODE CACHE)
         set(BUILD_MODE "DEV" CACHE STRING "Build mode (DEV or RELEASE)" FORCE)
     endif()
-    
+
     # Validate build mode
     if(NOT BUILD_MODE STREQUAL "DEV" AND
        NOT BUILD_MODE STREQUAL "RELEASE" AND
@@ -234,6 +234,10 @@ file(MAKE_DIRECTORY "${MODULES_DIR}")
 # Set source directory for header includes
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
+if (WIN32)
+    set(WINUXCMD_RESOURCE_RC "${CMAKE_CURRENT_SOURCE_DIR}/resources/winuxcmd.rc")
+endif ()
+
 # ===================== Unity Build Implementation =====================
 if(ENABLE_UNITY_BUILD)
     function(enable_unity_build TARGET_NAME)
@@ -317,6 +321,10 @@ endif()
 add_executable(winuxcmd
         src/Main/main.cpp
 )
+
+if (WIN32)
+    target_sources(winuxcmd PRIVATE "${WINUXCMD_RESOURCE_RC}")
+endif ()
 
 # PCH for winuxcmd
 target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
@@ -510,6 +518,10 @@ endif ()
 macro(create_command_executable CMD)
     add_executable(${CMD} src/Main/main.cpp)
 
+    if (WIN32)
+        target_sources(${CMD} PRIVATE "${WINUXCMD_RESOURCE_RC}")
+    endif ()
+
     # Add only the necessary modules
     target_sources(${CMD}
             PUBLIC
@@ -594,13 +606,13 @@ endforeach ()
 if(BUILD_STANDALONE)
     message(STATUS "=== Building Standalone Command Executables ===")
     message(STATUS "Commands: ${COMMANDS}")
-    
+
     # Step 1: Create a static library with ONLY core modules (no commands)
     add_library(winuxcmd-core STATIC)
-    
+
     # Add PCH to core library
     target_precompile_headers(winuxcmd-core PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
-    
+
     # Add only core C++23 module interfaces (not commands)
     target_sources(winuxcmd-core
         PUBLIC
@@ -635,44 +647,44 @@ if(BUILD_STANDALONE)
         src/container/small_vector.cppm
         src/container/constexpr_map.cppm
     )
-    
+
     # Set core library properties
     target_compile_options(winuxcmd-core PRIVATE
         $<$<CONFIG:Release>:/O2 /Os>
         /GR-  # Keep RTTI disabled for size
         /EHsc-
     )
-    
+
     target_compile_definitions(winuxcmd-core PRIVATE
         _UNICODE
         UNICODE
         _CRT_DISABLE_PERFCRIT_LOCKS
         _HAS_RTTI=0
     )
-    
+
     target_link_options(winuxcmd-core PRIVATE
         $<$<CONFIG:Release>:/LTCG /OPT:REF /OPT:ICF>
     )
-    
+
     if (USE_STATIC_CRT AND MSVC)
         target_compile_options(winuxcmd-core PRIVATE /MT /Os /Oy /GS-)
     endif ()
-    
+
     # Import std and enable C++23
     target_compile_features(winuxcmd-core PRIVATE cxx_std_23)
-    
+
     # Add include directories
     target_include_directories(winuxcmd-core PRIVATE ${SRC_DIR} ${CMAKE_BINARY_DIR})
-    
+
     # Generate version header for core library
     configure_file(
         ${CMAKE_SOURCE_DIR}/src/version/version.hpp.in
         ${CMAKE_BINARY_DIR}/version.hpp
         @ONLY
     )
-    
+
     message(STATUS "Core library: winuxcmd-core.lib (core modules only)")
-    
+
     # Step 2: Create standalone executables with only ONE command each
     foreach(CMD_NAME ${COMMANDS})
         set(CMD_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/commands/${CMD_NAME}.cpp")
@@ -687,6 +699,10 @@ if(BUILD_STANDALONE)
             src/Main/main.cpp
             ${CMD_FILE}
         )
+
+        if (WIN32)
+            target_sources(${CMD_TARGET_NAME} PRIVATE "${WINUXCMD_RESOURCE_RC}")
+        endif ()
 
         # Add core module interfaces directly for reliable module partition resolution
         # across standalone command targets on MSVC/CMake.
@@ -768,7 +784,7 @@ if(BUILD_STANDALONE)
             OUTPUT_NAME "${CMD_EXE_NAME}"
             RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
         )
-        
+
         message(STATUS "  - ${CMD_EXE_NAME}.exe")
     endforeach()
 endif()
@@ -812,7 +828,7 @@ add_subdirectory(examples)
 if (ENABLE_TESTS)
     include(CTest)
     add_subdirectory(tests)
-    
+
     # Ensure create-test-links depends on winuxcmd executable
     # This prevents the links script from running before winuxcmd.exe is built
     if(TARGET create-test-links)
