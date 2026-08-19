@@ -52,6 +52,9 @@ auto constexpr WPM_OPTIONS = std::array{
     OPTION("-f", "--force", "overwrite existing files when safe"),
     OPTION("-n", "--dry-run", "show planned changes without writing"),
     OPTION("-v", "--verbose", "print detailed progress"),
+    OPTION("", "--category", "filter list/search output by category",
+           STRING_TYPE),
+    OPTION("", "--json", "print machine-readable JSON"),
     OPTION("", "--plain", "print only package names for export")};
 
 namespace wpm {
@@ -126,10 +129,12 @@ struct HttpResult {
 struct Options {
   fs::path root;
   std::string source;
+  std::string category;
   bool all = false;
   bool force = false;
   bool dry_run = false;
   bool verbose = false;
+  bool json = false;
 };
 
 struct FileId {
@@ -1718,6 +1723,13 @@ auto package_matches_query(const nlohmann::json& pkg, std::string_view query)
   return contains_ci(join_json_string_array(pkg, "commands"), query);
 }
 
+auto package_matches_category(const nlohmann::json& pkg,
+                              std::string_view category) -> bool {
+  if (category.empty()) return true;
+  return lower_ascii(pkg.value("category", "")) ==
+         lower_ascii(std::string(category));
+}
+
 auto download_artifact(const fs::path& root, const std::string& package,
                        const nlohmann::json& artifact, bool verbose)
     -> std::optional<fs::path> {
@@ -2326,6 +2338,52 @@ auto package_is_installed(const fs::path& root, const nlohmann::json& pkg)
   return true;
 }
 
+auto package_commands_json(const nlohmann::json& pkg) -> nlohmann::json {
+  if (pkg.contains("commands") && pkg["commands"].is_array()) {
+    return pkg["commands"];
+  }
+  return nlohmann::json::array();
+}
+
+auto package_summary_json(const fs::path& root, const nlohmann::json& pkg)
+    -> nlohmann::json {
+  nlohmann::json out = {{"name", pkg.value("name", "")},
+                        {"version", pkg.value("version", "")},
+                        {"kind", pkg.value("kind", "")},
+                        {"category", pkg.value("category", "")},
+                        {"license", pkg.value("license", "")},
+                        {"commands", package_commands_json(pkg)},
+                        {"description", pkg.value("description", "")},
+                        {"state", package_state_label(pkg)},
+                        {"install_state", artifact_install_state(pkg)},
+                        {"installed", package_is_installed(root, pkg)}};
+
+  if (auto artifact = artifact_for_current_arch(pkg)) {
+    nlohmann::json artifact_json = {
+        {"arch", detect_arch_key()},
+        {"type", artifact->value("type", "")},
+        {"url_count", artifact_urls(*artifact).size()},
+        {"sha256_present", !artifact->value("sha256", "").empty()},
+        {"file_count",
+         artifact->contains("files") && (*artifact)["files"].is_array()
+             ? (*artifact)["files"].size()
+             : 0}};
+    if (auto size = artifact_size_bytes(*artifact))
+      artifact_json["size"] = *size;
+    out["artifact"] = std::move(artifact_json);
+  } else {
+    out["artifact"] = nullptr;
+  }
+  return out;
+}
+
+auto package_info_json(const fs::path& root, const nlohmann::json& pkg)
+    -> nlohmann::json {
+  auto out = pkg;
+  out["wpm"] = package_summary_json(root, pkg);
+  return out;
+}
+
 auto print_installed_package_summary(const nlohmann::json& pkg) -> void {
   std::string version = pkg.value("version", "");
   if (!version.empty()) version = " " + version;
@@ -2371,7 +2429,8 @@ auto package_list_entry(std::string line) -> std::optional<std::string> {
   return line;
 }
 
-auto restore_packages(const Options& opts, const fs::path& package_list) -> int {
+auto restore_packages(const Options& opts, const fs::path& package_list)
+    -> int {
   auto text = read_text(package_list);
   if (!text) {
     safeErrorPrintLn(wpm_text("command.wpm.error.read_package_list",
@@ -2407,20 +2466,41 @@ auto list_packages(const Options& opts, std::string_view query = {}) -> int {
   int matched = 0;
   int hidden = 0;
   bool ready_only = query.empty() && !opts.all;
+  nlohmann::json json_packages = nlohmann::json::array();
+
   for (const auto& pkg : package_array(index)) {
     if (!package_matches_query(pkg, query)) continue;
+    if (!package_matches_category(pkg, opts.category)) continue;
     if (ready_only && package_state_label(pkg) != "ready") {
       ++hidden;
       continue;
     }
-    print_package_summary(pkg);
+    if (opts.json) {
+      json_packages.push_back(package_summary_json(opts.root, pkg));
+    } else {
+      print_package_summary(pkg);
+    }
     ++matched;
   }
+
+  if (opts.json) {
+    nlohmann::json payload = {{"query", std::string(query)},
+                              {"category", opts.category},
+                              {"all", opts.all},
+                              {"matched", matched},
+                              {"hidden", hidden},
+                              {"packages", std::move(json_packages)}};
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
+
   if (!query.empty() && matched == 0) {
     safePrintLn("wpm: no packages matched '" + std::string(query) + "'");
     safePrintLn(
         "wpm: run 'wpm index update' to refresh the independent "
         "wpm-source index");
+  } else if (!opts.category.empty() && matched == 0) {
+    safePrintLn("wpm: no packages matched category '" + opts.category + "'");
   } else if (query.empty() && matched == 0) {
     safePrintLn("wpm: no packages in the local index");
     safePrintLn(
@@ -2433,19 +2513,75 @@ auto list_packages(const Options& opts, std::string_view query = {}) -> int {
   return 0;
 }
 
+auto list_categories(const Options& opts) -> int {
+  auto index = load_index(opts.root);
+  struct Counts {
+    int packages = 0;
+    int ready = 0;
+    int index_only = 0;
+    int installed = 0;
+  };
+  std::map<std::string, Counts> categories;
+
+  for (const auto& pkg : package_array(index)) {
+    std::string category = pkg.value("category", "");
+    if (category.empty()) category = "uncategorized";
+    auto& counts = categories[category];
+    ++counts.packages;
+    if (package_state_label(pkg) == "ready") {
+      ++counts.ready;
+    } else {
+      ++counts.index_only;
+    }
+    if (package_is_installed(opts.root, pkg)) ++counts.installed;
+  }
+
+  if (opts.json) {
+    nlohmann::json payload = {{"categories", nlohmann::json::array()},
+                              {"total", categories.size()}};
+    for (const auto& [name, counts] : categories) {
+      payload["categories"].push_back({{"name", name},
+                                       {"packages", counts.packages},
+                                       {"ready", counts.ready},
+                                       {"index_only", counts.index_only},
+                                       {"installed", counts.installed}});
+    }
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
+
+  for (const auto& [name, counts] : categories) {
+    safePrintLn("  " + name + " packages=" + std::to_string(counts.packages) +
+                " ready=" + std::to_string(counts.ready) +
+                " index-only=" + std::to_string(counts.index_only) +
+                " installed=" + std::to_string(counts.installed));
+  }
+  return 0;
+}
+
 auto show_info(const Options& opts, std::string_view name) -> int {
   auto index = load_index(opts.root);
   auto pkg = find_package(index, name);
-  if (!pkg) {
+  if (!pkg && !opts.json) {
     if (refresh_index_once(opts, "package not found in local index")) {
       index = load_index(opts.root);
       pkg = find_package(index, name);
     }
   }
   if (!pkg) {
-    safeErrorPrintLn("wpm: package not found after index update: " +
-                     std::string(name));
+    if (opts.json) {
+      nlohmann::json payload = {{"error", "package_not_found"},
+                                {"package", std::string(name)}};
+      safePrintLn(payload.dump(2));
+    } else {
+      safeErrorPrintLn("wpm: package not found after index update: " +
+                       std::string(name));
+    }
     return 1;
+  }
+  if (opts.json) {
+    safePrintLn(package_info_json(opts.root, *pkg).dump(2));
+    return 0;
   }
   safePrintLn("Name: " + pkg->value("name", ""));
   safePrintLn("Version: " + pkg->value("version", ""));
@@ -2490,6 +2626,7 @@ auto print_usage() -> int {
       "  source list|use|add|test      manage and test index sources\n"
       "  list                          list indexed packages and install "
       "state\n"
+      "  categories                    list package categories and counts\n"
       "  search <query>                search names, commands, categories, "
       "licenses\n"
       "  info <package>                show package metadata\n"
@@ -2507,6 +2644,8 @@ auto print_usage() -> int {
       "  -f, --force                   overwrite existing files when safe\n"
       "  -n, --dry-run                 show planned changes without writing\n"
       "  -v, --verbose                 print detailed progress\n"
+      "      --category <name>         filter list/search output by category\n"
+      "      --json                    print machine-readable JSON\n"
       "      --plain                   print only package names for export\n"
       "      --help                    display this help and exit\n"
       "  -V, --version                 output version information and exit\n";
@@ -2528,6 +2667,8 @@ auto build_options(const CommandContext<WPM_OPTIONS.size()>& ctx) -> Options {
       ctx.get<bool>("--dry-run", false) || ctx.get<bool>("-n", false);
   opts.verbose =
       ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
+  opts.category = ctx.get<std::string>("--category", "");
+  opts.json = ctx.get<bool>("--json", false);
   if (!opts.dry_run) (void)ensure_install_layout(opts.root);
   return opts;
 }
@@ -2593,21 +2734,21 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
   }
 
   if (args[0] == "list") return list_packages(opts);
+  if (args[0] == "categories") return list_categories(opts);
   if (args[0] == "installed") return list_installed_packages(opts);
   if (args[0] == "export") {
     if (args.size() == 1 || (args.size() == 2 && args[1] == "--plain")) {
       return export_installed_packages_plain(opts);
     }
-    safeErrorPrintLn(
-        winux::i18n::translate("command.wpm.error.usage.export",
-                               "wpm: usage: wpm export [--plain]"));
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.export", "wpm: usage: wpm export [--plain]"));
     return 1;
   }
   if (args[0] == "restore") {
     if (args.size() == 2)
       return restore_packages(opts, fs::path(std::string(args[1])));
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.restore", "wpm: usage: wpm restore <file>"));
+    safeErrorPrintLn(winux::i18n::translate("command.wpm.error.usage.restore",
+                                            "wpm: usage: wpm restore <file>"));
     return 1;
   }
   if (args[0] == "search")
@@ -2634,9 +2775,9 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     if (args.size() >= 2 && (args[1] == "winuxcmd" || args[1] == "coreutils")) {
       return update_winuxcmd(opts);
     }
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.wpm.error.usage.update",
-        "wpm: usage: wpm update|upgrade winuxcmd"));
+    safeErrorPrintLn(
+        winux::i18n::translate("command.wpm.error.usage.update",
+                               "wpm: usage: wpm update|upgrade winuxcmd"));
     return 1;
   }
   if (args[0] == "version") {
