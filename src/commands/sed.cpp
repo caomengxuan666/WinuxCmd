@@ -36,6 +36,8 @@ auto constexpr SED_OPTIONS = std::array{
     OPTION("-l", "--line-length", "specify line-wrap length for the l command",
            INT_TYPE),
     OPTION("-E", "--regexp-extended", "use extended regular expressions"),
+    OPTION("", "--sandbox", "restrict file system access in the script"),
+    OPTION("", "--posix", "disable GNU extensions and follow POSIX sed"),
     OPTION("-r", "", "alias for -E")};
 
 // ======================================================
@@ -112,6 +114,8 @@ struct Script {
 struct Config {
   bool suppress_output = false;
   bool separate_files = false;
+  bool sandbox = false;
+  bool posix = false;
   char delimiter = '\n';
   bool in_place = false;
   std::string in_place_suffix;
@@ -137,6 +141,7 @@ struct ParseContext {
   LastRegex last_regex;
   bool at_script_start = true;
   bool magic_silent = false;
+  bool posix = false;
 };
 
 auto trim_left_space(std::string_view v) -> std::string_view {
@@ -230,7 +235,7 @@ auto is_literal_replacement(std::string_view replacement) -> bool {
 
 // parse s/pat/repl/flags
 auto parse_subst(std::string_view expr, portable_regex::Syntax syntax,
-                 LastRegex& last_regex) -> cp::Result<Script> {
+                 ParseContext& parse_context) -> cp::Result<Script> {
   if (expr.size() < 4 || expr[0] != 's')
     return std::unexpected("unsupported script (only s///)");
   char delim = expr[1];
@@ -279,6 +284,9 @@ auto parse_subst(std::string_view expr, portable_regex::Syntax syntax,
     } else if (f == 'p') {
       pflag = true;
     } else if (f == 'I' || f == 'i') {
+      if (parse_context.posix) {
+        return std::unexpected("POSIX sed rejects GNU substitution modifiers");
+      }
       ignore_case = true;
     } else if (f == 'w') {
       std::string_view path = trim_left_space(expr.substr(i + 1));
@@ -313,15 +321,15 @@ auto parse_subst(std::string_view expr, portable_regex::Syntax syntax,
     if (ignore_case) {
       return std::unexpected("cannot specify modifiers on empty regexp");
     }
-    if (!last_regex.valid) {
+    if (!parse_context.last_regex.valid) {
       return std::unexpected("no previous regular expression");
     }
-    pat = last_regex.pattern;
-    effective_ignore_case = last_regex.ignore_case;
+    pat = parse_context.last_regex.pattern;
+    effective_ignore_case = parse_context.last_regex.ignore_case;
   } else {
-    last_regex.pattern = pat;
-    last_regex.ignore_case = ignore_case;
-    last_regex.valid = true;
+    parse_context.last_regex.pattern = pat;
+    parse_context.last_regex.ignore_case = ignore_case;
+    parse_context.last_regex.valid = true;
   }
 
   auto compiled = portable_regex::compile(syntax, pat, effective_ignore_case);
@@ -584,12 +592,15 @@ auto parse_unsigned_at(std::string_view text, size_t& i) -> cp::Result<size_t> {
 }
 
 auto parse_address(std::string_view line, size_t& i,
-                   portable_regex::Syntax syntax, LastRegex& last_regex,
+                   portable_regex::Syntax syntax, ParseContext& parse_context,
                    bool allow_range_extension = false)
     -> cp::Result<Script::Address> {
   Script::Address addr;
   if (i >= line.size()) return addr;
   if (allow_range_extension && (line[i] == '+' || line[i] == '~')) {
+    if (parse_context.posix) {
+      return std::unexpected("POSIX sed rejects GNU range extensions");
+    }
     const char range_type = line[i++];
     auto value = parse_unsigned_at(line, i);
     if (!value) return std::unexpected(value.error());
@@ -613,6 +624,9 @@ auto parse_address(std::string_view line, size_t& i,
       ++i;
     auto first = std::stoul(std::string(line.substr(start, i - start)));
     if (i < line.size() && line[i] == '~') {
+      if (parse_context.posix) {
+        return std::unexpected("POSIX sed rejects GNU step addresses");
+      }
       ++i;
       size_t step_start = i;
       while (i < line.size() &&
@@ -661,6 +675,9 @@ auto parse_address(std::string_view line, size_t& i,
         ++i;
         bool ignore_case = false;
         if (i < line.size() && (line[i] == 'I' || line[i] == 'i')) {
+          if (parse_context.posix) {
+            return std::unexpected("POSIX sed rejects GNU address modifiers");
+          }
           ignore_case = true;
           ++i;
         }
@@ -670,9 +687,9 @@ auto parse_address(std::string_view line, size_t& i,
         }
         addr.kind = Script::Address::Kind::Regex;
         addr.regex = std::move(compiled.pattern);
-        last_regex.pattern = pat;
-        last_regex.ignore_case = ignore_case;
-        last_regex.valid = true;
+        parse_context.last_regex.pattern = pat;
+        parse_context.last_regex.ignore_case = ignore_case;
+        parse_context.last_regex.valid = true;
         return addr;
       }
       pat.push_back(c);
@@ -884,13 +901,12 @@ auto parse_script_line(std::string_view line, portable_regex::Syntax syntax,
     while (i < part.size() && std::isspace(static_cast<unsigned char>(part[i])))
       ++i;
     Script::Address a1, a2;
-    auto addr1 = parse_address(part, i, syntax, parse_context.last_regex);
+    auto addr1 = parse_address(part, i, syntax, parse_context);
     if (!addr1) return std::unexpected(addr1.error());
     a1 = *addr1;
     if (i < part.size() && part[i] == ',') {
       ++i;
-      auto addr2 =
-          parse_address(part, i, syntax, parse_context.last_regex, true);
+      auto addr2 = parse_address(part, i, syntax, parse_context, true);
       if (!addr2) return std::unexpected(addr2.error());
       a2 = *addr2;
     }
@@ -908,7 +924,7 @@ auto parse_script_line(std::string_view line, portable_regex::Syntax syntax,
     std::string_view cmd = std::string_view(part).substr(i);
     cp::Result<Script> s;
     if (!cmd.empty() && cmd[0] == 's')
-      s = parse_subst(cmd, syntax, parse_context.last_regex);
+      s = parse_subst(cmd, syntax, parse_context);
     else if (!cmd.empty() && cmd[0] == 'y')
       s = parse_y_cmd(cmd);
     else
@@ -1023,6 +1039,48 @@ auto read_script_file(const std::string& path, portable_regex::Syntax syntax,
   return parse_script_text(script, syntax, parse_context);
 }
 
+auto address_uses_gnu_extension(const Script::Address& addr) -> bool {
+  return addr.kind == Script::Address::Kind::Step ||
+         addr.kind == Script::Address::Kind::Relative ||
+         addr.kind == Script::Address::Kind::Modulo ||
+         (addr.kind == Script::Address::Kind::Line && addr.line_no == 0);
+}
+
+auto script_is_sandbox_forbidden(const Script& script) -> bool {
+  return script.kind == Script::Kind::ReadFile ||
+         script.kind == Script::Kind::ReadFileLine ||
+         script.kind == Script::Kind::WriteFile ||
+         script.kind == Script::Kind::WriteFirstFile ||
+         !script.subst_write_file.empty();
+}
+
+auto script_is_posix_forbidden(const Script& script) -> bool {
+  if (address_uses_gnu_extension(script.addr1) ||
+      address_uses_gnu_extension(script.addr2)) {
+    return true;
+  }
+  return script.kind == Script::Kind::QuitSilent ||
+         script.kind == Script::Kind::PrintFilename ||
+         script.kind == Script::Kind::TestNoBranch ||
+         script.kind == Script::Kind::ReadFileLine ||
+         script.kind == Script::Kind::WriteFirstFile ||
+         script.kind == Script::Kind::ClearPattern;
+}
+
+auto validate_script_capabilities(const std::vector<Script>& scripts,
+                                  const Config& cfg) -> cp::Result<void> {
+  for (const auto& script : scripts) {
+    if (cfg.sandbox && script_is_sandbox_forbidden(script)) {
+      return std::unexpected(
+          "--sandbox rejects scripts that read or write files");
+    }
+    if (cfg.posix && script_is_posix_forbidden(script)) {
+      return std::unexpected("--posix rejects GNU sed extensions");
+    }
+  }
+  return {};
+}
+
 auto resolve_labels(std::vector<Script>& scripts) -> cp::Result<void> {
   std::unordered_map<std::string, size_t> labels;
   labels.reserve(scripts.size());
@@ -1091,6 +1149,9 @@ auto build_config(const CommandContext<SED_OPTIONS.size()>& ctx)
   std::vector<Script> scripts;
   scripts.reserve(32);  // Reserve for reasonable number of scripts
   ParseContext parse_context;
+  cfg.sandbox = ctx.get<bool>("--sandbox", false);
+  cfg.posix = ctx.get<bool>("--posix", false);
+  parse_context.posix = cfg.posix;
 
   auto script_options =
       ctx.string_occurrences({"--expression", "-e", "--file", "-f"});
@@ -1123,6 +1184,9 @@ auto build_config(const CommandContext<SED_OPTIONS.size()>& ctx)
   if (parse_context.magic_silent) cfg.suppress_output = true;
 
   if (auto ok = resolve_labels(scripts); !ok) {
+    return std::unexpected(ok.error());
+  }
+  if (auto ok = validate_script_capabilities(scripts, cfg); !ok) {
     return std::unexpected(ok.error());
   }
 

@@ -1196,3 +1196,82 @@ TEST(sed, wildcard_question_mark) {
   EXPECT_TRUE(r.stdout_text.find("REPLACED baz") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("REPLACED qux") == std::string::npos);
 }
+
+TEST(sed, sandbox_allows_non_file_scripts) {
+  TempDir tmp;
+  tmp.write("a.txt", "foo\nbar\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"--sandbox", L"s/foo/baz/", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "baz\nbar\n");
+}
+
+TEST(sed, sandbox_rejects_file_commands) {
+  TempDir tmp;
+  tmp.write("a.txt", "foo\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"--sandbox", L"w out.txt", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_CONTAINS(r.stderr_text, "--sandbox rejects scripts");
+}
+
+TEST(sed, sandbox_rejects_substitution_write_flag) {
+  TempDir tmp;
+  tmp.write("a.txt", "foo\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"--sandbox", L"s/foo/bar/w out.txt", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_CONTAINS(r.stderr_text, "--sandbox rejects scripts");
+}
+
+TEST(sed, posix_rejects_gnu_step_addresses) {
+  TempDir tmp;
+  tmp.write("a.txt", "one\ntwo\nthree\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"--posix", L"1~2p", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_CONTAINS(r.stderr_text, "POSIX sed rejects GNU step addresses");
+}
+
+TEST(sed, posix_rejects_gnu_range_extensions) {
+  TempDir tmp;
+  tmp.write("a.txt", "one\ntwo\nthree\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"--posix", L"1,+1p", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_CONTAINS(r.stderr_text, "POSIX sed rejects GNU range extensions");
+}
+
+TEST(sed, posix_rejects_gnu_substitution_modifier) {
+  TempDir tmp;
+  tmp.write("a.txt", "FOO\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"sed.exe", {L"--posix", L"s/foo/bar/I", L"a.txt"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_CONTAINS(r.stderr_text,
+                  "POSIX sed rejects GNU substitution modifiers");
+}

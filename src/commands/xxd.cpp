@@ -9,9 +9,21 @@ import utils;
 import container;
 
 auto constexpr XXD_OPTIONS =
-    std::array{OPTION("-r", "--reverse", "reverse: convert hex to binary")};
+    std::array{OPTION("-r", "--reverse", "reverse: convert hex to binary"),
+               OPTION("-p", "--plain", "plain hexdump"),
+               OPTION("-c", "--cols", "set bytes per line", INT_TYPE),
+               OPTION("-u", "--upper-case", "use upper-case hex digits")};
 
 namespace {
+struct XxdConfig {
+  bool reverse = false;
+  bool plain = false;
+  bool upper_case = false;
+  size_t columns = 16;
+  std::string input_file = "-";
+  std::optional<std::string> output_file;
+};
+
 std::vector<unsigned char> read_stdin_bytes() {
   std::vector<unsigned char> data;
   char ch = 0;
@@ -48,17 +60,23 @@ std::optional<std::vector<unsigned char>> read_file_bytes(
   return buffer;
 }
 
-std::string byte_hex(unsigned char value) {
-  constexpr char digits[] = "0123456789abcdef";
+std::string byte_hex(unsigned char value, bool upper_case) {
+  constexpr char lower_digits[] = "0123456789abcdef";
+  constexpr char upper_digits[] = "0123456789ABCDEF";
+  const char* digits = upper_case ? upper_digits : lower_digits;
   std::string out;
   out.push_back(digits[(value >> 4) & 0x0f]);
   out.push_back(digits[value & 0x0f]);
   return out;
 }
 
-std::string offset_hex(size_t offset) {
+std::string offset_hex(size_t offset, bool upper_case) {
   char buf[32];
-  sprintf_s(buf, sizeof(buf), "%08zx", offset);
+  if (upper_case) {
+    sprintf_s(buf, sizeof(buf), "%08zX", offset);
+  } else {
+    sprintf_s(buf, sizeof(buf), "%08zx", offset);
+  }
   return std::string(buf);
 }
 
@@ -72,6 +90,32 @@ std::optional<unsigned char> parse_hex_byte(char high, char low) {
   int h = digit(high), l = digit(low);
   if (h < 0 || l < 0) return std::nullopt;
   return static_cast<unsigned char>((h << 4) | l);
+}
+
+std::optional<std::vector<unsigned char>> reverse_plain_xxd(
+    const std::vector<unsigned char>& input) {
+  std::vector<unsigned char> output;
+  int high_nibble = -1;
+  for (unsigned char c : input) {
+    if (std::isspace(c)) continue;
+    int value = -1;
+    if (c >= '0' && c <= '9')
+      value = c - '0';
+    else if (c >= 'a' && c <= 'f')
+      value = c - 'a' + 10;
+    else if (c >= 'A' && c <= 'F')
+      value = c - 'A' + 10;
+    else
+      return std::nullopt;
+    if (high_nibble < 0) {
+      high_nibble = value;
+    } else {
+      output.push_back(static_cast<unsigned char>((high_nibble << 4) | value));
+      high_nibble = -1;
+    }
+  }
+  if (high_nibble >= 0) return std::nullopt;
+  return output;
 }
 
 std::optional<std::vector<unsigned char>> reverse_xxd(
@@ -116,16 +160,27 @@ std::optional<std::vector<unsigned char>> reverse_xxd(
   return output;
 }
 
-void print_default_xxd(const std::vector<unsigned char>& data) {
-  constexpr size_t kColumns = 16;
-  for (size_t offset = 0; offset < data.size(); offset += kColumns) {
-    size_t count = std::min(kColumns, data.size() - offset);
-    safePrint(offset_hex(offset));
+void print_plain_xxd(const std::vector<unsigned char>& data, size_t columns,
+                     bool upper_case) {
+  for (size_t offset = 0; offset < data.size(); offset += columns) {
+    size_t count = std::min(columns, data.size() - offset);
+    for (size_t i = 0; i < count; ++i) {
+      safePrint(byte_hex(data[offset + i], upper_case));
+    }
+    safePrint("\n");
+  }
+}
+
+void print_default_xxd(const std::vector<unsigned char>& data, size_t columns,
+                       bool upper_case) {
+  for (size_t offset = 0; offset < data.size(); offset += columns) {
+    size_t count = std::min(columns, data.size() - offset);
+    safePrint(offset_hex(offset, upper_case));
     safePrint(": ");
 
-    for (size_t i = 0; i < kColumns; ++i) {
+    for (size_t i = 0; i < columns; ++i) {
       if (i < count) {
-        safePrint(byte_hex(data[offset + i]));
+        safePrint(byte_hex(data[offset + i], upper_case));
       } else {
         safePrint("  ");
       }
@@ -141,80 +196,121 @@ void print_default_xxd(const std::vector<unsigned char>& data) {
     safePrint("\n");
   }
 }
+
+XxdConfig build_config(const CommandContext<XXD_OPTIONS.size()>& ctx) {
+  XxdConfig cfg;
+  cfg.reverse = ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
+  cfg.plain = ctx.get<bool>("-p", false) || ctx.get<bool>("--plain", false);
+  cfg.upper_case =
+      ctx.get<bool>("-u", false) || ctx.get<bool>("--upper-case", false);
+  if (ctx.has("-c") || ctx.has("--cols")) {
+    int cols = ctx.get<int>("--cols", ctx.get<int>("-c", 16));
+    if (cols <= 0) {
+      throw std::runtime_error(winux::i18n::translate(
+          "command.xxd.error.invalid_columns", "xxd: invalid column count"));
+    }
+    cfg.columns = static_cast<size_t>(cols);
+  }
+  if (cfg.columns == 0) {
+    throw std::runtime_error(winux::i18n::translate(
+        "command.xxd.error.invalid_columns", "xxd: invalid column count"));
+  }
+  if (!ctx.positionals.empty()) {
+    cfg.input_file = std::string(ctx.positionals[0]);
+  }
+  if (cfg.reverse && ctx.positionals.size() > 1) {
+    cfg.output_file = std::string(ctx.positionals[1]);
+  }
+  return cfg;
+}
+
+void write_output(HANDLE handle, const std::vector<unsigned char>& data) {
+  if (data.empty()) return;
+  DWORD written = 0;
+  if (!WriteFile(handle, data.data(), static_cast<DWORD>(data.size()), &written,
+                 nullptr) ||
+      written != data.size()) {
+    throw std::runtime_error(winux::i18n::translate(
+        "command.xxd.error.invalid_hex_dump", "xxd: invalid hex dump"));
+  }
+}
 }  // namespace
 
 REGISTER_COMMAND(xxd,
                  /* cmd_name */ "xxd",
-                 /* cmd_synopsis */ "xxd [OPTION] [FILE]",
+                 /* cmd_synopsis */ "xxd [OPTION]... [FILE]...",
                  /* cmd_desc */ "Make a hexdump or do the reverse.",
                  /* examples */ "xxd file.txt\nxxd -r hex.txt > file.txt",
                  /* see_also */ "od",
                  /* author */ "WinuxCmd",
                  /* copyright */ "Copyright © 2026 WinuxCmd",
                  /* options */ XXD_OPTIONS) {
-  bool reverse =
-      ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
+  using namespace core::pipeline;
 
-  if (reverse) {
-    std::string filename =
-        ctx.positionals.empty() ? "-" : std::string(ctx.positionals[0]);
-    std::vector<unsigned char> input;
-    if (filename == "-")
-      input = read_stdin_bytes();
-    else {
-      auto file_data = read_file_bytes(filename);
-      if (!file_data) {
-        safeErrorPrintLn("xxd: cannot open " + filename);
-        return 1;
-      }
-      input = std::move(*file_data);
+  XxdConfig cfg;
+  try {
+    cfg = build_config(ctx);
+  } catch (const std::exception& ex) {
+    safeErrorPrintLn(ex.what());
+    return 1;
+  }
+
+  auto load_input = [&](const std::string& filename)
+      -> std::optional<std::vector<unsigned char>> {
+    if (filename == "-") return read_stdin_bytes();
+    return read_file_bytes(filename);
+  };
+
+  auto input = load_input(cfg.input_file);
+  if (!input) {
+    safeErrorPrintLn(winux::i18n::format("command.xxd.error.cannot_open",
+                                         "xxd: cannot open {}",
+                                         cfg.input_file));
+    return 1;
+  }
+
+  if (cfg.reverse) {
+    std::optional<std::vector<unsigned char>> decoded;
+    if (cfg.plain) {
+      decoded = reverse_plain_xxd(*input);
+    } else {
+      decoded = reverse_xxd(*input);
     }
-    auto decoded = reverse_xxd(input);
     if (!decoded) {
-      safeErrorPrintLn("xxd: invalid hex dump");
+      safeErrorPrintLn(winux::i18n::translate(
+          "command.xxd.error.invalid_hex_dump", "xxd: invalid hex dump"));
       return 1;
     }
-    HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    HANDLE output = GetStdHandle(STD_OUTPUT_HANDLE);
     HANDLE output_file = INVALID_HANDLE_VALUE;
-    if (ctx.positionals.size() > 1) {
-      const auto output_name = utf8_to_wstring(std::string(ctx.positionals[1]));
+    if (cfg.output_file) {
+      const auto output_name = utf8_to_wstring(*cfg.output_file);
       output_file = CreateFileW(output_name.c_str(), GENERIC_WRITE, 0, nullptr,
                                 CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
       if (output_file == INVALID_HANDLE_VALUE) {
-        safeErrorPrintLn("xxd: cannot create " +
-                         std::string(ctx.positionals[1]));
+        safeErrorPrintLn(winux::i18n::format("command.xxd.error.cannot_create",
+                                             "xxd: cannot create {}",
+                                             *cfg.output_file));
         return 1;
       }
-      out = output_file;
+      output = output_file;
     }
-    if (!decoded->empty()) {
-      DWORD written = 0;
-      if (!WriteFile(out, decoded->data(), static_cast<DWORD>(decoded->size()),
-                     &written, nullptr) ||
-          written != decoded->size()) {
-        if (output_file != INVALID_HANDLE_VALUE) CloseHandle(output_file);
-        return 1;
-      }
+    try {
+      write_output(output, *decoded);
+    } catch (const std::exception& ex) {
+      if (output_file != INVALID_HANDLE_VALUE) CloseHandle(output_file);
+      safeErrorPrintLn(ex.what());
+      return 1;
     }
     if (output_file != INVALID_HANDLE_VALUE) CloseHandle(output_file);
     return 0;
   }
 
-  std::string filename =
-      ctx.positionals.empty() ? "-" : std::string(ctx.positionals[0]);
-
-  std::vector<unsigned char> data;
-  if (filename == "-") {
-    data = read_stdin_bytes();
+  if (cfg.plain) {
+    print_plain_xxd(*input, cfg.columns, cfg.upper_case);
   } else {
-    auto file_data = read_file_bytes(filename);
-    if (!file_data) {
-      safeErrorPrintLn("xxd: cannot open " + filename);
-      return 1;
-    }
-    data = std::move(*file_data);
+    print_default_xxd(*input, cfg.columns, cfg.upper_case);
   }
-
-  print_default_xxd(data);
   return 0;
 }
