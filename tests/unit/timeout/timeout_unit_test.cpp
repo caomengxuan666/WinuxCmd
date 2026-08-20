@@ -122,6 +122,17 @@ TEST(timeout, timeout_executes_command_and_preserves_exit_status) {
   EXPECT_EQ(r.exit_code, 7);
 }
 
+TEST(timeout, timeout_forwards_option_like_command_arguments) {
+  Pipeline p;
+  p.add(L"timeout.exe", {L"5", L"printf.exe", L"%s", L"-n"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "-n");
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
 TEST(timeout, timeout_executes_batch_commands) {
   TempDir tmp;
   tmp.write("runner.cmd", "@echo off\r\nexit /b 7\r\n");
