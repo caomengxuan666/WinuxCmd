@@ -122,6 +122,9 @@ export struct OptionParsePolicy {
   // Some utilities accept operands such as -5 or -n after their syntax
   // establishes that the remaining arguments are operands.
   bool allow_unknown_short_options_as_positionals = false;
+  // Stop option parsing after this many positional operands. A value of zero
+  // keeps the traditional parser behavior.
+  size_t stop_options_after_positionals = 0;
 };
 
 export ParseResultRuntime parse_command_runtime(
@@ -560,6 +563,10 @@ export ParseResultRuntime parse_command_runtime(
 
     // ---------- positional ----------
     result.positionals.push_back(arg);
+    if (policy.stop_options_after_positionals != 0 &&
+        result.positionals.size() >= policy.stop_options_after_positionals) {
+      end_of_options = true;
+    }
   }
 
   return result;
