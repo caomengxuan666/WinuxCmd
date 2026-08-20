@@ -56,6 +56,8 @@ using cmd::meta::OptionType;
  * - @a -R, @a --rfc-2822: Output RFC 2822 compliant date string [IMPLEMENTED]
  * - @a -I, @a --iso-8601: Output ISO 8601 date/time [IMPLEMENTED]
  * - @a --rfc-3339: Output RFC 3339 date/time [IMPLEMENTED]
+ * - @a -r, @a --reference: Display the last modification time of FILE
+ * [IMPLEMENTED]
  * - @a +FORMAT: Output formatted date string [IMPLEMENTED]
  */
 auto constexpr DATE_OPTIONS = std::array{
@@ -67,6 +69,8 @@ auto constexpr DATE_OPTIONS = std::array{
     OPTION("-I", "--iso-8601", "output ISO 8601 date/time",
            OPTIONAL_STRING_TYPE),
     OPTION("", "--rfc-3339", "output RFC 3339 date/time", STRING_TYPE),
+    OPTION("-r", "--reference", "display the last modification time of FILE",
+           STRING_TYPE),
     OPTION("-f", "--file", "display date strings from DATEFILE, one per line",
            STRING_TYPE),
     OPTION("", "--universal", "alias for --utc")};
@@ -543,6 +547,15 @@ auto current_time_value(bool use_utc) -> TimeValue {
   return make_time_value(utc, use_utc).value();
 }
 
+auto read_reference_time(std::string_view path) -> std::optional<FILETIME> {
+  WIN32_FILE_ATTRIBUTE_DATA attributes{};
+  if (!GetFileAttributesExW(utf8_to_wstring(std::string(path)).c_str(),
+                            GetFileExInfoStandard, &attributes)) {
+    return std::nullopt;
+  }
+  return attributes.ftLastWriteTime;
+}
+
 auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
   std::string value = trim_copy(arg);
   std::string lower = lower_copy(value);
@@ -626,6 +639,7 @@ REGISTER_COMMAND(
     "  date +'%H:%M:%S'        Display time in HH:MM:SS format\n"
     "  date -u                 Display UTC time\n"
     "  date -R                 Display RFC email format\n"
+    "  date -r FILE            Display FILE modification time\n"
     "  date -Iseconds          Display ISO 8601 format",
     "cal(1)", "caomengxuan666", "Copyright © 2026 WinuxCmd", DATE_OPTIONS) {
   using namespace date_pipeline;
@@ -636,6 +650,19 @@ REGISTER_COMMAND(
                  ctx.get<bool>("--rfc-2822", false);
 
   FILETIME selected_time{};
+  std::string reference_path = ctx.get<std::string>("--reference", "");
+  if (reference_path.empty()) reference_path = ctx.get<std::string>("-r", "");
+  if (!reference_path.empty()) {
+    auto reference_time = read_reference_time(reference_path);
+    if (!reference_time) {
+      safeErrorPrint("date: failed to get modification time of '");
+      safeErrorPrint(reference_path);
+      safeErrorPrint("'\n");
+      return 1;
+    }
+    selected_time = *reference_time;
+  }
+
   std::string date_arg = ctx.get<std::string>("--date", "");
   if (date_arg.empty()) date_arg = ctx.get<std::string>("-d", "");
   if (!date_arg.empty()) {
@@ -647,7 +674,7 @@ REGISTER_COMMAND(
       return 1;
     }
     selected_time = *parsed;
-  } else {
+  } else if (reference_path.empty()) {
     GetSystemTimeAsFileTime(&selected_time);
   }
 

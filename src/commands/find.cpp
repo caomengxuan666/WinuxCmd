@@ -149,8 +149,7 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-empty", "",
            "file is empty and is either a regular file or a directory"),
     OPTION("-amin", "", "file was last accessed n minutes ago", STRING_TYPE),
-    OPTION("-atime", "", "file was last accessed n*24 hours ago",
-           STRING_TYPE),
+    OPTION("-atime", "", "file was last accessed n*24 hours ago", STRING_TYPE),
     OPTION("-cmin", "", "file status was last changed n minutes ago",
            STRING_TYPE),
     OPTION("-ctime", "", "file status was last changed n*24 hours ago",
@@ -1156,15 +1155,14 @@ class ExpressionParser {
            token == "-gid" || token == "-size" || token == "-empty" ||
            token == "-amin" || token == "-atime" || token == "-cmin" ||
            token == "-ctime" || token == "-mtime" || token == "-mmin" ||
-           token == "-newer" ||
-           is_newerxy_option(token) || token == "-samefile" ||
-           token == "-files0-from" || token == "-mindepth" ||
-           token == "-maxdepth" || token == "-print" || token == "-print0" ||
-           token == "-fprint" || token == "-fprint0" || token == "-printf" ||
-           token == "-prune" || token == "-quit" || token == "-true" ||
-           token == "-false" || token == "-depth" || token == "-d" ||
-           token == "-follow" || token == "-mount" || token == "-xdev" ||
-           token == "-noleaf" || token == "-daystart" ||
+           token == "-newer" || is_newerxy_option(token) ||
+           token == "-samefile" || token == "-files0-from" ||
+           token == "-mindepth" || token == "-maxdepth" || token == "-print" ||
+           token == "-print0" || token == "-fprint" || token == "-fprint0" ||
+           token == "-printf" || token == "-prune" || token == "-quit" ||
+           token == "-true" || token == "-false" || token == "-depth" ||
+           token == "-d" || token == "-follow" || token == "-mount" ||
+           token == "-xdev" || token == "-noleaf" || token == "-daystart" ||
            token == "-regextype" || token == "-O" || token == "-delete" ||
            token == "-exec" || token == "-ok" || token == "-L" ||
            token == "-P" || token == "-H";
@@ -2084,7 +2082,8 @@ auto entry_matches(Config& cfg, const std::filesystem::path& p,
   if (cfg.size_filter && !size_matches(e, *cfg.size_filter)) return false;
 
   if (cfg.atime_filter) {
-    auto age = file_age_units(p, FindFileTimeKind::Access, std::chrono::hours(24));
+    auto age =
+        file_age_units(p, FindFileTimeKind::Access, std::chrono::hours(24));
     if (!age || !numeric_matches(*cfg.atime_filter, *age)) return false;
   }
 
@@ -2095,7 +2094,8 @@ auto entry_matches(Config& cfg, const std::filesystem::path& p,
   }
 
   if (cfg.ctime_filter) {
-    auto age = file_age_units(p, FindFileTimeKind::Change, std::chrono::hours(24));
+    auto age =
+        file_age_units(p, FindFileTimeKind::Change, std::chrono::hours(24));
     if (!age || !numeric_matches(*cfg.ctime_filter, *age)) return false;
   }
 

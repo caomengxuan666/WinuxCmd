@@ -174,6 +174,18 @@ void output_default_block(const Diff3Block& block) {
   print_default_section(3, block.start, block.yours, true);
 }
 
+void output_ed_script_block(const Diff3Block& block) {
+  const bool mine_eq_older = diff3_same_lines(block.mine, block.older);
+  const bool yours_eq_older = diff3_same_lines(block.yours, block.older);
+
+  // GNU -e applies only non-overlapping OLDER-to-YOURS changes to MINE.
+  if (mine_eq_older && !yours_eq_older) {
+    safePrintLn(change_spec(block.start, block.mine.size()));
+    diff3_print_lines(block.yours);
+    safePrintLn(".");
+  }
+}
+
 bool output_merge_block(const Diff3Block& block, const std::string& mine_file,
                         const std::string& older_file,
                         const std::string& yours_file) {
@@ -314,9 +326,14 @@ auto run(const Config& cfg) -> int {
                : 0;
   }
 
-  if (cfg.ed_script || cfg.bracketed_conflicts || cfg.overwrite_overlapping) {
-    // Compatibility placeholder: these GNU ed-script modes are still modeled
-    // as default reports until the edit-script engine is implemented.
+  if (cfg.ed_script) {
+    if (block) output_ed_script_block(*block);
+    return 0;
+  }
+
+  if (cfg.bracketed_conflicts || cfg.overwrite_overlapping) {
+    // Compatibility placeholder: these GNU modes are still modeled as default
+    // reports until their specialized output is implemented.
   }
 
   if (block) output_default_block(*block);

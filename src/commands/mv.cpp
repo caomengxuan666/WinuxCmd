@@ -487,7 +487,7 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
           if (!is_dir) {
             return std::unexpected(is_dir.error());
           }
-          dest_is_dir = *is_dir;
+          dest_is_dir = *is_dir && !move_ctx.no_target_directory;
         }
         if ((move_ctx.target_directory_option ||
              move_ctx.source_paths.size() > 1) &&

@@ -1147,6 +1147,22 @@ TEST(xargs, xargs_max_chars_splits_batches) {
   EXPECT_TRUE(r.stderr_text.find("cmd.exe") != r.stderr_text.rfind("cmd.exe"));
 }
 
+TEST(xargs, xargs_long_max_chars_overrides_earlier_short_alias) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"xargs.exe", {L"-t", L"-s", L"8", L"--max-chars", L"100", L"cmd.exe",
+                       L"/C", L"echo"});
+  p.set_stdin("one\ntwo\nthree\n");
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stderr_text.find("cmd.exe"), r.stderr_text.rfind("cmd.exe"));
+  EXPECT_EQ_TEXT(r.stdout_text, "one two three\r\n");
+}
+
 TEST(xargs, xargs_exit_if_exceeded_rejects_oversized_command_line) {
   TempDir tmp;
 

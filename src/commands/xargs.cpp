@@ -149,6 +149,22 @@ auto option_present(const CommandContext<N> &ctx, std::string_view name)
   return false;
 }
 
+template <typename T, size_t N>
+auto last_option_value(const CommandContext<N> &ctx,
+                       std::string_view short_name, std::string_view long_name,
+                       T fallback) -> T {
+  T value = fallback;
+  if (!ctx.metas) return value;
+
+  for (const auto &occurrence : ctx.options.occurrences()) {
+    if (occurrence.index >= N) continue;
+    const auto &meta = (*ctx.metas)[occurrence.index];
+    if (!option_matches(meta, short_name, long_name)) continue;
+    if (const auto *parsed = std::get_if<T>(&occurrence.value)) value = *parsed;
+  }
+  return value;
+}
+
 enum class BatchOptionFamily {
   None,
   MaxArgs,
@@ -1189,10 +1205,8 @@ REGISTER_COMMAND(
   int max_args = batch_options.max_args;
   int max_lines = batch_options.max_lines;
   std::string replace_str = batch_options.replace_str;
-  int max_procs = ctx.get<int>("--max-procs", 1);
-  if (max_procs == 1) max_procs = ctx.get<int>("-P", 1);
-  int max_chars = ctx.get<int>("--max-chars", 0);
-  if (max_chars == 0) max_chars = ctx.get<int>("-s", 0);
+  int max_procs = last_option_value<int>(ctx, "-P", "--max-procs", 1);
+  int max_chars = last_option_value<int>(ctx, "-s", "--max-chars", 0);
   // Windows CreateProcess has a finite command-line limit.  GNU xargs
   // batches by default, so an omitted -s must still enforce that limit.
   if (max_chars == 0) max_chars = kWindowsCommandLineLimit;

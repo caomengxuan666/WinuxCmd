@@ -211,17 +211,19 @@ auto read_file_header(const std::wstring& path) -> std::vector<unsigned char> {
   std::array<unsigned char, 64> buffer{};
   file.read(reinterpret_cast<char*>(buffer.data()),
             static_cast<std::streamsize>(buffer.size()));
-  const auto count = static_cast<size_t>(std::max<std::streamsize>(0, file.gcount()));
+  const auto count =
+      static_cast<size_t>(std::max<std::streamsize>(0, file.gcount()));
   return {buffer.begin(), buffer.begin() + count};
 }
 
 auto classify_by_magic(const std::vector<unsigned char>& header)
     -> std::optional<FileClassification> {
   if (has_prefix(header, {'%', 'P', 'D', 'F', '-'})) {
-    return FileClassification{"PDF document", "application/pdf; charset=binary"};
+    return FileClassification{"PDF document",
+                              "application/pdf; charset=binary"};
   }
-  if (has_prefix(header, {static_cast<unsigned char>(0x89), 'P', 'N', 'G',
-                          '\r', '\n', static_cast<unsigned char>(0x1A), '\n'})) {
+  if (has_prefix(header, {static_cast<unsigned char>(0x89), 'P', 'N', 'G', '\r',
+                          '\n', static_cast<unsigned char>(0x1A), '\n'})) {
     return FileClassification{"PNG image data", "image/png; charset=binary"};
   }
   if (has_prefix(header, {static_cast<unsigned char>(0xFF),
@@ -237,20 +239,25 @@ auto classify_by_magic(const std::vector<unsigned char>& header)
       ((header[2] == 3 && header[3] == 4) ||
        (header[2] == 5 && header[3] == 6) ||
        (header[2] == 7 && header[3] == 8))) {
-    return FileClassification{"Zip archive data", "application/zip; charset=binary"};
+    return FileClassification{"Zip archive data",
+                              "application/zip; charset=binary"};
   }
   if (has_prefix(header, {static_cast<unsigned char>(0x1F),
                           static_cast<unsigned char>(0x8B)})) {
-    return FileClassification{"gzip compressed data", "application/gzip; charset=binary"};
+    return FileClassification{"gzip compressed data",
+                              "application/gzip; charset=binary"};
   }
   if (has_prefix(header, {'B', 'M'})) {
-    return FileClassification{"PC bitmap image data", "image/bmp; charset=binary"};
+    return FileClassification{"PC bitmap image data",
+                              "image/bmp; charset=binary"};
   }
   if (has_prefix(header, {static_cast<unsigned char>(0x7F), 'E', 'L', 'F'})) {
-    return FileClassification{"ELF executable", "application/x-executable; charset=binary"};
+    return FileClassification{"ELF executable",
+                              "application/x-executable; charset=binary"};
   }
   if (has_prefix(header, {'M', 'Z'})) {
-    return FileClassification{"MS-DOS executable", "application/x-dosexec; charset=binary"};
+    return FileClassification{"MS-DOS executable",
+                              "application/x-dosexec; charset=binary"};
   }
 
   return std::nullopt;
@@ -307,7 +314,7 @@ auto process_file(const std::string& path, bool brief, bool symlink)
     std::wstring filename =
         (last_sep != std::wstring::npos) ? wpath.substr(last_sep + 1) : wpath;
 
-    type = detect_file_type(filename);
+    type = classify_by_extension(filename).description;
   }
 
   if (brief) {
