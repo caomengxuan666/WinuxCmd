@@ -221,9 +221,7 @@ auto classify_by_magic(const std::vector<unsigned char>& header)
     return FileClassification{"PDF document", "application/pdf; charset=binary"};
   }
   if (has_prefix(header, {static_cast<unsigned char>(0x89), 'P', 'N', 'G',
-                          '', '
-', static_cast<unsigned char>(0x1A), '
-'})) {
+                          '\r', '\n', static_cast<unsigned char>(0x1A), '\n'})) {
     return FileClassification{"PNG image data", "image/png; charset=binary"};
   }
   if (has_prefix(header, {static_cast<unsigned char>(0xFF),
