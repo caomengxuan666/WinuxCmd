@@ -50,7 +50,7 @@ import utils;
  *
  * @par Options:
  *
- * - @a -a, @a --archive: Same as -dR --preserve=all [TODO]
+ * - @a -a, @a --archive: Same as -dR --preserve=all [IMPLEMENTED]
  * - @a -b: Like --backup but does not accept an argument [IMPLEMENTED]
  * - @a -d: Same as --no-dereference --preserve=links [TODO]
  * - @a -f, @a --force: If an existing destination file cannot be opened, remove
@@ -69,8 +69,8 @@ import utils;
  * - @a -S, @a --suffix: Override the usual backup suffix [IMPLEMENTED]
  * - @a -t, @a --target-directory: Copy all SOURCE arguments into DIRECTORY
  * [IMPLEMENTED]
- * - @a -T, @a --no-target-directory: Treat DEST as a normal file [TODO]
- * - @a -u: Equivalent to --update[=older] [TODO]
+ * - @a -T, @a --no-target-directory: Treat DEST as a normal file [IMPLEMENTED]
+ * - @a -u: Equivalent to --update[=older] [IMPLEMENTED]
  * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
  * - @a -x, @a --one-file-system: Stay on this file system [TODO]
  * - @a -Z: Set SELinux security context of destination file to default type

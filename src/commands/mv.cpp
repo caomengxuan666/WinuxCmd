@@ -42,32 +42,32 @@
  *
  * @par Options:
  *
- * - @a -b: Like --backup but does not accept an argument [TODO]
+ * - @a -b: Like --backup but does not accept an argument [IMPLEMENTED]
  * - @a -f, @a --force: Do not prompt before overwriting [IMPLEMENTED]
  * - @a -i: Prompt before overwrite [IMPLEMENTED]
  * - @a -n, @a --no-clobber: Do not overwrite an existing file [IMPLEMENTED]
  * - @a --strip-trailing-slashes: Remove any trailing slashes from each SOURCE
- * argument [TODO]
- * - @a -S, @a --suffix: Override the usual backup suffix [TODO]
+ * argument [IMPLEMENTED]
+ * - @a -S, @a --suffix: Override the usual backup suffix [IMPLEMENTED]
  * - @a -t, @a --target-directory: Move all SOURCE arguments into DIRECTORY
  * [IMPLEMENTED]
  * - @a -T, @a --no-target-directory: Treat DEST as a normal file [IMPLEMENTED]
  * - @a -u: Move only when the SOURCE file is newer than the destination file or
- * when the destination file is missing [TODO]
+ * when the destination file is missing [IMPLEMENTED]
  * - @a -v, @a --verbose: Explain what is being done [IMPLEMENTED]
  * - @a -Z, @a --context: Set SELinux security context of destination file to
  * default type [TODO]
- * - @a --backup: Make a backup of each existing destination file [TODO]
+ * - @a --backup: Make a backup of each existing destination file [IMPLEMENTED]
  * - @a --force: Do not prompt before overwriting [IMPLEMENTED]
  * - @a --interactive: Prompt according to WHEN: never, once (-I), or always
  * (-i) [IMPLEMENTED]
  * - @a --no-clobber: Do not overwrite an existing file [IMPLEMENTED]
- * - @a --suffix: Override the usual backup suffix [TODO]
+ * - @a --suffix: Override the usual backup suffix [IMPLEMENTED]
  * - @a --target-directory: Move all SOURCE arguments into DIRECTORY
  * [IMPLEMENTED]
  * - @a --no-target-directory: Treat DEST as a normal file [IMPLEMENTED]
  * - @a --update: Move only when the SOURCE file is newer than the destination
- * file or when the destination file is missing [TODO]
+ * file or when the destination file is missing [IMPLEMENTED]
  * - @a --verbose: Explain what is being done [IMPLEMENTED]
  * - @a --context: Set SELinux security context of destination file to default
  */
