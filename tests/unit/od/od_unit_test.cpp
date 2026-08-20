@@ -171,3 +171,50 @@ TEST(od, od_width) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
 }
+
+TEST(od, od_long_aliases_match_short_options) {
+  Pipeline p;
+  p.set_stdin("abcdefghijklmnopqrstuvwxyz");
+  p.add(L"od.exe", {L"--address-radix=n", L"--format=x1",
+                     L"--read-bytes=4", L"--skip-bytes=2"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, " 63 64 65 66\n");
+}
+
+TEST(od, od_endian_big_formats_multibyte_units) {
+  Pipeline p;
+  p.set_stdin("abc");
+  p.add(L"od.exe", {L"-An", L"-tx2", L"--endian=big"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, " 6162 6300\n");
+}
+
+TEST(od, od_endian_little_keeps_existing_multibyte_order) {
+  Pipeline p;
+  p.set_stdin("abc");
+  p.add(L"od.exe", {L"-An", L"-tx2", L"--endian=little"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, " 6261 0063\n");
+}
+
+TEST(od, od_output_duplicates_long_alias_disables_squeezing) {
+  Pipeline p;
+  p.set_stdin(std::string(32, 'A'));
+  p.add(L"od.exe", {L"-An", L"--format=x1", L"--output-duplicates"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 " 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41\n"
+                 " 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41\n");
+}

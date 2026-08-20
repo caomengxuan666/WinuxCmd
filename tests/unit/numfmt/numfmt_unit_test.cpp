@@ -139,3 +139,29 @@ TEST(numfmt, numfmt_invalid_input) {
   // Should report error for invalid input
   EXPECT_NE(r.exit_code, 0);
 }
+
+TEST(numfmt, numfmt_debug_reports_conversions) {
+  Pipeline p;
+  p.set_stdin("1500\n");
+  p.add(L"numfmt.exe", {L"--to=si", L"--debug"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "1.5k\n");
+  EXPECT_NE(r.stderr_text.find("numfmt: debug: converted '1500' -> '1.5k'"),
+            std::string::npos);
+}
+
+TEST(numfmt, numfmt_debug_reports_invalid_input) {
+  Pipeline p;
+  p.set_stdin("notanumber\n");
+  p.add(L"numfmt.exe", {L"--debug"});
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_NE(
+      r.stderr_text.find("numfmt: debug: failed to parse input 'notanumber'"),
+      std::string::npos);
+  EXPECT_NE(r.stderr_text.find("numfmt: invalid number: 'notanumber'"),
+            std::string::npos);
+}

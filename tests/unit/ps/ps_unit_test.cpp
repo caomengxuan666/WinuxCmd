@@ -142,6 +142,76 @@ TEST(ps, ps_sort_by_memory) {
   EXPECT_FALSE(r.stdout_text.empty());
 }
 
+TEST(ps, ps_pid_filter_with_custom_format_and_no_headers) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  const DWORD current_pid = GetCurrentProcessId();
+  const auto pid = std::to_wstring(current_pid);
+  const auto pid_text = std::to_string(current_pid);
+  p.add(L"ps.exe", {L"-p", pid, L"-o", L"pid,ppid,comm", L"--no-headers"});
+
+  TEST_LOG_CMD_LIST("ps.exe", L"-p", L"<current-pid>", L"-o",
+                    L"pid,ppid,comm", L"--no-headers");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("ps.exe -p <current-pid> -o pid,ppid,comm --no-headers output",
+           r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stdout_text.find(pid_text) != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("PID") == std::string::npos);
+}
+
+TEST(ps, ps_long_pid_and_format_print_common_headers) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  const DWORD current_pid = GetCurrentProcessId();
+  const auto pid = std::to_wstring(current_pid);
+  const auto pid_text = std::to_string(current_pid);
+  p.add(L"ps.exe", {L"--pid", pid, L"--format",
+                    L"pid,ppid,comm,args,user,etime,rss,pmem,pcpu"});
+
+  TEST_LOG_CMD_LIST("ps.exe", L"--pid", L"<current-pid>", L"--format",
+                    L"pid,ppid,comm,args,user,etime,rss,pmem,pcpu");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("ps.exe --pid <current-pid> --format common fields output",
+           r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stdout_text.find("PID PPID COMMAND COMMAND USER ELAPSED RSS %MEM %CPU") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find(pid_text) != std::string::npos);
+}
+
+TEST(ps, ps_format_rejects_unknown_field) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"ps.exe", {L"-o", L"pid,unknown_field"});
+
+  TEST_LOG_CMD_LIST("ps.exe", L"-o", L"pid,unknown_field");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("ps.exe -o pid,unknown_field stderr", r.stderr_text);
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find("unsupported format field") != std::string::npos);
+}
+
 TEST(ps, ps_invalid_option) {
   TempDir tmp;
 

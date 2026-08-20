@@ -361,8 +361,46 @@ auto preserve_metadata(const std::string& srcPath, const std::string& destPath)
   return true;
 }
 
+enum class BackupControl { none, simple, numbered, existing };
+
+auto backup_control_name(std::string control) -> std::string {
+  std::ranges::transform(control, control.begin(), [](unsigned char ch) {
+    return static_cast<char>(std::tolower(ch));
+  });
+  return control;
+}
+
+auto parse_backup_control(std::string control) -> cp::Result<BackupControl> {
+  control = backup_control_name(std::move(control));
+  if (control.empty() || control == "existing" || control == "nil") {
+    return BackupControl::existing;
+  }
+  if (control == "none" || control == "off") {
+    return BackupControl::none;
+  }
+  if (control == "simple" || control == "never") {
+    return BackupControl::simple;
+  }
+  if (control == "numbered" || control == "t") {
+    return BackupControl::numbered;
+  }
+  return std::unexpected("invalid backup type");
+}
+
+auto requested_backup_control(const CommandContext<CP_OPTIONS.size()>& ctx)
+    -> cp::Result<BackupControl> {
+  if (ctx.get<bool>("-b", false)) {
+    return BackupControl::existing;
+  }
+  if (ctx.has("--backup")) {
+    return parse_backup_control(ctx.get<std::string>("--backup", ""));
+  }
+  return BackupControl::none;
+}
+
 auto backup_enabled(const CommandContext<CP_OPTIONS.size()>& ctx) -> bool {
-  return ctx.get<bool>("-b", false) || ctx.has("--backup");
+  auto control = requested_backup_control(ctx);
+  return control && *control != BackupControl::none;
 }
 
 auto backup_suffix(const CommandContext<CP_OPTIONS.size()>& ctx)
@@ -372,9 +410,53 @@ auto backup_suffix(const CommandContext<CP_OPTIONS.size()>& ctx)
     suffix = ctx.get<std::string>("-S", "");
   }
   if (suffix.empty()) {
-    suffix = cp_constants::DEFAULT_BACKUP_SUFFIX;
+    if (const char* env_suffix = std::getenv("SIMPLE_BACKUP_SUFFIX");
+        env_suffix != nullptr && *env_suffix != '\0') {
+      suffix = env_suffix;
+    } else {
+      suffix = cp_constants::DEFAULT_BACKUP_SUFFIX;
+    }
   }
   return suffix;
+}
+
+auto numbered_backup_path(const std::wstring& dest_path) -> std::wstring {
+  for (int version = 1;; ++version) {
+    std::wstring candidate = dest_path + L".~" + std::to_wstring(version) + L"~";
+    if (!native_path::valid_attributes(native_path::attributes_w(candidate))) {
+      return candidate;
+    }
+  }
+}
+
+auto simple_backup_path(const std::wstring& dest_path,
+                        const CommandContext<CP_OPTIONS.size()>& ctx)
+    -> std::wstring {
+  return dest_path + utf8_to_wstring(backup_suffix(ctx));
+}
+
+auto select_backup_path(const std::wstring& dest_path,
+                        const CommandContext<CP_OPTIONS.size()>& ctx)
+    -> cp::Result<std::optional<std::wstring>> {
+  auto control = requested_backup_control(ctx);
+  if (!control) return std::unexpected(control.error());
+
+  switch (*control) {
+    case BackupControl::none:
+      return std::optional<std::wstring>{};
+    case BackupControl::simple:
+      return std::optional<std::wstring>{simple_backup_path(dest_path, ctx)};
+    case BackupControl::numbered:
+      return std::optional<std::wstring>{numbered_backup_path(dest_path)};
+    case BackupControl::existing: {
+      std::wstring first_numbered = dest_path + L".~1~";
+      if (native_path::valid_attributes(native_path::attributes_w(first_numbered))) {
+        return std::optional<std::wstring>{numbered_backup_path(dest_path)};
+      }
+      return std::optional<std::wstring>{simple_backup_path(dest_path, ctx)};
+    }
+  }
+  return std::unexpected("invalid backup type");
 }
 
 auto verbose_enabled(const CommandContext<CP_OPTIONS.size()>& ctx) -> bool {
@@ -395,9 +477,14 @@ auto backup_existing_destination(const std::string& destPath,
     return true;
   }
 
-  std::wstring backup_path =
-      dest_operand.extended + utf8_to_wstring(backup_suffix(ctx));
-  if (!MoveFileExW(dest_operand.extended.c_str(), backup_path.c_str(),
+  auto backup_path = select_backup_path(dest_operand.extended, ctx);
+  if (!backup_path) {
+    return std::unexpected(backup_path.error());
+  }
+  if (!*backup_path) {
+    return true;
+  }
+  if (!MoveFileExW(dest_operand.extended.c_str(), (*backup_path)->c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {
     return std::unexpected("cannot create backup for destination");
   }
@@ -413,8 +500,14 @@ auto copy_self_with_backup(const std::string& path,
   }
 
   std::wstring wpath = utf8_to_wstring(path);
-  std::wstring backup_path = wpath + utf8_to_wstring(backup_suffix(ctx));
-  if (!CopyFileW(wpath.c_str(), backup_path.c_str(), FALSE)) {
+  auto backup_path = select_backup_path(wpath, ctx);
+  if (!backup_path) {
+    return std::unexpected(backup_path.error());
+  }
+  if (!*backup_path) {
+    return true;
+  }
+  if (!CopyFileW(wpath.c_str(), (*backup_path)->c_str(), FALSE)) {
     return std::unexpected("cannot create backup for destination");
   }
   return true;

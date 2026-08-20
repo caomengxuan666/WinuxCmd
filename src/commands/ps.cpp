@@ -55,6 +55,8 @@ auto constexpr PS_OPTIONS = std::array{
     OPTION("-f", "", "do full-format listing"),
     OPTION("-l", "", "long format"),
     OPTION("-u", "", "display user-oriented format"),
+    OPTION("-p", "--pid", "select processes by process ID", STRING_TYPE),
+    OPTION("-o", "--format", "select output fields", STRING_TYPE),
     OPTION("", "--user", "filter processes by user name", STRING_TYPE),
     OPTION("-x", "", "lift the BSD-style \"must have a tty\" restriction"),
     OPTION("-w", "", "wide output (do not truncate command lines)"),
@@ -87,6 +89,8 @@ struct Config {
   bool user_format = false;
   bool wide_output = false;
   bool no_headers = false;
+  std::vector<DWORD> pid_filter;
+  std::vector<std::string> format_fields;
   std::string user_filter;
   std::string sort_key;
 };
@@ -320,6 +324,81 @@ auto format_memory(SIZE_T bytes) -> std::wstring {
   return buffer;
 }
 
+auto trim_ascii(std::string_view text) -> std::string_view {
+  while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) {
+    text.remove_prefix(1);
+  }
+  while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) {
+    text.remove_suffix(1);
+  }
+  return text;
+}
+
+auto split_ps_list(std::string_view text) -> std::vector<std::string_view> {
+  std::vector<std::string_view> values;
+  size_t start = 0;
+  for (size_t i = 0; i <= text.size(); ++i) {
+    const bool at_end = i == text.size();
+    const bool is_sep = !at_end &&
+                        (text[i] == ',' || std::isspace(static_cast<unsigned char>(text[i])));
+    if (!at_end && !is_sep) continue;
+
+    auto item = trim_ascii(text.substr(start, i - start));
+    if (!item.empty()) values.push_back(item);
+    start = i + 1;
+  }
+  return values;
+}
+
+auto parse_pid_value(std::string_view text) -> std::optional<DWORD> {
+  text = trim_ascii(text);
+  if (text.empty()) return std::nullopt;
+
+  uint64_t value = 0;
+  auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size() ||
+      value > std::numeric_limits<DWORD>::max()) {
+    return std::nullopt;
+  }
+  return static_cast<DWORD>(value);
+}
+
+auto append_pid_filter(std::string_view raw, std::vector<DWORD>& pids)
+    -> std::optional<std::string> {
+  for (auto token : split_ps_list(raw)) {
+    auto pid = parse_pid_value(token);
+    if (!pid) return "invalid process ID: " + std::string(token);
+    pids.push_back(*pid);
+  }
+  return std::nullopt;
+}
+
+auto normalize_format_field(std::string_view field) -> std::string {
+  auto trimmed = trim_ascii(field);
+  std::string normalized(trimmed);
+  std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  return normalized;
+}
+
+auto is_supported_format_field(std::string_view field) -> bool {
+  return field == "pid" || field == "ppid" || field == "comm" ||
+         field == "args" || field == "user" || field == "etime" ||
+         field == "rss" || field == "pmem" || field == "pcpu";
+}
+
+auto append_format_fields(std::string_view raw, std::vector<std::string>& fields)
+    -> std::optional<std::string> {
+  for (auto token : split_ps_list(raw)) {
+    auto field = normalize_format_field(token);
+    if (!is_supported_format_field(field)) {
+      return "unsupported format field: " + std::string(token);
+    }
+    fields.push_back(std::move(field));
+  }
+  return std::nullopt;
+}
+
 // Build config from context
 auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
@@ -336,6 +415,18 @@ auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
   cfg.wide_output = ctx.get<bool>("-w", false);
   cfg.no_headers = ctx.get<bool>("--no-headers", false);
   cfg.sort_key = ctx.get<std::string>("--sort", "");
+
+  for (const auto& occurrence : ctx.string_occurrences({"-p", "--pid"})) {
+    if (auto error = append_pid_filter(occurrence.value, cfg.pid_filter)) {
+      return std::unexpected(*error);
+    }
+  }
+
+  for (const auto& occurrence : ctx.string_occurrences({"-o", "--format"})) {
+    if (auto error = append_format_fields(occurrence.value, cfg.format_fields)) {
+      return std::unexpected(*error);
+    }
+  }
 
   // If no specific processes requested and no -e/-A, default to current user's
   // processes
@@ -550,6 +641,133 @@ auto print_user(const std::vector<ProcessInfo>& processes, bool no_headers)
   }
 }
 
+auto filetime_to_uint64(const FILETIME& ft) -> ULONGLONG {
+  ULARGE_INTEGER value;
+  value.LowPart = ft.dwLowDateTime;
+  value.HighPart = ft.dwHighDateTime;
+  return value.QuadPart;
+}
+
+auto process_cpu_seconds(const ProcessInfo& proc) -> double {
+  const ULONGLONG total_100ns = filetime_to_uint64(proc.kernel_time) +
+                                filetime_to_uint64(proc.user_time);
+  return static_cast<double>(total_100ns) / 10000000.0;
+}
+
+auto process_elapsed_seconds(const ProcessInfo& proc) -> ULONGLONG {
+  const ULONGLONG started = filetime_to_uint64(proc.create_time);
+  if (started == 0) return 0;
+
+  FILETIME now_ft;
+  GetSystemTimeAsFileTime(&now_ft);
+  const ULONGLONG now = filetime_to_uint64(now_ft);
+  if (now <= started) return 0;
+  return (now - started) / 10000000ULL;
+}
+
+auto format_etime(ULONGLONG seconds) -> std::wstring {
+  const ULONGLONG days = seconds / 86400ULL;
+  seconds %= 86400ULL;
+  const ULONGLONG hours = seconds / 3600ULL;
+  seconds %= 3600ULL;
+  const ULONGLONG minutes = seconds / 60ULL;
+  seconds %= 60ULL;
+
+  wchar_t buffer[32];
+  if (days > 0) {
+    swprintf_s(buffer, L"%llu-%02llu:%02llu:%02llu", days, hours, minutes,
+               seconds);
+  } else if (hours > 0) {
+    swprintf_s(buffer, L"%llu:%02llu:%02llu", hours, minutes, seconds);
+  } else {
+    swprintf_s(buffer, L"%02llu:%02llu", minutes, seconds);
+  }
+  return buffer;
+}
+
+auto total_physical_memory() -> unsigned long long {
+  MEMORYSTATUSEX mem_status;
+  mem_status.dwLength = sizeof(mem_status);
+  if (!GlobalMemoryStatusEx(&mem_status)) return 0;
+  return mem_status.ullTotalPhys;
+}
+
+auto format_percent(double value) -> std::wstring {
+  wchar_t buffer[32];
+  swprintf_s(buffer, L"%.1f", value);
+  return buffer;
+}
+
+auto custom_field_header(std::string_view field) -> std::wstring {
+  if (field == "pid") return L"PID";
+  if (field == "ppid") return L"PPID";
+  if (field == "comm") return L"COMMAND";
+  if (field == "args") return L"COMMAND";
+  if (field == "user") return L"USER";
+  if (field == "etime") return L"ELAPSED";
+  if (field == "rss") return L"RSS";
+  if (field == "pmem") return L"%MEM";
+  if (field == "pcpu") return L"%CPU";
+  return utf8_to_wstring(std::string(field));
+}
+
+auto custom_field_value(const ProcessInfo& proc, std::string_view field,
+                        unsigned long long total_memory) -> std::wstring {
+  if (field == "pid") return std::to_wstring(proc.pid);
+  if (field == "ppid") return std::to_wstring(proc.ppid);
+  if (field == "comm") return proc.name;
+  if (field == "args") return proc.command_line.empty() ? proc.name : proc.command_line;
+  if (field == "user") return proc.user;
+  if (field == "etime") return format_etime(process_elapsed_seconds(proc));
+  if (field == "rss") return std::to_wstring(proc.working_set_size / 1024);
+  if (field == "pmem") {
+    const double percent = total_memory == 0
+                               ? 0.0
+                               : (static_cast<double>(proc.working_set_size) * 100.0 /
+                                  static_cast<double>(total_memory));
+    return format_percent(percent);
+  }
+  if (field == "pcpu") {
+    const auto elapsed = process_elapsed_seconds(proc);
+    const double percent = elapsed == 0
+                               ? 0.0
+                               : (process_cpu_seconds(proc) * 100.0 /
+                                  static_cast<double>(elapsed));
+    return format_percent(percent);
+  }
+  return L"";
+}
+
+auto join_columns(const std::vector<std::wstring>& columns) -> std::wstring {
+  std::wstring line;
+  for (size_t i = 0; i < columns.size(); ++i) {
+    if (i != 0) line += L" ";
+    line += columns[i];
+  }
+  return line;
+}
+
+auto print_custom(const std::vector<ProcessInfo>& processes,
+                  const std::vector<std::string>& fields, bool no_headers)
+    -> void {
+  if (!no_headers) {
+    std::vector<std::wstring> headers;
+    headers.reserve(fields.size());
+    for (const auto& field : fields) headers.push_back(custom_field_header(field));
+    safePrintLn(join_columns(headers));
+  }
+
+  const auto total_memory = total_physical_memory();
+  for (const auto& proc : processes) {
+    std::vector<std::wstring> values;
+    values.reserve(fields.size());
+    for (const auto& field : fields) {
+      values.push_back(custom_field_value(proc, field, total_memory));
+    }
+    safePrintLn(join_columns(values));
+  }
+}
+
 // Main execution
 auto run(const Config& cfg) -> int {
   auto result = enumerate_processes();
@@ -569,6 +787,16 @@ auto run(const Config& cfg) -> int {
     processes.erase(it, processes.end());
   }
 
+  // Filter by PID if specified
+  if (!cfg.pid_filter.empty()) {
+    auto it = std::remove_if(processes.begin(), processes.end(),
+                             [&](const ProcessInfo& p) {
+                               return std::ranges::find(cfg.pid_filter, p.pid) ==
+                                      cfg.pid_filter.end();
+                             });
+    processes.erase(it, processes.end());
+  }
+
   // Sort if requested
   if (!cfg.sort_key.empty()) {
     sort_processes(processes, cfg.sort_key);
@@ -578,7 +806,9 @@ auto run(const Config& cfg) -> int {
   }
 
   // Print in requested format
-  if (cfg.full_format) {
+  if (!cfg.format_fields.empty()) {
+    print_custom(processes, cfg.format_fields, cfg.no_headers);
+  } else if (cfg.full_format) {
     print_full(processes, cfg.no_headers);
   } else if (cfg.user_format || cfg.long_format) {
     print_user(processes, cfg.no_headers);

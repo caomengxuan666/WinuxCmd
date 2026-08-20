@@ -60,7 +60,7 @@ using namespace std::string_view_literals;
 auto constexpr FILE_OPTIONS = std::array{
     OPTION("-b", "--brief", "do not prepend filenames to output lines"),
     OPTION("-h", "--no-dereference", "don't follow symlinks"),
-    OPTION("-i", "--mime", "output MIME type strings [TODO]"),
+    OPTION("-i", "--mime", "output MIME type strings"),
     OPTION("-L", "--dereference", "follow symlinks")};
 
 // ======================================================
@@ -158,6 +158,31 @@ constexpr auto extension_map = make_constexpr_map(
         {".so"sv, "ELF shared object"sv},
         {".dylib"sv, "Mach-O dynamically linked shared library"sv},
     }));
+
+constexpr auto extension_mime_map = make_constexpr_map(
+    std::to_array<std::pair<std::string_view, std::string_view>>({
+        {".txt"sv, "text/plain; charset=us-ascii"sv},
+        {".md"sv, "text/markdown; charset=utf-8"sv},
+        {".json"sv, "application/json; charset=us-ascii"sv},
+        {".xml"sv, "text/xml; charset=us-ascii"sv},
+        {".html"sv, "text/html; charset=us-ascii"sv},
+        {".htm"sv, "text/html; charset=us-ascii"sv},
+        {".css"sv, "text/css; charset=us-ascii"sv},
+        {".js"sv, "text/javascript; charset=us-ascii"sv},
+        {".ts"sv, "text/plain; charset=us-ascii"sv},
+        {".py"sv, "text/x-python; charset=us-ascii"sv},
+        {".sh"sv, "text/x-shellscript; charset=us-ascii"sv},
+        {".pdf"sv, "application/pdf; charset=binary"sv},
+        {".zip"sv, "application/zip; charset=binary"sv},
+        {".gz"sv, "application/gzip; charset=binary"sv},
+        {".png"sv, "image/png; charset=binary"sv},
+        {".jpg"sv, "image/jpeg; charset=binary"sv},
+        {".jpeg"sv, "image/jpeg; charset=binary"sv},
+        {".gif"sv, "image/gif; charset=binary"sv},
+        {".bmp"sv, "image/bmp; charset=binary"sv},
+        {".exe"sv, "application/x-dosexec; charset=binary"sv},
+        {".dll"sv, "application/x-dosexec; charset=binary"sv},
+    }));
 }  // namespace file_constants
 
 // ======================================================
@@ -166,31 +191,89 @@ constexpr auto extension_map = make_constexpr_map(
 namespace file_pipeline {
 namespace cp = core::pipeline;
 
-/**
- * @brief Detect file type from extension
- * @param filename Filename to check
- * @return Detected file type
- */
-auto detect_file_type(const std::wstring& filename) -> std::string {
-  // Get extension
+struct FileClassification {
+  std::string description;
+  std::string mime;
+};
+
+auto has_prefix(const std::vector<unsigned char>& data,
+                std::initializer_list<unsigned char> prefix) -> bool {
+  return data.size() >= prefix.size() &&
+         std::equal(prefix.begin(), prefix.end(), data.begin());
+}
+
+auto read_file_header(const std::wstring& path) -> std::vector<unsigned char> {
+  std::ifstream file(std::filesystem::path(path), std::ios::binary);
+  if (!file) {
+    return {};
+  }
+
+  std::array<unsigned char, 64> buffer{};
+  file.read(reinterpret_cast<char*>(buffer.data()),
+            static_cast<std::streamsize>(buffer.size()));
+  const auto count = static_cast<size_t>(std::max<std::streamsize>(0, file.gcount()));
+  return {buffer.begin(), buffer.begin() + count};
+}
+
+auto classify_by_magic(const std::vector<unsigned char>& header)
+    -> std::optional<FileClassification> {
+  if (has_prefix(header, {'%', 'P', 'D', 'F', '-'})) {
+    return FileClassification{"PDF document", "application/pdf; charset=binary"};
+  }
+  if (has_prefix(header, {static_cast<unsigned char>(0x89), 'P', 'N', 'G',
+                          '', '
+', static_cast<unsigned char>(0x1A), '
+'})) {
+    return FileClassification{"PNG image data", "image/png; charset=binary"};
+  }
+  if (has_prefix(header, {static_cast<unsigned char>(0xFF),
+                          static_cast<unsigned char>(0xD8),
+                          static_cast<unsigned char>(0xFF)})) {
+    return FileClassification{"JPEG image data", "image/jpeg; charset=binary"};
+  }
+  if (has_prefix(header, {'G', 'I', 'F', '8', '7', 'a'}) ||
+      has_prefix(header, {'G', 'I', 'F', '8', '9', 'a'})) {
+    return FileClassification{"GIF image data", "image/gif; charset=binary"};
+  }
+  if (header.size() >= 4 && header[0] == 'P' && header[1] == 'K' &&
+      ((header[2] == 3 && header[3] == 4) ||
+       (header[2] == 5 && header[3] == 6) ||
+       (header[2] == 7 && header[3] == 8))) {
+    return FileClassification{"Zip archive data", "application/zip; charset=binary"};
+  }
+  if (has_prefix(header, {static_cast<unsigned char>(0x1F),
+                          static_cast<unsigned char>(0x8B)})) {
+    return FileClassification{"gzip compressed data", "application/gzip; charset=binary"};
+  }
+  if (has_prefix(header, {'B', 'M'})) {
+    return FileClassification{"PC bitmap image data", "image/bmp; charset=binary"};
+  }
+  if (has_prefix(header, {static_cast<unsigned char>(0x7F), 'E', 'L', 'F'})) {
+    return FileClassification{"ELF executable", "application/x-executable; charset=binary"};
+  }
+  if (has_prefix(header, {'M', 'Z'})) {
+    return FileClassification{"MS-DOS executable", "application/x-dosexec; charset=binary"};
+  }
+
+  return std::nullopt;
+}
+
+auto classify_by_extension(const std::wstring& filename) -> FileClassification {
   size_t dot_pos = filename.find_last_of(L'.');
   if (dot_pos == std::wstring::npos) {
-    // No extension, assume text file
-    return "ASCII text";
+    return {"ASCII text", "text/plain; charset=us-ascii"};
   }
 
   std::wstring ext = filename.substr(dot_pos);
   std::string ext_lower = wstring_to_utf8(ext);
-
-  // Convert to lowercase
   std::transform(ext_lower.begin(), ext_lower.end(), ext_lower.begin(),
                  ::tolower);
 
-  // Lookup in extension map using ConstexprMap
   std::string_view ext_sv(ext_lower);
-  auto result = file_constants::extension_map.get_or(ext_sv, "data"sv);
-
-  return std::string(result);
+  auto description = file_constants::extension_map.get_or(ext_sv, "data"sv);
+  auto mime = file_constants::extension_mime_map.get_or(
+      ext_sv, "application/octet-stream; charset=binary"sv);
+  return {std::string(description), std::string(mime)};
 }
 
 /**

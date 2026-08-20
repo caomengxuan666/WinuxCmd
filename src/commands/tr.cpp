@@ -150,7 +150,7 @@ auto ascii_class(std::string_view name) -> std::optional<std::string> {
   return std::nullopt;
 }
 
-auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
+auto parse_atomic_token(std::string_view& str) -> cp::Result<std::string> {
   if (str.empty()) return std::unexpected("missing character");
 
   if (str[0] == '\\') {
@@ -177,6 +177,64 @@ auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
   char c = str[0];
   str = str.substr(1);
   return std::string(1, c);
+}
+
+auto parse_repeat_count(std::string_view& str) -> std::optional<size_t> {
+  if (str.empty() || str[0] != '*') return std::nullopt;
+
+  str = str.substr(1);
+  if (str.empty() || str[0] < '0' || str[0] > '9') return std::nullopt;
+
+  size_t count = 0;
+  while (!str.empty() && str[0] >= '0' && str[0] <= '9') {
+    size_t digit = static_cast<size_t>(str[0] - '0');
+    if (count > (std::numeric_limits<size_t>::max() - digit) / 10) {
+      return std::nullopt;
+    }
+    count = count * 10 + digit;
+    str = str.substr(1);
+  }
+
+  return count;
+}
+
+auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
+  if (str.empty()) return std::unexpected("missing character");
+
+  if (str[0] == '[') {
+    size_t close = str.find(']');
+    if (close != std::string_view::npos) {
+      std::string_view body = str.substr(1, close - 1);
+
+      if (body.size() >= 3 && body.front() == '=' && body.back() == '=') {
+        std::string_view equiv = body.substr(1, body.size() - 2);
+        auto atom = parse_atomic_token(equiv);
+        if (atom && equiv.empty() && atom->size() == 1) {
+          str = str.substr(close + 1);
+          return *atom;
+        }
+      }
+
+      if (body.find('*') != std::string_view::npos) {
+        std::string_view repeated = body;
+        auto atom = parse_atomic_token(repeated);
+        if (atom && atom->size() == 1) {
+          auto count = parse_repeat_count(repeated);
+          if (count && repeated.empty()) {
+            std::string result;
+            result.reserve(*count);
+            for (size_t i = 0; i < *count; ++i) {
+              result += *atom;
+            }
+            str = str.substr(close + 1);
+            return result;
+          }
+        }
+      }
+    }
+  }
+
+  return parse_atomic_token(str);
 }
 
 // Parse a character set string

@@ -377,6 +377,58 @@ TEST(cp, cp_backup_suffix_uses_custom_suffix) {
   EXPECT_EQ(tmp.read("dest.txt.bak"), "old content");
 }
 
+TEST(cp, cp_backup_numbered_control_creates_next_numbered_file) {
+  TempDir tmp;
+  tmp.write("source.txt", "new content");
+  tmp.write("dest.txt", "old content");
+  tmp.write("dest.txt.~1~", "first backup");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--backup=numbered", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "new content");
+  EXPECT_EQ(tmp.read("dest.txt.~1~"), "first backup");
+  EXPECT_EQ(tmp.read("dest.txt.~2~"), "old content");
+}
+
+TEST(cp, cp_backup_existing_control_uses_numbered_when_numbered_exists) {
+  TempDir tmp;
+  tmp.write("source.txt", "new content");
+  tmp.write("dest.txt", "old content");
+  tmp.write("dest.txt.~1~", "first backup");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--backup=existing", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "new content");
+  EXPECT_EQ(tmp.read("dest.txt.~1~"), "first backup");
+  EXPECT_EQ(tmp.read("dest.txt.~2~"), "old content");
+}
+
+TEST(cp, cp_backup_none_control_overwrites_without_backup) {
+  TempDir tmp;
+  tmp.write("source.txt", "new content");
+  tmp.write("dest.txt", "old content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--backup=none", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "new content");
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dest.txt~"));
+}
+
 TEST(cp, cp_refuses_copy_onto_self) {
   TempDir tmp;
   tmp.write("file.txt", "content");

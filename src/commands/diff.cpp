@@ -62,7 +62,15 @@ using cmd::meta::OptionType;
 auto constexpr DIFF_OPTIONS =
     std::array{OPTION("-q", "--brief", "report only when files differ"),
                OPTION("-u", "--unified",
-                      "output NUM (default 3) lines of unified context"),
+                      "output NUM (default 3) lines of unified context",
+                      OPTIONAL_INT_TYPE),
+               OPTION("-U", "", "output NUM lines of unified context", INT_TYPE),
+               OPTION("-c", "--context",
+                      "output NUM (default 3) lines of copied context",
+                      OPTIONAL_INT_TYPE),
+               OPTION("-C", "", "output NUM lines of copied context", INT_TYPE),
+               OPTION("", "--label", "use LABEL instead of file name",
+                      STRING_TYPE),
                OPTION("-y", "--side-by-side", "output in two columns"),
                OPTION("-w", "--ignore-all-space", "ignore all white space"),
                OPTION("-B", "--ignore-blank-lines",
@@ -395,6 +403,117 @@ auto format_unified_range(size_t start_line, size_t count) -> std::string {
   return out;
 }
 
+auto format_context_range(size_t start_line, size_t count) -> std::string {
+  if (count == 1) return std::to_string(start_line);
+  if (count == 0) return std::to_string(start_line) + ",0";
+  return std::to_string(start_line) + "," +
+         std::to_string(start_line + count - 1);
+}
+
+struct DiffHunk {
+  size_t edit_start = 0;
+  size_t edit_end = 0;
+  size_t file1_start = 0;
+  size_t file1_end = 0;
+  size_t file2_start = 0;
+  size_t file2_end = 0;
+};
+
+auto build_diff_hunks(const std::vector<Edit> &edits, size_t line1_count,
+                      size_t line2_count, int context)
+    -> std::vector<DiffHunk> {
+  std::vector<DiffHunk> hunks;
+  if (edits.empty()) return hunks;
+
+  auto context_lines = static_cast<size_t>(std::max(context, 0));
+  std::vector<std::pair<size_t, size_t>> groups;
+  size_t hunk_start = 0;
+  for (size_t i = 1; i < edits.size(); ++i) {
+    size_t prev_line1 = edits[i - 1].line1_index;
+    size_t curr_line1 = edits[i].line1_index;
+    size_t prev_line2 = edits[i - 1].line2_index;
+    size_t curr_line2 = edits[i].line2_index;
+
+    size_t distance =
+        std::max((curr_line1 > prev_line1 + context_lines)
+                     ? curr_line1 - prev_line1 - context_lines
+                     : 0,
+                 (curr_line2 > prev_line2 + context_lines)
+                     ? curr_line2 - prev_line2 - context_lines
+                     : 0);
+
+    if (distance > context_lines * 2) {
+      groups.push_back({hunk_start, i});
+      hunk_start = i;
+    }
+  }
+  groups.push_back({hunk_start, edits.size()});
+
+  for (auto [group_start, group_end] : groups) {
+    DiffHunk hunk;
+    hunk.edit_start = group_start;
+    hunk.edit_end = group_end;
+    hunk.file1_start = line1_count;
+    hunk.file1_end = 0;
+    hunk.file2_start = line2_count;
+    hunk.file2_end = 0;
+
+    for (size_t i = group_start; i < group_end; ++i) {
+      const auto &edit = edits[i];
+      if (edit.type == EditType::DEL) {
+        hunk.file1_start = std::min(hunk.file1_start, edit.line1_index);
+        hunk.file1_end = std::max(hunk.file1_end, edit.line1_index + 1);
+      } else if (edit.type == EditType::INS) {
+        hunk.file2_start = std::min(hunk.file2_start, edit.line2_index);
+        hunk.file2_end = std::max(hunk.file2_end, edit.line2_index + 1);
+      }
+    }
+
+    if (hunk.file1_start == line1_count) {
+      hunk.file1_start = edits[group_start].line1_index;
+      hunk.file1_end = hunk.file1_start;
+    }
+    if (hunk.file2_start == line2_count) {
+      hunk.file2_start = edits[group_start].line2_index;
+      hunk.file2_end = hunk.file2_start;
+    }
+
+    hunk.file1_start = static_cast<size_t>(std::max(
+        static_cast<ptrdiff_t>(hunk.file1_start) -
+            static_cast<ptrdiff_t>(context_lines),
+        static_cast<ptrdiff_t>(0)));
+    hunk.file1_end = std::min(hunk.file1_end + context_lines, line1_count);
+    hunk.file2_start = static_cast<size_t>(std::max(
+        static_cast<ptrdiff_t>(hunk.file2_start) -
+            static_cast<ptrdiff_t>(context_lines),
+        static_cast<ptrdiff_t>(0)));
+    hunk.file2_end = std::min(hunk.file2_end + context_lines, line2_count);
+
+    hunks.push_back(hunk);
+  }
+
+  return hunks;
+}
+
+struct DiffLabel {
+  std::string text;
+  bool custom = false;
+};
+
+void output_diff_file_header(std::string_view prefix, const DiffLabel &label,
+                             const std::string &path) {
+  safePrint(std::string(prefix));
+  safePrint(label.text);
+  if (!label.custom) {
+    auto timestamp = format_unified_timestamp(path);
+    if (!timestamp.empty()) {
+      safePrint("\t");
+      safePrint(timestamp);
+    }
+  }
+  safePrint("\n");
+}
+
 /**
  * @brief Output unified diff format using LCS
  * @param path1 First file path
@@ -407,129 +526,38 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
                          const std::vector<std::string> &compare_lines1,
                          const std::vector<std::string> &compare_lines2,
                          const std::vector<std::string> &lines1,
-                         const std::vector<std::string> &lines2, int context)
+                         const std::vector<std::string> &lines2, int context,
+                         const DiffLabel &label1, const DiffLabel &label2)
     -> void {
   auto edits = compute_diff(compare_lines1, compare_lines2);
+  auto hunks = build_diff_hunks(edits, lines1.size(), lines2.size(), context);
+  if (hunks.empty()) return;
 
-  // Group edits into hunks
-  std::vector<std::pair<size_t, size_t>> hunks;  // (start_index, end_index)
-  if (!edits.empty()) {
-    size_t hunk_start = 0;
-    for (size_t i = 1; i < edits.size(); ++i) {
-      size_t distance = 0;
+  output_diff_file_header("--- ", label1, path1);
+  output_diff_file_header("+++ ", label2, path2);
 
-      // Calculate distance in terms of line numbers
-      size_t prev_line1 = (edits[i - 1].type != EditType::INS)
-                              ? edits[i - 1].line1_index
-                              : (edits[i - 1].line1_index);
-      size_t curr_line1 = (edits[i].type != EditType::INS)
-                              ? edits[i].line1_index
-                              : (edits[i].line1_index);
-      size_t prev_line2 = (edits[i - 1].type != EditType::DEL)
-                              ? edits[i - 1].line2_index
-                              : (edits[i - 1].line2_index);
-      size_t curr_line2 = (edits[i].type != EditType::DEL)
-                              ? edits[i].line2_index
-                              : (edits[i].line2_index);
-
-      distance = std::max((curr_line1 > prev_line1 + context)
-                              ? curr_line1 - prev_line1 - context
-                              : 0,
-                          (curr_line2 > prev_line2 + context)
-                              ? curr_line2 - prev_line2 - context
-                              : 0);
-
-      if (distance > context * 2) {
-        hunks.push_back({hunk_start, i});
-        hunk_start = i;
-      }
-    }
-    hunks.push_back({hunk_start, edits.size()});
-  }
-
-  if (hunks.empty()) {
-    return;  // Files are identical
-  }
-
-  // Output header
-  safePrint("--- ");
-  safePrint(path1);
-  auto timestamp1 = format_unified_timestamp(path1);
-  if (!timestamp1.empty()) {
-    safePrint("\t");
-    safePrint(timestamp1);
-  }
-  safePrint("\n");
-  safePrint("+++ ");
-  safePrint(path2);
-  auto timestamp2 = format_unified_timestamp(path2);
-  if (!timestamp2.empty()) {
-    safePrint("\t");
-    safePrint(timestamp2);
-  }
-  safePrint("\n");
-
-  // Output each hunk
-  for (auto [hunk_start, hunk_end] : hunks) {
-    // Find the range of lines in both files
-    size_t file1_start = lines1.size();
-    size_t file1_end = 0;
-    size_t file2_start = lines2.size();
-    size_t file2_end = 0;
-    size_t context_start = lines1.size();
-    size_t context_end = 0;
-
-    for (size_t i = hunk_start; i < hunk_end; ++i) {
-      const auto &edit = edits[i];
-
-      if (edit.type == EditType::KEEP) {
-        context_start = std::min(context_start, edit.line1_index);
-        context_end = std::max(context_end, edit.line1_index + 1);
-      } else if (edit.type == EditType::DEL) {
-        file1_start = std::min(file1_start, edit.line1_index);
-        file1_end = std::max(file1_end, edit.line1_index + 1);
-      } else {  // INS
-        file2_start = std::min(file2_start, edit.line2_index);
-        file2_end = std::max(file2_end, edit.line2_index + 1);
-      }
-    }
-
-    // A pure insertion or deletion has no changed line on the other side.
-    // Use the edit's anchor position so the zero-length range does not
-    // underflow when its unified header is formatted.
-    if (file1_start == lines1.size()) {
-      file1_start = edits[hunk_start].line1_index;
-      file1_end = file1_start;
-    }
-    if (file2_start == lines2.size()) {
-      file2_start = edits[hunk_start].line2_index;
-      file2_end = file2_start;
-    }
-
-    // Add context lines
-    file1_start =
-        std::max((ptrdiff_t)file1_start - (ptrdiff_t)context, (ptrdiff_t)0);
-    file1_end = std::min(file1_end + context, lines1.size());
-    file2_start =
-        std::max((ptrdiff_t)file2_start - (ptrdiff_t)context, (ptrdiff_t)0);
-    file2_end = std::min(file2_end + context, lines2.size());
-
-    // Output hunk header
+  for (const auto &hunk : hunks) {
     safePrint("@@ -");
-    safePrint(format_unified_range(file1_start + 1, file1_end - file1_start));
+    safePrint(format_unified_range(hunk.file1_start + 1,
+                                   hunk.file1_end - hunk.file1_start));
     safePrint(" +");
-    safePrint(format_unified_range(file2_start + 1, file2_end - file2_start));
+    safePrint(format_unified_range(hunk.file2_start + 1,
+                                   hunk.file2_end - hunk.file2_start));
     safePrint(" @@\n");
 
-    // Output hunk content
-    size_t i1 = file1_start;
-    size_t i2 = file2_start;
-
-    for (size_t i = hunk_start; i < hunk_end; ++i) {
+    size_t i1 = hunk.file1_start;
+    size_t i2 = hunk.file2_start;
+    for (size_t i = hunk.edit_start; i < hunk.edit_end; ++i) {
       const auto &edit = edits[i];
 
       if (edit.type == EditType::KEEP) {
-        while (i1 < edit.line1_index && i1 < file1_end) {
+        if (edit.line1_index < hunk.file1_start ||
+            edit.line1_index >= hunk.file1_end ||
+            edit.line2_index < hunk.file2_start ||
+            edit.line2_index >= hunk.file2_end) {
+          continue;
+        }
+        while (i1 < edit.line1_index && i1 < hunk.file1_end) {
           safePrint(" ");
           safePrint(lines1[i1]);
           safePrint("\n");
@@ -542,7 +570,11 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
         ++i1;
         ++i2;
       } else if (edit.type == EditType::DEL) {
-        while (i1 < edit.line1_index && i1 < file1_end) {
+        if (edit.line1_index < hunk.file1_start ||
+            edit.line1_index >= hunk.file1_end) {
+          continue;
+        }
+        while (i1 < edit.line1_index && i1 < hunk.file1_end) {
           safePrint(" ");
           safePrint(lines1[i1]);
           safePrint("\n");
@@ -553,8 +585,12 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
         safePrint(lines1[edit.line1_index]);
         safePrint("\n");
         ++i1;
-      } else {  // INS
-        while (i2 < edit.line2_index && i2 < file2_end) {
+      } else {
+        if (edit.line2_index < hunk.file2_start ||
+            edit.line2_index >= hunk.file2_end) {
+          continue;
+        }
+        while (i2 < edit.line2_index && i2 < hunk.file2_end) {
           safePrint(" ");
           safePrint(lines2[i2]);
           safePrint("\n");
@@ -568,14 +604,144 @@ auto output_unified_diff(const std::string &path1, const std::string &path2,
       }
     }
 
-    // Output remaining context lines
-    while (i1 < file1_end && i2 < file2_end) {
+    while (i1 < hunk.file1_end && i2 < hunk.file2_end) {
       safePrint(" ");
       safePrint(lines1[i1]);
       safePrint("\n");
       ++i1;
       ++i2;
     }
+  }
+}
+
+void output_context_old_section(const std::vector<Edit> &edits,
+                                const std::vector<std::string> &lines1,
+                                const DiffHunk &hunk, bool mixed_change) {
+  size_t i1 = hunk.file1_start;
+  for (size_t i = hunk.edit_start; i < hunk.edit_end; ++i) {
+    const auto &edit = edits[i];
+    if (edit.type == EditType::INS) continue;
+    if (edit.type == EditType::KEEP) {
+      if (edit.line1_index < hunk.file1_start ||
+          edit.line1_index >= hunk.file1_end) {
+        continue;
+      }
+      while (i1 < edit.line1_index && i1 < hunk.file1_end) {
+        safePrint("  ");
+        safePrint(lines1[i1]);
+        safePrint("\n");
+        ++i1;
+      }
+      safePrint("  ");
+      safePrint(lines1[edit.line1_index]);
+      safePrint("\n");
+      ++i1;
+      continue;
+    }
+    if (edit.line1_index < hunk.file1_start ||
+        edit.line1_index >= hunk.file1_end) {
+      continue;
+    }
+    while (i1 < edit.line1_index && i1 < hunk.file1_end) {
+      safePrint("  ");
+      safePrint(lines1[i1]);
+      safePrint("\n");
+      ++i1;
+    }
+    safePrint(mixed_change ? "! " : "- ");
+    safePrint(lines1[edit.line1_index]);
+    safePrint("\n");
+    ++i1;
+  }
+  while (i1 < hunk.file1_end) {
+    safePrint("  ");
+    safePrint(lines1[i1]);
+    safePrint("\n");
+    ++i1;
+  }
+}
+
+void output_context_new_section(const std::vector<Edit> &edits,
+                                const std::vector<std::string> &lines2,
+                                const DiffHunk &hunk, bool mixed_change) {
+  size_t i2 = hunk.file2_start;
+  for (size_t i = hunk.edit_start; i < hunk.edit_end; ++i) {
+    const auto &edit = edits[i];
+    if (edit.type == EditType::DEL) continue;
+    if (edit.type == EditType::KEEP) {
+      if (edit.line2_index < hunk.file2_start ||
+          edit.line2_index >= hunk.file2_end) {
+        continue;
+      }
+      while (i2 < edit.line2_index && i2 < hunk.file2_end) {
+        safePrint("  ");
+        safePrint(lines2[i2]);
+        safePrint("\n");
+        ++i2;
+      }
+      safePrint("  ");
+      safePrint(lines2[edit.line2_index]);
+      safePrint("\n");
+      ++i2;
+      continue;
+    }
+    if (edit.line2_index < hunk.file2_start ||
+        edit.line2_index >= hunk.file2_end) {
+      continue;
+    }
+    while (i2 < edit.line2_index && i2 < hunk.file2_end) {
+      safePrint("  ");
+      safePrint(lines2[i2]);
+      safePrint("\n");
+      ++i2;
+    }
+    safePrint(mixed_change ? "! " : "+ ");
+    safePrint(lines2[edit.line2_index]);
+    safePrint("\n");
+    ++i2;
+  }
+  while (i2 < hunk.file2_end) {
+    safePrint("  ");
+    safePrint(lines2[i2]);
+    safePrint("\n");
+    ++i2;
+  }
+}
+
+auto output_context_diff(const std::string &path1, const std::string &path2,
+                         const std::vector<std::string> &compare_lines1,
+                         const std::vector<std::string> &compare_lines2,
+                         const std::vector<std::string> &lines1,
+                         const std::vector<std::string> &lines2, int context,
+                         const DiffLabel &label1, const DiffLabel &label2)
+    -> void {
+  auto edits = compute_diff(compare_lines1, compare_lines2);
+  auto hunks = build_diff_hunks(edits, lines1.size(), lines2.size(), context);
+  if (hunks.empty()) return;
+
+  output_diff_file_header("*** ", label1, path1);
+  output_diff_file_header("--- ", label2, path2);
+
+  for (const auto &hunk : hunks) {
+    bool has_delete = false;
+    bool has_insert = false;
+    for (size_t i = hunk.edit_start; i < hunk.edit_end; ++i) {
+      has_delete = has_delete || edits[i].type == EditType::DEL;
+      has_insert = has_insert || edits[i].type == EditType::INS;
+    }
+    const bool mixed_change = has_delete && has_insert;
+
+    safePrint("***************\n");
+    safePrint("*** ");
+    safePrint(format_context_range(hunk.file1_start + 1,
+                                   hunk.file1_end - hunk.file1_start));
+    safePrint(" ****\n");
+    output_context_old_section(edits, lines1, hunk, mixed_change);
+    safePrint("--- ");
+    safePrint(format_context_range(hunk.file2_start + 1,
+                                   hunk.file2_end - hunk.file2_start));
+    safePrint(" ----\n");
+    output_context_new_section(edits, lines2, hunk, mixed_change);
   }
 }
 
@@ -673,13 +839,53 @@ REGISTER_COMMAND(
   using namespace diff_pipeline;
 
   bool brief = ctx.get<bool>("-q", false) || ctx.get<bool>("--brief", false);
-  bool unified =
-      ctx.get<bool>("-u", false) || ctx.get<bool>("--unified", false);
-  bool side_by_side =
-      ctx.get<bool>("-y", false) || ctx.get<bool>("--side-by-side", false);
   bool ignore_all_space =
       ctx.get<bool>("-w", false) || ctx.get<bool>("--ignore-all-space", false);
-  int context = 3;  // Default context lines for unified diff
+
+  enum class OutputMode { Normal, Unified, Context, SideBySide };
+  OutputMode output_mode = OutputMode::Normal;
+  int context = 3;
+
+  auto set_context = [&](int value, std::string_view option,
+                         bool optional_value) -> bool {
+    if (value < 0) {
+      if (optional_value && value == -1) {
+        context = 3;
+        return true;
+      }
+      safeErrorPrint("diff: invalid context length '");
+      safeErrorPrint(std::to_string(value));
+      safeErrorPrint("'\n");
+      safeErrorPrint("Try 'diff --help' for more information.\n");
+      return false;
+    }
+    context = value;
+    return true;
+  };
+
+  for (const auto &occurrence : ctx.options.occurrences()) {
+    if (!ctx.metas || occurrence.index >= ctx.metas->size()) continue;
+    const auto &meta = (*ctx.metas)[occurrence.index];
+    if (meta.short_name == "-u" || meta.long_name == "--unified") {
+      output_mode = OutputMode::Unified;
+      auto value = std::get_if<int>(&occurrence.value);
+      if (value && !set_context(*value, "--unified", true)) return 1;
+    } else if (meta.short_name == "-U") {
+      output_mode = OutputMode::Unified;
+      auto value = std::get_if<int>(&occurrence.value);
+      if (value && !set_context(*value, "-U", false)) return 1;
+    } else if (meta.short_name == "-c" || meta.long_name == "--context") {
+      output_mode = OutputMode::Context;
+      auto value = std::get_if<int>(&occurrence.value);
+      if (value && !set_context(*value, "--context", true)) return 1;
+    } else if (meta.short_name == "-C") {
+      output_mode = OutputMode::Context;
+      auto value = std::get_if<int>(&occurrence.value);
+      if (value && !set_context(*value, "-C", false)) return 1;
+    } else if (meta.short_name == "-y" || meta.long_name == "--side-by-side") {
+      output_mode = OutputMode::SideBySide;
+    }
+  }
 
   auto files_result = resolve_files(ctx);
   if (!files_result) {
@@ -691,6 +897,12 @@ REGISTER_COMMAND(
 
   std::string file1 = (*files_result)[0];
   std::string file2 = (*files_result)[1];
+
+  DiffLabel label1{file1, false};
+  DiffLabel label2{file2, false};
+  auto labels = ctx.string_occurrences({"--label"});
+  if (!labels.empty()) label1 = DiffLabel{labels[0].value, true};
+  if (labels.size() > 1) label2 = DiffLabel{labels[1].value, true};
 
   if (brief) {
     auto result = compare_files(file1, file2, true, ignore_all_space);
@@ -729,10 +941,13 @@ REGISTER_COMMAND(
     return 0;
   }
 
-  if (unified) {
+  if (output_mode == OutputMode::Unified) {
     output_unified_diff(file1, file2, compare_lines1, compare_lines2, lines1,
-                        lines2, context);
-  } else if (side_by_side) {
+                        lines2, context, label1, label2);
+  } else if (output_mode == OutputMode::Context) {
+    output_context_diff(file1, file2, compare_lines1, compare_lines2, lines1,
+                        lines2, context, label1, label2);
+  } else if (output_mode == OutputMode::SideBySide) {
     output_side_by_side(file1, file2, compare_lines1, compare_lines2, lines1,
                         lines2);
   } else {

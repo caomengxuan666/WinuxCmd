@@ -141,19 +141,64 @@ TEST(split, split_number_mode_reassembles_without_overlap) {
   EXPECT_EQ(rebuilt, input);
 }
 
-TEST(split, split_number_k_of_n_mode_is_rejected) {
+TEST(split, split_number_k_of_n_mode_writes_selected_chunk_to_stdout) {
   TempDir tmp;
-  tmp.write("input.txt", "line1\nline2\n");
+  tmp.write("input.txt", "abcdefghi");
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"split.exe", {L"-n", L"1/2", L"input.txt", L"part"});
+  p.add(L"split.exe", {L"-n", L"2/3", L"input.txt", L"part"});
 
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 1);
-  EXPECT_TRUE(r.stderr_text.find("split: unsupported --number mode") !=
-              std::string::npos);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "def");
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "partaa"));
+}
+
+TEST(split, split_number_line_k_of_n_mode_preserves_records_to_stdout) {
+  TempDir tmp;
+  tmp.write("input.txt", "a\nb\nc\nd\ne\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"split.exe", {L"-n", L"l/2/3", L"input.txt", L"part"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "b\nc\n");
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "partaa"));
+}
+
+TEST(split, split_number_round_robin_mode_writes_each_output_file) {
+  TempDir tmp;
+  tmp.write("input.txt", "a\nb\nc\nd\ne\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"split.exe", {L"-n", L"r/2", L"input.txt", L"part"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(tmp.read("partaa"), "a\nc\ne\n");
+  EXPECT_EQ_TEXT(tmp.read("partab"), "b\nd\n");
+}
+
+TEST(split, split_number_round_robin_k_of_n_mode_writes_selected_records) {
+  TempDir tmp;
+  tmp.write("input.txt", "a\nb\nc\nd\ne\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"split.exe", {L"-n", L"r/2/3", L"input.txt", L"part"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "b\ne\n");
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "partaa"));
 }
 
 TEST(split, split_elide_empty_files_keeps_suffixes_dense) {
