@@ -71,6 +71,30 @@ TEST(file, file_brief) {
   EXPECT_TRUE(r.stdout_text.find("PDF") != std::string::npos);
 }
 
+TEST(file, file_mime) {
+  TempDir tmp;
+  tmp.write("notes.txt", "Hello, World!");
+  tmp.write("payload.bin", "%PDF-1.4");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"file.exe", {L"--mime", L"notes.txt", L"payload.bin"});
+
+  TEST_LOG_CMD_LIST("file.exe", L"--mime", L"notes.txt", L"payload.bin");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("file.exe --mime output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("notes.txt: text/plain; charset=us-ascii") !=
+              std::string::npos);
+  EXPECT_TRUE(
+      r.stdout_text.find("payload.bin: application/pdf; charset=binary") !=
+      std::string::npos);
+}
+
 TEST(file, file_directory) {
   TempDir tmp;
   std::filesystem::create_directory(tmp.path / "subdir");

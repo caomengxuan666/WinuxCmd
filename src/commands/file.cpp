@@ -54,7 +54,7 @@ using namespace std::string_view_literals;
  * @par Options:
  * - @a -b, @a --brief: do not append filename [IMPLEMENTED]
  * - @a -h, @a --no-dereference: don't follow symlinks [IMPLEMENTED]
- * - @a -i, @a --mime: output MIME type strings [TODO]
+ * - @a -i, @a --mime: output MIME type strings [IMPLEMENTED]
  * - @a -L, @a --dereference: follow symlinks [IMPLEMENTED]
  */
 auto constexpr FILE_OPTIONS = std::array{
@@ -286,9 +286,10 @@ auto classify_by_extension(const std::wstring& filename) -> FileClassification {
  * @param path File path
  * @param brief Brief mode (no filename prefix)
  * @param symlink Follow symlinks
+ * @param mime Output MIME type instead of description
  * @return File type description
  */
-auto process_file(const std::string& path, bool brief, bool symlink)
+auto process_file(const std::string& path, bool brief, bool symlink, bool mime)
     -> std::optional<std::string> {
   std::wstring wpath = utf8_to_wstring(path);
 
@@ -301,11 +302,11 @@ auto process_file(const std::string& path, bool brief, bool symlink)
 
   // Check if it's a directory
   if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-    type = "directory";
+    type = mime ? "inode/directory; charset=binary" : "directory";
   }
   // Check if it's a reparse point (symlink or junction)
   else if (attrs & FILE_ATTRIBUTE_REPARSE_POINT) {
-    type = "symbolic link";
+    type = mime ? "inode/symlink; charset=binary" : "symbolic link";
   }
   // Regular file
   else {
@@ -314,7 +315,9 @@ auto process_file(const std::string& path, bool brief, bool symlink)
     std::wstring filename =
         (last_sep != std::wstring::npos) ? wpath.substr(last_sep + 1) : wpath;
 
-    type = classify_by_extension(filename).description;
+    auto classification = classify_by_magic(read_file_header(wpath))
+                              .value_or(classify_by_extension(filename));
+    type = mime ? classification.mime : classification.description;
   }
 
   if (brief) {
@@ -357,12 +360,13 @@ auto process_files(const CommandContext<FILE_OPTIONS.size()>& ctx)
       ctx.get<bool>("--dereference", false) || ctx.get<bool>("-L", false);
   bool no_deref =
       ctx.get<bool>("--no-dereference", false) || ctx.get<bool>("-h", false);
+  bool mime = ctx.get<bool>("--mime", false) || ctx.get<bool>("-i", false);
 
   bool all_ok = true;
 
   for (size_t i = 0; i < paths.size(); ++i) {
     const auto& path = paths[i];
-    auto result = process_file(path, brief, symlink && !no_deref);
+    auto result = process_file(path, brief, symlink && !no_deref, mime);
 
     if (result) {
       safePrintLn(utf8_to_wstring(*result));

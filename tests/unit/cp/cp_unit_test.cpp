@@ -22,6 +22,8 @@
  *  - File: cp_unit_test.cpp
  *  - CopyrightYear: 2026
  */
+#include <chrono>
+
 #include "framework/winuxtest.h"
 
 TEST(cp, cp_basic_copy) {
@@ -477,6 +479,11 @@ TEST(cp, cp_update_skips_newer_destination) {
   tmp.write("source.txt", "source content");
   tmp.write("dest.txt", "newer destination");
 
+  const auto now = std::filesystem::file_time_type::clock::now();
+  std::filesystem::last_write_time(tmp.path / "source.txt",
+                                   now - std::chrono::hours(2));
+  std::filesystem::last_write_time(tmp.path / "dest.txt", now);
+
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"cp.exe", {L"-u", L"source.txt", L"dest.txt"});
@@ -485,6 +492,26 @@ TEST(cp, cp_update_skips_newer_destination) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(tmp.read("dest.txt"), "newer destination");
+}
+
+TEST(cp, cp_update_overwrites_older_destination) {
+  TempDir tmp;
+  tmp.write("source.txt", "newer source");
+  tmp.write("dest.txt", "old destination");
+
+  const auto now = std::filesystem::file_time_type::clock::now();
+  std::filesystem::last_write_time(tmp.path / "dest.txt",
+                                   now - std::chrono::hours(2));
+  std::filesystem::last_write_time(tmp.path / "source.txt", now);
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--update", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "newer source");
 }
 
 TEST(cp, cp_wildcard_sources_expand) {

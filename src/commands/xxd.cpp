@@ -12,6 +12,7 @@ auto constexpr XXD_OPTIONS =
     std::array{OPTION("-r", "--reverse", "reverse: convert hex to binary"),
                OPTION("-p", "--plain", "plain hexdump"),
                OPTION("-c", "--cols", "set bytes per line", INT_TYPE),
+               OPTION("-l", "--len", "limit input to LEN bytes", INT_TYPE),
                OPTION("-u", "--upper-case", "use upper-case hex digits"),
                OPTION("-i", "--include", "output in C include file style"),
                OPTION("-n", "--name", "set the variable name used in C include output", STRING_TYPE)};
@@ -23,6 +24,7 @@ struct XxdConfig {
   bool upper_case = false;
   bool include = false;
   std::optional<std::string> name;
+  std::optional<size_t> length;
   size_t columns = 16;
   bool columns_specified = false;
   std::string input_file = "-";
@@ -263,6 +265,10 @@ XxdConfig build_config(const CommandContext<XXD_OPTIONS.size()>& ctx) {
   if (ctx.has("-n") || ctx.has("--name")) {
     cfg.name = ctx.get<std::string>("--name", ctx.get<std::string>("-n", ""));
   }
+  if (ctx.has("-l") || ctx.has("--len")) {
+    const int length = ctx.get<int>("--len", ctx.get<int>("-l", 0));
+    if (length >= 0) cfg.length = static_cast<size_t>(length);
+  }
   if (ctx.has("-c") || ctx.has("--cols")) {
     cfg.columns_specified = true;
     int cols = ctx.get<int>("--cols", ctx.get<int>("-c", 16));
@@ -329,6 +335,8 @@ REGISTER_COMMAND(xxd,
                                          cfg.input_file));
     return 1;
   }
+
+  if (cfg.length && *cfg.length < input->size()) input->resize(*cfg.length);
 
   if (cfg.reverse) {
     std::optional<std::vector<unsigned char>> decoded;

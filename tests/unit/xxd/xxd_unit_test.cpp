@@ -46,6 +46,27 @@ TEST(xxd, plain_columns) {
   EXPECT_EQ_TEXT(r.stdout_text, "61626364\n65666768\n");
 }
 
+TEST(xxd, len_limits_input_for_short_and_long_options) {
+  TempDir tmp;
+  tmp.write("input.txt", "abcdef");
+
+  Pipeline short_option;
+  short_option.set_cwd(tmp.wpath());
+  short_option.add(L"xxd.exe", {L"-p", L"-l", L"2", L"input.txt"});
+
+  Pipeline long_option;
+  long_option.set_cwd(tmp.wpath());
+  long_option.add(L"xxd.exe", {L"-p", L"--len", L"3", L"input.txt"});
+
+  auto short_result = short_option.run();
+  auto long_result = long_option.run();
+
+  EXPECT_EQ(short_result.exit_code, 0);
+  EXPECT_EQ_TEXT(short_result.stdout_text, "6162\n");
+  EXPECT_EQ(long_result.exit_code, 0);
+  EXPECT_EQ_TEXT(long_result.stdout_text, "616263\n");
+}
+
 TEST(xxd, plain_uppercase) {
   TempDir tmp;
   tmp.write_bytes("input.bin", {'\xAB', '\xCD', '\xEF'});
