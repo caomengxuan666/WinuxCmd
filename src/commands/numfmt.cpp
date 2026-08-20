@@ -62,7 +62,8 @@ auto constexpr NUMFMT_OPTIONS = std::array{
            BOOL_TYPE),
     OPTION("", "--invalid",
            "set policy for invalid values: 'abort' (default), 'warn', 'ignore'",
-           STRING_TYPE)};
+           STRING_TYPE),
+    OPTION("", "--debug", "print conversion diagnostics", BOOL_TYPE)};
 
 // ======================================================
 // Helper functions
@@ -282,10 +283,17 @@ REGISTER_COMMAND(
   header = ctx.get<int>("--header", 0);
   bool grouping = ctx.get<bool>("--grouping", false);
   std::string invalid_policy = ctx.get<std::string>("--invalid", "abort");
+  bool debug = ctx.get<bool>("--debug", false);
   std::string round_mode = ctx.get<std::string>("--round", "");
   int padding = ctx.get<int>("--padding", ctx.get<int>("--pad", 0));
   std::string suffix = ctx.get<std::string>("--suffix", "");
   int selected_field = ctx.get<int>("--field", 0);
+
+  auto debug_log = [&](const std::string& msg) {
+    if (debug) {
+      safeErrorPrint("numfmt: debug: " + msg + "\n");
+    }
+  };
 
   auto add_grouping = [](const std::string& s) -> std::string {
     // Add thousands separator commas
@@ -324,6 +332,9 @@ REGISTER_COMMAND(
   auto process_number = [&](const std::string& s) -> std::string {
     long long num;
     if (!parse_number(s, num, round_mode, from_unit)) {
+      if (debug) {
+        debug_log("failed to parse input '" + s + "'");
+      }
       if (invalid_policy == "warn") {
         safeErrorPrint("numfmt: invalid number: '" + s + "'\n");
       } else if (invalid_policy == "abort") {
@@ -353,6 +364,9 @@ REGISTER_COMMAND(
       } else {
         formatted = format_number(num);
       }
+      if (debug) {
+        debug_log("converted '" + s + "' -> '" + formatted + suffix + "'");
+      }
       return formatted + suffix;
     }
     if (!format_str.empty()) {
@@ -360,10 +374,18 @@ REGISTER_COMMAND(
       if (parse_number_value(s, value, from_unit)) {
         char buf[256];
         snprintf(buf, sizeof(buf), format_str.c_str(), value);
+        if (debug) {
+          debug_log("formatted '" + s + "' -> '" + std::string(buf) + suffix +
+                    "'");
+        }
         return std::string(buf) + suffix;
       }
     }
-    return apply_format(num) + suffix;
+    auto applied = apply_format(num) + suffix;
+    if (debug) {
+      debug_log("formatted '" + s + "' -> '" + applied + "'");
+    }
+    return applied;
   };
 
   int line_num = 0;

@@ -22,6 +22,8 @@
  *  - File: cp_unit_test.cpp
  *  - CopyrightYear: 2026
  */
+#include <chrono>
+
 #include "framework/winuxtest.h"
 
 TEST(cp, cp_basic_copy) {
@@ -377,6 +379,58 @@ TEST(cp, cp_backup_suffix_uses_custom_suffix) {
   EXPECT_EQ(tmp.read("dest.txt.bak"), "old content");
 }
 
+TEST(cp, cp_backup_numbered_control_creates_next_numbered_file) {
+  TempDir tmp;
+  tmp.write("source.txt", "new content");
+  tmp.write("dest.txt", "old content");
+  tmp.write("dest.txt.~1~", "first backup");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--backup=numbered", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "new content");
+  EXPECT_EQ(tmp.read("dest.txt.~1~"), "first backup");
+  EXPECT_EQ(tmp.read("dest.txt.~2~"), "old content");
+}
+
+TEST(cp, cp_backup_existing_control_uses_numbered_when_numbered_exists) {
+  TempDir tmp;
+  tmp.write("source.txt", "new content");
+  tmp.write("dest.txt", "old content");
+  tmp.write("dest.txt.~1~", "first backup");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--backup=existing", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "new content");
+  EXPECT_EQ(tmp.read("dest.txt.~1~"), "first backup");
+  EXPECT_EQ(tmp.read("dest.txt.~2~"), "old content");
+}
+
+TEST(cp, cp_backup_none_control_overwrites_without_backup) {
+  TempDir tmp;
+  tmp.write("source.txt", "new content");
+  tmp.write("dest.txt", "old content");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--backup=none", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "new content");
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / "dest.txt~"));
+}
+
 TEST(cp, cp_refuses_copy_onto_self) {
   TempDir tmp;
   tmp.write("file.txt", "content");
@@ -425,6 +479,11 @@ TEST(cp, cp_update_skips_newer_destination) {
   tmp.write("source.txt", "source content");
   tmp.write("dest.txt", "newer destination");
 
+  const auto now = std::filesystem::file_time_type::clock::now();
+  std::filesystem::last_write_time(tmp.path / "source.txt",
+                                   now - std::chrono::hours(2));
+  std::filesystem::last_write_time(tmp.path / "dest.txt", now);
+
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"cp.exe", {L"-u", L"source.txt", L"dest.txt"});
@@ -433,6 +492,26 @@ TEST(cp, cp_update_skips_newer_destination) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(tmp.read("dest.txt"), "newer destination");
+}
+
+TEST(cp, cp_update_overwrites_older_destination) {
+  TempDir tmp;
+  tmp.write("source.txt", "newer source");
+  tmp.write("dest.txt", "old destination");
+
+  const auto now = std::filesystem::file_time_type::clock::now();
+  std::filesystem::last_write_time(tmp.path / "dest.txt",
+                                   now - std::chrono::hours(2));
+  std::filesystem::last_write_time(tmp.path / "source.txt", now);
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"cp.exe", {L"--update", L"source.txt", L"dest.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(tmp.read("dest.txt"), "newer source");
 }
 
 TEST(cp, cp_wildcard_sources_expand) {

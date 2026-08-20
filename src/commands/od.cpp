@@ -45,18 +45,21 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr OD_OPTIONS = std::array{
-    OPTION("-A", "", "select input base", STRING_TYPE),
+    OPTION("-A", "--address-radix", "select output address radix",
+           STRING_TYPE),
     OPTION("-a", "", "select named character output"),
     OPTION("-b", "", "select octal byte output"),
     OPTION("-c", "", "select ASCII output"),
     OPTION("-d", "", "select unsigned decimal 2-byte output"),
-    OPTION("-j", "", "skip bytes", STRING_TYPE),
-    OPTION("-N", "", "limit bytes", STRING_TYPE),
+    OPTION("-j", "--skip-bytes", "skip bytes", STRING_TYPE),
+    OPTION("-N", "--read-bytes", "limit bytes", STRING_TYPE),
     OPTION("-o", "", "select octal 2-byte output"),
-    OPTION("-t", "", "select output type", STRING_TYPE),
-    OPTION("-v", "", "write all input data"),
+    OPTION("-t", "--format", "select output type", STRING_TYPE),
+    OPTION("-v", "--output-duplicates", "write all input data"),
     OPTION("-w", "--width", "output bytes per line", OPTIONAL_STRING_TYPE),
     OPTION("-x", "", "select hexadecimal 2-byte units"),
+    OPTION("", "--endian", "byte order for multi-byte input units",
+           STRING_TYPE),
     OPTION("", "--traditional",
            "accept arguments in traditional form (e.g., od -x file)")};
 
@@ -66,6 +69,7 @@ auto constexpr OD_OPTIONS = std::array{
 
 namespace od_pipeline {
 enum class AddressBase { octal, decimal, hex, none };
+enum class Endian { little, big };
 enum class FormatKind {
   octal,
   hexadecimal,
@@ -88,6 +92,7 @@ struct Config {
   std::optional<size_t> limit_bytes;
   size_t bytes_per_line = 16;
   bool abbreviate_duplicate_blocks = true;
+  Endian endian = Endian::little;
   std::vector<FormatSpec> specs;
   std::vector<std::string> files;
 };
@@ -285,11 +290,19 @@ auto address_to_string(size_t address, AddressBase base, size_t width)
   return out.str();
 }
 
-auto load_little_endian(const std::vector<unsigned char>& data, size_t offset,
-                        size_t available, size_t size) -> uint64_t {
+auto load_integer(const std::vector<unsigned char>& data, size_t offset,
+                  size_t available, size_t size, Endian endian) -> uint64_t {
   uint64_t value = 0;
-  for (size_t i = 0; i < size && i < available; ++i) {
-    value |= static_cast<uint64_t>(data[offset + i]) << (i * 8);
+  if (endian == Endian::little) {
+    for (size_t i = 0; i < size && i < available; ++i) {
+      value |= static_cast<uint64_t>(data[offset + i]) << (i * CHAR_BIT);
+    }
+    return value;
+  }
+
+  for (size_t i = 0; i < size; ++i) {
+    value <<= CHAR_BIT;
+    if (i < available) value |= data[offset + i];
   }
   return value;
 }
@@ -392,7 +405,8 @@ auto append_formatted_line(std::string& output, const Config& cfg,
     } else if (spec.kind == FormatKind::named_character) {
       field << std::setw(width) << format_named_character(data[offset + i]);
     } else {
-      uint64_t raw = load_little_endian(data, offset + i, available, spec.size);
+      uint64_t raw =
+          load_integer(data, offset + i, available, spec.size, cfg.endian);
       if (spec.kind == FormatKind::hexadecimal) {
         field << std::setfill('0') << std::setw(width) << std::hex
               << std::nouppercase << raw;
@@ -513,6 +527,18 @@ auto build_config(const CommandContext<OD_OPTIONS.size()>& ctx)
       auto parsed = parse_positive_count("-w", width);
       if (!parsed) return std::nullopt;
       cfg.bytes_per_line = *parsed;
+    }
+  }
+
+  if (ctx.has("--endian")) {
+    const auto endian = ctx.get<std::string>("--endian", "");
+    if (endian == "little") {
+      cfg.endian = Endian::little;
+    } else if (endian == "big") {
+      cfg.endian = Endian::big;
+    } else {
+      safeErrorPrintLn("od: invalid endian value '" + endian + "'");
+      return std::nullopt;
     }
   }
 

@@ -96,12 +96,13 @@ auto resolve_input_file(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
 struct Config {
   enum class Mode { Lines, Bytes, LineBytes, Number };
   enum class SuffixKind { Alpha, Numeric, Hex };
-  enum class NumberMode { ApproximateBytes, PreserveRecords };
+  enum class NumberMode { ApproximateBytes, PreserveRecords, RoundRobin };
 
   Mode mode = Mode::Lines;
   int64_t chunk_size = 0;
   int64_t chunk_lines = 1000;  // Default: 1000 lines per file
   int64_t num_chunks = 0;      // For -n mode
+  std::optional<int64_t> selected_chunk;  // GNU k/N forms, 1-based
   NumberMode number_mode = NumberMode::ApproximateBytes;
   SuffixKind suffix_kind = SuffixKind::Alpha;
   int suffix_length = 2;
@@ -295,8 +296,7 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
   }
 
   if (!number_opt.empty()) {
-    // -n supports: N (n chunks), k/N (chunk k of n), l/N (n line-oriented
-    // chunks), l/k/N (chunk k of n line-oriented), r/N (n round-robin), r/k/N
+    // GNU -n supports: N, k/N, l/N, l/k/N, r/N, and r/k/N.
     bool line_mode = false;
     bool round_robin = false;
     std::string val = number_opt;
@@ -311,21 +311,45 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
       if (!val.empty() && val[0] == '/') val = val.substr(1);
     }
 
-    if (round_robin) {
-      return std::unexpected("unsupported --number mode");
+    std::vector<std::string_view> parts;
+    size_t start = 0;
+    while (start <= val.size()) {
+      size_t slash = val.find('/', start);
+      if (slash == std::string::npos) {
+        parts.push_back(std::string_view(val).substr(start));
+        break;
+      }
+      parts.push_back(std::string_view(val).substr(start, slash - start));
+      start = slash + 1;
+    }
+    if (parts.empty() || parts.size() > 2 ||
+        std::ranges::any_of(parts, [](std::string_view part) {
+          return part.empty();
+        })) {
+      return std::unexpected("invalid number of chunks");
     }
 
-    // Only GNU's plain N and l/N modes are implemented here.
-    if (val.find('/') != std::string::npos) {
-      return std::unexpected("unsupported --number mode");
+    auto parse_number_part = [](std::string_view part, std::string_view name)
+        -> cp::Result<int64_t> {
+      return parse_positive_i64(std::string(part), name);
+    };
+
+    if (parts.size() == 2) {
+      auto chunk_result = parse_number_part(parts[0], "chunk number");
+      if (!chunk_result) return std::unexpected(chunk_result.error());
+      cfg.selected_chunk = *chunk_result;
     }
 
-    auto num_result = parse_positive_i64(val, "number of chunks");
+    auto num_result = parse_number_part(parts.back(), "number of chunks");
     if (!num_result) return std::unexpected(num_result.error());
     cfg.num_chunks = *num_result;
+    if (cfg.selected_chunk.has_value() && *cfg.selected_chunk > cfg.num_chunks) {
+      return std::unexpected("chunk number out of range");
+    }
     cfg.mode = Config::Mode::Number;
-    cfg.number_mode = line_mode ? Config::NumberMode::PreserveRecords
-                                : Config::NumberMode::ApproximateBytes;
+    cfg.number_mode = round_robin ? Config::NumberMode::RoundRobin
+                      : line_mode  ? Config::NumberMode::PreserveRecords
+                                   : Config::NumberMode::ApproximateBytes;
   }
 
   if (ctx.has("--numeric-suffixes") || ctx.has("-d")) {
@@ -739,29 +763,61 @@ auto run(const Config& cfg) -> int {
       }
     }
   } else if (cfg.mode == Config::Mode::Number) {
+    auto write_number_chunk = [&](std::string_view chunk) -> bool {
+      auto result = write_chunk(cfg, part_num, chunk);
+      if (!result) {
+        cp::report_error(result, L"split");
+        return false;
+      }
+      if (*result) ++part_num;
+      return true;
+    };
+
     if (cfg.number_mode == Config::NumberMode::PreserveRecords) {
       auto records = collect_record_spans(input, cfg.separator);
       const size_t total_records = records.size();
 
-      for (int64_t i = 0; i < cfg.num_chunks; ++i) {
-        const size_t start_record = (static_cast<size_t>(i) * total_records) /
+      auto record_chunk = [&](int64_t index) -> std::string_view {
+        const size_t start_record = (static_cast<size_t>(index) * total_records) /
                                     static_cast<size_t>(cfg.num_chunks);
-        const size_t end_record = (static_cast<size_t>(i + 1) * total_records) /
-                                  static_cast<size_t>(cfg.num_chunks);
+        const size_t end_record =
+            (static_cast<size_t>(index + 1) * total_records) /
+            static_cast<size_t>(cfg.num_chunks);
+        if (start_record >= end_record) return {};
 
-        std::string_view chunk;
-        if (start_record < end_record) {
-          const size_t start = records[start_record].start;
-          const size_t end = records[end_record - 1].end;
-          chunk = std::string_view(input.data() + start, end - start);
-        }
+        const size_t start = records[start_record].start;
+        const size_t end = records[end_record - 1].end;
+        return std::string_view(input.data() + start, end - start);
+      };
 
-        auto result = write_chunk(cfg, part_num, chunk);
-        if (!result) {
-          cp::report_error(result, L"split");
-          return 1;
+      if (cfg.selected_chunk.has_value()) {
+        safePrint(record_chunk(*cfg.selected_chunk - 1));
+      } else {
+        for (int64_t i = 0; i < cfg.num_chunks; ++i) {
+          if (!write_number_chunk(record_chunk(i))) return 1;
         }
-        if (*result) ++part_num;
+      }
+    } else if (cfg.number_mode == Config::NumberMode::RoundRobin) {
+      auto records = collect_record_spans(input, cfg.separator);
+      const size_t num_chunks = static_cast<size_t>(cfg.num_chunks);
+
+      if (cfg.selected_chunk.has_value()) {
+        const size_t selected = static_cast<size_t>(*cfg.selected_chunk - 1);
+        for (size_t i = selected; i < records.size(); i += num_chunks) {
+          const auto& record = records[i];
+          safePrint(std::string_view(input.data() + record.start,
+                                     record.end - record.start));
+        }
+      } else {
+        std::vector<std::string> chunks(num_chunks);
+        for (size_t i = 0; i < records.size(); ++i) {
+          const auto& record = records[i];
+          chunks[i % num_chunks].append(input.data() + record.start,
+                                        record.end - record.start);
+        }
+        for (const auto& chunk : chunks) {
+          if (!write_number_chunk(chunk)) return 1;
+        }
       }
     } else {
       // Split into N roughly equal chunks.
@@ -769,23 +825,29 @@ auto run(const Config& cfg) -> int {
           input.size() / static_cast<size_t>(cfg.num_chunks));
       if (chunk_size == 0) chunk_size = 1;
 
-      for (int64_t i = 0; i < cfg.num_chunks; ++i) {
-        size_t start = static_cast<size_t>(i * chunk_size);
+      auto byte_chunk = [&](int64_t index) -> std::string_view {
+        size_t start = static_cast<size_t>(index * chunk_size);
+        if (start >= input.size()) return {};
+
         size_t end;
-        if (i == cfg.num_chunks - 1) {
+        if (index == cfg.num_chunks - 1) {
           end = input.size();
         } else {
-          end = static_cast<size_t>((i + 1) * chunk_size);
+          end = static_cast<size_t>((index + 1) * chunk_size);
         }
-        if (start >= input.size()) break;
+        return std::string_view(input.data() + start, end - start);
+      };
 
-        auto result = write_chunk(
-            cfg, part_num, std::string_view(input.data() + start, end - start));
-        if (!result) {
-          cp::report_error(result, L"split");
-          return 1;
+      if (cfg.selected_chunk.has_value()) {
+        safePrint(byte_chunk(*cfg.selected_chunk - 1));
+      } else {
+        for (int64_t i = 0; i < cfg.num_chunks; ++i) {
+          auto chunk = byte_chunk(i);
+          if (chunk.empty() && static_cast<size_t>(i * chunk_size) >= input.size()) {
+            break;
+          }
+          if (!write_number_chunk(chunk)) return 1;
         }
-        if (*result) ++part_num;
       }
     }
   } else if (cfg.mode == Config::Mode::Bytes) {

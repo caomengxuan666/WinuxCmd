@@ -195,6 +195,24 @@ TEST(diff3, diff3_wildcard_triplet_expands) {
   EXPECT_TRUE(r.stdout_text.empty());
 }
 
+TEST(diff3, diff3_ed_script_applies_non_overlapping_yours_change) {
+  TempDir tmp;
+  tmp.write("mine.txt", "base\n");
+  tmp.write("base.txt", "base\n");
+  tmp.write("yours.txt", "yours\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff3.exe", {L"-e", L"mine.txt", L"base.txt", L"yours.txt"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "1c\n"
+                                "yours\n"
+                                ".\n");
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
 TEST(diff3, diff3_ed_script_options_remain_accepted) {
   TempDir tmp;
   tmp.write("mine.txt", "same\nmine\n");

@@ -11,7 +11,7 @@ import utils;
 import container;
 
 auto constexpr CAL_OPTIONS =
-    std::array{OPTION("", "", "display calendar", STRING_TYPE)};
+    std::array{OPTION("-m", "--monday", "start week on Monday", BOOL_TYPE)};
 
 namespace {
 constexpr int kMonthWidth = 20;
@@ -53,6 +53,10 @@ int weekdaySundayZero(int year, int month, int day) {
          7;
 }
 
+int weekdayMondayZero(int year, int month, int day) {
+  return (weekdaySundayZero(year, month, day) + 6) % 7;
+}
+
 std::string blanks(size_t count) { return std::string(count, char(32)); }
 
 std::string center(std::string_view text, size_t width) {
@@ -71,14 +75,15 @@ std::string rightAlignedDay(int day, int width) {
   return blanks(static_cast<size_t>(width) - text.size()) + text;
 }
 
-std::array<std::string, 8> monthLines(int year, int month) {
+std::array<std::string, 8> monthLines(int year, int month, bool monday_first) {
   std::array<std::string, 8> lines{};
   lines[0] = center(
       std::format("{} {:04d}", kMonthNames[static_cast<size_t>(month)], year),
       kMonthWidth);
-  lines[1] = "Su Mo Tu We Th Fr Sa";
+  lines[1] = monday_first ? "Mo Tu We Th Fr Sa Su" : "Su Mo Tu We Th Fr Sa";
 
-  int start = weekdaySundayZero(year, month, 1);
+  int start = monday_first ? weekdayMondayZero(year, month, 1)
+                            : weekdaySundayZero(year, month, 1);
   int last = daysInMonth(year, month);
   int day = 1;
   for (int week = 0; week < 6; ++week) {
@@ -99,17 +104,18 @@ void printLine(std::string_view line) {
   safePrint("\n");
 }
 
-void printMonth(int year, int month) {
-  for (const auto& line : monthLines(year, month)) printLine(line);
+void printMonth(int year, int month, bool monday_first) {
+  for (const auto& line : monthLines(year, month, monday_first)) printLine(line);
 }
 
-void printYear(int year) {
+void printYear(int year, bool monday_first) {
   printLine(center(std::format("{:04d}", year), kYearWidth));
   safePrint("\n");
   for (int first_month = 1; first_month <= 12; first_month += kYearColumns) {
     std::array<std::array<std::string, 8>, kYearColumns> months = {
-        monthLines(year, first_month), monthLines(year, first_month + 1),
-        monthLines(year, first_month + 2)};
+        monthLines(year, first_month, monday_first),
+        monthLines(year, first_month + 1, monday_first),
+        monthLines(year, first_month + 2, monday_first)};
     for (size_t line = 0; line < months[0].size(); ++line) {
       for (size_t col = 0; col < months.size(); ++col) {
         safePrint(months[col][line]);
@@ -188,10 +194,12 @@ REGISTER_COMMAND(cal,
     return 1;
   }
 
+  bool monday_first = ctx.get<bool>("--monday", false) || ctx.get<bool>("-m", false);
+
   if (whole_year) {
-    printYear(year);
+    printYear(year, monday_first);
   } else {
-    printMonth(year, month);
+    printMonth(year, month, monday_first);
   }
 
   return 0;

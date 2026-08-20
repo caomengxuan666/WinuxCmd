@@ -148,6 +148,12 @@ auto constexpr FIND_OPTIONS = std::array{
     OPTION("-size", "", "file uses n units of space", STRING_TYPE),
     OPTION("-empty", "",
            "file is empty and is either a regular file or a directory"),
+    OPTION("-amin", "", "file was last accessed n minutes ago", STRING_TYPE),
+    OPTION("-atime", "", "file was last accessed n*24 hours ago", STRING_TYPE),
+    OPTION("-cmin", "", "file status was last changed n minutes ago",
+           STRING_TYPE),
+    OPTION("-ctime", "", "file status was last changed n*24 hours ago",
+           STRING_TYPE),
     OPTION("-mtime", "", "file data was last modified n*24 hours ago",
            STRING_TYPE),
     OPTION("-mmin", "", "file data was last modified n minutes ago",
@@ -185,6 +191,7 @@ auto constexpr FIND_OPTIONS = std::array{
         "i,%A@,%B@,%C@,%T@,%AY,%Am,%Ad,%AH,%AM,%AS,%Aj,%BY,%Bm,%Bd,%BH,%BM,%BS,"
         "%Bj,%CY,%Cm,%Cd,%CH,%CM,%CS,%Cj,%TY,%Tm,%Td,%TH,%TM,%TS,%Tj,%%]",
         STRING_TYPE),
+    OPTION("-fprintf", "", "print format into FILE", STRING_TYPE),
     OPTION("-prune", "", "prune tree"),
     OPTION("-quit", "", "exit immediately"),
     OPTION("-true", "", "always true"),
@@ -308,6 +315,10 @@ enum class ExprKind {
   Gid,
   Empty,
   Size,
+  ATime,
+  AMin,
+  CTime,
+  CMin,
   MTime,
   MMin,
   Newer,
@@ -318,6 +329,7 @@ enum class ExprKind {
   FPrint,
   FPrint0,
   Printf,
+  FPrintf,
   False,
   Exec,
   Delete,
@@ -332,6 +344,7 @@ enum class ExprKind {
 struct ExprNode {
   ExprKind kind = ExprKind::Always;
   std::string text;
+  std::string format_text;
   std::optional<portable_regex::Pattern> regex;
   std::optional<SizePredicate> size;
   std::optional<NumericPredicate> numeric;
@@ -362,6 +375,10 @@ struct Config {
   std::string type_filter;
   std::optional<SizePredicate> size_filter;
   bool empty_filter = false;
+  std::optional<NumericPredicate> atime_filter;
+  std::optional<NumericPredicate> amin_filter;
+  std::optional<NumericPredicate> ctime_filter;
+  std::optional<NumericPredicate> cmin_filter;
   std::optional<NumericPredicate> mtime_filter;
   std::optional<NumericPredicate> mmin_filter;
   int mindepth = 0;
@@ -1136,15 +1153,16 @@ class ExpressionParser {
            token == "-executable" || token == "-inum" || token == "-links" ||
            token == "-user" || token == "-group" || token == "-uid" ||
            token == "-gid" || token == "-size" || token == "-empty" ||
-           token == "-mtime" || token == "-mmin" || token == "-newer" ||
-           is_newerxy_option(token) || token == "-samefile" ||
-           token == "-files0-from" || token == "-mindepth" ||
-           token == "-maxdepth" || token == "-print" || token == "-print0" ||
-           token == "-fprint" || token == "-fprint0" || token == "-printf" ||
-           token == "-prune" || token == "-quit" || token == "-true" ||
-           token == "-false" || token == "-depth" || token == "-d" ||
-           token == "-follow" || token == "-mount" || token == "-xdev" ||
-           token == "-noleaf" || token == "-daystart" ||
+           token == "-amin" || token == "-atime" || token == "-cmin" ||
+           token == "-ctime" || token == "-mtime" || token == "-mmin" ||
+           token == "-newer" || is_newerxy_option(token) ||
+           token == "-samefile" || token == "-files0-from" ||
+           token == "-mindepth" || token == "-maxdepth" || token == "-print" ||
+           token == "-print0" || token == "-fprint" || token == "-fprint0" ||
+           token == "-printf" || token == "-prune" || token == "-quit" ||
+           token == "-true" || token == "-false" || token == "-depth" ||
+           token == "-d" || token == "-follow" || token == "-mount" ||
+           token == "-xdev" || token == "-noleaf" || token == "-daystart" ||
            token == "-regextype" || token == "-O" || token == "-delete" ||
            token == "-exec" || token == "-ok" || token == "-L" ||
            token == "-P" || token == "-H";
@@ -1329,13 +1347,19 @@ class ExpressionParser {
       return node;
     }
 
-    if (option == "-mtime" || option == "-mmin") {
+    if (option == "-amin" || option == "-atime" || option == "-cmin" ||
+        option == "-ctime" || option == "-mtime" || option == "-mmin") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       auto parsed = parse_numeric_predicate(*value);
       if (!parsed) return std::unexpected(parsed.error());
-      auto node =
-          make_expr(option == "-mtime" ? ExprKind::MTime : ExprKind::MMin);
+      ExprKind kind = ExprKind::MMin;
+      if (option == "-amin") kind = ExprKind::AMin;
+      if (option == "-atime") kind = ExprKind::ATime;
+      if (option == "-cmin") kind = ExprKind::CMin;
+      if (option == "-ctime") kind = ExprKind::CTime;
+      if (option == "-mtime") kind = ExprKind::MTime;
+      auto node = make_expr(kind);
       node->numeric = *parsed;
       return node;
     }
@@ -1623,6 +1647,34 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
     cfg.size_filter = *parsed;
   }
 
+  auto atime_text = ctx.get<std::string>("-atime", "");
+  if (!atime_text.empty()) {
+    auto parsed = parse_numeric_predicate(atime_text);
+    if (!parsed) return std::unexpected(parsed.error());
+    cfg.atime_filter = *parsed;
+  }
+
+  auto amin_text = ctx.get<std::string>("-amin", "");
+  if (!amin_text.empty()) {
+    auto parsed = parse_numeric_predicate(amin_text);
+    if (!parsed) return std::unexpected(parsed.error());
+    cfg.amin_filter = *parsed;
+  }
+
+  auto ctime_text = ctx.get<std::string>("-ctime", "");
+  if (!ctime_text.empty()) {
+    auto parsed = parse_numeric_predicate(ctime_text);
+    if (!parsed) return std::unexpected(parsed.error());
+    cfg.ctime_filter = *parsed;
+  }
+
+  auto cmin_text = ctx.get<std::string>("-cmin", "");
+  if (!cmin_text.empty()) {
+    auto parsed = parse_numeric_predicate(cmin_text);
+    if (!parsed) return std::unexpected(parsed.error());
+    cfg.cmin_filter = *parsed;
+  }
+
   auto mtime_text = ctx.get<std::string>("-mtime", "");
   if (!mtime_text.empty()) {
     auto parsed = parse_numeric_predicate(mtime_text);
@@ -1747,22 +1799,24 @@ auto permission_matches(const std::filesystem::path& p,
   return false;
 }
 
+auto file_age_units(const std::filesystem::path& p, FindFileTimeKind kind,
+                    std::chrono::seconds unit) -> std::optional<long long> {
+  auto ticks = win32_file_time_ticks(p, kind);
+  if (!ticks) return std::nullopt;
+
+  FILETIME now_filetime{};
+  GetSystemTimeAsFileTime(&now_filetime);
+  long long elapsed_ticks = filetime_ticks(now_filetime) - *ticks;
+  if (elapsed_ticks < 0) elapsed_ticks = 0;
+
+  auto elapsed_seconds = std::chrono::seconds(elapsed_ticks / 10000000LL);
+  return elapsed_seconds.count() / unit.count();
+}
+
 auto modification_age_units(const std::filesystem::directory_entry& e,
                             std::chrono::seconds unit)
     -> std::optional<long long> {
-  std::error_code ec;
-  auto write_time = e.last_write_time(ec);
-  if (ec) return std::nullopt;
-
-  auto now = std::filesystem::file_time_type::clock::now();
-  auto elapsed = now - write_time;
-  if (elapsed < std::filesystem::file_time_type::duration::zero()) {
-    elapsed = std::filesystem::file_time_type::duration::zero();
-  }
-
-  auto elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::seconds>(elapsed);
-  return elapsed_seconds.count() / unit.count();
+  return file_age_units(e.path(), FindFileTimeKind::Modify, unit);
 }
 
 auto print_path(std::string_view path, bool null_terminated) -> void;
@@ -1859,6 +1913,34 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
 
     case ExprKind::Size:
       return expr.size && size_matches(e, *expr.size);
+
+    case ExprKind::ATime: {
+      if (!expr.numeric) return false;
+      auto age =
+          file_age_units(p, FindFileTimeKind::Access, std::chrono::hours(24));
+      return age && numeric_matches(*expr.numeric, *age);
+    }
+
+    case ExprKind::AMin: {
+      if (!expr.numeric) return false;
+      auto age =
+          file_age_units(p, FindFileTimeKind::Access, std::chrono::minutes(1));
+      return age && numeric_matches(*expr.numeric, *age);
+    }
+
+    case ExprKind::CTime: {
+      if (!expr.numeric) return false;
+      auto age =
+          file_age_units(p, FindFileTimeKind::Change, std::chrono::hours(24));
+      return age && numeric_matches(*expr.numeric, *age);
+    }
+
+    case ExprKind::CMin: {
+      if (!expr.numeric) return false;
+      auto age =
+          file_age_units(p, FindFileTimeKind::Change, std::chrono::minutes(1));
+      return age && numeric_matches(*expr.numeric, *age);
+    }
 
     case ExprKind::MTime: {
       if (!expr.numeric) return false;
@@ -1998,6 +2080,30 @@ auto entry_matches(Config& cfg, const std::filesystem::path& p,
   if (cfg.empty_filter && !is_empty_entry(e)) return false;
 
   if (cfg.size_filter && !size_matches(e, *cfg.size_filter)) return false;
+
+  if (cfg.atime_filter) {
+    auto age =
+        file_age_units(p, FindFileTimeKind::Access, std::chrono::hours(24));
+    if (!age || !numeric_matches(*cfg.atime_filter, *age)) return false;
+  }
+
+  if (cfg.amin_filter) {
+    auto age =
+        file_age_units(p, FindFileTimeKind::Access, std::chrono::minutes(1));
+    if (!age || !numeric_matches(*cfg.amin_filter, *age)) return false;
+  }
+
+  if (cfg.ctime_filter) {
+    auto age =
+        file_age_units(p, FindFileTimeKind::Change, std::chrono::hours(24));
+    if (!age || !numeric_matches(*cfg.ctime_filter, *age)) return false;
+  }
+
+  if (cfg.cmin_filter) {
+    auto age =
+        file_age_units(p, FindFileTimeKind::Change, std::chrono::minutes(1));
+    if (!age || !numeric_matches(*cfg.cmin_filter, *age)) return false;
+  }
 
   if (cfg.mtime_filter) {
     auto age = modification_age_units(e, std::chrono::hours(24));

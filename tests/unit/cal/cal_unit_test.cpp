@@ -99,3 +99,27 @@ TEST(cal, cal_single_year_outputs_year_calendar) {
   EXPECT_TRUE(r.stdout_text.find("December 2026") != std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("July 2026") != std::string::npos);
 }
+TEST(cal, cal_monday_first_month) {
+  Pipeline p;
+  p.add(L"cal.exe", {L"-m", L"3", L"2024"});
+
+  TEST_LOG_CMD_LIST("cal.exe", L"-m", L"3", L"2024");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("cal output", r.stdout_text);
+
+  std::string expected;
+  expected += "          March 2024\n";
+  expected += "Mo Tu We Th Fr Sa Su\n";
+  expected += "             1  2  3\n";
+  expected += " 4  5  6  7  8  9 10\n";
+  expected += "11 12 13 14 15 16 17\n";
+  expected += "18 19 20 21 22 23 24\n";
+  expected += "25 26 27 28 29 30 31\n";
+  expected += "                    \n";
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, expected);
+}

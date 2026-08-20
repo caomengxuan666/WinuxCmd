@@ -157,6 +157,34 @@ TEST(date, date_rfc3339_seconds) {
   EXPECT_EQ(r.stdout_text, "2024-01-02 03:04:05+00:00\n");
 }
 
+TEST(date, date_reference_uses_file_modification_time) {
+  TempDir tmp;
+
+  Pipeline touch;
+  touch.set_cwd(tmp.wpath());
+  touch.add(L"touch.exe",
+            {L"-d", L"2024-01-02 03:04:05 UTC", L"reference.txt"});
+  EXPECT_EQ(touch.run().exit_code, 0);
+
+  Pipeline date;
+  date.set_cwd(tmp.wpath());
+  date.add(L"date.exe",
+           {L"-u", L"-r", L"reference.txt", L"+%Y-%m-%dT%H:%M:%S%z"});
+
+  auto r = date.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "2024-01-02T03:04:05+0000\n");
+
+  Pipeline long_date;
+  long_date.set_cwd(tmp.wpath());
+  long_date.add(L"date.exe",
+                {L"-u", L"--reference=reference.txt", L"+%Y-%m-%dT%H:%M:%S%z"});
+
+  auto long_result = long_date.run();
+  EXPECT_EQ(long_result.exit_code, 0);
+  EXPECT_EQ(long_result.stdout_text, "2024-01-02T03:04:05+0000\n");
+}
+
 TEST(date, date_rfc_email_fixed_utc_time) {
   TempDir tmp;
 
