@@ -12,14 +12,19 @@ auto constexpr XXD_OPTIONS =
     std::array{OPTION("-r", "--reverse", "reverse: convert hex to binary"),
                OPTION("-p", "--plain", "plain hexdump"),
                OPTION("-c", "--cols", "set bytes per line", INT_TYPE),
-               OPTION("-u", "--upper-case", "use upper-case hex digits")};
+               OPTION("-u", "--upper-case", "use upper-case hex digits"),
+               OPTION("-i", "--include", "output in C include file style"),
+               OPTION("-n", "--name", "set the variable name used in C include output", STRING_TYPE)};
 
 namespace {
 struct XxdConfig {
   bool reverse = false;
   bool plain = false;
   bool upper_case = false;
+  bool include = false;
+  std::optional<std::string> name;
   size_t columns = 16;
+  bool columns_specified = false;
   std::string input_file = "-";
   std::optional<std::string> output_file;
 };
@@ -197,13 +202,69 @@ void print_default_xxd(const std::vector<unsigned char>& data, size_t columns,
   }
 }
 
+std::string include_identifier(std::string_view value) {
+  std::string identifier;
+  identifier.reserve(value.size() + 2);
+  for (unsigned char c : value) {
+    identifier.push_back(std::isalnum(c) ? static_cast<char>(c) : '_');
+  }
+  if (!identifier.empty() && std::isdigit(static_cast<unsigned char>(identifier.front()))) {
+    identifier.insert(0, "__");
+  }
+  return identifier;
+}
+
+std::string default_include_name(std::string_view filename) {
+  const size_t separator = filename.find_last_of("/\\");
+  if (separator != std::string_view::npos) filename.remove_prefix(separator + 1);
+  return include_identifier(filename);
+}
+
+void print_include_xxd(const std::vector<unsigned char>& data, size_t columns,
+                       bool upper_case, std::string_view filename,
+                       const std::optional<std::string>& explicit_name) {
+  if (explicit_name || filename != "-") {
+    const std::string name = explicit_name ? include_identifier(*explicit_name)
+                                           : default_include_name(filename);
+    safePrint("unsigned char " + name + "[] = {\n");
+    for (size_t offset = 0; offset < data.size(); offset += columns) {
+      const size_t count = std::min(columns, data.size() - offset);
+      safePrint("  ");
+      for (size_t i = 0; i < count; ++i) {
+        if (i != 0) safePrint(", ");
+        safePrint("0x" + byte_hex(data[offset + i], upper_case));
+      }
+      safePrint(offset + count == data.size() ? "\n" : ",\n");
+    }
+    safePrint("};\n");
+    safePrint("unsigned int " + name + "_len = " + std::to_string(data.size()) + ";\n");
+    return;
+  }
+
+  for (size_t offset = 0; offset < data.size(); offset += columns) {
+    const size_t count = std::min(columns, data.size() - offset);
+    safePrint("  ");
+    for (size_t i = 0; i < count; ++i) {
+      if (i != 0) safePrint(", ");
+      safePrint("0x" + byte_hex(data[offset + i], upper_case));
+    }
+    safePrint("\n");
+  }
+}
+
 XxdConfig build_config(const CommandContext<XXD_OPTIONS.size()>& ctx) {
   XxdConfig cfg;
   cfg.reverse = ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false);
   cfg.plain = ctx.get<bool>("-p", false) || ctx.get<bool>("--plain", false);
   cfg.upper_case =
       ctx.get<bool>("-u", false) || ctx.get<bool>("--upper-case", false);
+  cfg.include =
+      ctx.get<bool>("-i", false) || ctx.get<bool>("--include", false);
+  if (ctx.has("-n") || ctx.has("--name")) {
+    cfg.name = ctx.get<std::string>("--name", ctx.get<std::string>("-n", ""));
+  }
   if (ctx.has("-c") || ctx.has("--cols")) {
+    cfg.columns_specified = true;
     int cols = ctx.get<int>("--cols", ctx.get<int>("-c", 16));
     if (cols <= 0) {
       throw std::runtime_error(winux::i18n::translate(
@@ -307,7 +368,10 @@ REGISTER_COMMAND(xxd,
     return 0;
   }
 
-  if (cfg.plain) {
+  if (cfg.include) {
+    print_include_xxd(*input, cfg.columns_specified ? cfg.columns : 12,
+                      cfg.upper_case, cfg.input_file, cfg.name);
+  } else if (cfg.plain) {
     print_plain_xxd(*input, cfg.columns, cfg.upper_case);
   } else {
     print_default_xxd(*input, cfg.columns, cfg.upper_case);
