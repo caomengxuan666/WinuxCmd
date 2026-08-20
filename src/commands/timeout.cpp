@@ -25,7 +25,7 @@
  */
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
-/// @Description: Implementation for timeout.
+/// @Description: Windows process timeout with signal and job control semantics.
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
