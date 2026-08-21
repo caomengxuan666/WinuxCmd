@@ -113,21 +113,40 @@ static std::optional<int> forwardToOptPayload(std::string_view name) noexcept {
   fs::path payload = payload_direct;
   if (!fs::is_regular_file(payload, ec)) {
     // Package dir may differ from the command name (e.g. opt\sysinternals-suite\
-    // provides accesschk.exe): scan one level of opt\ for a matching payload.
+    // provides accesschk.exe), and toolchain payloads may nest their exes
+    // (e.g. opt\go\bin\go.exe): scan each package directory, shallowest match
+    // wins, up to a small depth bound.
     const fs::path opt_dir = root / L"opt";
     if (!fs::exists(opt_dir, ec)) return std::nullopt;
     bool found = false;
-    for (const auto& entry : fs::directory_iterator(opt_dir, ec)) {
-      if (ec) break;
-      if (!entry.is_directory(ec)) continue;
-      const fs::path candidate =
-          entry.path() / (utf8_to_wstring(std::string(name)) + L".exe");
-      std::error_code file_ec;
-      if (fs::is_regular_file(candidate, file_ec)) {
-        payload = candidate;
-        found = true;
-        break;
+    size_t best_depth = SIZE_MAX;
+
+    const std::wstring wanted =
+        utf8_to_wstring(std::string(name)) + L".exe";
+    auto iequals_wanted = [&wanted](const std::wstring& candidate) {
+      if (candidate.size() != wanted.size()) return false;
+      for (size_t i = 0; i < candidate.size(); ++i) {
+        wchar_t a = candidate[i], b = wanted[i];
+        if (a >= L'A' && a <= L'Z') a = static_cast<wchar_t>(a - L'A' + L'a');
+        if (b >= L'A' && b <= L'Z') b = static_cast<wchar_t>(b - L'A' + L'a');
+        if (a != b) return false;
       }
+      return true;
+    };
+
+    fs::recursive_directory_iterator it(
+        opt_dir, fs::directory_options::skip_permission_denied, ec);
+    for (; it != fs::end(it); it.increment(ec)) {
+      if (ec) break;
+      const size_t depth = static_cast<size_t>(it.depth());
+      if (depth > 3 || depth >= best_depth) continue;
+      std::error_code file_ec;
+      if (!it->is_regular_file(file_ec)) continue;
+      if (!iequals_wanted(it->path().filename().wstring())) continue;
+      payload = it->path();
+      found = true;
+      best_depth = depth;
+      if (best_depth == 0) break;
     }
     if (!found) return std::nullopt;
   }
