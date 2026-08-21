@@ -205,8 +205,7 @@ auto canonical_winuxcmd_path(const fs::path& root) -> fs::path {
 auto ensure_install_layout(const fs::path& root) -> bool {
   std::error_code ec;
   for (const auto* relative :
-       {"bin", "usr/bin", "usr/local/bin", "etc", "var", "tmp", "dev",
-        "opt"}) {
+       {"bin", "usr/bin", "usr/local/bin", "etc", "var", "tmp", "dev", "opt"}) {
     fs::create_directories(root / relative, ec);
     if (ec) return false;
   }
@@ -1545,8 +1544,7 @@ auto artifact_destination_for_mapping(const fs::path& root,
                        : mapping_default_to(from, directory);
   if (from.empty() || to.empty()) return std::nullopt;
   if (artifact_layout(artifact) == "shim") {
-    return package_payload_dir(root, package) /
-           fs::path(to).lexically_normal();
+    return package_payload_dir(root, package) / fs::path(to).lexically_normal();
   }
   return root / normalized_package_target(to, directory);
 }
@@ -2060,6 +2058,48 @@ auto create_package_shims(const fs::path& root, const nlohmann::json& pkg,
   return true;
 }
 
+// Migration: packages installed before the layout field existed put every
+// file (DLLs included) directly into usr\bin. Reinstalling such a package as
+// layout=shim would leave those stale copies behind. Remove a legacy flat
+// file only when it is byte-identical to the staged payload — proving it is
+// this package's own leftover, never another package's file.
+auto cleanup_legacy_flat_artifacts(const fs::path& root,
+                                   const fs::path& extracted,
+                                   const nlohmann::json& artifact,
+                                   const nlohmann::json& pkg) -> int {
+  const std::string package = pkg.value("name", "");
+  if (!artifact.contains("files") || !artifact["files"].is_array()) return 0;
+  fs::path bin_dir = canonical_bin_dir(root);
+  int removed = 0;
+  for (const auto& mapping : artifact["files"]) {
+    std::string from = mapping.value("from", "");
+    bool directory = mapping_is_directory(mapping);
+    if (directory) continue;
+    std::string to = mapping.contains("to") && mapping["to"].is_string()
+                         ? mapping["to"].get<std::string>()
+                         : mapping_default_to(from, directory);
+    if (from.empty() || to.empty() || to.find('/') != std::string::npos) {
+      continue;
+    }
+    auto src = find_artifact_path(extracted, from, false, false);
+    if (!src) continue;
+    fs::path legacy = bin_dir / to;
+    std::error_code ec;
+    if (!fs::exists(legacy, ec)) continue;
+    if (same_file(canonical_winuxcmd_path(root), legacy)) continue;
+    if (!files_equal(*src, legacy)) continue;
+    if (!DeleteFileW(legacy.wstring().c_str())) continue;
+    ++removed;
+  }
+  if (removed > 0) {
+    safePrintLn(wpm_text(
+        "command.wpm.status.shim_migrated",
+        "wpm: removed {} stale flat file(s) from usr/bin for '{}'", removed,
+        package));
+  }
+  return removed;
+}
+
 auto update_index(const Options& opts) -> int;
 
 auto refresh_index_once(const Options& opts, std::string_view reason) -> bool {
@@ -2145,6 +2185,9 @@ auto install_package(const Options& opts, std::string_view package_name)
                            opts.dry_run,
                            pkg->value("name", std::string(package_name)))) {
     return 1;
+  }
+  if (shim_layout && !opts.dry_run) {
+    cleanup_legacy_flat_artifacts(opts.root, extracted, *artifact, *pkg);
   }
   if (shim_layout) {
     if (!create_package_shims(opts.root, *pkg, opts.force, opts.dry_run)) {

@@ -158,6 +158,7 @@ MANUAL_MESSAGES = {
     "command.wpm.error.create_link": "wpm: failed to create hard link '{}': {}",
     "command.wpm.status.links_summary": "wpm: links created={} unchanged={} stale_removed={} failed={}",
     "command.wpm.status.shims_created": "wpm: created {} shim(s), unchanged {}, for '{}' payload in opt/{}",
+    "command.wpm.status.shim_migrated": "wpm: removed {} stale flat file(s) from usr/bin for '{}'",
     "command.wpm.status.shims_dry_run": "wpm: dry-run: would create {} command shim(s) in usr/bin for '{}'",
     "command.wpm.error.shim_create": "wpm: failed to create shim '{}': {}",
     "command.wpm.error.shim_template": "wpm: '{}' not found; shims were not created",
