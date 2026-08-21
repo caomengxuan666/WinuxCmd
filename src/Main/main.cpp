@@ -25,6 +25,8 @@
  */
 // src/main.cpp
 // Main entry point for WinuxCmd
+#include <windows.h>
+
 import std;
 import core;
 import utils;
@@ -86,6 +88,87 @@ static void printCommandSummary(std::string_view name, std::string_view desc,
     if (newline_pos == std::string_view::npos) break;
     desc = desc.substr(newline_pos + 1);
   }
+}
+
+// Shim-layout packages (installed via `wpm install` with artifact
+// layout=shim) keep their payload self-contained under <root>\opt\<pkg>\.
+// The command entry in usr\bin is a plain hardlink of winuxcmd.exe; when the
+// invoked name is not a registered command, we forward to
+// <root>\opt\<name>\<name>.exe so the payload's private DLLs resolve from its
+// own directory. Returns nullopt when no payload exists (caller falls back to
+// the regular command-not-found path).
+static std::optional<int> forwardToOptPayload(std::string_view name) noexcept {
+  namespace fs = std::filesystem;
+  wchar_t buffer[MAX_PATH];
+  const DWORD size = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
+  if (size == 0 || size >= MAX_PATH) return std::nullopt;
+  const fs::path self(buffer);
+  // <root>\usr\bin\<self>.exe -> <root>
+  const fs::path root = self.parent_path().parent_path().parent_path();
+
+  const fs::path payload_direct =
+      root / L"opt" / utf8_to_wstring(std::string(name)) /
+      (utf8_to_wstring(std::string(name)) + L".exe");
+  std::error_code ec;
+  fs::path payload = payload_direct;
+  if (!fs::is_regular_file(payload, ec)) {
+    // Package dir may differ from the command name (e.g. opt\sysinternals-suite\
+    // provides accesschk.exe): scan one level of opt\ for a matching payload.
+    const fs::path opt_dir = root / L"opt";
+    if (!fs::exists(opt_dir, ec)) return std::nullopt;
+    bool found = false;
+    for (const auto& entry : fs::directory_iterator(opt_dir, ec)) {
+      if (ec) break;
+      if (!entry.is_directory(ec)) continue;
+      const fs::path candidate =
+          entry.path() / (utf8_to_wstring(std::string(name)) + L".exe");
+      std::error_code file_ec;
+      if (fs::is_regular_file(candidate, file_ec)) {
+        payload = candidate;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return std::nullopt;
+  }
+
+  // Rebuild the child command line from the raw one so the original quoting
+  // of every argument is preserved verbatim.
+  const std::wstring raw = GetCommandLineW();
+  std::wstring rest;
+  if (!raw.empty()) {
+    size_t start = std::wstring::npos;
+    if (raw[0] == L'"') {
+      const size_t closing = raw.find(L'"', 1);
+      if (closing != std::wstring::npos)
+        start = raw.find_first_not_of(L' ', closing + 1);
+    } else {
+      const size_t space = raw.find_first_of(L" \t");
+      if (space != std::wstring::npos)
+        start = raw.find_first_not_of(L" \t", space);
+    }
+    if (start != std::wstring::npos) rest = raw.substr(start);
+  }
+  std::wstring command_line = L"\"" + payload.wstring() + L"\"";
+  if (!rest.empty()) command_line += L" " + rest;
+
+  STARTUPINFOW si{};
+  si.cb = sizeof(si);
+  PROCESS_INFORMATION pi{};
+  if (!CreateProcessW(payload.c_str(), command_line.data(), nullptr, nullptr,
+                      TRUE, 0, nullptr, nullptr, &si, &pi)) {
+    safeErrorPrintLn(winux::i18n::format(
+        "main.error.shim_launch_failed",
+        "winuxcmd: failed to launch shim payload '{}': error {}",
+        std::string(name), static_cast<unsigned long>(GetLastError())));
+    return 126;
+  }
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD exit_code = 1;
+  GetExitCodeProcess(pi.hProcess, &exit_code);
+  CloseHandle(pi.hThread);
+  CloseHandle(pi.hProcess);
+  return static_cast<int>(exit_code);
 }
 
 }  // namespace
@@ -219,6 +302,10 @@ int main(int argc, char* argv[]) noexcept {
     }
 
     if (!CommandRegistry::hasCommand(cmd_name)) {
+      // Not a builtin: try forwarding to a shim-layout payload first.
+      if (auto forwarded = forwardToOptPayload(cmd_name)) {
+        return *forwarded;
+      }
       safeErrorPrintLn(winux::i18n::format("core.error.command_not_found",
                                            "winuxcmd: command not found: {}",
                                            cmd_name));
@@ -232,6 +319,13 @@ int main(int argc, char* argv[]) noexcept {
     // Mode 2: <command>.exe [args...] (e.g., ls.exe -la)
     // Treat executable name as command name for direct calls
     const std::span<std::string_view> cmd_args(args.data(), args.size());
+
+    // Not a builtin: try forwarding to a shim-layout payload first.
+    if (!CommandRegistry::hasCommand(self_name)) {
+      if (auto forwarded = forwardToOptPayload(self_name)) {
+        return *forwarded;
+      }
+    }
 
     // Dispatch the command to corresponding implementation
     return CommandRegistry::dispatch(self_name, cmd_args);
