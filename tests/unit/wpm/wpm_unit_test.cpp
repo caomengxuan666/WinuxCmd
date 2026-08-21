@@ -925,3 +925,151 @@ TEST(wpm, wpm_install_dry_run_does_not_claim_install_success) {
               std::string::npos);
   EXPECT_TRUE(same_file(root_exe, installed_jq));
 }
+
+TEST(wpm, wpm_uninstall_removes_package_files_and_reports_json) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("usr/bin/jq.exe", "installed jq\n");
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"uninstall", L"jq", L"--json", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("\"status\": \"removed\"") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\"failed\": 0") != std::string::npos);
+  EXPECT_FALSE(std::filesystem::exists(tmp.path / L"usr" / L"bin" / L"jq.exe"));
+}
+
+TEST(wpm, wpm_uninstall_refuses_core_and_unknown_packages) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("usr/bin/winuxcmd.exe", "core executable\n");
+
+  Pipeline core;
+  core.add(L"winuxcmd.exe",
+           {L"wpm", L"uninstall", L"winuxcmd", L"--json", L"--root",
+            tmp.wpath()});
+  auto core_result = core.run();
+  EXPECT_EQ(core_result.exit_code, 1);
+  EXPECT_TRUE(core_result.stdout_text.find("\"status\": \"refused\"") !=
+              std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / L"usr" / L"bin" /
+                                      L"winuxcmd.exe"));
+
+  Pipeline unknown;
+  unknown.add(L"winuxcmd.exe",
+              {L"wpm", L"uninstall", L"no-such-package", L"--root",
+               tmp.wpath()});
+  auto unknown_result = unknown.run();
+  EXPECT_EQ(unknown_result.exit_code, 1);
+  EXPECT_TRUE(unknown_result.stderr_text.find("not found in index") !=
+              std::string::npos);
+}
+
+TEST(wpm, wpm_uninstall_dry_run_keeps_files_on_disk) {
+  TempDir tmp;
+  tmp.write(".wpm/indexes/official.json", catalog_fixture_index_json());
+  tmp.write("usr/bin/rg.exe", "installed rg\n");
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"uninstall", L"ripgrep", L"--dry-run", L"--root",
+         tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("would remove ripgrep") != std::string::npos);
+  EXPECT_TRUE(std::filesystem::exists(tmp.path / L"usr" / L"bin" / L"rg.exe"));
+}
+
+TEST(wpm, wpm_outdated_reports_newer_remote_versions) {
+  TempDir tmp;
+  const auto index_path = tmp.path / L"fixture-remote-index.json";
+  tmp.write(".wpm/indexes/official.json",
+            "{\n"
+            "  \"schema\": 1,\n"
+            "  \"name\": \"fixture\",\n"
+            "  \"version\": \"local-1\",\n"
+            "  \"packages\": [\n"
+            "    {\"name\":\"jq\",\"version\":\"1.0.0\","
+            "\"description\":\"JSON processor\",\"kind\":\"external\","
+            "\"commands\":[\"jq\"],\"artifacts\":{\"" +
+                current_arch_key() +
+            "\":{\"type\":\"exe\",\"sha256\":\"present\","
+            "\"urls\":[\"https://example.invalid/jq.exe\"],"
+            "\"files\":[{\"from\":\"jq.exe\"}]}}},\n"
+            "    {\"name\":\"fd\",\"version\":\"10.4.2\","
+            "\"description\":\"File finder\",\"kind\":\"external\","
+            "\"commands\":[\"fd\"],\"artifacts\":{\"" +
+                current_arch_key() +
+            "\":{\"type\":\"zip\",\"sha256\":\"present\","
+            "\"urls\":[\"https://example.invalid/fd.zip\"],"
+            "\"files\":[{\"from\":\"fd.exe\"}]}}}\n"
+            "  ]\n"
+            "}\n");
+  tmp.write("usr/bin/jq.exe", "installed jq\n");
+  tmp.write("fixture-remote-index.json",
+            "{\n"
+            "  \"schema\": 1,\n"
+            "  \"name\": \"fixture\",\n"
+            "  \"version\": \"remote-2\",\n"
+            "  \"packages\": [\n"
+            "    {\"name\":\"jq\",\"version\":\"2.0.0\","
+            "\"description\":\"JSON processor\",\"kind\":\"external\","
+            "\"commands\":[\"jq\"],\"artifacts\":{}},\n"
+            "    {\"name\":\"fd\",\"version\":\"10.4.2\","
+            "\"description\":\"File finder\",\"kind\":\"external\","
+            "\"commands\":[\"fd\"],\"artifacts\":{}}\n"
+            "  ]\n"
+            "}\n");
+
+  Pipeline add;
+  add.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"add", L"remote",
+           widen_ascii(file_url(index_path)), L"--root", tmp.wpath()});
+  EXPECT_EQ(add.run().exit_code, 0);
+
+  Pipeline use;
+  use.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"use", L"remote", L"--root", tmp.wpath()});
+  EXPECT_EQ(use.run().exit_code, 0);
+
+  Pipeline outdated;
+  outdated.add(L"winuxcmd.exe",
+               {L"wpm", L"outdated", L"--json", L"--root", tmp.wpath()});
+  auto r = outdated.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("\"checked\": 1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\"available\": \"2.0.0\"") !=
+              std::string::npos);
+}
+
+TEST(wpm, wpm_source_list_json_marks_custom_and_preferred) {
+  TempDir tmp;
+
+  Pipeline add;
+  add.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"add", L"my-mirror", L"https://mirror.example/index.json",
+           L"--root", tmp.wpath()});
+  EXPECT_EQ(add.run().exit_code, 0);
+
+  Pipeline use;
+  use.add(L"winuxcmd.exe",
+          {L"wpm", L"source", L"use", L"my-mirror", L"--root", tmp.wpath()});
+  EXPECT_EQ(use.run().exit_code, 0);
+
+  Pipeline list;
+  list.add(L"winuxcmd.exe",
+           {L"wpm", L"source", L"list", L"--json", L"--root", tmp.wpath()});
+  auto r = list.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.find("\"schema\": 1") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\"preferred\": \"my-mirror\"") !=
+              std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("\"custom\": true") != std::string::npos);
+}

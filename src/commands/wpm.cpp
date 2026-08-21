@@ -60,7 +60,7 @@ auto constexpr WPM_OPTIONS = std::array{
 namespace wpm {
 namespace fs = std::filesystem;
 
-constexpr std::string_view kVersion = "0.2.0";
+constexpr std::string_view kVersion = "0.3.0";
 constexpr std::string_view kInternalToolName = "wpm";
 
 template <typename... Args>
@@ -2092,10 +2092,10 @@ auto cleanup_legacy_flat_artifacts(const fs::path& root,
     ++removed;
   }
   if (removed > 0) {
-    safePrintLn(wpm_text(
-        "command.wpm.status.shim_migrated",
-        "wpm: removed {} stale flat file(s) from usr/bin for '{}'", removed,
-        package));
+    safePrintLn(
+        wpm_text("command.wpm.status.shim_migrated",
+                 "wpm: removed {} stale flat file(s) from usr/bin for '{}'",
+                 removed, package));
   }
   return removed;
 }
@@ -2370,7 +2370,8 @@ auto apply_update(std::span<const std::string_view> args) -> int {
   return rebuild_links(root, true, false, false);
 }
 
-auto update_index(const Options& opts) -> int {
+auto try_fetch_index(const Options& opts, std::string& used_source)
+    -> std::optional<nlohmann::json> {
   auto current = load_index(opts.root);
   auto sources = merged_sources(opts.root, current);
   std::string wanted = opts.source.empty() ? load_config(opts.root).value(
@@ -2400,20 +2401,87 @@ auto update_index(const Options& opts) -> int {
         safeErrorPrintLn("wpm: fetched index is missing packages");
         continue;
       }
-      if (!write_text(local_index_path(opts.root), parsed->dump(2))) {
-        safeErrorPrintLn("wpm: failed to save index");
-        return 1;
-      }
-      auto config = load_config(opts.root);
-      config["last_success_source"] = name;
-      save_config(opts.root, config);
-      safePrintLn("wpm: index updated from " + name);
-      return 0;
+      used_source = name;
+      return parsed;
     }
   }
+  return std::nullopt;
+}
 
-  safeErrorPrintLn("wpm: no reachable index source");
-  return 1;
+auto update_index(const Options& opts) -> int {
+  std::string used_source;
+  auto fetched = try_fetch_index(opts, used_source);
+  if (!fetched) {
+    safeErrorPrintLn("wpm: no reachable index source");
+    return 1;
+  }
+  if (!write_text(local_index_path(opts.root), fetched->dump(2))) {
+    safeErrorPrintLn("wpm: failed to save index");
+    return 1;
+  }
+  auto config = load_config(opts.root);
+  config["last_success_source"] = used_source;
+  save_config(opts.root, config);
+  safePrintLn("wpm: index updated from " + used_source);
+  return 0;
+}
+
+// Compares locally installed packages against the remote index so users can
+// see which packages have newer versions available upstream. Installation
+// state is derived from artifact destinations on disk; versions come from the
+// cached local index versus the freshly fetched remote index.
+auto package_is_installed(const fs::path& root, const nlohmann::json& pkg)
+    -> bool;
+
+auto list_outdated(const Options& opts) -> int {
+  auto index = load_index(opts.root);
+  std::string used_source;
+  auto remote = try_fetch_index(opts, used_source);
+  if (!remote) {
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.outdated_unreachable",
+        "wpm: unable to reach an index source; cannot check for updates"));
+    return 1;
+  }
+
+  std::map<std::string, std::string> remote_versions;
+  for (const auto& pkg : package_array(*remote)) {
+    std::string name = pkg.value("name", "");
+    if (!name.empty()) remote_versions[name] = pkg.value("version", "");
+  }
+
+  int checked = 0;
+  nlohmann::json outdated = nlohmann::json::array();
+  for (const auto& pkg : package_array(index)) {
+    if (!package_is_installed(opts.root, pkg)) continue;
+    ++checked;
+    const std::string name = pkg.value("name", "");
+    auto it = remote_versions.find(name);
+    if (it == remote_versions.end()) continue;
+    const std::string local_version = pkg.value("version", "");
+    if (it->second.empty() || it->second == local_version) continue;
+    outdated.push_back({{"name", name},
+                        {"version", local_version},
+                        {"available", it->second}});
+    if (!opts.json)
+      safePrintLn(wpm_text("command.wpm.status.outdated_available",
+                           "wpm: update available: {} {} -> {}", name,
+                           local_version, it->second));
+  }
+
+  if (opts.json) {
+    nlohmann::json payload = {{"schema", 1},
+                              {"source", used_source},
+                              {"checked", checked},
+                              {"outdated", std::move(outdated)}};
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
+  if (outdated.empty())
+    safePrintLn(
+        winux::i18n::translate("command.wpm.status.outdated_none",
+                               "wpm: all installed packages are up to date"));
+  return 0;
 }
 
 auto list_links(const Options& opts) -> int {
@@ -2460,8 +2528,44 @@ auto list_sources(const Options& opts) -> int {
   auto index = load_index(opts.root);
   auto config = load_config(opts.root);
   auto preferred = config.value("preferred_source", "auto");
+  auto sources = merged_sources(opts.root, index);
+
+  if (opts.json) {
+    nlohmann::json user_names = nlohmann::json::array();
+    if (config.contains("user_sources") && config["user_sources"].is_array()) {
+      for (const auto& item : config["user_sources"]) {
+        if (item.is_object() && item.contains("name") &&
+            item["name"].is_string())
+          user_names.push_back(item["name"]);
+      }
+    }
+    nlohmann::json payload = {{"schema", 1},
+                              {"preferred", preferred},
+                              {"sources", nlohmann::json::array()}};
+    for (const auto& source : sources) {
+      bool custom = false;
+      for (const auto& name : user_names) {
+        if (name == source.value("name", "")) custom = true;
+      }
+      payload["sources"].push_back(
+          {{"name", source.value("name", "")},
+           {"region", source.value("region", "")},
+           {"priority", source.value("priority", 0)},
+           {"description", source.value("description", "")},
+           {"homepage", source.value("homepage", "")},
+           {"index_urls",
+            source.contains("index_urls") && source["index_urls"].is_array()
+                ? source["index_urls"]
+                : nlohmann::json::array()},
+           {"custom", custom},
+           {"preferred", preferred == source.value("name", "")}});
+    }
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
+
   safePrintLn("WPM sources (preferred: " + preferred + ")");
-  for (const auto& source : merged_sources(opts.root, index)) {
+  for (const auto& source : sources) {
     std::string name = source.value("name", "");
     std::string region = source.value("region", "");
     size_t urls =
@@ -2640,6 +2744,212 @@ auto export_installed_packages_plain(const Options& opts) -> int {
     safePrintLn(name);
   }
   return 0;
+}
+
+// Uninstall removes the files a package's artifact mapping placed on disk.
+// Installation state is derived (no manifest), so removal targets are exactly
+// the destinations `package_is_installed` checks. Protected files — the
+// canonical winuxcmd.exe and the running executable — are never deleted.
+auto uninstall_remove_destination(const fs::path& root, const fs::path& dest,
+                                  bool directory,
+                                  std::vector<std::string>& removed,
+                                  std::vector<std::string>& errors) -> bool {
+  const fs::path core = canonical_winuxcmd_path(root);
+  std::error_code ec;
+  if (same_file(core, dest) || same_file(current_exe_path(), dest)) {
+    errors.push_back(wpm_text("command.wpm.error.uninstall_protected",
+                              "wpm: skipping protected file '{}'",
+                              dest.string()));
+    return false;
+  }
+  if (!fs::exists(dest, ec)) return true;
+  if (directory) {
+    fs::remove_all(dest, ec);
+  } else {
+    fs::remove(dest, ec);
+  }
+  if (ec) {
+    errors.push_back(wpm_text("command.wpm.error.uninstall_failed",
+                              "wpm: failed to remove '{}': {}", dest.string(),
+                              ec.message()));
+    return false;
+  }
+  removed.push_back(dest.string());
+  // Prune now-empty parent directories up to usr/bin (never above root).
+  fs::path parent = dest.parent_path();
+  const fs::path bin_dir = canonical_bin_dir(root);
+  while (parent != bin_dir && parent != root && !parent.empty()) {
+    std::error_code empty_ec;
+    if (!fs::is_empty(parent, empty_ec) || empty_ec) break;
+    std::error_code rm_ec;
+    fs::remove(parent, rm_ec);
+    if (rm_ec) break;
+    parent = parent.parent_path();
+  }
+  return true;
+}
+
+auto uninstall_package(const Options& opts, const nlohmann::json& pkg)
+    -> nlohmann::json {
+  const std::string name = pkg.value("name", "");
+  std::vector<std::string> removed;
+  std::vector<std::string> errors;
+  bool ok = true;
+
+  if (name == "winuxcmd") {
+    errors.push_back(
+        wpm_text("command.wpm.error.uninstall_core",
+                 "wpm: refusing to uninstall '{}': use 'wpm update winuxcmd' "
+                 "to manage the core instead",
+                 name));
+    return {{"name", name},
+            {"status", "refused"},
+            {"removed", removed},
+            {"errors", errors},
+            {"dry_run", opts.dry_run}};
+  }
+
+  auto artifact = artifact_for_current_arch(pkg);
+  if (!artifact || artifact_install_state(pkg) != "ready") {
+    return {{"name", name},
+            {"status", "not_installed"},
+            {"removed", removed},
+            {"errors", errors},
+            {"dry_run", opts.dry_run}};
+  }
+  auto destinations = artifact_destination_paths(opts.root, *artifact, name);
+  if (!destinations || destinations->empty()) {
+    return {{"name", name},
+            {"status", "not_installed"},
+            {"removed", removed},
+            {"errors", errors},
+            {"dry_run", opts.dry_run}};
+  }
+
+  for (const auto& mapping : (*artifact)["files"]) {
+    bool directory = mapping_is_directory(mapping);
+    auto dest =
+        artifact_destination_for_mapping(opts.root, *artifact, name, mapping);
+    if (!dest) continue;
+    if (opts.dry_run) {
+      std::error_code ec;
+      if (fs::exists(*dest, ec)) removed.push_back(dest->string());
+      continue;
+    }
+    if (!uninstall_remove_destination(opts.root, *dest, directory, removed,
+                                      errors)) {
+      ok = false;
+    }
+  }
+
+  // Shim-layout packages keep their payload under opt\<pkg> and forwarders in
+  // usr\bin; drop the forwarders only when they are ours (winuxcmd copies).
+  if (artifact_layout(*artifact) == "shim" && !opts.dry_run) {
+    const fs::path self_exe = canonical_winuxcmd_path(opts.root);
+    for (const auto& item : package_commands_json(pkg)) {
+      if (!item.is_string()) continue;
+      fs::path shim =
+          canonical_bin_dir(opts.root) / exe_suffix(item.get<std::string>());
+      std::error_code ec;
+      if (!fs::exists(shim, ec)) continue;
+      if (same_file(self_exe, shim) || files_equal(self_exe, shim)) {
+        if (!uninstall_remove_destination(opts.root, shim, false, removed,
+                                          errors)) {
+          ok = false;
+        }
+      } else {
+        errors.push_back(wpm_text("command.wpm.error.uninstall_protected",
+                                  "wpm: skipping protected file '{}'",
+                                  shim.string()));
+      }
+    }
+    fs::path payload = package_payload_dir(opts.root, name);
+    std::error_code payload_ec;
+    if (fs::exists(payload, payload_ec)) {
+      fs::remove_all(payload, payload_ec);
+      if (payload_ec) {
+        errors.push_back(wpm_text("command.wpm.error.uninstall_failed",
+                                  "wpm: failed to remove '{}': {}",
+                                  payload.string(), payload_ec.message()));
+        ok = false;
+      } else {
+        removed.push_back(payload.string());
+      }
+    }
+  }
+
+  const std::string status =
+      ok ? (opts.dry_run ? "would_remove" : "removed") : "error";
+  return {{"name", name},
+          {"status", status},
+          {"removed", removed},
+          {"errors", errors},
+          {"dry_run", opts.dry_run}};
+}
+
+auto uninstall_packages(const Options& opts,
+                        std::span<const std::string_view> names) -> int {
+  auto index = load_index(opts.root);
+  nlohmann::json results = nlohmann::json::array();
+  int failed = 0;
+  int removed_count = 0;
+
+  for (const auto& name_view : names) {
+    const std::string name(name_view);
+    auto pkg = find_package(index, name);
+    if (!pkg) {
+      results.push_back({{"name", name},
+                         {"status", "not_found"},
+                         {"removed", nlohmann::json::array()},
+                         {"errors", nlohmann::json::array()},
+                         {"dry_run", opts.dry_run}});
+      safeErrorPrintLn(wpm_text("command.wpm.error.uninstall_not_found",
+                                "wpm: package not found in index: {}", name));
+      ++failed;
+      continue;
+    }
+
+    nlohmann::json result = uninstall_package(opts, *pkg);
+    const std::string& status = result["status"].get_ref<const std::string&>();
+    if (status == "not_installed") {
+      safeErrorPrintLn(wpm_text("command.wpm.error.uninstall_not_installed",
+                                "wpm: package '{}' is not installed", name));
+    } else if (status == "refused" || status == "error") {
+      ++failed;
+      for (const auto& err : result["errors"])
+        safeErrorPrintLn(err.get<std::string>());
+    } else {
+      ++removed_count;
+      // Keep stdout pure JSON in --json mode; human progress goes to stderr.
+      auto line = status == "would_remove"
+                      ? wpm_text("command.wpm.status.uninstall_dry_run",
+                                 "wpm: dry-run: would remove {}", name)
+                      : wpm_text("command.wpm.status.uninstall_removed",
+                                 "wpm: uninstalled {}", name);
+      if (opts.json) {
+        safeErrorPrintLn(line);
+      } else {
+        safePrintLn(line);
+        if (opts.verbose) {
+          for (const auto& path : result["removed"])
+            safePrintLn("  - " + path.get<std::string>());
+        }
+      }
+    }
+    results.push_back(std::move(result));
+  }
+
+  if (opts.json) {
+    nlohmann::json payload = {
+        {"schema", 1}, {"results", std::move(results)}, {"failed", failed}};
+    safePrintLn(payload.dump(2));
+    return failed == 0 ? 0 : 1;
+  }
+
+  safePrintLn(wpm_text("command.wpm.status.uninstall_summary",
+                       "wpm: uninstall complete removed={} failed={}",
+                       removed_count, failed));
+  return failed == 0 ? 0 : 1;
 }
 
 auto package_list_entry(std::string line) -> std::optional<std::string> {
@@ -2957,6 +3267,19 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
   if (args[0] == "list") return list_packages(opts);
   if (args[0] == "categories") return list_categories(opts);
   if (args[0] == "installed") return list_installed_packages(opts);
+  if (args[0] == "outdated") return list_outdated(opts);
+  if (args[0] == "uninstall" || args[0] == "remove" || args[0] == "erase") {
+    if (args.size() >= 2) {
+      std::vector<std::string_view> packages;
+      packages.reserve(args.size() - 1);
+      for (size_t i = 1; i < args.size(); ++i) packages.push_back(args[i]);
+      return uninstall_packages(opts, packages);
+    }
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.wpm.error.usage.uninstall",
+        "wpm: usage: wpm uninstall <package>... [--dry-run]"));
+    return 1;
+  }
   if (args[0] == "export") {
     if (args.size() == 1 || (args.size() == 2 && args[1] == "--plain")) {
       return export_installed_packages_plain(opts);
@@ -3022,6 +3345,8 @@ REGISTER_COMMAND(
     "  wpm clean\n"
     "  wpm index update\n"
     "  wpm source list\n"
+    "  wpm outdated\n"
+    "  wpm uninstall <package>\n"
     "  wpm update winuxcmd",
     "winuxcmd(1), ln(1)", "WinuxCmd Project", "Copyright (c) 2026 WinuxCmd",
     WPM_OPTIONS) {
