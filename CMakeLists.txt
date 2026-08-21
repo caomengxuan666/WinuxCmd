@@ -47,10 +47,6 @@ set_property(CACHE BUILD_MODE PROPERTY STRINGS "DEV" "RELEASE" "DEBUG_RELEASE" "
 # Option to enable tests
 option(ENABLE_TESTS "Enable tests" ON)
 
-# Option to enable benchmarks. DEV/DEBUG_RELEASE keep the historical default,
-# but local test builds can disable this to avoid network FetchContent.
-option(ENABLE_BENCHMARKS "Enable benchmark targets" ON)
-
 # Enable PCRE2 for GNU grep -P / --perl-regexp. JIT stays off by default to
 # keep the Windows-native bundle small and avoid executable-memory allocation.
 option(WINUXCMD_ENABLE_PCRE2 "Enable PCRE2-backed grep -P support" ON)
@@ -950,7 +946,6 @@ message(STATUS "=================== BUILD CONFIGURATION SUMMARY ================
 message(STATUS "Build Mode: ${BUILD_MODE}")
 message(STATUS "C++ Dialect: ${WINUXCMD_CXX_DIALECT} (${WINUXCMD_CXX_DIALECT_NOTE}, CXX_STANDARD=${WINUXCMD_CXX_STANDARD})")
 message(STATUS "Tests Enabled: ${ENABLE_TESTS}")
-message(STATUS "Benchmarks Enabled: ${ENABLE_BENCHMARKS}")
 message(STATUS "FFI Library: ${BUILD_FFI}")
 message(STATUS "Map Info Generation: ${GENERATE_MAP_INFO}")
 message(STATUS "Unity Build: ${ENABLE_UNITY_BUILD}")
@@ -964,14 +959,5 @@ message(STATUS "================================================================
 # Print out supported the amount of supported commands
 statistics_number_of_commands_supported()
 message(STATUS "Final count result: ${COMMANDS_SRC_FILE_COUNT} .cpp files")
-
-# ========== Benchmark (DEV and DEBUG_RELEASE mode only) ==========
-
-if (ENABLE_BENCHMARKS AND (BUILD_MODE STREQUAL "DEV" OR BUILD_MODE STREQUAL "DEBUG_RELEASE"))
-    message(STATUS "Benchmarks: ENABLED (${BUILD_MODE} mode)")
-    add_subdirectory(benchmark)
-else ()
-    message(STATUS "Benchmarks: DISABLED (requires ENABLE_BENCHMARKS=ON and DEV/DEBUG_RELEASE mode)")
-endif ()
 
 include(CPack)
