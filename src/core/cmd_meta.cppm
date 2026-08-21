@@ -514,11 +514,20 @@ export auto format_custom_help(std::string_view name, std::string_view help)
     std::string_view content = indented ? line.substr(indent) : line;
 
     if (first_line) {
-      const size_t separator = content.find_first_of(":：");
+      const size_t ascii_separator = content.find(':');
+      const size_t utf8_separator = content.find("：");
+      size_t separator = ascii_separator;
+      size_t separator_size = 1;
+      if (utf8_separator != std::string_view::npos &&
+          (separator == std::string_view::npos ||
+           utf8_separator < separator)) {
+        separator = utf8_separator;
+        separator_size = std::string_view("：").size();
+      }
       if (separator != std::string_view::npos) {
-        append_styled(result, content.substr(0, separator + 1), section_style,
-                      color);
-        result.append(content.substr(separator + 1));
+        append_styled(result, content.substr(0, separator + separator_size),
+                      section_style, color);
+        result.append(content.substr(separator + separator_size));
       } else {
         append_styled(result, content, title_style, color);
       }
