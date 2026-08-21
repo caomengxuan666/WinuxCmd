@@ -57,7 +57,7 @@ struct LaunchCommand {
 struct Config {
   bool posix = false;
   std::string command;
-  SmallVector<std::string, 64> args;
+  std::vector<std::string> args;
 };
 
 [[nodiscard]] auto filetime_to_ticks(const FILETIME& ft) -> unsigned long long {

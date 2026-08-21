@@ -205,7 +205,8 @@ auto canonical_winuxcmd_path(const fs::path& root) -> fs::path {
 auto ensure_install_layout(const fs::path& root) -> bool {
   std::error_code ec;
   for (const auto* relative :
-       {"bin", "usr/bin", "usr/local/bin", "etc", "var", "tmp", "dev"}) {
+       {"bin", "usr/bin", "usr/local/bin", "etc", "var", "tmp", "dev",
+        "opt"}) {
     fs::create_directories(root / relative, ec);
     if (ec) return false;
   }
@@ -219,6 +220,19 @@ auto normalized_package_target(std::string target, bool directory) -> fs::path {
     return fs::path("usr") / "bin" / target;
   }
   return fs::path(target);
+}
+
+// Shim-layout packages keep their payload (exe + private DLLs) self-contained
+// under <root>\opt\<pkg>\; usr\bin only gets wpm-shim forwarders. Flat layout
+// (default) installs mapped files directly into usr\bin as before.
+auto artifact_layout(const nlohmann::json& artifact) -> std::string {
+  const std::string layout = artifact.value("layout", "flat");
+  return layout == "shim" ? "shim" : "flat";
+}
+
+auto package_payload_dir(const fs::path& root, std::string_view package)
+    -> fs::path {
+  return root / "opt" / fs::path(std::string(package));
 }
 
 auto state_dir(const fs::path& root) -> fs::path { return root / ".wpm"; }
@@ -1517,6 +1531,26 @@ auto mapping_default_to(const std::string& from, bool directory)
   return fs::path(clean).filename().string();
 }
 
+// Resolves the install destination for one files-mapping entry, honoring the
+// artifact layout: shim payloads land under opt\<pkg>\, flat ones in usr\bin.
+auto artifact_destination_for_mapping(const fs::path& root,
+                                      const nlohmann::json& artifact,
+                                      std::string_view package,
+                                      const nlohmann::json& mapping)
+    -> std::optional<fs::path> {
+  std::string from = mapping.value("from", "");
+  bool directory = mapping_is_directory(mapping);
+  std::string to = mapping.contains("to") && mapping["to"].is_string()
+                       ? mapping["to"].get<std::string>()
+                       : mapping_default_to(from, directory);
+  if (from.empty() || to.empty()) return std::nullopt;
+  if (artifact_layout(artifact) == "shim") {
+    return package_payload_dir(root, package) /
+           fs::path(to).lexically_normal();
+  }
+  return root / normalized_package_target(to, directory);
+}
+
 auto find_file_recursive(const fs::path& root, std::string_view filename)
     -> std::optional<fs::path> {
   std::error_code ec;
@@ -1778,7 +1812,7 @@ auto download_artifact(const fs::path& root, const std::string& package,
 
 auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
                          const nlohmann::json& artifact, bool force,
-                         bool dry_run) -> bool {
+                         bool dry_run, std::string_view package) -> bool {
   if (!artifact.contains("files") || !artifact["files"].is_array()) {
     safeErrorPrintLn("wpm: artifact has no files mapping");
     return false;
@@ -1803,7 +1837,13 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
       return false;
     }
 
-    fs::path dest = root / normalized_package_target(to, directory);
+    auto mapped_dest =
+        artifact_destination_for_mapping(root, artifact, package, mapping);
+    if (!mapped_dest) {
+      safeErrorPrintLn("wpm: invalid file mapping in artifact");
+      return false;
+    }
+    fs::path dest = *mapped_dest;
     std::error_code ec;
     bool dest_exists = fs::exists(dest, ec);
     bool dest_is_winux_link =
@@ -1862,7 +1902,8 @@ auto copy_artifact_files(const fs::path& extracted, const fs::path& root,
 }
 
 auto artifact_destination_paths(const fs::path& root,
-                                const nlohmann::json& artifact)
+                                const nlohmann::json& artifact,
+                                std::string_view package)
     -> std::optional<std::vector<fs::path>> {
   if (!artifact.contains("files") || !artifact["files"].is_array()) {
     safeErrorPrintLn("wpm: artifact has no files mapping");
@@ -1871,16 +1912,13 @@ auto artifact_destination_paths(const fs::path& root,
 
   std::vector<fs::path> destinations;
   for (const auto& mapping : artifact["files"]) {
-    std::string from = mapping.value("from", "");
-    bool directory = mapping_is_directory(mapping);
-    std::string to = mapping.contains("to") && mapping["to"].is_string()
-                         ? mapping["to"].get<std::string>()
-                         : mapping_default_to(from, directory);
-    if (from.empty() || to.empty()) {
+    auto dest =
+        artifact_destination_for_mapping(root, artifact, package, mapping);
+    if (!dest) {
       safeErrorPrintLn("wpm: invalid file mapping in artifact");
       return std::nullopt;
     }
-    destinations.push_back(root / normalized_package_target(to, directory));
+    destinations.push_back(*dest);
   }
   return destinations;
 }
@@ -1889,7 +1927,7 @@ auto preflight_install_destinations(const fs::path& root,
                                     const nlohmann::json& artifact,
                                     std::string_view package, bool force)
     -> std::optional<int> {
-  auto destinations = artifact_destination_paths(root, artifact);
+  auto destinations = artifact_destination_paths(root, artifact, package);
   if (!destinations) return 1;
   if (force) return std::nullopt;
 
@@ -1933,6 +1971,93 @@ auto preflight_install_destinations(const fs::path& root,
   }
 
   return std::nullopt;
+}
+
+auto files_equal(const fs::path& a, const fs::path& b) -> bool {
+  std::error_code ec;
+  if (fs::file_size(a, ec) != fs::file_size(b, ec) || ec) return false;
+  std::ifstream ia(a, std::ios::binary);
+  std::ifstream ib(b, std::ios::binary);
+  if (!ia.is_open() || !ib.is_open()) return false;
+  std::string sa((std::istreambuf_iterator<char>(ia)),
+                 std::istreambuf_iterator<char>());
+  std::string sb((std::istreambuf_iterator<char>(ib)),
+                 std::istreambuf_iterator<char>());
+  return sa == sb;
+}
+
+// The shim template ships next to wpm itself; fall back to a copy already
+// present in usr\bin from a previous install.
+auto package_command_count(const nlohmann::json& pkg) -> int {
+  if (!pkg.contains("commands") || !pkg["commands"].is_array()) return 0;
+  int count = 0;
+  for (const auto& item : pkg["commands"]) {
+    if (item.is_string()) ++count;
+  }
+  return count;
+}
+
+// Shim commands are hardlinks of winuxcmd.exe itself (same model as builtin
+// command links): the dispatcher forwards non-builtin names to
+// opt\<pkg>\<cmd>.exe, keeping single-binary distribution intact.
+auto create_package_shims(const fs::path& root, const nlohmann::json& pkg,
+                          bool force, bool dry_run) -> bool {
+  const std::string package = pkg.value("name", "");
+  const int commands = package_command_count(pkg);
+  if (commands == 0) return true;
+
+  if (dry_run) {
+    safePrintLn(wpm_text(
+        "command.wpm.status.shims_dry_run",
+        "wpm: dry-run: would create {} command shim(s) in usr/bin for '{}'",
+        commands, package));
+    return true;
+  }
+
+  fs::path self_exe = canonical_winuxcmd_path(root);
+  std::error_code ec;
+  if (!fs::is_regular_file(self_exe, ec)) {
+    safeErrorPrintLn(wpm_text("command.wpm.error.shim_template",
+                              "wpm: '{}' not found; shims were not created",
+                              self_exe.string()));
+    return false;
+  }
+
+  fs::path bin_dir = canonical_bin_dir(root);
+  int created = 0;
+  int unchanged = 0;
+  for (const auto& item : pkg["commands"]) {
+    if (!item.is_string()) continue;
+    const std::string command = item.get<std::string>();
+    fs::path shim = bin_dir / (command + ".exe");
+    ec.clear();
+    if (fs::exists(shim, ec)) {
+      if (same_file(self_exe, shim) || files_equal(self_exe, shim)) {
+        ++unchanged;
+        continue;
+      }
+      if (!force) {
+        safeErrorPrintLn("wpm: destination exists; use --force: " +
+                         shim.string());
+        return false;
+      }
+    }
+    fs::create_directories(bin_dir, ec);
+    // Hardlink-first keeps usr\bin uniform: every entry links exactly one
+    // canonical file (builtins and shims alike -> winuxcmd.exe).
+    if (!materialize_file(self_exe, shim, true, ec)) {
+      safeErrorPrintLn(wpm_text("command.wpm.error.shim_create",
+                                "wpm: failed to create shim '{}': {}",
+                                shim.string(), ec.message()));
+      return false;
+    }
+    ++created;
+  }
+  safePrintLn(wpm_text(
+      "command.wpm.status.shims_created",
+      "wpm: created {} shim(s), unchanged {}, for '{}' payload in opt/{}",
+      created, unchanged, package, package));
+  return true;
 }
 
 auto update_index(const Options& opts) -> int;
@@ -2015,9 +2140,16 @@ auto install_package(const Options& opts, std::string_view package_name)
     return 1;
   }
 
+  const bool shim_layout = artifact_layout(*artifact) == "shim";
   if (!copy_artifact_files(extracted, opts.root, *artifact, opts.force,
-                           opts.dry_run)) {
+                           opts.dry_run,
+                           pkg->value("name", std::string(package_name)))) {
     return 1;
+  }
+  if (shim_layout) {
+    if (!create_package_shims(opts.root, *pkg, opts.force, opts.dry_run)) {
+      return 1;
+    }
   }
   if (opts.dry_run) {
     safePrintLn("wpm: dry-run complete; would install " +
@@ -2241,9 +2373,37 @@ auto update_index(const Options& opts) -> int {
   return 1;
 }
 
+auto list_links(const Options& opts) -> int {
+  auto names = command_names();
+  if (opts.json) {
+    nlohmann::json commands = nlohmann::json::array();
+    for (const auto& name : names) commands.push_back(name);
+    nlohmann::json payload = {{"schema", 1},
+                              {"bin", canonical_bin_dir(opts.root).string()},
+                              {"count", names.size()},
+                              {"commands", std::move(commands)}};
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
+  for (const auto& name : names) safePrintLn(name);
+  return 0;
+}
+
 auto print_index_status(const Options& opts) -> int {
   auto index = load_index(opts.root);
   auto packages = package_array(index);
+  if (opts.json) {
+    nlohmann::json payload = {
+        {"schema", 1},
+        {"root", opts.root.string()},
+        {"local_index", local_index_path(opts.root).string()},
+        {"fallback", "builtin"},
+        {"version", index.value("version", "unknown")},
+        {"updated", index.value("updated", "")},
+        {"packages", packages.size()}};
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
   safePrintLn("WPM index");
   safePrintLn("  root: " + opts.root.string());
   safePrintLn("  local: " + local_index_path(opts.root).string());
@@ -2328,7 +2488,8 @@ auto package_is_installed(const fs::path& root, const nlohmann::json& pkg)
   if (artifact_install_state(pkg) != "ready") return false;
   auto artifact = artifact_for_current_arch(pkg);
   if (!artifact) return false;
-  auto destinations = artifact_destination_paths(root, *artifact);
+  auto destinations =
+      artifact_destination_paths(root, *artifact, pkg.value("name", ""));
   if (!destinations || destinations->empty()) return false;
 
   for (const auto& dest : *destinations) {
@@ -2362,6 +2523,7 @@ auto package_summary_json(const fs::path& root, const nlohmann::json& pkg)
     nlohmann::json artifact_json = {
         {"arch", detect_arch_key()},
         {"type", artifact->value("type", "")},
+        {"layout", artifact_layout(*artifact)},
         {"url_count", artifact_urls(*artifact).size()},
         {"sha256_present", !artifact->value("sha256", "").empty()},
         {"file_count",
@@ -2398,11 +2560,25 @@ auto print_installed_package_summary(const nlohmann::json& pkg) -> void {
 auto list_installed_packages(const Options& opts) -> int {
   auto index = load_index(opts.root);
   int matched = 0;
+  nlohmann::json json_packages = nlohmann::json::array();
   for (const auto& pkg : package_array(index)) {
     if (!package_is_installed(opts.root, pkg)) continue;
-    print_installed_package_summary(pkg);
+    if (opts.json) {
+      json_packages.push_back(package_summary_json(opts.root, pkg));
+    } else {
+      print_installed_package_summary(pkg);
+    }
     ++matched;
   }
+
+  if (opts.json) {
+    nlohmann::json payload = {{"schema", 1},
+                              {"matched", matched},
+                              {"packages", std::move(json_packages)}};
+    safePrintLn(payload.dump(2));
+    return 0;
+  }
+
   if (matched == 0) {
     safePrintLn("wpm: no installed packages matched the local index");
     safePrintLn(
@@ -2484,7 +2660,8 @@ auto list_packages(const Options& opts, std::string_view query = {}) -> int {
   }
 
   if (opts.json) {
-    nlohmann::json payload = {{"query", std::string(query)},
+    nlohmann::json payload = {{"schema", 1},
+                              {"query", std::string(query)},
                               {"category", opts.category},
                               {"all", opts.all},
                               {"matched", matched},
@@ -2537,7 +2714,8 @@ auto list_categories(const Options& opts) -> int {
   }
 
   if (opts.json) {
-    nlohmann::json payload = {{"categories", nlohmann::json::array()},
+    nlohmann::json payload = {{"schema", 1},
+                              {"categories", nlohmann::json::array()},
                               {"total", categories.size()}};
     for (const auto& [name, counts] : categories) {
       payload["categories"].push_back({{"name", name},
@@ -2570,7 +2748,8 @@ auto show_info(const Options& opts, std::string_view name) -> int {
   }
   if (!pkg) {
     if (opts.json) {
-      nlohmann::json payload = {{"error", "package_not_found"},
+      nlohmann::json payload = {{"schema", 1},
+                                {"error", "package_not_found"},
                                 {"package", std::string(name)}};
       safePrintLn(payload.dump(2));
     } else {
@@ -2580,7 +2759,9 @@ auto show_info(const Options& opts, std::string_view name) -> int {
     return 1;
   }
   if (opts.json) {
-    safePrintLn(package_info_json(opts.root, *pkg).dump(2));
+    auto payload = package_info_json(opts.root, *pkg);
+    payload["schema"] = 1;
+    safePrintLn(payload.dump(2));
     return 0;
   }
   safePrintLn("Name: " + pkg->value("name", ""));
@@ -2682,10 +2863,7 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
   }
 
   if (args[0] == "links") {
-    if (args.size() == 1 || args[1] == "list") {
-      for (const auto& name : command_names()) safePrintLn(name);
-      return 0;
-    }
+    if (args.size() == 1 || args[1] == "list") return list_links(opts);
     if (args[1] == "rebuild") {
       return rebuild_links(opts.root, opts.force, opts.dry_run, opts.verbose);
     }
