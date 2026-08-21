@@ -181,17 +181,6 @@ import container.small_vector;
 import container.constexpr_map;
 ```
 
-### Benchmarking
-
-Benchmarks are located in `benchmark/cmd_benchmarks/container_benchmark.cpp`.
-
-To run benchmarks:
-
-```bash
-cd build-benchmark
-./benchmark --benchmark_filter="BM_.*Vector|BM_.*Map"
-```
-
 ## Migration Guide
 
 ### Converting std::vector to SmallVector

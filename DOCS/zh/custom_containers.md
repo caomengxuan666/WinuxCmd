@@ -181,17 +181,6 @@ import container.small_vector;
 import container.constexpr_map;
 ```
 
-### 基准测试
-
-基准测试位于 `benchmark/cmd_benchmarks/container_benchmark.cpp`。
-
-运行基准测试：
-
-```bash
-cd build-benchmark
-./benchmark --benchmark_filter="BM_.*Vector|BM_.*Map"
-```
-
 ## 迁移指南
 
 ### 将 std::vector 转换为 SmallVector
