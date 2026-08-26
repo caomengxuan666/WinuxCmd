@@ -27,13 +27,14 @@ To auto-activate in every new interactive PowerShell session, install the
 if (Get-Command winux -ErrorAction SilentlyContinue) {
     winux activate 6>$null
 }
+```
 
 If `winux activate` reports `winux.ps1 not found`, the usual cause is a stale
 older wrapper still left in `$PROFILE` from a previous install path such as an
 old Scoop location. Re-run `winux-activate.ps1` from the current WinuxCmd
 install to rewrite the wrapper against the latest `%LOCALAPPDATA%\WinuxCmd`
 runtime.
-```
+
 
 ### CMD / Windows Terminal
 

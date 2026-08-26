@@ -121,7 +121,7 @@ sort --parallel=4 largefile.txt
 ```
 
 ## WinuxCmd 实现状态
-**待实现**
+**已实现**
 
 ## 相关命令
 - `uniq`：报告或省略重复行
