@@ -11,7 +11,7 @@
 ![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
 
 WinuxCmd gives Windows terminals a compact GNU-style command layer: `ls`,
-`cat`, `grep`, `find`, `xargs`, `sed`, `sort`, `uniq`, `cp`, `mv`, `rm`,
+`cat`, `grep`, `find`, `pathchk`, `xargs`, `sed`, `sort`, `uniq`, `cp`, `mv`, `rm`,
 and more.
 
 The 0.14 line also introduces a clearer WPM model: WinuxCmd ships the core
@@ -160,6 +160,7 @@ WinuxCmd currently implements 171 commands, including practical coverage across:
 
 - Files: `ls`, `cp`, `mv`, `rm`, `mkdir`, `ln`, `stat`, `readlink`, `realpath`
 - Text: `cat`, `grep`, `sed`, `sort`, `uniq`, `cut`, `head`, `tail`, `wc`
+- Validation: `pathchk`
 - Search and composition: `find`, `xargs`
 - Windows-friendly utilities: `ps`, `lsof`, `which`, `tree`, `hexdump`,
   `strings`

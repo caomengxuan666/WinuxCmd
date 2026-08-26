@@ -11,7 +11,7 @@
 ![Windows Support](https://img.shields.io/badge/platform-Windows-blue)
 
 WinuxCmd 给 Windows 终端补上一层紧凑的 GNU 风格命令：`ls`、`cat`、
-`grep`、`find`、`xargs`、`sed`、`sort`、`uniq`、`cp`、`mv`、`rm`
+`grep`、`find`、`pathchk`、`xargs`、`sed`、`sort`、`uniq`、`cp`、`mv`、`rm`
 等等。
 
 0.14 这一版开始，定位更明确：WinuxCmd 负责核心命令，WPM 负责管理
@@ -153,6 +153,7 @@ WinuxCmd 目前实现 171 个命令，覆盖这些常见场景：
 
 - 文件：`ls`、`cp`、`mv`、`rm`、`mkdir`、`ln`、`stat`、`readlink`、`realpath`
 - 文本：`cat`、`grep`、`sed`、`sort`、`uniq`、`cut`、`head`、`tail`、`wc`
+- 校验：`pathchk`
 - 搜索与组合：`find`、`xargs`
 - Windows 侧补位：`ps`、`lsof`、`which`、`tree`、`hexdump`、`strings`
 - WPM：`wpm source`、`wpm index`、`wpm list`、`wpm search`、`wpm info`、

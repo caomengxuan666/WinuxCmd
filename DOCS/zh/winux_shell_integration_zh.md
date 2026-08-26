@@ -25,12 +25,13 @@ wrapper，然后把下面这段放在 `$PROFILE` 里 wrapper 之后：
 if (Get-Command winux -ErrorAction SilentlyContinue) {
     winux activate 6>$null
 }
+```
 
 如果 `winux activate` 提示 `winux.ps1 not found`，通常不是当前安装包漏文件，
 而是 `$PROFILE` 里还残留着旧安装路径生成的 wrapper，例如早期 Scoop 路径。
 请从当前 WinuxCmd 安装目录重新运行 `winux-activate.ps1`，让 wrapper 改为动态
 查找最新的 `%LOCALAPPDATA%\WinuxCmd` 运行时目录。
-```
+
 
 ### CMD / Windows Terminal
 

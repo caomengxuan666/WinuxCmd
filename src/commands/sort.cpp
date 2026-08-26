@@ -27,7 +27,7 @@
 /// @Author: WinuxCmd
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
-/// @Description: Implemention for sort.
+/// @Description: Implementation for sort.
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
