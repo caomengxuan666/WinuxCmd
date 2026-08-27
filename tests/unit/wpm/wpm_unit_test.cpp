@@ -544,6 +544,28 @@ TEST(wpm, wpm_links_rebuild_removes_legacy_jq_hardlink) {
   EXPECT_TRUE(std::filesystem::exists(canonical_exe(tmp.path, L"wpm.exe")));
 }
 
+TEST(wpm, wpm_links_rebuild_removes_legacy_link_hardlink) {
+  TempDir tmp;
+  auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
+  std::filesystem::create_directories(root_exe.parent_path());
+  auto legacy_link = tmp.path / L"link.exe";
+  std::filesystem::copy_file(build_winuxcmd_path(), root_exe,
+                             std::filesystem::copy_options::overwrite_existing);
+  bool linked = CreateHardLinkW(legacy_link.wstring().c_str(),
+                                root_exe.wstring().c_str(), nullptr) != 0;
+  EXPECT_TRUE(linked);
+  if (!linked) return;
+
+  Pipeline p;
+  p.add(L"winuxcmd.exe",
+        {L"wpm", L"links", L"rebuild", L"--root", tmp.wpath()});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(std::filesystem::exists(legacy_link));
+  EXPECT_TRUE(std::filesystem::exists(canonical_exe(tmp.path, L"wpm.exe")));
+}
+
 TEST(wpm, wpm_apply_update_replaces_root_and_rebuilds_links) {
   TempDir tmp;
   auto root_exe = canonical_exe(tmp.path, L"winuxcmd.exe");
