@@ -95,7 +95,45 @@ constexpr char DEFAULT_BACKUP_SUFFIX[] = "~";
 // Options (constexpr)
 // ======================================================
 
+// [GNU] -a, --archive: same as -dR --preserve=all
+// [GNU] -b: like --backup but does not accept an argument
+// [GNU] --backup: make a backup of each existing destination file
+// [GNU] -d: same as --no-dereference --preserve=links
+// [GNU] -f, --force: remove existing destination and try again
+// [GNU] -i, --interactive: prompt before overwrite
+// [GNU] -H: follow command-line symbolic links in SOURCE
+// [GNU] -l, --link: hard link files instead of copying
+// [GNU] -L, --dereference: always follow symbolic links in SOURCE
+// [GNU] -n, --no-clobber: do not overwrite an existing file
+// [GNU] -P, --no-dereference: never follow symbolic links in SOURCE
+// [GNU] -p: same as --preserve=mode,ownership,timestamps
+// [GNU] -R, --recursive: copy directories recursively
+// [GNU] -r, --recursive: copy directories recursively (alias for -R)
+// [GNU] -s, --symbolic-link: make symbolic links instead of copying
+// [GNU] -S, --suffix: override the usual backup suffix
+// [GNU] -t, --target-directory: copy all SOURCE arguments into DIRECTORY
+// [GNU] -T, --no-target-directory: treat DEST as a normal file
+// [GNU] --strip-trailing-slashes: remove trailing slashes from SOURCE
+// [GNU] -u, --update: equivalent to --update[=older]
+// [GNU] -v, --verbose: explain what is being done
+// [GNU] --debug: explain how a file is copied; implies --verbose
+// [EXT] -g, --progress-bar: WinuxCmd extension, not in GNU coreutils
+// [GNU] -x, --one-file-system: stay on this file system
+// [DIFFERS] -Z: SELinux contexts are unavailable on Windows
+// [IMPLEMENTED] --remove-destination: remove each existing destination file before open
+// [GNU] --attributes-only: don't copy the file data, just the attributes
+// [GNU] --parents: use full source file name under DIRECTORY
+// [GNU] --parent: alias for --parents
+// [GNU] --sparse: control creation of sparse files
+// [GNU] --reflink: control clone/CoW copies
+// [GNU] --preserve: preserve the specified attributes
+// [GNU] --no-preserve: don't preserve the specified attributes
+// [GNU] --copy-contents: copy contents of special files when recursive
+// [IMPLEMENTED] --keep-directory-symlink: follow existing symlink to directory
+// Windows directory operations follow an existing destination directory symlink.
 auto constexpr CP_OPTIONS = std::array{
+    OPTION("", "--keep-directory-symlink",
+           "follow existing symlink to directory"),
     OPTION("-a", "--archive", "same as -dR --preserve=all"),
     OPTION("-b", "", "like --backup but does not accept an argument"),
     OPTION("", "--backup", "make a backup of each existing destination file",
@@ -126,6 +164,7 @@ auto constexpr CP_OPTIONS = std::array{
     OPTION("", "--debug", "explain how a file is copied; implies --verbose"),
     OPTION("-g", "--progress-bar", "display a progress bar while copying"),
     OPTION("-x", "--one-file-system", "stay on this file system"),
+    // [DIFFERS] SELinux security contexts are unavailable on Windows.
     OPTION("-Z", "",
            "set SELinux security context of destination file to default type"),
     OPTION(
@@ -422,7 +461,8 @@ auto backup_suffix(const CommandContext<CP_OPTIONS.size()>& ctx)
 
 auto numbered_backup_path(const std::wstring& dest_path) -> std::wstring {
   for (int version = 1;; ++version) {
-    std::wstring candidate = dest_path + L".~" + std::to_wstring(version) + L"~";
+    std::wstring candidate =
+        dest_path + L".~" + std::to_wstring(version) + L"~";
     if (!native_path::valid_attributes(native_path::attributes_w(candidate))) {
       return candidate;
     }
@@ -450,7 +490,8 @@ auto select_backup_path(const std::wstring& dest_path,
       return std::optional<std::wstring>{numbered_backup_path(dest_path)};
     case BackupControl::existing: {
       std::wstring first_numbered = dest_path + L".~1~";
-      if (native_path::valid_attributes(native_path::attributes_w(first_numbered))) {
+      if (native_path::valid_attributes(
+              native_path::attributes_w(first_numbered))) {
         return std::optional<std::wstring>{numbered_backup_path(dest_path)};
       }
       return std::optional<std::wstring>{simple_backup_path(dest_path, ctx)};
@@ -888,6 +929,10 @@ auto process_source_paths(
 // ----------------------------------------------
 template <size_t N>
 auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
+  if (ctx.has("-Z")) {
+    return std::unexpected("SELinux security contexts are not supported on Windows");
+  }
+
   bool no_clobber =
       ctx.get<bool>("--no-clobber", false) || ctx.get<bool>("-n", false);
   if (no_clobber && backup_enabled(ctx)) {

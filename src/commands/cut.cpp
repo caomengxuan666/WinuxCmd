@@ -17,24 +17,38 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CUT_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--bytes", "select only these bytes", STRING_TYPE),
+    // [GNU]
     OPTION("-c", "--characters", "select only these characters", STRING_TYPE),
+    // [GNU]
     OPTION("-d", "--delimiter", "use DELIM instead of TAB for field delimiter",
            STRING_TYPE),
+    // [GNU]
     OPTION("-w", "--whitespace-delimited",
            "use runs of spaces/tabs as field delimiters [=trimmed]",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("-f", "--fields", "select only these fields", STRING_TYPE),
+    // [GNU]
     OPTION("-F", "", "like -f, but also implies -w and -O ' '", STRING_TYPE),
+    // [GNU]
     OPTION("", "--complement",
            "complement the set of selected bytes, characters or fields"),
+    // [GNU]
     OPTION("-n", "--no-partial",
            "do not split multibyte characters in byte mode"),
+    // [GNU]
     OPTION("-s", "--only-delimited",
            "do not print lines not containing delimiter"),
+    // [GNU]
     OPTION("-O", "--output-delimiter", "use STRING as the output delimiter",
            STRING_TYPE),
-    OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline")};
+    // [GNU]
+    OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline"),
+    // [DIFFERS] GNU has no portable Windows equivalent for this option.
+    OPTION("-M", "",
+           "compatibility option; not supported on Windows")};
 
 namespace cut_pipeline {
 namespace cp = core::pipeline;
@@ -193,6 +207,10 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
 
 auto build_config(const CommandContext<CUT_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
+  if (ctx.has("-M")) {
+    return std::unexpected("option -M is not supported on Windows");
+  }
+
   Config cfg;
   const bool whitespace_specified =
       ctx.has("-w") || ctx.has("--whitespace-delimited");
