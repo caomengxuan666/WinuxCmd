@@ -61,7 +61,6 @@ COREUTILS = {
     "install",
     "join",
     "kill",
-    "link",
     "ln",
     "logname",
     "ls",

@@ -75,7 +75,6 @@
 - [shred](shred.md) - 安全删除文件
 
 ### 特殊文件类型 (Special file types)
-- [link](link.md) - 通过 link 系统调用创建硬链接
 - [ln](ln.md) - 创建文件链接
 - [mkdir](mkdir.md) - 创建目录
 - [readlink](readlink.md) - 打印符号链接值或规范文件名

@@ -456,8 +456,9 @@ auto command_names() -> std::vector<std::string> {
 
 auto legacy_link_names() -> std::vector<std::string> {
   // Removed built-in commands that may still exist as hardlinks in old
-  // installs.
-  return {"jq"};
+  // installs. 'link' was removed because its hardlink shadows the MSVC
+  // toolchain linker link.exe on PATH.
+  return {"jq", "link"};
 }
 
 auto is_legacy_link_name(std::string_view name) -> bool {

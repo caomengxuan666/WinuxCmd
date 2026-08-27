@@ -724,7 +724,6 @@ PROBES = [
     Probe("du", "apparent bytes single file", ["-b", "du-file.txt"], "fileops", isolated=True),
     Probe("du", "files0 total bytes", ["-b", "-c", "--files0-from", "du-list0.bin"], "fileops", isolated=True),
     Probe("truncate", "shrink existing file state", ["-s", "1024", "du-file.txt"], "fileops", compare_stdout=False, isolated=True),
-    Probe("link", "hard link file state", ["link-src.txt", "link-created.txt"], "fileops", isolated=True),
     Probe("cp", "recursive directory copy", ["-R", "copy-src", "copy-out"], "fileops", isolated=True),
     Probe("cp", "no-clobber keeps destination", ["-n", "copy-new.txt", "copy-existing.txt"], "fileops", isolated=True),
     Probe("cp", "update skips older source", ["-u", "copy-old-src.txt", "copy-newer-dst.txt"], "fileops", isolated=True),

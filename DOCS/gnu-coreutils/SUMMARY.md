@@ -4,7 +4,7 @@
 
 ## 文档统计
 
-- **总文档数**: 102 个命令文档 + 1 个 README；文档数量不等于行为兼容数量
+- **总文档数**: 101 个命令文档 + 1 个 README；文档数量不等于行为兼容数量
 - **文档格式**: Markdown
 - **参考版本**: GNU Coreutils 9.11
 
@@ -124,7 +124,6 @@
 ### 特殊文件类型 (Special file types)
 | 命令 | 参数数 | 状态 | 文档 |
 |------|--------|------|------|
-| link | 0 | 已实现 | [link.md](link.md) |
 | ln | 12 | 已实现 | [ln.md](ln.md) |
 | mkdir | 3 | 已实现 | [mkdir.md](mkdir.md) |
 | readlink | 7 | 已实现 | [readlink.md](readlink.md) |
