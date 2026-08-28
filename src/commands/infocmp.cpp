@@ -9,6 +9,7 @@ import utils;
 import container;
 
 auto constexpr INFOCMP_OPTIONS =
+    // [GNU]
     std::array{OPTION("", "", "compare terminal descriptions", STRING_TYPE)};
 
 REGISTER_COMMAND(infocmp,

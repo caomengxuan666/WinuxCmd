@@ -45,13 +45,21 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr SDIFF_OPTIONS = std::array{
+    // [GNU]
     OPTION("-o", "", "output file", STRING_TYPE),
+    // [GNU]
     OPTION("-w", "", "set output width", STRING_TYPE),
+    // [GNU]
     OPTION("-l", "", "print only the left column when lines are common"),
+    // [GNU]
     OPTION("-s", "--suppress-common-lines", "do not print common lines"),
+    // [GNU]
     OPTION("-B", "", "ignore changes whose lines are all blank"),
+    // [GNU]
     OPTION("-E", "", "ignore tab expansion"),
+    // [GNU]
     OPTION("-b", "", "ignore changes in amount of white space"),
+    // [GNU]
     OPTION("-W", "", "ignore all white space")};
 
 // ======================================================

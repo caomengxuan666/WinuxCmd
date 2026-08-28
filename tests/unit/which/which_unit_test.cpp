@@ -237,3 +237,37 @@ TEST(which, which_show_tilde_accepts_winuxsh_home_path) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(r.stdout_text, "~/shellhome.exe\n");
 }
+
+TEST(which, which_new_selection_options) {
+  TempDir tmp;
+  tmp.write("tool.exe", "");
+  for (const auto& option : {L"--silent", L"--quiet"}) {
+    Pipeline p;
+    p.set_cwd(tmp.wpath());
+    p.set_env(L"PATH", tmp.wpath());
+    p.add(L"which.exe", {option, L"tool"});
+    auto r = p.run();
+    EXPECT_EQ(r.exit_code, 0);
+    EXPECT_TRUE(r.stdout_text.empty());
+  }
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"PATH", tmp.wpath());
+  p.add(L"which.exe", {L"--skip-alias", L"--skip-functions", L"tool"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("tool.exe"), std::string::npos);
+}
+
+TEST(which, which_tty_only_suppresses_pipe_output) {
+  TempDir tmp;
+  tmp.write("tool.exe", "");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.set_env(L"PATH", tmp.wpath());
+  p.add(L"which.exe", {L"--tty-only", L"tool"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.empty());
+}

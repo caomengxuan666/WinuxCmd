@@ -34,6 +34,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PLDD_OPTIONS = std::array{
+    // [EXT]
     OPTION("-n", "--name", "print module basenames instead of paths")};
 
 namespace pldd_pipeline {

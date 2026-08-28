@@ -43,30 +43,49 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr SEQ_OPTIONS = std::array{
+    // [GNU]
     OPTION("-f", "--format", "use printf style floating-point FORMAT",
            STRING_TYPE),
+    // [GNU]
     OPTION("-s", "--separator", "use STRING to separate numbers", STRING_TYPE),
+    // [GNU]
     OPTION("-t", "--terminator",
            "use STRING to terminate the output instead of newline",
            STRING_TYPE),
+    // [GNU]
     OPTION("-w", "--equal-width",
            "equalize width by padding with leading zeroes", BOOL_TYPE),
     // The shared option parser runs before seq can inspect operands. These
     // hidden sentinels let negative numeric operands reach seq's parser.
+    // [GNU]
     OPTION("-0", "", "", BOOL_TYPE), OPTION("-1", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-2", "", "", BOOL_TYPE), OPTION("-3", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-4", "", "", BOOL_TYPE), OPTION("-5", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-6", "", "", BOOL_TYPE), OPTION("-7", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-8", "", "", BOOL_TYPE), OPTION("-9", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-.", "", "", BOOL_TYPE), OPTION("-+", "", "", BOOL_TYPE),
+    // [EXT]
     OPTION("--", "", "", BOOL_TYPE), OPTION("-a", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-A", "", "", BOOL_TYPE), OPTION("-e", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-E", "", "", BOOL_TYPE), OPTION("-F", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-i", "", "", BOOL_TYPE), OPTION("-I", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-n", "", "", BOOL_TYPE), OPTION("-N", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-inf", "", "", BOOL_TYPE), OPTION("-Inf", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-INF", "", "", BOOL_TYPE), OPTION("-infinity", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-Infinity", "", "", BOOL_TYPE),
+    // [GNU]
     OPTION("-INFINITY", "", "", BOOL_TYPE)};
 
 namespace seq_pipeline {

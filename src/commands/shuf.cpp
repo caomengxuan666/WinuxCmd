@@ -43,17 +43,27 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr SHUF_OPTIONS = std::array{
+    // [GNU] -e, --echo
     OPTION("-e", "--echo", "treat each ARG as an input line", BOOL_TYPE),
+    // [GNU] -i, --input-range
     OPTION("-i", "--input-range",
            "treat each number LO through HI as an input line", STRING_TYPE),
+    // [GNU] -n, --head-count
     OPTION("-n", "--head-count", "output at most COUNT lines", STRING_TYPE),
+    // [GNU] -o, --output
     OPTION("-o", "--output", "write result to FILE instead of standard output",
            STRING_TYPE),
+    // [GNU] -r, --repeat
     OPTION("-r", "--repeat", "output lines can be repeated", BOOL_TYPE),
+    // [DIFFERS from GNU] --random-seed is a WinuxCmd extension.
+    // GNU coreutils has no --random-seed; reproducibility is achieved via
+    // --random-source with a fixed seed file.
     OPTION("", "--random-seed",
            "use STRING to initialize a reproducible random permutation",
            STRING_TYPE),
+    // [GNU] --random-source
     OPTION("", "--random-source", "get random bytes from FILE", STRING_TYPE),
+    // [GNU] -z, --zero-terminated
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline",
            BOOL_TYPE)};
 

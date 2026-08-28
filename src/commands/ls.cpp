@@ -61,7 +61,7 @@ using cmd::meta::OptionType;
  * - @a -B, @a --ignore-backups: Do not list implied entries ending with ~
  * [IMPLEMENTED]
  * - @a -c: With -lt: sort by, and show, ctime; with -l: show ctime and sort by
- * name; otherwise: sort by ctime, newest first [TODO]
+ * name; otherwise: sort by ctime, newest first [IMPLEMENTED]
  * - @a -C: List entries by columns [IMPLEMENTED]
  * - @a -d, @a --directory: List directories themselves, not their contents
  * [IMPLEMENTED]
@@ -74,14 +74,14 @@ using cmd::meta::OptionType;
  * - @a -i, @a --inode: Print the index number of each file [IMPLEMENTED]
  * -
  * @a -k, @a --kibibytes: Default to 1024-byte blocks for file system usage
- * [TODO]
+ * [IMPLEMENTED]
  * - @a -L, @a --dereference: When showing file information for a symbolic link,
- * show information for the file the link references [TODO]
+ * show information for the file the link references [IMPLEMENTED]
  * - @a -l, @a --long, @a --long-list: Use a long listing format [IMPLEMENTED]
- * - @a -m: Fill width with a comma separated list of entries [TODO]
+ * - @a -m: Fill width with a comma separated list of entries [IMPLEMENTED]
  * - @a -n, @a --numeric-uid-gid: Like -l, but list numeric user and group IDs
  * [IMPLEMENTED]
- * - @a -N, @a --literal: Print entry names without quoting [TODO]
+ * - @a -N, @a --literal: Print entry names without quoting [IMPLEMENTED]
  * - @a -o: Like -l, but do not list group information [IMPLEMENTED]
  * - @a -p, @a --indicator-style=WORD: Append /, file-type, or classify
  *
@@ -96,18 +96,18 @@ using cmd::meta::OptionType;
  * - @a -s, @a --size: Print the allocated size of each file, in blocks
  *
  * [IMPLEMENTED]
- * - @a -S: Sort by file size, largest first [TODO]
- * - @a -t: Sort by time, newest first [TODO]
+ * - @a -S: Sort by file size, largest first [IMPLEMENTED]
+ * - @a -t: Sort by time, newest first [IMPLEMENTED]
  * - @a -T, @a --tabsize: Assume tab stops at each COLS instead of 8
  * [IMPLEMENTED]
  * - @a -u: With -lt: sort by, and show, access time; with -l: show access time
- * and sort by name; otherwise: sort by access time, newest first [TODO]
+ * and sort by name; otherwise: sort by access time, newest first [IMPLEMENTED]
  * - @a -U: Do not sort; list entries in directory order [IMPLEMENTED]
  * - @a -v: Natural sort of (version) numbers within text [IMPLEMENTED]
  * - @a -w, @a --width: Set output width to COLS. 0 means no limit [IMPLEMENTED]
- * - @a -x: List entries by lines instead of by columns [TODO]
+ * - @a -x: List entries by lines instead of by columns [IMPLEMENTED]
  * - @a -X: Sort alphabetically by entry extension [IMPLEMENTED]
- * - @a -Z, @a --context: Print any security context of each file [TODO]
+ * - @a -Z, @a --context: Print any security context of each file [DIFFERS]
  * - @a -1: List one file per line [IMPLEMENTED]
  */
 auto constexpr LS_OPTIONS = std::array{
@@ -176,7 +176,10 @@ auto constexpr LS_OPTIONS = std::array{
            "colorize the output; WHEN can be 'always', 'auto', or 'never'",
            STRING_TYPE),
     OPTION("-1", "", "list one file per line"),
-    OPTION("-D", "--dired", "generate output designed for Emacs dired mode"),
+    // [DIFFERS] Emacs dired mode not supported on Windows
+    OPTION("-D", "--dired",
+           "generate output designed for Emacs dired mode [unsupported on "
+           "Windows]"),
     OPTION("-G", "--no-group", "in a long listing, don't print group names"),
     OPTION("", "--group-directories-first", "group directories before files"),
     OPTION("", "--author", "show author in long format"),
@@ -188,8 +191,10 @@ auto constexpr LS_OPTIONS = std::array{
            "follow each command-line symlink to a directory"),
     OPTION("", "--hide", "do not list implied entries matching PATTERN",
            STRING_TYPE),
+    // [DIFFERS] OSC 8 hyperlink not fully supported on Windows terminals
     OPTION("", "--hyperlink",
-           "hyperlink file names when outputting to a terminal",
+           "hyperlink file names when outputting to a terminal [unsupported on "
+           "Windows]",
            OPTIONAL_STRING_TYPE),
     OPTION("", "--si", "like -h, but use powers of 1000 not 1024"),
     OPTION("", "--full-time", "like -l --time-style=full-iso"),
@@ -3362,6 +3367,30 @@ REGISTER_COMMAND(
     LS_OPTIONS) {
   using namespace ls_pipeline;
   using namespace core::pipeline;
+
+  // [DIFFERS] -D/--dired: Emacs dired mode not supported on Windows
+  if (ctx.has("-D") || ctx.has("--dired")) {
+    safeErrorPrintLn(
+        winux::i18n::translate("command.ls.error.dired-unsupported",
+                               "ls: --dired is not supported on Windows"));
+    return 1;
+  }
+
+  // [DIFFERS] --hyperlink: OSC 8 hyperlinks not supported on Windows terminals
+  if (ctx.has("--hyperlink")) {
+    safeErrorPrintLn(
+        winux::i18n::translate("command.ls.error.hyperlink-unsupported",
+                               "ls: --hyperlink is not supported on Windows"));
+    return 1;
+  }
+
+  // [DIFFERS] -Z/--context: SELinux security context not applicable on Windows
+  if (ctx.has("-Z") || ctx.has("--context")) {
+    safeErrorPrintLn(
+        winux::i18n::translate("command.ls.error.context-unsupported",
+                               "ls: --context is not supported on Windows"));
+    return 1;
+  }
 
   auto result = process_command(ctx);
   if (!result) {

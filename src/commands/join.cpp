@@ -78,8 +78,8 @@ auto constexpr JOIN_OPTIONS = std::array{
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline",
            BOOL_TYPE),
     // [DIFFERS] GNU has no portable Windows equivalent for this option.
-    OPTION("-k", "",
-           "compatibility option; not supported on Windows", BOOL_TYPE)};
+    OPTION("-k", "", "compatibility option; not supported on Windows",
+           BOOL_TYPE)};
 
 namespace join_pipeline {
 namespace cp = core::pipeline;

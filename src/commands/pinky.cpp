@@ -9,19 +9,33 @@ import utils;
 import container;
 
 auto constexpr PINKY_OPTIONS = std::array{
+    // [GNU]
     OPTION("-l", "", "produce long format output", BOOL_TYPE),
+    // [GNU]
     OPTION("-b", "", "omit the user home directory and shell in long format",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-f", "", "omit the line of column headings in short format",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-w", "", "omit the user full name in short format", BOOL_TYPE),
+    // [GNU]
     OPTION("-i", "", "omit the user full name and remote host in short format",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-q", "", "omit the user full name, remote host, and idle time",
            BOOL_TYPE),
+    // [GNU]
+    // [DIFFERS] - project files do not exist on Windows
     OPTION("-h", "", "omit the user project file in long format", BOOL_TYPE),
+    // [GNU]
+    // [DIFFERS] - plan files do not exist on Windows
     OPTION("-p", "", "omit the user plan file in long format", BOOL_TYPE),
+    // [GNU]
+    // [DIFFERS] - short format is already the default
     OPTION("-s", "", "do short format output", BOOL_TYPE),
+    // [GNU]
+    // [DIFFERS] - hostname lookup not applicable on Windows
     OPTION("", "--lookup", "attempt to canonicalize hostnames", BOOL_TYPE)};
 
 namespace {
@@ -117,6 +131,11 @@ REGISTER_COMMAND(pinky, "pinky", "pinky [OPTION]... [USER]...",
     include_idle = false;
   }
   bool include_home_shell = !ctx.get<bool>("-b", false);
+  // [DIFFERS] - project/plan files do not exist on Windows
+  (void)ctx.get<bool>("-h", false);
+  (void)ctx.get<bool>("-p", false);
+  (void)ctx.get<bool>("-s", false);
+  (void)ctx.get<bool>("--lookup", false);
 
   if (long_format) {
     if (ctx.positionals.empty()) {

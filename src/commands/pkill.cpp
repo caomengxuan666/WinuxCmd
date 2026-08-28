@@ -34,15 +34,25 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PKILL_OPTIONS = std::array{
+    // [EXT]
     OPTION("-f", "--full", "match against full command line"),
+    // [EXT]
     OPTION("-i", "--ignore-case", "match case insensitively"),
+    // [EXT]
     OPTION("-x", "--exact", "match the whole name or command line"),
+    // [EXT]
     OPTION("-e", "--echo", "display what is killed"),
+    // [EXT]
     OPTION("-0", "", "only check for matching processes"),
+    // [GNU] Signal spellings forward to the Win32 termination operation.
     OPTION("-9", "", "send SIGKILL; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-TERM", "", "send SIGTERM; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-SIGTERM", "", "send SIGTERM; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-KILL", "", "send SIGKILL; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-SIGKILL", "", "send SIGKILL; mapped to Win32 termination")};
 
 namespace pkill_pipeline {
@@ -54,6 +64,7 @@ struct Config {
   bool echo = false;
   bool check_only = false;
   std::wstring pattern;
+  std::optional<std::wregex> regex;
 };
 
 auto build_config(const CommandContext<PKILL_OPTIONS.size()>& ctx)
@@ -68,20 +79,26 @@ auto build_config(const CommandContext<PKILL_OPTIONS.size()>& ctx)
 
   if (ctx.positionals.size() != 1) return std::nullopt;
   cfg.pattern = utf8_to_wstring(std::string(ctx.positionals[0]));
+
+  // Compile POSIX ERE pattern (ECMAScript grammar on MSVC).
+  try {
+    auto flags = std::regex_constants::ECMAScript;
+    if (cfg.ignore_case) flags |= std::regex_constants::icase;
+    std::wstring re_pattern = cfg.pattern;
+    if (cfg.exact) re_pattern = L"^(?:" + re_pattern + L")$";
+    cfg.regex.emplace(re_pattern, flags);
+  } catch (const std::regex_error&) {
+    // Leave regex as nullopt; caller will report the error.
+  }
+
   return cfg;
 }
 
 auto matches(const Win32ProcessInfo& proc, const Config& cfg) -> bool {
   std::wstring haystack = cfg.full ? proc.command_line : proc.name;
-  std::wstring pattern = cfg.pattern;
   if (!cfg.full) haystack = win32_basename_without_exe(haystack);
-  if (cfg.ignore_case) {
-    haystack = ascii_lower_copy(haystack);
-    pattern = ascii_lower_copy(pattern);
-  }
-
-  if (cfg.exact) return haystack == pattern;
-  return haystack.find(pattern) != std::wstring::npos;
+  if (!cfg.regex) return false;
+  return std::regex_search(haystack, *cfg.regex);
 }
 
 auto run(const Config& cfg) -> int {
@@ -125,6 +142,10 @@ REGISTER_COMMAND(pkill, "pkill", "pkill [OPTION]... PATTERN",
   if (!cfg) {
     safeErrorPrintLn("pkill: exactly one PATTERN is required");
     safeErrorPrintLn("Try 'pkill --help' for more information.");
+    return 2;
+  }
+  if (!cfg->regex) {
+    safeErrorPrintLn("pkill: invalid regular expression");
     return 2;
   }
   return pkill_pipeline::run(*cfg);

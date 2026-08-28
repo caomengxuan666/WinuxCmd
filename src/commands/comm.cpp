@@ -43,17 +43,25 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr COMM_OPTIONS = std::array{
+    // [GNU]
     OPTION("-1", "", "suppress column 1 (lines unique to FILE1)", BOOL_TYPE),
+    // [GNU]
     OPTION("-2", "", "suppress column 2 (lines unique to FILE2)", BOOL_TYPE),
+    // [GNU]
     OPTION("-3", "", "suppress column 3 (lines that appear in both files)",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--check-order", "check that the input is correctly sorted",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--nocheck-order",
            "do not check that the input is correctly sorted", BOOL_TYPE),
+    // [GNU]
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline"),
+    // [GNU]
     OPTION("", "--output-delimiter", "separate columns with STR",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("", "--total", "output a summary")};
 
 namespace comm_pipeline {

@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright  2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -51,7 +51,8 @@ import utils;
  *
  * - @a -s, @a --signal: Specify the signal to send [IMPLEMENTED]
  * - @a -n: Specify the signal to send [IMPLEMENTED]
- * - @a -q, @a --queue: Accept queued signal payload [WINDOWS PLACEHOLDER]
+ * - @a -q, @a --queue: Queue an integer signal payload [DIFFERS: unsupported on
+ * Windows]
  * - @a -l, @a --list: List or convert signal names [IMPLEMENTED]
  * - @a -L, @a --table, @a -t: List signal names in a table [IMPLEMENTED]
  * - @a -f, @a --force: Cygwin compatibility flag [WINDOWS NO-OP]
@@ -69,99 +70,184 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr KILL_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-s", "--signal", "specify the signal to send", STRING_TYPE),
+    // [EXT]
     OPTION("-n", "", "specify the signal to send", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-q", "--queue",
-           "queue integer payload; accepted as a Windows compatibility "
-           "placeholder/no-op",
+           "queue an integer signal payload (unsupported on Windows)",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("-l", "--list", "list signal names, or convert one signal",
            OPTIONAL_STRING_TYPE),
+    // [DIFFERS]
     OPTION("-L", "--table", "list signal names in a table"),
+    // [EXT]
     OPTION("-t", "", "list signal names in a table"),
+    // [EXT]
     OPTION("-f", "--force",
            "force using Win32 termination if necessary; accepted no-op because "
            "WinuxCmd already uses Win32 process handles"),
+    // [EXT]
     OPTION("-W", "--winpid",
            "treat pids as Windows PIDs; accepted no-op because WinuxCmd pids "
            "are already Windows PIDs"),
+    // [EXT]
     OPTION("-NUM", "", "send signal number", INT_TYPE),
+    // [EXT]
     OPTION("-0", "", "check whether a process exists"),
+    // [EXT]
     OPTION("-9", "", "send SIGKILL (force kill)"),
+    // [EXT]
     OPTION("-15", "", "send SIGTERM (graceful termination)"),
+    // [GNU] Signal-name aliases are resolved by the shared signal lookup table.
     OPTION("-HUP", "", "send SIGHUP"),
+    // [EXT]
     OPTION("-SIGHUP", "", "send SIGHUP"),
+    // [EXT]
     OPTION("-INT", "", "send SIGINT"),
+    // [EXT]
     OPTION("-SIGINT", "", "send SIGINT"),
+    // [EXT]
     OPTION("-QUIT", "", "send SIGQUIT"),
+    // [EXT]
     OPTION("-SIGQUIT", "", "send SIGQUIT"),
+    // [EXT]
     OPTION("-ILL", "", "send SIGILL"),
+    // [EXT]
     OPTION("-SIGILL", "", "send SIGILL"),
+    // [EXT]
     OPTION("-TRAP", "", "send SIGTRAP"),
+    // [EXT]
     OPTION("-SIGTRAP", "", "send SIGTRAP"),
+    // [EXT]
     OPTION("-ABRT", "", "send SIGABRT"),
+    // [EXT]
     OPTION("-SIGABRT", "", "send SIGABRT"),
+    // [EXT]
     OPTION("-IOT", "", "send SIGIOT"),
+    // [EXT]
     OPTION("-SIGIOT", "", "send SIGIOT"),
+    // [EXT]
     OPTION("-EMT", "", "send SIGEMT"),
+    // [EXT]
     OPTION("-SIGEMT", "", "send SIGEMT"),
+    // [EXT]
     OPTION("-FPE", "", "send SIGFPE"),
+    // [EXT]
     OPTION("-SIGFPE", "", "send SIGFPE"),
+    // [EXT]
     OPTION("-KILL", "", "send SIGKILL"),
+    // [EXT]
     OPTION("-SIGKILL", "", "send SIGKILL"),
+    // [EXT]
     OPTION("-BUS", "", "send SIGBUS"),
+    // [EXT]
     OPTION("-SIGBUS", "", "send SIGBUS"),
+    // [EXT]
     OPTION("-SEGV", "", "send SIGSEGV"),
+    // [EXT]
     OPTION("-SIGSEGV", "", "send SIGSEGV"),
+    // [EXT]
     OPTION("-SYS", "", "send SIGSYS"),
+    // [EXT]
     OPTION("-SIGSYS", "", "send SIGSYS"),
+    // [EXT]
     OPTION("-PIPE", "", "send SIGPIPE"),
+    // [EXT]
     OPTION("-SIGPIPE", "", "send SIGPIPE"),
+    // [EXT]
     OPTION("-ALRM", "", "send SIGALRM"),
+    // [EXT]
     OPTION("-SIGALRM", "", "send SIGALRM"),
+    // [EXT]
     OPTION("-TERM", "", "send SIGTERM"),
+    // [EXT]
     OPTION("-SIGTERM", "", "send SIGTERM"),
+    // [EXT]
     OPTION("-URG", "", "send SIGURG"),
+    // [EXT]
     OPTION("-SIGURG", "", "send SIGURG"),
+    // [EXT]
     OPTION("-STOP", "", "send SIGSTOP"),
+    // [EXT]
     OPTION("-SIGSTOP", "", "send SIGSTOP"),
+    // [EXT]
     OPTION("-TSTP", "", "send SIGTSTP"),
+    // [EXT]
     OPTION("-SIGTSTP", "", "send SIGTSTP"),
+    // [EXT]
     OPTION("-CONT", "", "send SIGCONT"),
+    // [EXT]
     OPTION("-SIGCONT", "", "send SIGCONT"),
+    // [EXT]
     OPTION("-CHLD", "", "send SIGCHLD"),
+    // [EXT]
     OPTION("-SIGCHLD", "", "send SIGCHLD"),
+    // [EXT]
     OPTION("-CLD", "", "send SIGCLD"),
+    // [EXT]
     OPTION("-SIGCLD", "", "send SIGCLD"),
+    // [EXT]
     OPTION("-TTIN", "", "send SIGTTIN"),
+    // [EXT]
     OPTION("-SIGTTIN", "", "send SIGTTIN"),
+    // [EXT]
     OPTION("-TTOU", "", "send SIGTTOU"),
+    // [EXT]
     OPTION("-SIGTTOU", "", "send SIGTTOU"),
+    // [EXT]
     OPTION("-IO", "", "send SIGIO"),
+    // [EXT]
     OPTION("-SIGIO", "", "send SIGIO"),
+    // [EXT]
     OPTION("-POLL", "", "send SIGPOLL"),
+    // [EXT]
     OPTION("-SIGPOLL", "", "send SIGPOLL"),
+    // [EXT]
     OPTION("-XCPU", "", "send SIGXCPU"),
+    // [EXT]
     OPTION("-SIGXCPU", "", "send SIGXCPU"),
+    // [EXT]
     OPTION("-XFSZ", "", "send SIGXFSZ"),
+    // [EXT]
     OPTION("-SIGXFSZ", "", "send SIGXFSZ"),
+    // [EXT]
     OPTION("-VTALRM", "", "send SIGVTALRM"),
+    // [EXT]
     OPTION("-SIGVTALRM", "", "send SIGVTALRM"),
+    // [EXT]
     OPTION("-PROF", "", "send SIGPROF"),
+    // [EXT]
     OPTION("-SIGPROF", "", "send SIGPROF"),
+    // [EXT]
     OPTION("-WINCH", "", "send SIGWINCH"),
+    // [EXT]
     OPTION("-SIGWINCH", "", "send SIGWINCH"),
+    // [EXT]
     OPTION("-PWR", "", "send SIGPWR"),
+    // [EXT]
     OPTION("-SIGPWR", "", "send SIGPWR"),
+    // [EXT]
     OPTION("-LOST", "", "send SIGLOST"),
+    // [EXT]
     OPTION("-SIGLOST", "", "send SIGLOST"),
+    // [EXT]
     OPTION("-USR1", "", "send SIGUSR1"),
+    // [EXT]
     OPTION("-SIGUSR1", "", "send SIGUSR1"),
+    // [EXT]
     OPTION("-USR2", "", "send SIGUSR2"),
+    // [EXT]
     OPTION("-SIGUSR2", "", "send SIGUSR2"),
+    // [EXT]
     OPTION("-RTMIN", "", "send SIGRTMIN"),
+    // [EXT]
     OPTION("-SIGRTMIN", "", "send SIGRTMIN"),
+    // [EXT]
     OPTION("-RTMAX", "", "send SIGRTMAX"),
+    // [EXT]
     OPTION("-SIGRTMAX", "", "send SIGRTMAX")};
 
 // ======================================================
@@ -458,15 +544,18 @@ auto signal_from_option_occurrences(const CommandContext<N>& ctx)
 
 template <size_t N>
 auto validate_queue_option(const CommandContext<N>& ctx) -> cp::Result<bool> {
-  // procps-ng uses sigqueue(3) for -q/--queue.  Native Win32 has no matching
-  // queued-signal payload, so WinuxCmd accepts and validates the option but
-  // keeps normal kill semantics.
+  // GNU kill uses sigqueue(3) for -q/--queue. Native Win32 has no matching
+  // queued-signal payload, so fail explicitly instead of silently dropping it.
   for (const auto& occurrence : ctx.string_occurrences({"-q", "--queue"})) {
     auto parsed = kill_constants::parse_decimal(occurrence.value);
     if (!parsed) {
       return std::unexpected("queue value must be an integer: " +
                              occurrence.value);
     }
+  }
+  if (ctx.has("-q") || ctx.has("--queue")) {
+    return std::unexpected(
+        "queueing signal payloads is not supported on Windows");
   }
   return true;
 }

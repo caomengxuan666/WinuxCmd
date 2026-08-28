@@ -44,10 +44,14 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr FOLD_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--bytes", "count bytes rather than columns", BOOL_TYPE),
+    // [EXT] -c/--characters: not in GNU fold, WinuxCmd extension
     OPTION("-c", "--characters", "count characters rather than columns",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--spaces", "break at spaces", BOOL_TYPE),
+    // [GNU]
     OPTION("-w", "--width", "use WIDTH columns instead of 80", STRING_TYPE)};
 
 namespace fold_pipeline {

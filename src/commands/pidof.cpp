@@ -34,17 +34,18 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PIDOF_OPTIONS =
-    std::array{OPTION("-x", "--scripts", "also match command-line basename")};
+    // [EXT]
+    std::array{OPTION("-x", "--exact", "exact match only")};
 
 namespace pidof_pipeline {
 
 auto process_matches(const Win32ProcessInfo& proc, std::wstring_view wanted,
-                     bool scripts) -> bool {
+                     bool exact) -> bool {
   auto name = win32_basename_without_exe(proc.name);
   if (ascii_iequals(name, wanted) || ascii_iequals(proc.name, wanted)) {
     return true;
   }
-  if (!scripts) return false;
+  if (exact) return false;
 
   auto command = win32_basename_without_exe(proc.command_line);
   return ascii_iequals(command, wanted) ||
@@ -58,9 +59,8 @@ auto run(const CommandContext<PIDOF_OPTIONS.size()>& ctx) -> int {
     return 1;
   }
 
-  bool scripts =
-      ctx.get<bool>("-x", false) || ctx.get<bool>("--scripts", false);
-  auto processes = enumerate_win32_processes(scripts);
+  bool exact = ctx.get<bool>("-x", false) || ctx.get<bool>("--exact", false);
+  auto processes = enumerate_win32_processes(exact);
   DWORD self = GetCurrentProcessId();
   std::vector<DWORD> pids;
 
@@ -69,7 +69,7 @@ auto run(const CommandContext<PIDOF_OPTIONS.size()>& ctx) -> int {
         win32_basename_without_exe(utf8_to_wstring(std::string(raw_name)));
     for (const auto& proc : processes) {
       if (proc.pid == self) continue;
-      if (process_matches(proc, wanted, scripts)) pids.push_back(proc.pid);
+      if (process_matches(proc, wanted, exact)) pids.push_back(proc.pid);
     }
   }
 

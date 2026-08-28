@@ -175,8 +175,8 @@ TEST(od, od_width) {
 TEST(od, od_long_aliases_match_short_options) {
   Pipeline p;
   p.set_stdin("abcdefghijklmnopqrstuvwxyz");
-  p.add(L"od.exe", {L"--address-radix=n", L"--format=x1",
-                     L"--read-bytes=4", L"--skip-bytes=2"});
+  p.add(L"od.exe", {L"--address-radix=n", L"--format=x1", L"--read-bytes=4",
+                    L"--skip-bytes=2"});
 
   auto r = p.run();
 
@@ -217,4 +217,22 @@ TEST(od, od_output_duplicates_long_alias_disables_squeezing) {
   EXPECT_EQ_TEXT(r.stdout_text,
                  " 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41\n"
                  " 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41\n");
+}
+
+TEST(od, od_traditional_and_strings_options) {
+  Pipeline p;
+  p.set_stdin("xxhello world\n");
+  p.add(L"od.exe", {L"--traditional", L"2", L"--strings=5"});
+
+  TEST_LOG_CMD_LIST("od.exe", L"--traditional", L"2", L"--strings=5");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("od output", r.stdout_text);
+  TEST_LOG("od error", r.stderr_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.empty());
+  EXPECT_NE(r.stdout_text.find("hello"), std::string::npos);
 }

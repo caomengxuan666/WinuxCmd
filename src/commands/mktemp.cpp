@@ -43,15 +43,23 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MKTEMP_OPTIONS = std::array{
+    // [GNU]
     OPTION("-d", "--directory", "make a directory instead of a file",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-u", "--dry-run", "do not actually create anything", BOOL_TYPE),
+    // [GNU]
     OPTION("-q", "--quiet", "suppress diagnostics", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--suffix",
            "append SUFFIX to TEMPLATE; SUFFIX must not contain a path "
            "separator",
            STRING_TYPE),
-    OPTION("-t", "--tmpdir", "interpret TEMPLATE relative to DIR", STRING_TYPE),
+    // [GNU]
+    OPTION("-t", "",
+           "interpret TEMPLATE as a single file name component, relative to "
+           "a directory"),
+    // [GNU]
     OPTION("-p", "--tmpdir",
            "interpret TEMPLATE relative to DIR; if DIR is not specified, use "
            "$TMPDIR",
@@ -64,6 +72,7 @@ struct Config {
   bool make_directory = false;
   bool dry_run = false;
   bool quiet = false;
+  bool use_tmpdir_flag = false;
   std::string tmpdir;
   std::string template_str;
   std::string suffix;
@@ -258,14 +267,15 @@ auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
 
   auto tmpdir_opt = ctx.get<std::string>("--tmpdir", "");
   if (tmpdir_opt.empty()) {
-    tmpdir_opt = ctx.get<std::string>("-t", "");
-  }
-  if (tmpdir_opt.empty()) {
     tmpdir_opt = ctx.get<std::string>("-p", "");
   }
   if (!tmpdir_opt.empty()) {
     cfg.tmpdir = tmpdir_opt;
   }
+
+  // -t (deprecated): interpret TEMPLATE as a single file name component
+  // relative to a directory: $TMPDIR, if set; else /tmp.
+  cfg.use_tmpdir_flag = ctx.get<bool>("-t", false);
 
   cfg.suffix = ctx.get<std::string>("--suffix", "");
   if (cfg.suffix.find('/') != std::string::npos ||
@@ -279,6 +289,23 @@ auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
     cfg.template_str = std::string(ctx.positionals[0]);
   } else {
     cfg.template_str = "tmp.XXXXXXXXXX";
+    if (cfg.tmpdir.empty()) {
+      auto default_tmpdir = default_temporary_directory();
+      if (!default_tmpdir) {
+        return std::unexpected(default_tmpdir.error());
+      }
+      cfg.tmpdir = *default_tmpdir;
+    }
+  }
+
+  // -t flag: interpret template as single file name component, relative
+  // to $TMPDIR (or default temp dir). Strip any directory from template.
+  if (cfg.use_tmpdir_flag) {
+    cfg.template_str =
+        std::filesystem::path(cfg.template_str).filename().string();
+    if (cfg.template_str.empty()) {
+      cfg.template_str = "tmp.XXXXXXXXXX";
+    }
     if (cfg.tmpdir.empty()) {
       auto default_tmpdir = default_temporary_directory();
       if (!default_tmpdir) {

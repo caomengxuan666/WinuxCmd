@@ -43,8 +43,10 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr SUM_OPTIONS = std::array{
+    // [GNU] -r, --bsd
     OPTION("-r", "--bsd", "use BSD sum algorithm (1024-byte blocks)",
            BOOL_TYPE),
+    // [GNU] -s, --sysv
     OPTION("-s", "--sysv", "use System V sum algorithm (512-byte blocks)",
            BOOL_TYPE)};
 

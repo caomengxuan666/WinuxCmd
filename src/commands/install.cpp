@@ -44,8 +44,8 @@ auto constexpr INSTALL_OPTIONS = std::array{
     // [GNU]
     OPTION("-b", "--backup", "make a backup of each existing destination file",
            BOOL_TYPE),
-    // [GNU]
-    OPTION("-c", "", "ignored (for compatibility with old Unix versions)",
+    // [GNU] -c is an alias for -C/--compare (GNU Coreutils behavior)
+    OPTION("-c", "", "compare source and destination (alias for -C)",
            BOOL_TYPE),
     // [GNU]
     OPTION("-C", "--compare",
@@ -306,7 +306,8 @@ auto build_config(const CommandContext<INSTALL_OPTIONS.size()>& ctx)
       ctx.get<bool>("--directory", false) || ctx.get<bool>("-d", false);
   cfg.preserve_timestamps = ctx.get<bool>("--preserve-timestamps", false) ||
                             ctx.get<bool>("-p", false);
-  cfg.compare = ctx.get<bool>("--compare", false) || ctx.get<bool>("-C", false);
+  cfg.compare = ctx.get<bool>("--compare", false) ||
+                ctx.get<bool>("-C", false) || ctx.get<bool>("-c", false);
   cfg.strip = ctx.get<bool>("--strip", false) || ctx.get<bool>("-s", false);
   cfg.verbose = ctx.get<bool>("--verbose", false) ||
                 ctx.get<bool>("-v", false) || ctx.get<bool>("--debug", false);

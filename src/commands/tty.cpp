@@ -42,8 +42,10 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr TTY_OPTIONS =
+    // [GNU] option
     std::array{OPTION("-s", "--silent",
                       "print nothing, just return exit status", BOOL_TYPE),
+               // [GNU] option
                OPTION("", "--quiet", "same as --silent", BOOL_TYPE)};
 
 REGISTER_COMMAND(

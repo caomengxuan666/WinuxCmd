@@ -41,24 +41,37 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr BASENC_OPTIONS = std::array{
+    // [GNU]
     OPTION("-d", "--decode", "decode data", BOOL_TYPE),
+    // [GNU]
     OPTION("-i", "--ignore-garbage",
            "when decoding, ignore non-alphabet characters", BOOL_TYPE),
+    // [GNU]
     OPTION("-w", "--wrap",
            "wrap encoded lines after COLS character (default 76). Use 0 to "
            "disable line wrapping",
            INT_TYPE),
+    // [GNU]
     OPTION("-b", "", "legacy baseN selector", STRING_TYPE),
+    // [GNU]
     OPTION("", "--base64", "same as base64 program", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--base64url", "file- and URL-safe base64", BOOL_TYPE),
+    // [EXT]
     OPTION("", "--base58", "base58 encoding", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--base32", "same as base32 program", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--base32hex", "extended hex alphabet base32", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--base16", "hexadecimal encoding", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--base2lsbf", "bit string, least significant bit first",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--base2msbf", "bit string, most significant bit first",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--z85", "Z85 encoding", BOOL_TYPE)};
 
 namespace basenc_pipeline {

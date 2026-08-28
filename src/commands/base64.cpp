@@ -43,9 +43,12 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr BASE64_OPTIONS = std::array{
+    // [GNU]
     OPTION("-d", "--decode", "decode data", BOOL_TYPE),
+    // [GNU]
     OPTION("-i", "--ignore-garbage",
            "when decoding, ignore non-alphabet characters", BOOL_TYPE),
+    // [GNU]
     OPTION("-w", "--wrap",
            "wrap encoded lines after COLS character (default 76). Use 0 to "
            "disable line wrapping",

@@ -18,26 +18,38 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr ENV_OPTIONS = std::array{
+    // [GNU]
     OPTION("-i", "--ignore-environment", "start with an empty environment"),
+    // [GNU]
     OPTION("-u", "--unset", "remove variable from the environment",
            STRING_TYPE),
+    // [GNU]
     OPTION("-0", "--null", "end each output line with NUL, not newline"),
+    // [EXT] -f/--file: WinuxCmd extension, not in GNU coreutils
     OPTION("-f", "--file",
            "read and set variables from a .env-style configuration file",
            STRING_TYPE),
+    // [GNU]
     OPTION("-S", "--split-string",
            "process and split S into separate arguments; useful for shebang",
            STRING_TYPE),
+    // [EXT] -a/--argv0: WinuxCmd extension, not in GNU coreutils
     OPTION("-a", "--argv0", "pass STRING as argv[0] to the command",
            STRING_TYPE),
+    // [GNU]
     OPTION("-C", "--chdir", "change working directory", STRING_TYPE),
+    // [GNU]
     OPTION("", "--default-signal", "reset handling of SIG to its default",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("", "--ignore-signal", "set handling of SIG to do nothing",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("", "--block-signal", "block delivery of SIG to COMMAND",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("", "--list-signal-handling", "list non default signal handling"),
+    // [GNU]
     OPTION("-v", "--debug", "print extra information about the processing")};
 
 namespace env_pipeline {

@@ -41,8 +41,10 @@ import utils;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
+// logname has no user-facing options beyond --help/--version.
+// The framework requires option_count > 0, so a placeholder is used.
 auto constexpr LOGNAME_OPTIONS =
-    std::array{OPTION("", "", "print user's login name", STRING_TYPE)};
+    std::array{OPTION("", "", "print user's login name")};
 
 REGISTER_COMMAND(
     logname,

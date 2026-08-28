@@ -15,7 +15,9 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr TZSET_OPTIONS = std::array{
+    // [EXT] option
     OPTION("", "--help", "output usage information and exit", BOOL_TYPE),
+    // [EXT] option
     OPTION("-V", "--version", "output version information and exit",
            BOOL_TYPE)};
 

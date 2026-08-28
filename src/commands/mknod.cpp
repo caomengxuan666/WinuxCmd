@@ -12,8 +12,11 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MKNOD_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-m", "--mode", "set file permission bits", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-Z", "", "set the SELinux security context to default type"),
+    // [DIFFERS]
     OPTION("", "--context", "set the SELinux security context",
            OPTIONAL_STRING_TYPE),
 };
@@ -87,6 +90,8 @@ auto parse_uint_arg(std::string_view arg, std::string_view label)
 struct Config {
   std::string name;
   NodeType type = NodeType::Fifo;
+  std::string mode;
+  bool context_requested = false;
 };
 
 auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
@@ -99,10 +104,11 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
     if (!is_plausible_mode(mode)) {
       return std::unexpected("invalid mode");
     }
+    cfg.mode = mode;
   }
 
-  (void)ctx.get<bool>("-Z", false);
-  (void)ctx.get<std::string>("--context", "");
+  const bool context_requested =
+      ctx.get<bool>("-Z", false) || ctx.has("--context");
 
   if (ctx.positionals.size() < 2) {
     if (ctx.positionals.empty()) {
@@ -112,6 +118,7 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
         "missing operand after '" + std::string(ctx.positionals.back()) + "'"));
   }
 
+  cfg.context_requested = context_requested;
   cfg.name = std::string(ctx.positionals[0]);
   auto type_result = parse_node_type(ctx.positionals[1]);
   if (!type_result) return std::unexpected(type_result.error());
@@ -141,6 +148,13 @@ auto build_config(const CommandContext<MKNOD_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
+  if (cfg.context_requested) {
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.mknod.error.context-unsupported",
+        "mknod: SELinux security contexts are not supported on Windows"));
+    return 1;
+  }
+
   std::filesystem::path p(cfg.name);
   std::error_code ec;
   if (std::filesystem::exists(p, ec)) {

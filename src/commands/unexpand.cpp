@@ -43,12 +43,16 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr UNEXPAND_OPTIONS = std::array{
+    // [GNU] option
     OPTION("-t", "--tabs", "specify tab stop positions (default: 8)",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-a", "--all", "convert all spaces, not just leading ones",
            BOOL_TYPE),
+    // [EXT] GNU --first-only has no short option
     OPTION("-f", "--first-only", "convert only leading sequences of blanks",
            BOOL_TYPE),
+    // [EXT] option
     OPTION("-U", "--no-utf8",
            "interpret input file as 8-bit ASCII rather than UTF-8", BOOL_TYPE)};
 

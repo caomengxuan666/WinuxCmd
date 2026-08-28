@@ -46,14 +46,19 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr TR_OPTIONS = std::array{
+    // [GNU] -c, --complement
     OPTION("-c", "--complement", "use the complement of SET1", BOOL_TYPE),
+    // [EXT] -C
     OPTION("-C", "", "same as -c", BOOL_TYPE),
+    // [GNU] -d, --delete
     OPTION("-d", "--delete", "delete characters in SET1, do not translate",
            BOOL_TYPE),
+    // [GNU] -s, --squeeze-repeats
     OPTION("-s", "--squeeze-repeats",
            "replace each input sequence of a repeated character that is listed "
            "in SET1 with a single occurrence of that character",
            BOOL_TYPE),
+    // [GNU] -t, --truncate-set1
     OPTION("-t", "--truncate-set1", "first truncate SET1 to length of SET2",
            BOOL_TYPE)};
 

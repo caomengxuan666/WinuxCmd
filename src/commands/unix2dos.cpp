@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr UNIX2DOS_OPTIONS = std::array{
+    // [EXT] option
     OPTION("-v", "--verbose", "print a message for each file", BOOL_TYPE)};
 
 REGISTER_COMMAND(unix2dos,

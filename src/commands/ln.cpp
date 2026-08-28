@@ -59,26 +59,49 @@ using cmd::meta::OptionType;
  * symbolic link to a directory [NOT SUPPORT]
  */
 auto constexpr LN_OPTIONS = std::array{
+    // [GNU]
     OPTION("-s", "--symbolic", "make symbolic links instead of hard links"),
+    // [GNU]
     OPTION("-f", "--force", "remove existing destination files"),
+    // [GNU]
     OPTION("-v", "--verbose", "print name of each linked file"),
+    // [DIFFERS] -n: on Windows, directory-symlink target detection uses
+    // GetFileAttributesW; behaviour differs from GNU.
     OPTION("-n", "--no-dereference",
            "treat LINK_NAME as a normal file if it is a symbolic link to a "
            "directory"),
+    // [GNU]
     OPTION("-i", "--interactive", "prompt whether to remove destinations"),
+    // [DIFFERS] -L/--logical: on Windows, CreateHardLinkW and the default
+    // file-open behaviour already dereference symlinks, making this flag
+    // effectively a no-op for hard links.
     OPTION("-L", "--logical", "dereference TARGETs that are symbolic links"),
+    // [DIFFERS] -P/--physical: on Windows, hard links are always created
+    // directly to the target (symlinks are not followed); this is the
+    // default behaviour.
     OPTION("-P", "--physical", "make hard links directly to symbolic links"),
+    // [DIFFERS] --dereference: alias for -L; same Windows caveats apply.
     OPTION("", "--dereference", "dereference TARGETs that are symbolic links"),
+    // [GNU]
     OPTION("-b", "--backup", "make a backup of each existing destination file"),
+    // [GNU]
     OPTION("-S", "--suffix", "override the usual backup suffix", STRING_TYPE),
+    // [DIFFERS] -r/--relative: on Windows, relative symlink targets are
+    // computed using std::filesystem::relative which may differ from POSIX
+    // path resolution.
     OPTION("-r", "--relative",
            "with -s, create links relative to link location"),
+    // [GNU]
     OPTION("-t", "--target-directory",
            "specify the DIRECTORY in which to create the links", STRING_TYPE),
+    // [GNU]
     OPTION("-T", "--no-target-directory",
            "treat LINK_NAME as a normal file always"),
+    // [DIFFERS] -d/--directory: hard links to directories are not supported
+    // on Windows; an error is reported at runtime.
     OPTION("-d", "--directory",
            "allow the hard link to be a directory (privileged)"),
+    // [DIFFERS] -F: alias for -d; same Windows limitation applies.
     OPTION("-F", "", "allow hard link to directory (alias for -d)")};
 
 namespace ln_pipeline {
@@ -92,6 +115,19 @@ auto join_target_path(const std::string &directory, const std::string &source)
     filename = filename.substr(sep + 1);
   }
   return directory + "\\" + filename;
+}
+
+// [GNU] -r/--relative: symbolic-link targets are relative to the link.
+auto relative_symlink_target(const std::string &source,
+                             const std::string &target) -> std::string {
+  std::error_code ec;
+  auto source_path = std::filesystem::absolute(source, ec);
+  if (ec) return source;
+  auto target_path = std::filesystem::absolute(target, ec);
+  if (ec) return source;
+  auto relative =
+      std::filesystem::relative(source_path, target_path.parent_path(), ec);
+  return ec ? source : relative.string();
 }
 
 auto ln_windows_error_text(DWORD error) -> std::string {
@@ -254,6 +290,44 @@ REGISTER_COMMAND(
   if (target_dir.empty()) target_dir = ctx.get<std::string>("-t", "");
   bool no_target_dir = ctx.get<bool>("-T", false) ||
                        ctx.get<bool>("--no-target-directory", false);
+  // [DIFFERS] -n/--no-dereference: on Windows, directory-symlink target
+  // detection uses GetFileAttributesW, which may differ from POSIX
+  // lstat() behaviour.
+  bool no_dereference =
+      ctx.get<bool>("-n", false) || ctx.get<bool>("--no-dereference", false);
+  // [DIFFERS] -L/--logical/--dereference: on Windows, CreateHardLinkW
+  // already dereferences symlinks transparently, so this flag is
+  // effectively a no-op for hard links.
+  bool logical = ctx.get<bool>("-L", false) ||
+                 ctx.get<bool>("--logical", false) ||
+                 ctx.get<bool>("--dereference", false);
+  // [DIFFERS] -P/--physical: on Windows, hard links are always created
+  // directly to the target without following symlinks (the default).
+  bool physical =
+      ctx.get<bool>("-P", false) || ctx.get<bool>("--physical", false);
+  // [DIFFERS] -d/--directory/-F: hard links to directories are not
+  // supported on Windows.
+  bool directory_link = ctx.get<bool>("-d", false) ||
+                        ctx.get<bool>("--directory", false) ||
+                        ctx.get<bool>("-F", false);
+  // [DIFFERS] -r/--relative: on Windows, relative symlink targets are
+  // computed using std::filesystem::relative, which may differ from POSIX
+  // path resolution.
+  bool relative =
+      ctx.get<bool>("-r", false) || ctx.get<bool>("--relative", false);
+
+  // [DIFFERS] -d/--directory/-F: not supported on Windows.
+  if (directory_link) {
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.ln.error.directory-hardlink-unsupported",
+        "ln: hard links to directories are not supported on Windows"));
+    return 1;
+  }
+  if (logical && physical) {
+    safeErrorPrintLn(
+        "ln: options --logical and --physical are mutually exclusive");
+    return 1;
+  }
 
   if (!target_dir.empty() && no_target_dir) {
     safeErrorPrint(
@@ -303,8 +377,12 @@ REGISTER_COMMAND(
     std::string target(std::string(ctx.positionals[1]));
     std::wstring wtarget = utf8_to_wstring(target);
     DWORD target_attrs = GetFileAttributesW(wtarget.c_str());
+    std::error_code target_ec;
+    const bool target_is_symlink = std::filesystem::is_symlink(
+        std::filesystem::symlink_status(target, target_ec));
     if (target_attrs != INVALID_FILE_ATTRIBUTES &&
-        (target_attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+        (target_attrs & FILE_ATTRIBUTE_DIRECTORY) &&
+        !(no_dereference && target_is_symlink)) {
       link_jobs.emplace_back(source, join_target_path(target, source));
     } else {
       link_jobs.emplace_back(source, target);
@@ -329,7 +407,15 @@ REGISTER_COMMAND(
   size_t success_count = 0;
   size_t error_count = 0;
 
-  for (const auto &[source, target] : link_jobs) {
+  for (const auto &[job_source, target] : link_jobs) {
+    std::string source = job_source;
+    if (!symbolic && logical) {
+      std::error_code source_ec;
+      auto resolved = std::filesystem::canonical(source, source_ec);
+      if (!source_ec) source = resolved.string();
+    }
+    if (symbolic && relative) source = relative_symlink_target(source, target);
+
     // Check if target exists
     std::wstring wtarget = utf8_to_wstring(target);
     DWORD target_attrs = GetFileAttributesW(wtarget.c_str());

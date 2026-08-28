@@ -61,19 +61,34 @@ using cmd::meta::OptionType;
  * - @a --reference: Use RFILE's mode instead of MODE values [IMPLEMENTED]
  */
 auto constexpr CHMOD_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-c", "--changes",
            "like verbose but report only when a change is made"),
+    // [DIFFERS]
     OPTION("-f", "--silent", "suppress most error messages"),
+    // [DIFFERS]
     OPTION("-v", "--verbose", "output a diagnostic for every file processed"),
+    // [DIFFERS]
     OPTION("-R", "--recursive", "change files and directories recursively"),
+    // [DIFFERS]
     OPTION("", "--quiet", "suppress most error messages"),
+    // [DIFFERS]
     OPTION("", "--reference", "use RFILE's mode instead of MODE values",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("-H", "", "traverse command-line symlinks to directories"),
+    // [DIFFERS]
     OPTION("-L", "", "traverse every symlink to a directory"),
+    // [DIFFERS]
     OPTION("-P", "", "do not traverse any symbolic links (default)"),
+    // [DIFFERS]
     OPTION("", "--dereference", "affect the referent of each symbolic link"),
+    // [DIFFERS] Windows file-attribute operations follow reparse points.
+    OPTION("-h", "--no-dereference",
+           "affect symbolic links instead of referenced files"),
+    // [DIFFERS]
     OPTION("", "--preserve-root", "fail to operate recursively on '/'"),
+    // [DIFFERS]
     OPTION("", "--no-preserve-root", "do not treat '/' specially")};
 
 namespace chmod_pipeline {
@@ -643,6 +658,19 @@ REGISTER_COMMAND(
     "  chmod -R 755 dir/         Recursively set permissions",
     "chown(1)", "caomengxuan666", "Copyright © 2026 WinuxCmd", CHMOD_OPTIONS) {
   using namespace chmod_pipeline;
+
+  // [DIFFERS] -H/-L/-P: symlink traversal options
+  // On Windows, reparse point traversal follows OS rules.
+  // -P (default, no traversal) is the effective behavior.
+  (void)ctx.get<bool>("-H", false);
+  (void)ctx.get<bool>("-L", false);
+  (void)ctx.get<bool>("-P", false);
+
+  // [DIFFERS] --dereference/-h/--no-dereference
+  // On Windows, GetFileAttributesExW follows reparse points by default.
+  // --dereference is the effective behavior.
+  (void)ctx.get<bool>("--dereference", false);
+  (void)ctx.get<bool>("--no-dereference", false);
 
   bool recursive =
       ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);

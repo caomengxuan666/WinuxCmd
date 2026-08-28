@@ -68,19 +68,29 @@ using cmd::meta::OptionType;
  * - @a --group[=METHOD]: Show all items, separating groups [IMPLEMENTED]
  */
 auto constexpr UNIQ_OPTIONS = std::array{
+    // [GNU] option
     OPTION("-c", "--count", "prefix lines by the number of occurrences"),
+    // [GNU] option
     OPTION("-d", "--repeated", "only print duplicate lines"),
+    // [GNU] option
     OPTION("-D", "--all-repeated", "print all duplicate lines",
            OPTIONAL_STRING_TYPE),
+    // [GNU] option
     OPTION("-f", "--skip-fields", "avoid comparing the first N fields",
            INT_TYPE),
+    // [GNU] option
     OPTION("-i", "--ignore-case", "ignore differences in case"),
+    // [GNU] option
     OPTION("-s", "--skip-chars", "avoid comparing the first N characters",
            INT_TYPE),
+    // [GNU] option
     OPTION("-u", "--unique", "only print unique lines"),
+    // [GNU] option
     OPTION("-w", "--check-chars", "compare no more than N characters",
            INT_TYPE),
+    // [GNU] option
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline"),
+    // [GNU] option
     OPTION("", "--group", "show all items, separating groups",
            OPTIONAL_STRING_TYPE)};
 

@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PRINTENV_OPTIONS = std::array{
+    // [GNU]
     OPTION("-0", "--null", "end each output line with NUL, not newline")};
 
 namespace {

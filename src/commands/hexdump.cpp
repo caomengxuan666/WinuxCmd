@@ -43,17 +43,30 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr HEXDUMP_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "", "one-byte octal display"),
+    // [GNU]
     OPTION("-c", "", "one-byte character display"),
+    // [GNU]
     OPTION("-C", "", "canonical hex+ASCII display"),
+    // [GNU]
     OPTION("-d", "", "two-byte decimal display"),
+    // [GNU]
     OPTION("-o", "", "two-byte octal display"),
+    // [GNU]
     OPTION("-x", "", "two-byte hex display"),
+    // [GNU]
     OPTION("-e", "", "format string", STRING_TYPE),
+    // [GNU]
     OPTION("-f", "", "format file", STRING_TYPE),
+    // [GNU]
     OPTION("-n", "", "interpret only LENGTH bytes of input", STRING_TYPE),
+    // [GNU]
     OPTION("-s", "", "skip offset bytes from the beginning", STRING_TYPE),
-    OPTION("-v", "", "display all input, no squeeze")};
+    // [GNU]
+    OPTION("-v", "", "display all input, no squeeze"),
+    // [GNU] -L, --color: interpret color formatting specifiers
+    OPTION("-L", "--color", "interpret color formatting specifiers")};
 
 namespace hexdump_pipeline {
 namespace cp = core::pipeline;
@@ -98,6 +111,9 @@ auto build_config(const CommandContext<HEXDUMP_OPTIONS.size()>& ctx)
 
   cfg.no_squeeze = ctx.get<bool>("-v", false);
   cfg.format_string = ctx.get<std::string>("-e", "");
+  if (!cfg.format_string.empty()) {
+    return std::unexpected("-e format strings are not yet supported");
+  }
   cfg.format_file = ctx.get<std::string>("-f", "");
 
   auto length_opt = ctx.get<std::string>("-n", "");

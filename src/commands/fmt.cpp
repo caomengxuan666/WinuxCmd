@@ -43,28 +43,40 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr FMT_OPTIONS = std::array{
+    // [GNU]
     OPTION("-c", "--crown-margin",
            "preserve indentation of the first two lines", BOOL_TYPE),
+    // [GNU]
     OPTION("-m", "--preserve-headers",
            "attempt to detect and preserve mail headers", BOOL_TYPE),
+    // [GNU]
     OPTION("-p", "--prefix", "reformat only lines beginning with STRING",
            STRING_TYPE),
+    // [GNU]
     OPTION("-P", "--skip-prefix", "do not reformat lines beginning with STRING",
            STRING_TYPE),
+    // [GNU]
     OPTION("-s", "--split-only", "split long lines, but do not refill",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-t", "--tagged-paragraph", "expect indentation in first 2 lines",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-u", "--uniform-spacing",
            "one space between words, two after sentences", BOOL_TYPE),
+    // [GNU]
     OPTION("-x", "--exact-prefix", "do not ignore leading whitespace for -p",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-X", "--exact-skip-prefix",
            "do not ignore leading whitespace for -P", BOOL_TYPE),
+    // [GNU]
     OPTION("-T", "--tab-width",
            "treat tabs as TABWIDTH spaces when measuring line length",
            STRING_TYPE),
+    // [GNU]
     OPTION("-w", "--width", "maximum line width (default 75)", STRING_TYPE),
+    // [GNU]
     OPTION("-g", "--goal", "goal width (default 93% of width)", STRING_TYPE)};
 
 namespace fmt_pipeline {

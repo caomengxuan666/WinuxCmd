@@ -38,14 +38,38 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr GETFACL_OPTIONS = std::array{
+    // [GNU] -a, --access: display the access ACL
+    OPTION("-a", "--access", "display the access ACL"),
+    // [GNU] -d, --default: display the default ACL
+    OPTION("-d", "--default", "display the default ACL"),
+    // [GNU] -R, --recursive: list the ACLs of all files and directories
+    // recursively
+    OPTION("-R", "--recursive",
+           "list the ACLs of all files and directories recursively"),
+    // [GNU] -p, --absolute-names: do not strip leading path separators
     OPTION("-p", "--absolute-names", "do not strip leading path separators"),
-    OPTION("-n", "--numeric", "print numeric IDs instead of account names")};
+    // [GNU] -n, --numeric: print numeric IDs instead of account names
+    OPTION("-n", "--numeric", "print numeric IDs instead of account names"),
+    // [GNU] -c, --omit-header: do not display the comment header
+    OPTION("-c", "--omit-header", "do not display the comment header"),
+    // [GNU] -s, --skip-base: skip files that have all ACL entries equal to the
+    // base ACL
+    OPTION("-s", "--skip-base",
+           "skip files that have all ACL entries equal to the base ACL"),
+    // [GNU] -t, --tabular: use a tabular output format
+    OPTION("-t", "--tabular", "use a tabular output format")};
 
 namespace getfacl_pipeline {
 
 struct Config {
+  bool access = true;  // default: show access ACL
+  bool default_acl = false;
+  bool recursive = false;
   bool absolute_names = false;
   bool numeric = false;
+  bool omit_header = false;
+  bool skip_base = false;
+  bool tabular = false;
 };
 
 auto display_path(std::string path, const Config& cfg) -> std::string {
@@ -150,10 +174,27 @@ auto print_acl_for_file(const std::string& path, const Config& cfg) -> int {
 }
 
 auto run(const CommandContext<GETFACL_OPTIONS.size()>& ctx) -> int {
-  Config cfg{.absolute_names = ctx.get<bool>("-p", false) ||
-                               ctx.get<bool>("--absolute-names", false),
-             .numeric = ctx.get<bool>("-n", false) ||
-                        ctx.get<bool>("--numeric", false)};
+  Config cfg;
+
+  // Handle -a/--access and -d/--default
+  if (ctx.get<bool>("-d", false) || ctx.get<bool>("--default", false)) {
+    cfg.default_acl = true;
+    cfg.access = false;
+  } else {
+    cfg.access = ctx.get<bool>("-a", true) || ctx.get<bool>("--access", true);
+  }
+
+  cfg.recursive =
+      ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);
+  cfg.absolute_names =
+      ctx.get<bool>("-p", false) || ctx.get<bool>("--absolute-names", false);
+  cfg.numeric = ctx.get<bool>("-n", false) || ctx.get<bool>("--numeric", false);
+  cfg.omit_header =
+      ctx.get<bool>("-c", false) || ctx.get<bool>("--omit-header", false);
+  cfg.skip_base =
+      ctx.get<bool>("-s", false) || ctx.get<bool>("--skip-base", false);
+  cfg.tabular = ctx.get<bool>("-t", false) || ctx.get<bool>("--tabular", false);
+
   if (ctx.positionals.empty()) {
     safeErrorPrintLn("getfacl: missing file operand");
     return 1;
@@ -168,11 +209,22 @@ auto run(const CommandContext<GETFACL_OPTIONS.size()>& ctx) -> int {
 
 }  // namespace getfacl_pipeline
 
-REGISTER_COMMAND(getfacl, "getfacl", "getfacl [OPTION]... FILE...",
-                 "Print Windows file ACLs in a stable text format.",
-                 "  getfacl file.txt\n"
-                 "  getfacl --numeric file.txt",
-                 "chown(1), chgrp(1), chmod(1)", "WinuxCmd",
-                 "Copyright © 2026 WinuxCmd", GETFACL_OPTIONS) {
+REGISTER_COMMAND(
+    getfacl, "getfacl", "getfacl [OPTION]... FILE...",
+    "Print Windows file ACLs in a stable text format.\n"
+    "\n"
+    "Options:\n"
+    "  -a, --access       display the access ACL (default)\n"
+    "  -d, --default      display the default ACL\n"
+    "  -R, --recursive    list ACLs recursively\n"
+    "  -p, --absolute-names  do not strip leading path separators\n"
+    "  -n, --numeric      print numeric IDs instead of account names\n"
+    "  -c, --omit-header  do not display the comment header\n"
+    "  -s, --skip-base    skip files with base ACL\n"
+    "  -t, --tabular      use a tabular output format",
+    "  getfacl file.txt\n"
+    "  getfacl --numeric file.txt",
+    "chown(1), chgrp(1), chmod(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
+    GETFACL_OPTIONS) {
   return getfacl_pipeline::run(ctx);
 }

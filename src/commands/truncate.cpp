@@ -43,10 +43,14 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr TRUNCATE_OPTIONS = std::array{
+    // [GNU] option
     OPTION("-c", "--no-create", "do not create files", BOOL_TYPE),
+    // [GNU] option
     OPTION("-o", "--io-blocks", "treat SIZE as number of IO blocks", BOOL_TYPE),
+    // [GNU] option
     OPTION("-s", "--size", "set or adjust the file size by SIZE bytes",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-r", "--reference", "base size on RFILE", STRING_TYPE)};
 
 namespace truncate_pipeline {

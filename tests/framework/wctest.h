@@ -703,7 +703,14 @@ inline std::string normalize_newlines(std::string s) {
   static void test_runner_##group##_##test_name() {                                  \
     for (auto h : wctest::before_hooks()) h(#group, #test_name);                     \
     wctest::current_test_failed = 0;                                                 \
-    test_fn_##group##_##test_name();                                                 \
+    try {                                                                            \
+      test_fn_##group##_##test_name();                                               \
+    } catch (const std::exception &e) {                                              \
+      wctest::fail(__FILE__, __LINE__,                                               \
+                   std::string("Unhandled exception: ") + e.what());                 \
+    } catch (...) {                                                                  \
+      wctest::fail(__FILE__, __LINE__, "Unhandled unknown exception");               \
+    }                                                                                \
     for (auto h : wctest::after_hooks()) h(#group, #test_name);                      \
     if (!wctest::current_test_failed) {                                              \
       wctest::set_color(wctest::Color::Green);                                       \

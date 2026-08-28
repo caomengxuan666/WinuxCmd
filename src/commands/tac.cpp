@@ -43,9 +43,12 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr TAC_OPTIONS = std::array{
+    // [GNU] -b, --before
     OPTION("-b", "--before",
            "attach the separator before instead of after each record"),
+    // [GNU] -r, --regex
     OPTION("-r", "--regex", "treat the separator as a regular expression"),
+    // [GNU] -s, --separator
     OPTION("-s", "--separator", "use STRING as the record separator",
            STRING_TYPE),
 };

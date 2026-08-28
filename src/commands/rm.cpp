@@ -80,16 +80,27 @@ using namespace core::pipeline;
  */
 // clang-format off
 constexpr auto RM_OPTIONS = std::array{
+// [GNU]
     OPTION("-f", "--force", "ignore nonexistent files and arguments, never prompt"),
+// [GNU]
     OPTION("-i", "", "prompt before every removal"),
+// [GNU]
     OPTION("-I", "", "prompt once before removing more than three files, or when removing recursively"),
+// [GNU]
     OPTION("-d", "--dir", "remove empty directories"),
+// [GNU]
     OPTION("-r", "--recursive", "remove directories and their contents recursively"),
+// [GNU]
     OPTION("-R", "--recursive", "remove directories and their contents recursively"),
+// [GNU]
     OPTION("-v", "--verbose", "explain what is being done"),
+// [GNU]
     OPTION("", "--interactive", "prompt according to WHEN: never, once (-I), or always (-i)", OPTIONAL_STRING_TYPE),
+// [GNU]
     OPTION("", "--one-file-system", "when removing a hierarchy recursively, skip any directory that is on a file system different from that of the corresponding command line argument"),
+// [DIFFERS]
     OPTION("", "--no-preserve-root", "do not treat '/' specially"),
+// [DIFFERS]
     OPTION("", "--preserve-root", "do not remove '/' (default)", OPTIONAL_STRING_TYPE)};
 // clang-format on
 

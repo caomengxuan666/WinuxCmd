@@ -32,6 +32,23 @@ TEST(top, top_basic) {
   EXPECT_TRUE(true);
 }
 
+TEST(top, top_new_filter_and_display_options) {
+  for (const auto& option :
+       {std::vector<std::wstring>{L"--pid", L"0"},
+        std::vector<std::wstring>{L"--user", L"__missing__"},
+        std::vector<std::wstring>{L"--secure-mode"},
+        std::vector<std::wstring>{L"--command"},
+        std::vector<std::wstring>{L"--threads"}}) {
+    Pipeline p;
+    std::vector<std::wstring> args{L"-b", L"-n", L"1", L"--rows", L"3"};
+    args.insert(args.end(), option.begin(), option.end());
+    p.add(L"top.exe", args);
+    auto r = p.run();
+    EXPECT_EQ(r.exit_code, 0);
+    EXPECT_TRUE(r.stderr_text.empty());
+  }
+}
+
 TEST(top, top_batch_iterations_and_rows_exit) {
   Pipeline p;
   p.add(L"top.exe", {L"-b", L"-n", L"1", L"--rows", L"5"});

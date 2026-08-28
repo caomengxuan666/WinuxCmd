@@ -43,12 +43,17 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CMP_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--print-bytes", "print differing bytes", BOOL_TYPE),
+    // [GNU]
     OPTION("-i", "--ignore-initial", "skip specified number of initial bytes",
            STRING_TYPE),
+    // [GNU]
     OPTION("-l", "--verbose", "output byte numbers of differing bytes",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-n", "--bytes", "compare specified number of bytes", STRING_TYPE),
+    // [GNU]
     OPTION("-s", "--quiet", "silent mode", BOOL_TYPE)};
 
 namespace cmp_pipeline {

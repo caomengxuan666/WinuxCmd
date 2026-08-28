@@ -43,31 +43,43 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr STRINGS_OPTIONS = std::array{
+    // [GNU] -a, --all
     OPTION("-a", "--all", "scan each file in its entirety (default)"),
+    // [GNU] -d, --data
     OPTION("-d", "--data",
            "scan only object data sections (placeholder/no-op: BFD section "
            "parsing is not linked in this Windows build)"),
+    // [GNU] -f, --print-file-name
     OPTION("-f", "--print-file-name", "print the file name before each string"),
+    // [GNU] -n, --bytes
     OPTION("-n", "--bytes",
            "print sequences of at least MIN printable characters (default 4)",
            STRING_TYPE),
+    // [GNU] -NUM
     OPTION("-NUM", "", "same as --bytes=MIN", INT_TYPE),
+    // [GNU] -t, --radix
     OPTION("-t", "--radix",
            "print the offset within the file before each string", STRING_TYPE),
+    // [GNU] -w, --include-all-whitespace
     OPTION("-w", "--include-all-whitespace",
            "include all whitespace as valid string characters"),
+    // [GNU] -e, --encoding
     OPTION("-e", "--encoding",
            "select character encoding: s=7-bit-ascii, S=8-bit-UTF8, "
            "b=16-bit-big-endian, l=16-bit-little-endian, B=32-bit-big-endian, "
            "L=32-bit-little-endian",
            STRING_TYPE),
+    // [GNU] -o
     OPTION("-o", "", "print offset before each string (alias for -t o)"),
+    // [GNU] -s, --output-separator
     OPTION("-s", "--output-separator",
            "string used to separate parsed strings in output", STRING_TYPE),
+    // [GNU] -T, --target
     OPTION("-T", "--target",
            "specify binary file format (placeholder/no-op: BFD target "
            "selection is not linked in this Windows build)",
            STRING_TYPE),
+    // [GNU] -U, --unicode
     OPTION("-U", "--unicode",
            "unicode display mode (placeholder/no-op except non-default modes "
            "select UTF-8 scanning)",

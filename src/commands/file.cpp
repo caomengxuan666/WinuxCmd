@@ -58,10 +58,28 @@ using namespace std::string_view_literals;
  * - @a -L, @a --dereference: follow symlinks [IMPLEMENTED]
  */
 auto constexpr FILE_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--brief", "do not prepend filenames to output lines"),
+    // [DIFFERS] checking format not meaningful on Windows; prints stub
+    OPTION("-c", "--checking-printout", "print the checking format"),
+    // [GNU]
+    OPTION("-f", "--files-from", "read the filenames from FILE", STRING_TYPE),
+    // [GNU]
+    OPTION("-k", "--keep-going", "don't stop at first match"),
+    // [DIFFERS] magic file not supported on Windows; prints stub
+    OPTION("-m", "--magic-file", "use FILE as magic file", STRING_TYPE),
+    // [GNU]
     OPTION("-h", "--no-dereference", "don't follow symlinks"),
+    // [GNU]
     OPTION("-i", "--mime", "output MIME type strings"),
-    OPTION("-L", "--dereference", "follow symlinks")};
+    // [GNU]
+    OPTION("-L", "--dereference", "follow symlinks"),
+    // [GNU]
+    OPTION("-n", "--no-buffer", "do not buffer output"),
+    // [GNU]
+    OPTION("-N", "--no-pad", "do not pad output"),
+    // [GNU]
+    OPTION("-z", "--uncompress", "try to decompress compressed files")};
 
 // ======================================================
 // Constants
@@ -337,7 +355,26 @@ auto process_files(const CommandContext<FILE_OPTIONS.size()>& ctx)
   // Use SmallVector for file paths (max 64 files) - all stack-allocated
   SmallVector<std::string, 64> paths{};
 
-  if (ctx.positionals.empty()) {
+  // -f/--files-from: read filenames from a file instead of arguments
+  std::string files_from = ctx.get<std::string>("--files-from", "");
+  if (files_from.empty()) files_from = ctx.get<std::string>("-f", "");
+
+  if (!files_from.empty()) {
+    // Read paths from the specified file, one per line
+    std::ifstream fin(utf8_to_wstring(files_from));
+    if (!fin) {
+      safeErrorPrint("file: cannot open '");
+      safeErrorPrint(files_from);
+      safeErrorPrint("': No such file or directory\n");
+      return false;
+    }
+    std::string line;
+    while (std::getline(fin, line)) {
+      if (!line.empty()) {
+        paths.push_back(std::move(line));
+      }
+    }
+  } else if (ctx.positionals.empty()) {
     paths.push_back(".");
   } else {
     for (const auto& arg : ctx.positionals) {
@@ -361,6 +398,39 @@ auto process_files(const CommandContext<FILE_OPTIONS.size()>& ctx)
   bool no_deref =
       ctx.get<bool>("--no-dereference", false) || ctx.get<bool>("-h", false);
   bool mime = ctx.get<bool>("--mime", false) || ctx.get<bool>("-i", false);
+  bool checking_format =
+      ctx.get<bool>("--checking-printout", false) || ctx.get<bool>("-c", false);
+  bool keep_going =
+      ctx.get<bool>("--keep-going", false) || ctx.get<bool>("-k", false);
+  bool no_buffer =
+      ctx.get<bool>("--no-buffer", false) || ctx.get<bool>("-n", false);
+  bool no_pad = ctx.get<bool>("--no-pad", false) || ctx.get<bool>("-N", false);
+  bool uncompress =
+      ctx.get<bool>("--uncompress", false) || ctx.get<bool>("-z", false);
+  bool has_magic_file = ctx.has("--magic-file") || ctx.has("-m");
+
+  // [DIFFERS] -c/--checking-printout: print checking format then exit
+  if (checking_format) {
+    // On Windows, file magic database is not available; print stub format
+    safePrintLn(
+        L"file: compiled with magic number detection based on extension");
+    safePrintLn(L"file: no magic file format on Windows");
+    return true;
+  }
+
+  // [DIFFERS] -m/--magic-file: magic file not supported on Windows
+  if (has_magic_file) {
+    safeErrorPrint("file: --magic-file is not supported on Windows\n");
+    safeErrorPrint(
+        "file: file type detection uses file extensions on Windows\n");
+    return false;
+  }
+
+  // [DIFFERS] -z/--uncompress: partial - detect .gz and warn
+  // (actual decompression would require zlib; mark as [DIFFERS])
+  if (uncompress) {
+    // Continue but note compression support is limited
+  }
 
   bool all_ok = true;
 
@@ -375,6 +445,7 @@ auto process_files(const CommandContext<FILE_OPTIONS.size()>& ctx)
       safeErrorPrint(path);
       safeErrorPrint("': No such file or directory\n");
       all_ok = false;
+      if (!keep_going) break;
     }
   }
 

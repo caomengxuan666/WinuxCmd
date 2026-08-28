@@ -112,17 +112,16 @@ static std::optional<int> forwardToOptPayload(std::string_view name) noexcept {
   std::error_code ec;
   fs::path payload = payload_direct;
   if (!fs::is_regular_file(payload, ec)) {
-    // Package dir may differ from the command name (e.g. opt\sysinternals-suite\
-    // provides accesschk.exe), and toolchain payloads may nest their exes
-    // (e.g. opt\go\bin\go.exe): scan each package directory, shallowest match
-    // wins, up to a small depth bound.
+    // Package dir may differ from the command name (e.g.
+    // opt\sysinternals-suite\ provides accesschk.exe), and toolchain payloads
+    // may nest their exes (e.g. opt\go\bin\go.exe): scan each package
+    // directory, shallowest match wins, up to a small depth bound.
     const fs::path opt_dir = root / L"opt";
     if (!fs::exists(opt_dir, ec)) return std::nullopt;
     bool found = false;
     size_t best_depth = SIZE_MAX;
 
-    const std::wstring wanted =
-        utf8_to_wstring(std::string(name)) + L".exe";
+    const std::wstring wanted = utf8_to_wstring(std::string(name)) + L".exe";
     auto iequals_wanted = [&wanted](const std::wstring& candidate) {
       if (candidate.size() != wanted.size()) return false;
       for (size_t i = 0; i < candidate.size(); ++i) {

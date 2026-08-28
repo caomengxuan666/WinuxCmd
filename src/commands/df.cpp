@@ -82,7 +82,10 @@ auto constexpr DF_OPTIONS = std::array{
     OPTION("", "--no-sync", "do not invoke sync before getting usage info"),
     OPTION("", "--output", "use the output format defined by FIELD_LIST",
            OPTIONAL_STRING_TYPE),
-    OPTION("-P", "--portability", "use the POSIX output format")};
+    OPTION("-P", "--portability", "use the POSIX output format"),
+    // [GNU]
+    // [DIFFERS] GNU: -v is "(ignored)"; WinuxCmd: was version display
+    OPTION("-v", "", "(ignored) [DIFFERS: GNU ignores -v]")};
 
 // ======================================================
 // Pipeline components
@@ -826,8 +829,10 @@ auto print_disk_usage(const CommandContext<DF_OPTIONS.size()>& ctx)
   bool inodes = ctx.get<bool>("--inodes", false) || ctx.get<bool>("-i", false);
   bool total = ctx.get<bool>("--total", false);
   bool custom_output = ctx.has("--output");
+  bool all_fs = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
   bool local_only =
-      ctx.get<bool>("--local", false) || ctx.get<bool>("-l", false);
+      (ctx.get<bool>("--local", false) || ctx.get<bool>("-l", false)) &&
+      !all_fs;
   std::string include_type = ctx.get<std::string>("--type", "");
   if (include_type.empty()) include_type = ctx.get<std::string>("-t", "");
   std::string exclude_type = ctx.get<std::string>("--exclude-type", "");
@@ -1015,6 +1020,13 @@ REGISTER_COMMAND(
     /* options */
     DF_OPTIONS) {
   using namespace df_pipeline;
+
+  // [DIFFERS] GNU: -v is "(ignored)"; WinuxCmd accepts it for compatibility
+  (void)ctx.get<bool>("-v", false);
+
+  // [GNU] --sync/--no-sync: sync control
+  // On Windows, the OS maintains filesystem cache consistency.
+  // These flags are accepted for compatibility but have no effect.
 
   auto result = print_disk_usage(ctx);
   if (!result) {

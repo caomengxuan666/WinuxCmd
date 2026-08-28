@@ -45,8 +45,13 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr PATHCHK_OPTIONS = std::array{
-    OPTION("-p", "--portability", "check for all POSIX systems"),
-    OPTION("-P", "--posix", "check for empty names and leading \"-\"")};
+    // [GNU] -p: check for most POSIX systems (no long form in GNU)
+    OPTION("-p", "", "check for most POSIX systems"),
+    // [GNU] -P: check for empty names and leading dash (no long form in GNU)
+    OPTION("-P", "", "check for empty names and leading dash"),
+    // [GNU] --portability: equivalent to -p -P combined (no short form in GNU)
+    OPTION("", "--portability",
+           "check for all POSIX systems (equivalent to -p -P)")};
 
 // ======================================================
 // Helper functions
@@ -172,9 +177,8 @@ REGISTER_COMMAND(
     /* options */ PATHCHK_OPTIONS) {
   bool check_portability =
       ctx.get<bool>("-p", false) || ctx.get<bool>("--portability", false);
-  bool check_leading_dash = ctx.get<bool>("-P", false) ||
-                            ctx.get<bool>("--posix", false) ||
-                            ctx.get<bool>("--portability", false);
+  bool check_leading_dash =
+      ctx.get<bool>("-P", false) || ctx.get<bool>("--portability", false);
   if (!check_portability && !check_leading_dash &&
       std::getenv("POSIXLY_CORRECT") == nullptr) {
     check_leading_dash = true;
@@ -193,7 +197,6 @@ REGISTER_COMMAND(
     std::optional<std::string> error_msg;
 
     if (path_str.empty() && !check_portability && !ctx.get<bool>("-P", false) &&
-        !ctx.get<bool>("--posix", false) &&
         !ctx.get<bool>("--portability", false) &&
         std::getenv("POSIXLY_CORRECT") == nullptr) {
       error_msg = "No such file or directory";

@@ -2547,6 +2547,26 @@ TEST(find, find_last_symlink_mode_option_wins_for_nested_directory_junction) {
               std::string::npos);
 }
 
+TEST(find, find_new_file_predicates_and_listing_actions) {
+  TempDir tmp;
+  tmp.write("ref", "r");
+  tmp.write("file.txt", "x");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"find.exe",
+        {L".", L"-anewer", L"ref", L"-fstype", L"NTFS", L"-nogroup", L"-ls"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+
+  Pipeline links;
+  links.set_cwd(tmp.wpath());
+  links.add(L"find.exe", {L".", L"-lname", L"*", L"-fls", L"links.txt"});
+  auto lr = links.run();
+  EXPECT_EQ(lr.exit_code, 0);
+  EXPECT_TRUE(lr.stderr_text.empty());
+}
+
 TEST(find, find_invalid_size_returns_error) {
   TempDir tmp;
   tmp.write("a.txt", "x");

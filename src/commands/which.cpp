@@ -16,15 +16,32 @@ import container;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
+// [GNU] -a, --all: print all matching pathnames of each argument
+// [GNU] -s, --silent, --quiet: suppress all normal output
+// [GNU] --skip-dot: skip directories in PATH that start with a dot
+// [GNU] --skip-tilde: skip directories in PATH that start with a tilde
+// [GNU] --show-dot: print ./COMMAND if directory starts with dot
+// [GNU] --show-tilde: output a tilde for the HOME directory
+// [GNU] --tty-only: only show results on a terminal
+// [GNU] --read-alias: read list of aliases from stdin
+// [GNU] --skip-alias: do not read aliases
+// [GNU] --read-functions: read shell functions from stdin
+// [GNU] --skip-functions: do not read shell functions
 auto constexpr WHICH_OPTIONS = std::array{
     OPTION("-a", "--all", "print all matching pathnames of each argument"),
-    OPTION("-s", "--skip-dot",
-           "skip directories in PATH that start with a dot"),
+    OPTION("-s", "--silent", "suppress all normal output"),
+    OPTION("", "--quiet", "suppress all normal output"),
+    OPTION("", "--skip-dot", "skip directories in PATH that start with a dot"),
     OPTION("", "--skip-tilde",
            "skip directories in PATH that start with a tilde and HOME matches"),
     OPTION("", "--show-dot",
            "if a directory in PATH starts with a dot, print ./COMMAND"),
-    OPTION("", "--show-tilde", "output a tilde for the HOME directory")};
+    OPTION("", "--show-tilde", "output a tilde for the HOME directory"),
+    OPTION("", "--tty-only", "only show results on a terminal"),
+    OPTION("", "--read-alias", "read list of aliases from stdin"),
+    OPTION("", "--skip-alias", "do not read aliases"),
+    OPTION("", "--read-functions", "read shell functions from stdin"),
+    OPTION("", "--skip-functions", "do not read shell functions")};
 
 namespace which_pipeline {
 namespace cp = core::pipeline;
@@ -32,10 +49,16 @@ namespace fs = std::filesystem;
 
 struct Config {
   bool all = false;
+  bool silent = false;
   bool skip_dot = false;
   bool skip_tilde = false;
   bool show_dot = false;
   bool show_tilde = false;
+  bool tty_only = false;
+  bool read_alias = false;
+  bool skip_alias = false;
+  bool read_functions = false;
+  bool skip_functions = false;
   fs::path cwd;
   std::optional<fs::path> home;
   SmallVector<std::string, 32> names;
@@ -379,11 +402,17 @@ auto build_config(const CommandContext<WHICH_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
   cfg.all = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
-  cfg.skip_dot =
-      ctx.get<bool>("--skip-dot", false) || ctx.get<bool>("-s", false);
+  cfg.silent = ctx.get<bool>("--silent", false) || ctx.get<bool>("-s", false) ||
+               ctx.get<bool>("--quiet", false);  // [DIFFERS]
+  cfg.skip_dot = ctx.get<bool>("--skip-dot", false);
   cfg.skip_tilde = ctx.get<bool>("--skip-tilde", false);
   cfg.show_dot = ctx.get<bool>("--show-dot", false);
   cfg.show_tilde = ctx.get<bool>("--show-tilde", false);
+  cfg.tty_only = ctx.get<bool>("--tty-only", false);              // [DIFFERS]
+  cfg.read_alias = ctx.get<bool>("--read-alias", false);          // [DIFFERS]
+  cfg.skip_alias = ctx.get<bool>("--skip-alias", false);          // [DIFFERS]
+  cfg.read_functions = ctx.get<bool>("--read-functions", false);  // [DIFFERS]
+  cfg.skip_functions = ctx.get<bool>("--skip-functions", false);  // [DIFFERS]
   cfg.cwd = make_absolute_normalized(get_current_directory());
   cfg.home = get_home_directory();
 
@@ -393,6 +422,18 @@ auto build_config(const CommandContext<WHICH_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
+  // [DIFFERS] --tty-only: suppress output when stdout is not a terminal
+  if (cfg.tty_only && !_isatty(_fileno(stdout))) {
+    // Still compute exit code but suppress all output
+    bool all_found = true;
+    for (const auto& name : cfg.names) {
+      if (find_one(name, cfg).empty()) {
+        all_found = false;
+      }
+    }
+    return all_found ? 0 : 1;
+  }
+
   bool all_found = true;
   for (const auto& name : cfg.names) {
     auto hits = find_one(name, cfg);
@@ -400,9 +441,12 @@ auto run(const Config& cfg) -> int {
       all_found = false;
       continue;
     }
-    for (const auto& h : hits) {
-      safePrint(h);
-      safePrint("\n");
+    // [DIFFERS] --silent: suppress all normal output
+    if (!cfg.silent) {
+      for (const auto& h : hits) {
+        safePrint(h);
+        safePrint("\n");
+      }
     }
   }
   return all_found ? 0 : 1;
@@ -423,5 +467,16 @@ REGISTER_COMMAND(which, "which", "which [OPTION]... COMMAND...",
     cp::report_error(cfg, L"which");
     return 1;
   }
+
+  // [DIFFERS] --read-alias and --read-functions are not supported on Windows
+  if (cfg->read_alias) {
+    safeErrorPrintLn("which: --read-alias is not supported on Windows");
+    return 1;
+  }
+  if (cfg->read_functions) {
+    safeErrorPrintLn("which: --read-functions is not supported on Windows");
+    return 1;
+  }
+
   return run(*cfg);
 }

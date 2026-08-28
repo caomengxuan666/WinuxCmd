@@ -42,21 +42,35 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CHOWN_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-c", "--changes",
            "like verbose but report only when a change is made"),
+    // [DIFFERS]
     OPTION("-f", "--silent", "suppress most error messages"),
+    // [DIFFERS]
     OPTION("", "--quiet", "suppress most error messages"),
+    // [DIFFERS]
     OPTION("", "--dereference", "affect referent of each symbolic link"),
+    // [DIFFERS]
     OPTION("-h", "--no-dereference",
            "affect symbolic links instead of referenced files"),
+    // [DIFFERS]
     OPTION("", "--from", "change only from current owner/group", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-H", "", "traverse command-line symlinks to directories"),
+    // [DIFFERS]
     OPTION("-L", "", "traverse every symlink to a directory"),
+    // [DIFFERS]
     OPTION("-P", "", "do not traverse any symbolic links"),
+    // [DIFFERS]
     OPTION("-R", "--recursive", "operate on files and directories recursively"),
+    // [DIFFERS]
     OPTION("", "--reference", "use RFILE's owner and group", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-v", "--verbose", "output a diagnostic for every file processed"),
+    // [DIFFERS]
     OPTION("", "--preserve-root", "fail to operate recursively on '/'"),
+    // [DIFFERS]
     OPTION("", "--no-preserve-root", "do not treat '/' specially"),
 };
 
@@ -467,7 +481,7 @@ auto build_config(const CommandContext<CHOWN_OPTIONS.size()>& ctx)
   Config cfg;
   cfg.recursive =
       ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);
-  cfg.verbose = ctx.get<bool>("-v", false);
+  cfg.verbose = ctx.get<bool>("-v", false) || ctx.get<bool>("--verbose", false);
   cfg.changes = ctx.get<bool>("-c", false) || ctx.get<bool>("--changes", false);
   cfg.quiet = ctx.get<bool>("-f", false) || ctx.get<bool>("--silent", false) ||
               ctx.get<bool>("--quiet", false);

@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr FALSE_OPTIONS =
+    // [GNU]
     std::array{OPTION("", "", "do nothing, unsuccessfully", STRING_TYPE)};
 
 REGISTER_COMMAND(

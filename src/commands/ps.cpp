@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright ? 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,20 +47,33 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PS_OPTIONS = std::array{
+    // [EXT]
     OPTION("-e", "", "select all processes (same as -A)"),
+    // [EXT]
     OPTION("-A", "", "select all processes"),
+    // [EXT]
     OPTION("-a", "",
            "select all processes except session leaders and not associated "
            "with a terminal"),
+    // [EXT]
     OPTION("-f", "", "do full-format listing"),
+    // [EXT]
     OPTION("-l", "", "long format"),
+    // [EXT]
     OPTION("-u", "", "display user-oriented format"),
+    // [EXT]
     OPTION("-p", "--pid", "select processes by process ID", STRING_TYPE),
+    // [EXT]
     OPTION("-o", "--format", "select output fields", STRING_TYPE),
+    // [EXT]
     OPTION("", "--user", "filter processes by user name", STRING_TYPE),
+    // [EXT]
     OPTION("-x", "", "lift the BSD-style \"must have a tty\" restriction"),
+    // [EXT]
     OPTION("-w", "", "wide output (do not truncate command lines)"),
+    // [EXT]
     OPTION("", "--no-headers", "print no header line"),
+    // [EXT]
     OPTION("", "--sort", "sort by column (e.g., +pid, -rss)", STRING_TYPE)};
 
 namespace ps_pipeline {
@@ -80,6 +93,8 @@ struct ProcessInfo {
   SIZE_T private_bytes;
   int priority;
   int thread_count;
+  DWORD session_id = 0;
+  bool has_console = false;
 };
 
 struct Config {
@@ -89,6 +104,8 @@ struct Config {
   bool user_format = false;
   bool wide_output = false;
   bool no_headers = false;
+  bool select_associated = false;
+  bool lift_tty_restriction = false;
   std::vector<DWORD> pid_filter;
   std::vector<std::string> format_fields;
   std::string user_filter;
@@ -248,6 +265,13 @@ auto enumerate_processes() -> cp::Result<std::vector<ProcessInfo>> {
     info.priority = pe.pcPriClassBase;
     info.thread_count = pe.cntThreads;
 
+    // Get session id and console status
+    DWORD session_id = 0;
+    if (ProcessIdToSessionId(info.pid, &session_id)) {
+      info.session_id = session_id;
+      info.has_console = (session_id != 0);
+    }
+
     // Try to open process for more info
     HANDLE h_proc = OpenProcess(
         PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, info.pid);
@@ -325,10 +349,12 @@ auto format_memory(SIZE_T bytes) -> std::wstring {
 }
 
 auto trim_ascii(std::string_view text) -> std::string_view {
-  while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) {
+  while (!text.empty() &&
+         std::isspace(static_cast<unsigned char>(text.front()))) {
     text.remove_prefix(1);
   }
-  while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) {
+  while (!text.empty() &&
+         std::isspace(static_cast<unsigned char>(text.back()))) {
     text.remove_suffix(1);
   }
   return text;
@@ -339,8 +365,9 @@ auto split_ps_list(std::string_view text) -> std::vector<std::string_view> {
   size_t start = 0;
   for (size_t i = 0; i <= text.size(); ++i) {
     const bool at_end = i == text.size();
-    const bool is_sep = !at_end &&
-                        (text[i] == ',' || std::isspace(static_cast<unsigned char>(text[i])));
+    const bool is_sep =
+        !at_end &&
+        (text[i] == ',' || std::isspace(static_cast<unsigned char>(text[i])));
     if (!at_end && !is_sep) continue;
 
     auto item = trim_ascii(text.substr(start, i - start));
@@ -355,7 +382,8 @@ auto parse_pid_value(std::string_view text) -> std::optional<DWORD> {
   if (text.empty()) return std::nullopt;
 
   uint64_t value = 0;
-  auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), value);
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
   if (ec != std::errc() || ptr != text.data() + text.size() ||
       value > std::numeric_limits<DWORD>::max()) {
     return std::nullopt;
@@ -376,8 +404,9 @@ auto append_pid_filter(std::string_view raw, std::vector<DWORD>& pids)
 auto normalize_format_field(std::string_view field) -> std::string {
   auto trimmed = trim_ascii(field);
   std::string normalized(trimmed);
-  std::transform(normalized.begin(), normalized.end(), normalized.begin(),
-                 [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+  std::transform(
+      normalized.begin(), normalized.end(), normalized.begin(),
+      [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
   return normalized;
 }
 
@@ -387,7 +416,8 @@ auto is_supported_format_field(std::string_view field) -> bool {
          field == "rss" || field == "pmem" || field == "pcpu";
 }
 
-auto append_format_fields(std::string_view raw, std::vector<std::string>& fields)
+auto append_format_fields(std::string_view raw,
+                          std::vector<std::string>& fields)
     -> std::optional<std::string> {
   for (auto token : split_ps_list(raw)) {
     auto field = normalize_format_field(token);
@@ -404,9 +434,9 @@ auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
 
-  cfg.all_processes = ctx.get<bool>("-e", false) ||
-                      ctx.get<bool>("-A", false) ||
-                      ctx.get<bool>("-a", false) || ctx.get<bool>("-x", false);
+  cfg.all_processes = ctx.get<bool>("-e", false) || ctx.get<bool>("-A", false);
+  cfg.select_associated = ctx.get<bool>("-a", false);
+  cfg.lift_tty_restriction = ctx.get<bool>("-x", false);
 
   cfg.full_format = ctx.get<bool>("-f", false);
   cfg.long_format = ctx.get<bool>("-l", false);
@@ -423,16 +453,10 @@ auto build_config(const CommandContext<PS_OPTIONS.size()>& ctx)
   }
 
   for (const auto& occurrence : ctx.string_occurrences({"-o", "--format"})) {
-    if (auto error = append_format_fields(occurrence.value, cfg.format_fields)) {
+    if (auto error =
+            append_format_fields(occurrence.value, cfg.format_fields)) {
       return std::unexpected(*error);
     }
-  }
-
-  // If no specific processes requested and no -e/-A, default to current user's
-  // processes
-  if (!cfg.all_processes && cfg.user_filter.empty()) {
-    // For simplicity, show all by default (like modern ps)
-    cfg.all_processes = true;
   }
 
   return cfg;
@@ -649,8 +673,8 @@ auto filetime_to_uint64(const FILETIME& ft) -> ULONGLONG {
 }
 
 auto process_cpu_seconds(const ProcessInfo& proc) -> double {
-  const ULONGLONG total_100ns = filetime_to_uint64(proc.kernel_time) +
-                                filetime_to_uint64(proc.user_time);
+  const ULONGLONG total_100ns =
+      filetime_to_uint64(proc.kernel_time) + filetime_to_uint64(proc.user_time);
   return static_cast<double>(total_100ns) / 10000000.0;
 }
 
@@ -716,23 +740,23 @@ auto custom_field_value(const ProcessInfo& proc, std::string_view field,
   if (field == "pid") return std::to_wstring(proc.pid);
   if (field == "ppid") return std::to_wstring(proc.ppid);
   if (field == "comm") return proc.name;
-  if (field == "args") return proc.command_line.empty() ? proc.name : proc.command_line;
+  if (field == "args")
+    return proc.command_line.empty() ? proc.name : proc.command_line;
   if (field == "user") return proc.user;
   if (field == "etime") return format_etime(process_elapsed_seconds(proc));
   if (field == "rss") return std::to_wstring(proc.working_set_size / 1024);
   if (field == "pmem") {
     const double percent = total_memory == 0
                                ? 0.0
-                               : (static_cast<double>(proc.working_set_size) * 100.0 /
-                                  static_cast<double>(total_memory));
+                               : (static_cast<double>(proc.working_set_size) *
+                                  100.0 / static_cast<double>(total_memory));
     return format_percent(percent);
   }
   if (field == "pcpu") {
     const auto elapsed = process_elapsed_seconds(proc);
-    const double percent = elapsed == 0
-                               ? 0.0
-                               : (process_cpu_seconds(proc) * 100.0 /
-                                  static_cast<double>(elapsed));
+    const double percent = elapsed == 0 ? 0.0
+                                        : (process_cpu_seconds(proc) * 100.0 /
+                                           static_cast<double>(elapsed));
     return format_percent(percent);
   }
   return L"";
@@ -753,7 +777,8 @@ auto print_custom(const std::vector<ProcessInfo>& processes,
   if (!no_headers) {
     std::vector<std::wstring> headers;
     headers.reserve(fields.size());
-    for (const auto& field : fields) headers.push_back(custom_field_header(field));
+    for (const auto& field : fields)
+      headers.push_back(custom_field_header(field));
     safePrintLn(join_columns(headers));
   }
 
@@ -789,11 +814,47 @@ auto run(const Config& cfg) -> int {
 
   // Filter by PID if specified
   if (!cfg.pid_filter.empty()) {
-    auto it = std::remove_if(processes.begin(), processes.end(),
-                             [&](const ProcessInfo& p) {
-                               return std::ranges::find(cfg.pid_filter, p.pid) ==
-                                      cfg.pid_filter.end();
-                             });
+    auto it = std::remove_if(
+        processes.begin(), processes.end(), [&](const ProcessInfo& p) {
+          return std::ranges::find(cfg.pid_filter, p.pid) ==
+                 cfg.pid_filter.end();
+        });
+    processes.erase(it, processes.end());
+  }
+
+  // Apply selection mode filtering
+  if (!cfg.all_processes) {
+    // Determine target user for default filtering
+    std::wstring target_user;
+    if (!cfg.user_filter.empty()) {
+      target_user = utf8_to_wstring(cfg.user_filter);
+    } else if (cfg.select_associated) {
+      // -a without --user: show all users' associated processes
+      target_user.clear();
+    } else {
+      // Default: show current user's processes
+      target_user = get_process_user(GetCurrentProcess());
+    }
+
+    auto it = std::remove_if(
+        processes.begin(), processes.end(), [&](const ProcessInfo& p) {
+          // Exclude session leaders (ppid == 0, i.e., System Idle and System)
+          if (cfg.select_associated && p.ppid == 0) {
+            return true;
+          }
+
+          // Filter by terminal (has_console) unless -x lifts the restriction
+          if (!cfg.lift_tty_restriction && !p.has_console) {
+            return true;
+          }
+
+          // Filter by user if a target user is specified
+          if (!target_user.empty() && p.user != target_user) {
+            return true;
+          }
+
+          return false;
+        });
     processes.erase(it, processes.end());
   }
 

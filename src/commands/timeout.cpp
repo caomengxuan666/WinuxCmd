@@ -52,7 +52,9 @@ auto constexpr TIMEOUT_OPTIONS = std::array{
     OPTION("-p", "--preserve-status", "exit with the same status as COMMAND",
            BOOL_TYPE),
     OPTION("-v", "--verbose", "diagnose to stderr any signal sent on timeout",
-           BOOL_TYPE)};
+           BOOL_TYPE),
+    // [GNU]
+    OPTION("-l", "", "list supported signals")};
 
 namespace timeout_pipeline {
 namespace cp = core::pipeline;
@@ -470,6 +472,19 @@ REGISTER_COMMAND(
     "  timeout -k 10s 30s command",
     "kill(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd", TIMEOUT_OPTIONS) {
   using namespace timeout_pipeline;
+
+  // -l: list supported signals
+  if (ctx.get<bool>("-l", false)) {
+    safePrintLn("  0 (reserved)");
+    safePrintLn("  1 HUP");
+    safePrintLn("  2 INT");
+    safePrintLn("  3 QUIT");
+    safePrintLn("  6 ABRT");
+    safePrintLn("  9 KILL");
+    safePrintLn(" 14 ALRM");
+    safePrintLn(" 15 TERM");
+    return 0;
+  }
 
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {

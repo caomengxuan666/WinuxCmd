@@ -40,7 +40,10 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr FACTOR_OPTIONS = std::array{
-    OPTION("", "--exponents", "print repeated factors in exponent form")};
+    // [GNU]
+    OPTION("", "--exponents", "print repeated factors in exponent form"),
+    // [GNU] -h is an alias for --exponents in GNU coreutils
+    OPTION("-h", "--exponents", "print repeated factors in exponent form")};
 
 namespace {
 auto parse_factor_integer(std::string_view text) -> std::optional<long long> {
@@ -89,21 +92,24 @@ REGISTER_COMMAND(factor_cmd,
                  "factor",
 
                  /* synopsis */
-                 "factor [NUMBER]...",
+                 "factor [OPTION]... [NUMBER]...",
                  "Print the prime factors of each specified integer NUMBER.\n"
                  "\n"
                  "If no NUMBER is specified, read from standard input.\n"
                  "\n"
-                 "  --exponents   print repeated factors in exponent form",
+                 "  -e, --exponents   print repeated factors in exponent form\n"
+                 "  -h, --help        display this help and exit",
                  "  factor 12\n"
                  "  factor 100\n"
-                 "  factor --exponents 72\n"
-                 "  factor 17\n"
+                 "  factor -h 72\n"
+                 "  factor --exponents 17\n"
                  "  echo '24' | factor",
 
                  /* see also */
                  "primes(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
                  FACTOR_OPTIONS) {
+  // -h is an alias for --exponents (GNU behavior)
+
   std::vector<long long> numbers;
 
   if (ctx.positionals.empty()) {

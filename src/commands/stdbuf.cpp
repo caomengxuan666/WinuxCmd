@@ -45,10 +45,13 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr STDBUF_OPTIONS =
+    // [GNU] -i, --input
     std::array{OPTION("-i", "--input", "adjust standard input stream buffering",
                       STRING_TYPE),
+               // [GNU] -o, --output
                OPTION("-o", "--output",
                       "adjust standard output stream buffering", STRING_TYPE),
+               // [GNU] -e, --error
                OPTION("-e", "--error", "adjust standard error stream buffering",
                       STRING_TYPE)};
 

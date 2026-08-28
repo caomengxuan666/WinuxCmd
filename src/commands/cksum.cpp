@@ -47,33 +47,49 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CKSUM_OPTIONS = std::array{
+    // [GNU]
     OPTION("-a", "--algorithm",
            "select the digest type to use. TYPE is sysv, bsd, or crc (default)",
            STRING_TYPE),
+    // [GNU]
     OPTION("-c", "--check", "read and verify checksums from FILE", STRING_TYPE),
+    // [GNU]
     OPTION("", "--ignore-missing",
            "don't fail or report status for missing files"),
+    // [GNU]
     OPTION("-q", "--quiet",
            "don't print OK for each successfully verified file"),
+    // [GNU]
     OPTION("-s", "--status",
            "don't output anything, status code shows success"),
+    // [GNU]
     OPTION("-w", "--warn", "warn about improperly formatted checksum lines"),
+    // [GNU]
     OPTION("", "--strict",
            "exit non-zero for improperly formatted checksum lines"),
+    // [GNU]
     OPTION("", "--tag",
            "create a BSD-style checksum (the default for compatibility)"),
+    // [GNU]
     OPTION("", "--untagged",
            "create a reversed style checksum, without digest type"),
+    // [GNU]
     OPTION("-z", "--zero",
            "end each output line with NUL, not newline, and disable file name "
            "escaping"),
+    // [GNU]
     OPTION("", "--raw", "print a raw binary digest, not hexadecimal"),
+    // [GNU]
     OPTION("", "--base64", "print a base64-encoded digest"),
+    // [GNU]
     OPTION("-l", "--length",
            "digest length in bits; must not exceed the maximum for the blake2 "
            "algorithm and must be a multiple of 8",
            STRING_TYPE),
-    OPTION("", "--debug", "print debug output")};
+    // [GNU]
+    OPTION("", "--debug", "print debug output"),
+    // [GNU] -r: create a reversed style checksum, without digest type
+    OPTION("-r", "", "create a reversed style checksum, without digest type")};
 
 namespace cksum_pipeline {
 namespace cp = core::pipeline;
@@ -135,7 +151,7 @@ auto build_config(const CommandContext<CKSUM_OPTIONS.size()>& ctx)
   cfg.warn = ctx.has("--warn") || ctx.has("-w");
   cfg.strict = ctx.has("--strict");
   cfg.tag_mode = ctx.has("--tag");
-  cfg.untagged = ctx.has("--untagged");
+  cfg.untagged = ctx.has("--untagged") || ctx.has("-r");
   cfg.zero_terminated = ctx.has("--zero") || ctx.has("-z");
   cfg.raw_output = ctx.has("--raw");
   cfg.base64_output = ctx.has("--base64");

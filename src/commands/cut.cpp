@@ -35,9 +35,11 @@ auto constexpr CUT_OPTIONS = std::array{
     // [GNU]
     OPTION("", "--complement",
            "complement the set of selected bytes, characters or fields"),
-    // [GNU]
+    // [DIFFERS] GNU: -n is "(ignored)"; WinuxCmd: --no-partial has actual
+    // behavior
     OPTION("-n", "--no-partial",
-           "do not split multibyte characters in byte mode"),
+           "do not split multibyte characters in byte mode [DIFFERS: GNU "
+           "ignores -n]"),
     // [GNU]
     OPTION("-s", "--only-delimited",
            "do not print lines not containing delimiter"),
@@ -47,8 +49,7 @@ auto constexpr CUT_OPTIONS = std::array{
     // [GNU]
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline"),
     // [DIFFERS] GNU has no portable Windows equivalent for this option.
-    OPTION("-M", "",
-           "compatibility option; not supported on Windows")};
+    OPTION("-M", "", "compatibility option; not supported on Windows")};
 
 namespace cut_pipeline {
 namespace cp = core::pipeline;

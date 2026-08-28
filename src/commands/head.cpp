@@ -64,20 +64,26 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr HEAD_OPTIONS = std::array{
+    // [GNU]
     OPTION("-c", "--bytes",
            "print the first NUM bytes of each file; with the leading '-',\n"
            "print all but the last NUM bytes",
            STRING_TYPE),
+    // [GNU]
     OPTION("-n", "--lines",
            "print the first NUM lines instead of the first 10; with the\n"
            "leading '-', print all but the last NUM lines",
            STRING_TYPE),
+    // [GNU]
     OPTION("-q", "--quiet",
            "never print headers giving file names for multiple files"),
+    // [GNU]
     OPTION("", "--silent",
            "never print headers giving file names for multiple files"),
+    // [GNU]
     OPTION("-v", "--verbose",
            "always print headers giving file names for multiple files"),
+    // [GNU]
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline")};
 
 namespace head_pipeline {

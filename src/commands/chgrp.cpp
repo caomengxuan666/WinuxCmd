@@ -45,23 +45,37 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CHGRP_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-c", "--changes",
            "like verbose but report only when a change is made"),
+    // [DIFFERS]
     OPTION("-f", "--silent", "suppress most error messages"),
+    // [DIFFERS]
     OPTION("-f", "--quiet", "suppress most error messages"),
+    // [DIFFERS]
     OPTION("-v", "--verbose", "output a diagnostic for every file processed"),
+    // [DIFFERS]
     OPTION("-R", "--recursive", "operate on files and directories recursively"),
+    // [DIFFERS]
     OPTION("-h", "--no-dereference",
            "affect symbolic links instead of any referenced file"),
+    // [DIFFERS]
     OPTION("", "--dereference",
            "affect the referent of each symbolic link (default)"),
+    // [DIFFERS]
     OPTION("-H", "", "command line symbolic links are followed"),
+    // [DIFFERS]
     OPTION("-L", "", "indirect symbolic links are followed"),
+    // [DIFFERS]
     OPTION("-P", "", "no symbolic links are followed (default)"),
+    // [DIFFERS]
     OPTION("", "--from", "change only if current group is GROUP", STRING_TYPE),
+    // [DIFFERS]
     OPTION("", "--reference", "use RFILE's group instead of specifying GROUP",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("", "--preserve-root", "fail to operate recursively on '/'"),
+    // [DIFFERS]
     OPTION("", "--no-preserve-root", "do not treat '/' specially (default)")};
 
 namespace chgrp_pipeline {

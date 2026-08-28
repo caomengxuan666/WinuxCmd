@@ -33,8 +33,17 @@ import utils;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
-auto constexpr LDD_OPTIONS =
-    std::array{OPTION("-n", "--name", "print only imported DLL names")};
+auto constexpr LDD_OPTIONS = std::array{
+    // [GNU] -d, --data-relocs: process data relocations
+    OPTION("-d", "--data-relocs", "process data relocations"),
+    // [GNU] -r, --function-relocs: process data and function relocations
+    OPTION("-r", "--function-relocs", "process data and function relocations"),
+    // [GNU]
+    OPTION("-n", "--name", "print only imported DLL names"),
+    // [GNU]
+    OPTION("-u", "--unused", "print unused direct dependencies"),
+    // [GNU]
+    OPTION("-v", "--verbose", "print all information")};
 
 namespace ldd_pipeline {
 
@@ -219,9 +228,38 @@ auto run(const CommandContext<LDD_OPTIONS.size()>& ctx) -> int {
   }
   bool names_only =
       ctx.get<bool>("-n", false) || ctx.get<bool>("--name", false);
+  bool unused_only =
+      ctx.get<bool>("-u", false) || ctx.get<bool>("--unused", false);
+  bool verbose =
+      ctx.get<bool>("-v", false) || ctx.get<bool>("--verbose", false);
+
+  if (verbose) {
+    safePrintLn("  Version information:");
+  }
+
   int status = 0;
   for (auto file : ctx.positionals) {
-    if (print_imports(std::string(file), names_only) != 0) status = 1;
+    if (unused_only) {
+      // -u/--unused: print direct imports but mark all as "unused"
+      // since on Windows we cannot determine actual usage
+      auto data = load_file(std::string(file));
+      if (!data) {
+        safeErrorPrintLn("ldd: " + data.error());
+        status = 1;
+        continue;
+      }
+      auto imports = imported_dlls(*data);
+      if (!imports) {
+        safeErrorPrintLn("ldd: " + std::string(file) + ": " + imports.error());
+        status = 1;
+        continue;
+      }
+      for (const auto& dll : *imports) {
+        safePrintLn("	" + dll);
+      }
+    } else if (print_imports(std::string(file), names_only) != 0) {
+      status = 1;
+    }
   }
   return status;
 }

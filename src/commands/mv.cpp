@@ -112,7 +112,7 @@ auto constexpr MV_OPTIONS =
                // [GNU]
                OPTION("-T", "--no-target-directory", "treat DEST as a normal file"),
                // [GNU]
-               OPTION("-u", "--update", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
+               OPTION("-u", "", "equivalent to --update[=older]"),
                // [GNU]
                OPTION("-v", "--verbose", "explain what is being done"),
                // [DIFFERS]
@@ -130,7 +130,7 @@ auto constexpr MV_OPTIONS =
                // [GNU]
                OPTION("", "--no-target-directory", "treat DEST as a normal file"),
                // [GNU]
-               OPTION("", "--update", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
+               OPTION("", "--update", "control which existing files are updated; UPDATE={all,none,older(default)}", OPTIONAL_STRING_TYPE),
                // [GNU]
                OPTION("", "--verbose", "explain what is being done"),
                // [DIFFERS]
@@ -143,11 +143,19 @@ auto constexpr MV_OPTIONS =
 namespace mv_pipeline {
 namespace cp = core::pipeline;
 
+// --update[=UPDATE] mode: controls which existing files are replaced.
+enum class UpdateMode {
+  all,    // always replace (default without --update)
+  older,  // replace only if source is newer (-u, --update, --update=older)
+  none,   // never replace (--update=none, similar to --no-clobber)
+};
+
 struct MoveContext {
   SmallVector<std::string, 64> source_paths;
   std::string dest_path;
   bool target_directory_option = false;
   bool no_target_directory = false;
+  UpdateMode update_mode = UpdateMode::all;
 };
 
 enum class OverwriteMode {
@@ -157,6 +165,8 @@ enum class OverwriteMode {
   interactive_always,
   no_clobber,
 };
+
+// --update[=UPDATE] mode: controls which existing files are replaced.
 
 template <size_t N>
 auto parse_overwrite_mode(const CommandContext<N>& ctx)
@@ -255,6 +265,23 @@ auto parse_arguments(const CommandContext<MV_OPTIONS.size()>& ctx)
   if (!target_dir.empty() && move_ctx.no_target_directory) {
     return std::unexpected(
         "cannot combine --target-directory and --no-target-directory");
+  }
+
+  // Parse --update[=UPDATE] mode
+  if (ctx.get<bool>("-u", false)) {
+    move_ctx.update_mode = UpdateMode::older;
+  } else if (ctx.has("--update")) {
+    auto update_opt = ctx.get<std::string>("--update", "");
+    if (update_opt == "all") {
+      move_ctx.update_mode = UpdateMode::all;
+    } else if (update_opt == "none") {
+      move_ctx.update_mode = UpdateMode::none;
+    } else if (update_opt == "older" || update_opt.empty()) {
+      move_ctx.update_mode = UpdateMode::older;
+    } else {
+      return std::unexpected("invalid argument '" + update_opt +
+                             "' for '--update'");
+    }
   }
 
   bool strip_slashes = ctx.get<bool>("--strip-trailing-slashes", false);
@@ -379,7 +406,8 @@ auto backup_existing_destination(const std::wstring& dest_path,
 
 auto move_single_path(const std::string& src_path, const std::string& dest_path,
                       const CommandContext<MV_OPTIONS.size()>& ctx,
-                      OverwriteMode overwrite_mode) -> cp::Result<bool> {
+                      OverwriteMode overwrite_mode, UpdateMode update_mode)
+    -> cp::Result<bool> {
   std::wstring wsrc_path = utf8_to_wstring(src_path);
   std::wstring wdest_path = utf8_to_wstring(dest_path);
 
@@ -389,8 +417,12 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
     return true;
   }
 
-  bool update = ctx.get<bool>("--update", false) || ctx.get<bool>("-u", false);
-  if (update && dest_exists && !is_source_newer(wsrc_path, wdest_path)) {
+  // --update mode handling
+  if (update_mode == UpdateMode::none && dest_exists) {
+    return true;
+  }
+  if (update_mode == UpdateMode::older && dest_exists &&
+      !is_source_newer(wsrc_path, wdest_path)) {
     return true;
   }
 
@@ -423,7 +455,8 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
   if (!MoveFileExW(wsrc_path.c_str(), wdest_path.c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {
     if (ctx.has("--no-copy")) {
-      return std::unexpected("rename failed and copying is disabled by --no-copy");
+      return std::unexpected(
+          "rename failed and copying is disabled by --no-copy");
     }
 
     // If rename fails, try copy and delete
@@ -497,13 +530,15 @@ auto process_single_source(const std::string& src_path,
     return std::unexpected(final_dest.error());
   }
 
-  return move_single_path(src_path, *final_dest, ctx, overwrite_mode);
+  return move_single_path(src_path, *final_dest, ctx, overwrite_mode,
+                          move_ctx.update_mode);
 }
 
 template <size_t N>
 auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
   if (ctx.has("--exchange")) {
-    safeErrorPrintLn("mv: --exchange option not yet fully implemented on Windows");
+    safeErrorPrintLn(
+        "mv: --exchange option not yet fully implemented on Windows");
     return std::unexpected("--exchange is not supported on Windows");
   }
 

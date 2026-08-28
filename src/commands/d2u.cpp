@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr D2U_OPTIONS = std::array{
+    // [EXT]
     OPTION("-v", "--verbose", "print a message for each file", BOOL_TYPE)};
 
 REGISTER_COMMAND(d2u,

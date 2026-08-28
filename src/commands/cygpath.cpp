@@ -45,32 +45,55 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr CYGPATH_OPTIONS = std::array{
+    // [EXT]
     OPTION("-u", "--unix", "print Unix form of NAME"),
+    // [EXT]
     OPTION("-w", "--windows", "print Windows form of NAME"),
+    // [EXT]
     OPTION("-m", "--mixed", "print Windows form, with regular slashes"),
+    // [EXT]
     OPTION("-p", "--path", "NAME is a PATH list"),
+    // [EXT]
     OPTION("-t", "--type", "print TYPE form: dos, mixed, unix, or windows",
            STRING_TYPE),
+    // [EXT]
     OPTION("-d", "--dos", "print DOS short form of NAMEs"),
+    // [EXT]
     OPTION("-a", "--absolute",
            "output absolute path [accepted, partial lexical support]"),
+    // [EXT]
     OPTION("-i", "--ignore", "ignore missing or empty arguments"),
+    // [EXT]
     OPTION("-f", "--file", "read input paths from FILE", STRING_TYPE),
+    // [EXT]
     OPTION("-o", "--option",
            "read options from FILE as well [accepted, not implemented]"),
+    // [EXT]
     OPTION("-l", "--long-name", "print Windows long form"),
+    // [EXT]
     OPTION("-s", "--short-name", "print DOS short form"),
+    // [EXT]
     OPTION("-U", "--proc-cygdrive", "emit /proc/cygdrive paths"),
+    // [EXT]
     OPTION("-C", "--codepage", "print Windows path in codepage CP",
            STRING_TYPE),
+    // [EXT]
     OPTION("-M", "--mode", "report file text/binary mode"),
+    // [EXT]
     OPTION("-A", "--allusers", "use All Users for special folders"),
+    // [EXT]
     OPTION("-D", "--desktop", "output Desktop directory"),
+    // [EXT]
     OPTION("-H", "--homeroot", "output Profiles directory"),
+    // [EXT]
     OPTION("-O", "--mydocs", "output My Documents directory"),
+    // [EXT]
     OPTION("-P", "--smprograms", "output Start Menu Programs directory"),
+    // [EXT]
     OPTION("-S", "--sysdir", "output system directory"),
+    // [EXT]
     OPTION("-W", "--windir", "output Windows directory"),
+    // [EXT]
     OPTION("-F", "--folder", "output special folder ID [not implemented]",
            STRING_TYPE)};
 

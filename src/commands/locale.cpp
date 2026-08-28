@@ -45,8 +45,19 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr LOCALE_OPTIONS =
-    std::array{OPTION("-a", "--all", "print all available locales"),
+    std::array{// [GNU]
+               OPTION("-a", "--all", "print all available locales"),
+               // [GNU]
+               OPTION("-c", "--category-name",
+                      "print the names of defined locale categories"),
+               // [GNU]
+               OPTION("-k", "--keyword-name",
+                      "print the names and values of keyword definitions"),
+               // [GNU]
                OPTION("-m", "--charmaps", "print available character maps"),
+               // [GNU] -v, --verbose: print more information
+               OPTION("-v", "--verbose", "print more information"),
+               // [GNU]
                OPTION("", "", "print locale information", STRING_TYPE)};
 
 // ======================================================
@@ -127,7 +138,9 @@ REGISTER_COMMAND(locale,
                  /* examples */
                  "  locale\n"
                  "  locale -a\n"
-                 "  locale -m",
+                 "  locale -m\n"
+                 "  locale -c\n"
+                 "  locale -k charmap",
                  /* see_also */ "localedef, setlocale",
                  /* author */ "WinuxCmd",
                  /* copyright */ "Copyright © 2026 WinuxCmd",
@@ -135,6 +148,10 @@ REGISTER_COMMAND(locale,
   bool show_all = ctx.get<bool>("-a", false) || ctx.get<bool>("--all", false);
   bool show_charmaps =
       ctx.get<bool>("-m", false) || ctx.get<bool>("--charmaps", false);
+  bool show_category_names =
+      ctx.get<bool>("-c", false) || ctx.get<bool>("--category-name", false);
+  bool show_keyword_names =
+      ctx.get<bool>("-k", false) || ctx.get<bool>("--keyword-name", false);
 
   if (show_charmaps) {
     // Print available character maps
@@ -150,6 +167,78 @@ REGISTER_COMMAND(locale,
     auto locales = get_available_locales();
     for (const auto& loc : locales) {
       safePrintLn(loc);
+    }
+    return 0;
+  }
+
+  // -c/--category-name: print names of defined locale categories
+  if (show_category_names) {
+    safePrintLn("LC_CTYPE");
+    safePrintLn("LC_NUMERIC");
+    safePrintLn("LC_TIME");
+    safePrintLn("LC_COLLATE");
+    safePrintLn("LC_MONETARY");
+    safePrintLn("LC_MESSAGES");
+    safePrintLn("LC_PAPER");
+    safePrintLn("LC_NAME");
+    safePrintLn("LC_ADDRESS");
+    safePrintLn("LC_TELEPHONE");
+    safePrintLn("LC_MEASUREMENT");
+    safePrintLn("LC_IDENTIFICATION");
+    return 0;
+  }
+
+  // -k/--keyword-name: print keyword names and values
+  if (show_keyword_names) {
+    if (!ctx.positionals.empty()) {
+      const auto keyword = std::string(ctx.positionals.front());
+      const auto value = get_system_locale();
+      if (keyword == "charmap") {
+        safePrintLn("charmap=UTF-8");
+      } else if (keyword == "codeset") {
+        safePrintLn("codeset=UTF-8");
+      } else if (keyword == "collate") {
+        safePrintLn("collate=" + value);
+      } else if (keyword == "ctype") {
+        safePrintLn("ctype=" + value);
+      } else if (keyword == "monetary") {
+        safePrintLn("monetary=" + value);
+      } else if (keyword == "numeric") {
+        safePrintLn("numeric=" + value);
+      } else if (keyword == "time") {
+        safePrintLn("time=" + value);
+      } else {
+        safePrintLn(keyword + "=" + value);
+      }
+    } else {
+      // No keyword specified: print all locale keywords and values
+      safePrintLn("LANG=" + get_system_locale());
+      safePrintLn(
+          "LC_CTYPE="
+          " + get_system_locale() + "
+          "");
+      safePrintLn(
+          "LC_NUMERIC="
+          " + get_system_locale() + "
+          "");
+      safePrintLn(
+          "LC_TIME="
+          " + get_system_locale() + "
+          "");
+      safePrintLn(
+          "LC_COLLATE="
+          " + get_system_locale() + "
+          "");
+      safePrintLn(
+          "LC_MONETARY="
+          " + get_system_locale() + "
+          "");
+      safePrintLn(
+          "LC_MESSAGES="
+          " + get_system_locale() + "
+          "");
+      safePrintLn("charmap=UTF-8");
+      safePrintLn("codeset=UTF-8");
     }
     return 0;
   }

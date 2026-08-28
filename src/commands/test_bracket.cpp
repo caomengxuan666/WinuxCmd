@@ -45,45 +45,95 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr BRACKET_OPTIONS =
-    std::array{OPTION("-n", "", "string length is non-zero"),
-               OPTION("-z", "", "string length is zero"),
-               OPTION("-b", "", "file is block special"),
-               OPTION("-c", "", "file is character special"),
-               OPTION("-d", "", "file is a directory"),
-               OPTION("-e", "", "file exists"),
-               OPTION("-f", "", "file is a regular file"),
-               OPTION("-g", "", "file has set-group-ID bit"),
-               OPTION("-G", "", "file is owned by effective group ID"),
-               OPTION("-h", "", "file is a symbolic link"),
-               OPTION("-L", "", "file is a symbolic link"),
-               OPTION("-k", "", "file has sticky bit"),
-               OPTION("-p", "", "file is a named pipe"),
-               OPTION("-r", "", "file is readable"),
-               OPTION("-s", "", "file size is non-zero"),
-               OPTION("-S", "", "file is a socket"),
-               OPTION("-t", "", "file descriptor is a terminal"),
-               OPTION("-u", "", "file has set-user-ID bit"),
-               OPTION("-w", "", "file is writable"),
-               OPTION("-x", "", "file is executable"),
-               OPTION("-O", "", "file is owned by effective user ID"),
-               OPTION("-eq", "", "integer equal"),
-               OPTION("-ne", "", "integer not equal"),
-               OPTION("-lt", "", "integer less than"),
-               OPTION("-le", "", "integer less than or equal"),
-               OPTION("-gt", "", "integer greater than"),
-               OPTION("-ge", "", "integer greater than or equal"),
-               OPTION("-a", "", "logical and"),
-               OPTION("-and", "", "logical and"),
-               OPTION("-o", "", "logical or"),
-               OPTION("-or", "", "logical or"),
-               OPTION("!", "", "logical not"),
-               OPTION("=", "", "string equal"),
-               OPTION("==", "", "string equal"),
-               OPTION("!=", "", "string not equal"),
-               OPTION("<", "", "string less than"),
-               OPTION("<=", "", "string less than or equal"),
-               OPTION(">", "", "string greater than"),
-               OPTION(">=", "", "string greater than or equal")};
+    // [GNU] -n
+    std::array{
+        OPTION("-n", "", "string length is non-zero"),
+        // [DIFFERS] Windows exposes last-access timestamps, but semantics
+        // depend on system policy.
+        OPTION("-N", "",
+               "file exists and has been modified since it was last read"),
+        // [GNU] -z
+        OPTION("-z", "", "string length is zero"),
+        // [GNU] -b
+        OPTION("-b", "", "file is block special"),
+        // [GNU] -c
+        OPTION("-c", "", "file is character special"),
+        // [GNU] -d
+        OPTION("-d", "", "file is a directory"),
+        // [GNU] -e
+        OPTION("-e", "", "file exists"),
+        // [GNU] -f
+        OPTION("-f", "", "file is a regular file"),
+        // [GNU] -g
+        OPTION("-g", "", "file has set-group-ID bit"),
+        // [DIFFERS] Unix effective group IDs have no Windows equivalent.
+        OPTION("-G", "",
+               "file is owned by effective group ID (unsupported on Windows)"),
+        // [GNU] -h
+        OPTION("-h", "", "file is a symbolic link"),
+        // [GNU] -l: file is a symbolic link
+        OPTION("-l", "", "file is a symbolic link"),
+        // [IMPLEMENTED] Windows reparse points provide symbolic-link detection.
+        OPTION("-L", "", "file is a symbolic link"),
+        // [GNU] -k
+        OPTION("-k", "", "file has sticky bit"),
+        // [GNU] -p
+        OPTION("-p", "", "file is a named pipe"),
+        // [GNU] -r
+        OPTION("-r", "", "file is readable"),
+        // [GNU] -s
+        OPTION("-s", "", "file size is non-zero"),
+        // [DIFFERS] Windows sockets are not filesystem socket nodes.
+        OPTION(
+            "-S", "",
+            "file is a socket (unsupported for filesystem paths on Windows)"),
+        // [GNU] -t
+        OPTION("-t", "", "file descriptor is a terminal"),
+        // [GNU] -u
+        OPTION("-u", "", "file has set-user-ID bit"),
+        // [GNU] -w
+        OPTION("-w", "", "file is writable"),
+        // [GNU] -x
+        OPTION("-x", "", "file is executable"),
+        // [DIFFERS] Unix effective user IDs have no direct Windows equivalent.
+        OPTION("-O", "",
+               "file is owned by effective user ID (unsupported on Windows)"),
+        // [GNU] -eq
+        OPTION("-eq", "", "integer equal"),
+        // [GNU] -ne
+        OPTION("-ne", "", "integer not equal"),
+        // [GNU] -lt
+        OPTION("-lt", "", "integer less than"),
+        // [GNU] -le
+        OPTION("-le", "", "integer less than or equal"),
+        // [GNU] -gt
+        OPTION("-gt", "", "integer greater than"),
+        // [GNU] -ge
+        OPTION("-ge", "", "integer greater than or equal"),
+        // [GNU] -a
+        OPTION("-a", "", "logical and"),
+        // [EXT] -and
+        OPTION("-and", "", "logical and"),
+        // [GNU] -o
+        OPTION("-o", "", "logical or"),
+        // [EXT] -or
+        OPTION("-or", "", "logical or"),
+        // [GNU] !
+        OPTION("!", "", "logical not"),
+        // [GNU] =
+        OPTION("=", "", "string equal"),
+        // [GNU] ==
+        OPTION("==", "", "string equal"),
+        // [GNU] !=
+        OPTION("!=", "", "string not equal"),
+        // [GNU] <
+        OPTION("<", "", "string less than"),
+        // [GNU] <=
+        OPTION("<=", "", "string less than or equal"),
+        // [GNU] >
+        OPTION(">", "", "string greater than"),
+        // [GNU] >=
+        OPTION(">=", "", "string greater than or equal")};
 
 namespace bracket_command {
 auto materialize_raw_args(const std::vector<std::string_view>& raw_args)
@@ -114,6 +164,21 @@ auto is_directory(const std::string& path) -> bool {
          (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
+auto is_symbolic_link(const std::string& path) -> bool {
+  DWORD attrs = file_attrs(path);
+  return attrs != INVALID_FILE_ATTRIBUTES &&
+         (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
+
+auto is_modified_since_read(const std::string& path) -> bool {
+  WIN32_FILE_ATTRIBUTE_DATA data;
+  if (!GetFileAttributesExW(utf8_to_wstring(path).c_str(),
+                            GetFileExInfoStandard, &data)) {
+    return false;
+  }
+  return CompareFileTime(&data.ftLastWriteTime, &data.ftLastAccessTime) > 0;
+}
+
 auto file_has_size(const std::string& path) -> bool {
   WIN32_FILE_ATTRIBUTE_DATA data;
   if (!GetFileAttributesExW(utf8_to_wstring(path).c_str(),
@@ -131,8 +196,8 @@ auto string_to_int(const std::string& value, long long& out) -> bool {
 
 auto is_unary_operator(const std::string& op) -> bool {
   static const std::unordered_set<std::string> ops = {
-      "-n", "-z", "-b", "-c", "-d", "-e", "-f", "-g", "-G", "-h", "-L",
-      "-k", "-p", "-r", "-s", "-S", "-t", "-u", "-w", "-x", "-O"};
+      "-n", "-N", "-z", "-b", "-c", "-d", "-e", "-f", "-g", "-G", "-h", "-l",
+      "-L", "-k", "-p", "-r", "-s", "-S", "-t", "-u", "-w", "-x", "-O"};
   return ops.contains(op);
 }
 
@@ -166,6 +231,7 @@ auto compare_integers(const std::string& op, long long a, long long b) -> bool {
 
 auto evaluate_unary(const std::string& op, const std::string& arg) -> int {
   if (op == "-n") return arg.empty() ? 1 : 0;
+  if (op == "-N") return is_modified_since_read(arg) ? 0 : 1;
   if (op == "-z") return arg.empty() ? 0 : 1;
   if (op == "-b") return file_exists(arg) ? 0 : 1;
   if (op == "-c") return file_exists(arg) ? 0 : 1;
@@ -173,13 +239,23 @@ auto evaluate_unary(const std::string& op, const std::string& arg) -> int {
   if (op == "-e") return file_exists(arg) ? 0 : 1;
   if (op == "-f") return is_regular_file(arg) ? 0 : 1;
   if (op == "-g") return 1;
-  if (op == "-G") return 1;
-  if (op == "-h" || op == "-L") return file_exists(arg) ? 0 : 1;
+  if (op == "-G") {
+    safeErrorPrintLn(
+        "test: -G is not supported on Windows (no effective group ID)");
+    return 2;
+  }
+  if (op == "-h" || op == "-l" || op == "-L") {
+    return is_symbolic_link(arg) ? 0 : 1;
+  }
   if (op == "-k") return 1;
   if (op == "-p") return 1;
   if (op == "-r") return file_exists(arg) ? 0 : 1;
   if (op == "-s") return file_has_size(arg) ? 0 : 1;
-  if (op == "-S") return 1;
+  if (op == "-S") {
+    safeErrorPrintLn(
+        "test: -S is not supported for filesystem paths on Windows");
+    return 2;
+  }
   if (op == "-t") return 1;
   if (op == "-u") return 1;
   if (op == "-w") {
@@ -199,7 +275,11 @@ auto evaluate_unary(const std::string& op, const std::string& arg) -> int {
                ? 0
                : 1;
   }
-  if (op == "-O") return 1;
+  if (op == "-O") {
+    safeErrorPrintLn(
+        "test: -O is not supported on Windows (no effective user ID)");
+    return 2;
+  }
   return 2;
 }
 

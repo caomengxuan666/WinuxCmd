@@ -11,18 +11,34 @@ import container;
 // clang-format on
 
 auto constexpr DD_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("if", "", "read from FILE instead of stdin", STRING_TYPE),
+    // [DIFFERS]
     OPTION("of", "", "write to FILE instead of stdout", STRING_TYPE),
+    // [DIFFERS]
     OPTION("ibs", "", "read up to BYTES bytes at a time", STRING_TYPE),
+    // [DIFFERS]
     OPTION("obs", "", "write BYTES bytes at a time", STRING_TYPE),
+    // [DIFFERS]
     OPTION("bs", "", "read and write up to BYTES bytes at a time", STRING_TYPE),
+    // [DIFFERS]
     OPTION("cbs", "", "convert BYTES bytes at a time", STRING_TYPE),
+    // [DIFFERS]
     OPTION("count", "", "copy only N input blocks", STRING_TYPE),
+    // [DIFFERS]
     OPTION("skip", "", "skip N ibs-sized input blocks", STRING_TYPE),
+    // [DIFFERS]
     OPTION("seek", "", "skip N obs-sized output blocks", STRING_TYPE),
+    // [DIFFERS]
     OPTION("conv", "", "convert as per comma-separated symbol list",
            STRING_TYPE),
-    OPTION("status", "", "control diagnostic output", STRING_TYPE)};
+    // [DIFFERS]
+    OPTION("status", "", "control diagnostic output", STRING_TYPE),
+    // [GNU] iflag: read flags
+    OPTION("iflag", "", "read as per comma-separated symbol list", STRING_TYPE),
+    // [GNU] oflag: write flags
+    OPTION("oflag", "", "write as per comma-separated symbol list",
+           STRING_TYPE)};
 
 namespace dd_pipeline {
 
@@ -258,6 +274,58 @@ auto parse_config(const CommandContext<DD_OPTIONS.size()>& ctx, Config& cfg)
         safeErrorPrint("dd: unsupported conv flag '");
         safeErrorPrint(token);
         safeErrorPrint("'\n");
+        return false;
+      }
+    }
+  }
+
+  // [GNU] iflag: read flags (accepted for compatibility; most flags are no-ops
+  // on Windows)
+  auto iflag = ctx.get<std::string>("iflag", "");
+  if (!iflag.empty()) {
+    std::stringstream ss(iflag);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+      if (token == "fullblock") {
+        // fullblock: accumulate full blocks of input - honored conceptually
+      } else if (token.empty()) {
+        continue;
+      } else if (token == "direct" || token == "directory" ||
+                 token == "dsync" || token == "sync" || token == "nonblock" ||
+                 token == "noatime" || token == "nocache" ||
+                 token == "noctty" || token == "nofollow") {
+        // These I/O flags have no direct Windows console equivalent; accepted
+        // silently
+      } else {
+        safeErrorPrint("dd: unsupported iflag flag '");
+        safeErrorPrint(token);
+        safeErrorPrint("' [DIFFERS: not supported on Windows]\n");
+        return false;
+      }
+    }
+  }
+
+  // [GNU] oflag: write flags (accepted for compatibility; most flags are no-ops
+  // on Windows)
+  auto oflag = ctx.get<std::string>("oflag", "");
+  if (!oflag.empty()) {
+    std::stringstream ss(oflag);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+      if (token == "append") {
+        // append mode - could be implemented with Windows FILE_APPEND_DATA
+      } else if (token.empty()) {
+        continue;
+      } else if (token == "direct" || token == "directory" ||
+                 token == "dsync" || token == "sync" || token == "nonblock" ||
+                 token == "noatime" || token == "nocache" ||
+                 token == "noctty" || token == "nofollow") {
+        // These I/O flags have no direct Windows console equivalent; accepted
+        // silently
+      } else {
+        safeErrorPrint("dd: unsupported oflag flag '");
+        safeErrorPrint(token);
+        safeErrorPrint("' [DIFFERS: not supported on Windows]\n");
         return false;
       }
     }

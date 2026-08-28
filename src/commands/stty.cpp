@@ -47,11 +47,15 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr STTY_OPTIONS = std::array{
+    // [DIFFERS] -a, --all
     OPTION("-a", "--all", "print all current settings in human-readable form"),
+    // [DIFFERS] -g, --save
     OPTION("-g", "--save",
            "print all current settings in a stty-readable form"),
+    // [DIFFERS] -F, --file
     OPTION("-F", "--file", "open and use the specified device instead of stdin",
            STRING_TYPE),
+    // [DIFFERS] -echo
     OPTION("-echo", "", "do not echo input characters")};
 
 namespace stty_pipeline {

@@ -152,8 +152,8 @@ TEST(ps, ps_pid_filter_with_custom_format_and_no_headers) {
   const auto pid_text = std::to_string(current_pid);
   p.add(L"ps.exe", {L"-p", pid, L"-o", L"pid,ppid,comm", L"--no-headers"});
 
-  TEST_LOG_CMD_LIST("ps.exe", L"-p", L"<current-pid>", L"-o",
-                    L"pid,ppid,comm", L"--no-headers");
+  TEST_LOG_CMD_LIST("ps.exe", L"-p", L"<current-pid>", L"-o", L"pid,ppid,comm",
+                    L"--no-headers");
 
   auto r = p.run();
 
@@ -189,7 +189,8 @@ TEST(ps, ps_long_pid_and_format_print_common_headers) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_FALSE(r.stdout_text.empty());
-  EXPECT_TRUE(r.stdout_text.find("PID PPID COMMAND COMMAND USER ELAPSED RSS %MEM %CPU") !=
+  EXPECT_TRUE(r.stdout_text.find(
+                  "PID PPID COMMAND COMMAND USER ELAPSED RSS %MEM %CPU") !=
               std::string::npos);
   EXPECT_TRUE(r.stdout_text.find(pid_text) != std::string::npos);
 }
@@ -209,7 +210,8 @@ TEST(ps, ps_format_rejects_unknown_field) {
   TEST_LOG("ps.exe -o pid,unknown_field stderr", r.stderr_text);
 
   EXPECT_NE(r.exit_code, 0);
-  EXPECT_TRUE(r.stderr_text.find("unsupported format field") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.find("unsupported format field") !=
+              std::string::npos);
 }
 
 TEST(ps, ps_invalid_option) {

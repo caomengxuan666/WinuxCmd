@@ -49,21 +49,31 @@ using cmd::meta::OptionType;
 
 // sha1sum uses the same options as md5sum
 auto constexpr SHA1SUM_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-b", "--binary", "read in binary mode (default)", BOOL_TYPE),
+    // [GNU]
     OPTION("-c", "--check", "read SHA1 sums from the FILEs and check them",
            STRING_TYPE),
+    // [GNU]
     OPTION("", "--ignore-missing",
            "don't fail or report status for missing files", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-t", "--text", "read in text mode", BOOL_TYPE),
+    // [GNU]
     OPTION("-q", "--quiet",
            "don't print OK for each successfully verified file", BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--status", "don't output anything, status code shows success",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-w", "--warn", "warn about improperly formatted checksum lines",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--tag", "create a BSD-style checksum", BOOL_TYPE),
+    // [GNU]
     OPTION("-z", "--zero", "end each output line with NUL, not newline",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--strict", "with --check, exit non-zero for any invalid input",
            BOOL_TYPE)};
 

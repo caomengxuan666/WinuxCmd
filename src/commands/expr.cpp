@@ -38,6 +38,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr EXPR_OPTIONS =
+    // [GNU]
     std::array{OPTION("", "", "evaluate expressions", STRING_TYPE)};
 
 namespace {

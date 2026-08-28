@@ -30,7 +30,7 @@ TEST(lsof, lsof_help) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof", L"--help"});
+  p.add(L"lsof.exe", {L"--help"});
 
   auto r = p.run();
 
@@ -44,7 +44,7 @@ TEST(lsof, lsof_basic_runs) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof"});
+  p.add(L"lsof.exe", {});
 
   auto r = p.run();
 
@@ -61,7 +61,7 @@ TEST(lsof, lsof_filter_self_pid) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof", L"--pid", pid_buf, L"--no-headers"});
+  p.add(L"lsof.exe", {L"--pid", pid_buf, L"--no-headers"});
 
   auto r = p.run();
 
@@ -73,7 +73,7 @@ TEST(lsof, lsof_invalid_option) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof", L"--definitely-invalid"});
+  p.add(L"lsof.exe", {L"--definitely-invalid"});
 
   auto r = p.run();
 
@@ -85,7 +85,7 @@ TEST(lsof, lsof_field_mode_runs) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof", L"-F"});
+  p.add(L"lsof.exe", {L"-F"});
 
   auto r = p.run();
 
@@ -97,7 +97,7 @@ TEST(lsof, lsof_internet_filter_runs) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof", L"-i", L"--no-headers"});
+  p.add(L"lsof.exe", {L"-i", L"--no-headers"});
 
   auto r = p.run();
 
@@ -109,7 +109,7 @@ TEST(lsof, lsof_attached_internet_filter_runs) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"winuxcmd.exe", {L"lsof", L"-iTCP:80", L"--no-headers", L"-t", L"50"});
+  p.add(L"lsof.exe", {L"-iTCP:80", L"--no-headers", L"-t", L"50"});
 
   auto r = p.run();
 

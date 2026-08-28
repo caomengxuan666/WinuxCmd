@@ -111,7 +111,7 @@ TEST(cal, cal_monday_first_month) {
   TEST_LOG("cal output", r.stdout_text);
 
   std::string expected;
-  expected += "          March 2024\n";
+  expected += "     March 2024     \n";
   expected += "Mo Tu We Th Fr Sa Su\n";
   expected += "             1  2  3\n";
   expected += " 4  5  6  7  8  9 10\n";

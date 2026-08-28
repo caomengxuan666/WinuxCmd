@@ -519,8 +519,7 @@ export auto format_custom_help(std::string_view name, std::string_view help)
       size_t separator = ascii_separator;
       size_t separator_size = 1;
       if (utf8_separator != std::string_view::npos &&
-          (separator == std::string_view::npos ||
-           utf8_separator < separator)) {
+          (separator == std::string_view::npos || utf8_separator < separator)) {
         separator = utf8_separator;
         separator_size = std::string_view("：").size();
       }

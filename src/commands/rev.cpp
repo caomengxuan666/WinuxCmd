@@ -38,6 +38,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr REV_OPTIONS =
+    // [EXT]
     std::array{OPTION("-0", "--zero", "use the NUL byte as line separator")};
 
 namespace {

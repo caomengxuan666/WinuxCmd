@@ -76,19 +76,50 @@ TEST(pidof, pidof_finds_process_by_name) {
               std::string::npos);
 }
 
-TEST(pidof, pidof_scripts_matches_command_line_token) {
+TEST(pidof, pidof_script_token_is_not_visible_on_windows) {
   auto child = start_sleep_child(L"WINUXCMD_PIDOF_SCRIPT_TOKEN");
   EXPECT_TRUE(child.valid());
   if (!child.valid()) return;
 
   Pipeline p;
-  p.add(L"pidof.exe", {L"-x", L"WINUXCMD_PIDOF_SCRIPT_TOKEN"});
+  p.add(L"pidof.exe", {L"WINUXCMD_PIDOF_SCRIPT_TOKEN"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(pidof, pidof_exact_matches_process_name) {
+  auto child = start_sleep_child(L"WINUXCMD_PIDOF_EXACT_NAME_TOKEN");
+  EXPECT_TRUE(child.valid());
+  if (!child.valid()) return;
+
+  Pipeline p;
+  p.add(L"pidof.exe", {L"--exact", L"powershell"});
 
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stdout_text.find(std::to_string(child.pid())) !=
               std::string::npos);
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
+TEST(pidof, pidof_exact_does_not_match_command_line_token) {
+  auto child = start_sleep_child(L"WINUXCMD_PIDOF_EXACT_TOKEN");
+  EXPECT_TRUE(child.valid());
+  if (!child.valid()) return;
+
+  Pipeline p;
+  p.add(L"pidof.exe", {L"--exact", L"WINUXCMD_PIDOF_EXACT_TOKEN"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stderr_text.empty());
 }
 
 TEST(pidof, pidof_no_match_returns_one) {

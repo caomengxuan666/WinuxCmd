@@ -47,6 +47,7 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr NOHUP_OPTIONS =
+    // [GNU]
     std::array{OPTION("", "", "command to run", STRING_TYPE)};
 
 namespace {

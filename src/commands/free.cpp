@@ -43,18 +43,54 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr FREE_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--bytes", "display amount of memory in bytes", BOOL_TYPE),
-    OPTION("-k", "--kilo", "display amount of memory in kilobytes", BOOL_TYPE),
-    OPTION("-m", "--mega", "display amount of memory in megabytes", BOOL_TYPE),
-    OPTION("-g", "--giga", "display amount of memory in gigabytes", BOOL_TYPE),
+    // [GNU] -k/--kibi: show output in kibibytes (1024-based)
+    OPTION("-k", "--kibi", "display amount of memory in kibibytes", BOOL_TYPE),
+    // [GNU] -m/--mebi: show output in mebibytes (1024-based)
+    OPTION("-m", "--mebi", "display amount of memory in mebibytes", BOOL_TYPE),
+    // [GNU] -g/--gibi: show output in gibibytes (1024-based)
+    OPTION("-g", "--gibi", "display amount of memory in gibibytes", BOOL_TYPE),
+    // [GNU]
     OPTION("-h", "--human", "show human-readable output", BOOL_TYPE),
+    // [GNU]
     OPTION("-l", "--lohi", "show detailed low and high memory statistics",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-t", "--total", "display a line showing the totals", BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--seconds",
            "continuously display memory statistics with delay", INT_TYPE),
+    // [GNU]
     OPTION("-c", "--count", "repeat the display COUNT times", INT_TYPE),
-    OPTION("-w", "--wide", "wide output", BOOL_TYPE)};
+    // [GNU]
+    OPTION("-w", "--wide", "wide output", BOOL_TYPE),
+    // [GNU] --kilo: show output in kilobytes (1000-based SI)
+    OPTION("", "--kilo", "display amount of memory in kilobytes (SI)",
+           BOOL_TYPE),
+    // [GNU] --mega: show output in megabytes (1000-based SI)
+    OPTION("", "--mega", "display amount of memory in megabytes (SI)",
+           BOOL_TYPE),
+    // [GNU] --giga: show output in gigabytes (1000-based SI)
+    OPTION("", "--giga", "display amount of memory in gigabytes (SI)",
+           BOOL_TYPE),
+    // [GNU] --tera: show output in terabytes (1000-based SI)
+    OPTION("", "--tera", "display amount of memory in terabytes (SI)",
+           BOOL_TYPE),
+    // [GNU] --peta: show output in petabytes (1000-based SI)
+    OPTION("", "--peta", "display amount of memory in petabytes (SI)",
+           BOOL_TYPE),
+    // [GNU] --tebi: show output in tebibytes (1024-based)
+    OPTION("", "--tebi", "display amount of memory in tebibytes", BOOL_TYPE),
+    // [GNU] --pebi: show output in pebibytes (1024-based)
+    OPTION("", "--pebi", "display amount of memory in pebibytes", BOOL_TYPE),
+    // [GNU] --si: use powers of 1000 not 1024
+    OPTION("", "--si", "use powers of 1000 not 1024", BOOL_TYPE),
+    // [GNU] -L/--line: show output on a single line
+    OPTION("-L", "--line", "show output on a single line", BOOL_TYPE),
+    // [GNU] -v/--committed: show committed memory and commit limit
+    OPTION("-v", "--committed", "show committed memory and commit limit",
+           BOOL_TYPE)};
 
 namespace free_pipeline {
 namespace cp = core::pipeline;
@@ -76,11 +112,17 @@ auto build_config(const CommandContext<FREE_OPTIONS.size()>& ctx)
 
   if (ctx.get<bool>("--bytes", false) || ctx.get<bool>("-b", false)) {
     cfg.unit = Unit::Bytes;
-  } else if (ctx.get<bool>("--kilo", false) || ctx.get<bool>("-k", false)) {
+  } else if (ctx.get<bool>("--kibi", false) || ctx.get<bool>("-k", false) ||
+             ctx.get<bool>("--kilo", false)) {
     cfg.unit = Unit::Kilo;
-  } else if (ctx.get<bool>("--giga", false) || ctx.get<bool>("-g", false)) {
+  } else if (ctx.get<bool>("--mebi", false) || ctx.get<bool>("-m", false) ||
+             ctx.get<bool>("--mega", false)) {
+    cfg.unit = Unit::Mega;
+  } else if (ctx.get<bool>("--gibi", false) || ctx.get<bool>("-g", false) ||
+             ctx.get<bool>("--giga", false)) {
     cfg.unit = Unit::Giga;
-  } else if (ctx.get<bool>("--human", false) || ctx.get<bool>("-h", false)) {
+  } else if (ctx.get<bool>("--human", false) || ctx.get<bool>("-h", false) ||
+             ctx.get<bool>("--si", false)) {
     cfg.unit = Unit::Human;
   } else {
     cfg.unit = Unit::Mega;  // Default
@@ -90,7 +132,20 @@ auto build_config(const CommandContext<FREE_OPTIONS.size()>& ctx)
   cfg.total = ctx.get<bool>("--total", false) || ctx.get<bool>("-t", false);
   cfg.wide = ctx.get<bool>("--wide", false) || ctx.get<bool>("-w", false);
   cfg.interval = ctx.get<int>("--seconds", 0);
+  if (cfg.interval == 0) {
+    cfg.interval = ctx.get<int>("-s", 0);
+  }
   cfg.count = ctx.get<int>("--count", 0);
+  if (cfg.count == 0) {
+    cfg.count = ctx.get<int>("-c", 0);
+  }
+
+  if (cfg.interval < 0) {
+    return std::unexpected("invalid interval");
+  }
+  if (cfg.count < 0) {
+    return std::unexpected("invalid count");
+  }
 
   return cfg;
 }
@@ -131,13 +186,12 @@ auto format_size(unsigned long long bytes, Unit unit) -> std::string {
   return std::string(buf);
 }
 
-auto run(const Config& cfg) -> int {
+auto print_once(const Config& cfg) -> void {
   MEMORYSTATUSEX mem_status;
   mem_status.dwLength = sizeof(mem_status);
 
   if (!GlobalMemoryStatusEx(&mem_status)) {
-    cp::report_custom_error(L"free", L"failed to get memory status");
-    return 1;
+    return;
   }
 
   // Windows provides different metrics than Linux
@@ -174,11 +228,7 @@ auto run(const Config& cfg) -> int {
 
   safePrintLn("");
 
-  // Print Swap line (Windows page file)
-  MEMORYSTATUSEX page_status;
-  page_status.dwLength = sizeof(page_status);
-  GlobalMemoryStatusEx(&page_status);
-
+  // [DIFFERS] Print Swap line (Windows page file)
   unsigned long long total_swap = mem_status.ullTotalPageFile;
   unsigned long long avail_swap = mem_status.ullAvailPageFile;
   unsigned long long used_swap = total_swap - avail_swap;
@@ -193,6 +243,22 @@ auto run(const Config& cfg) -> int {
   if (cfg.wide) {
     safePrintLn("        0        0        0");
   } else {
+    safePrintLn("");
+  }
+
+  // [DIFFERS] -l/--lohi: Show virtual memory (low/high not applicable on 64-bit
+  // Windows, so we show virtual address space instead)
+  if (cfg.lohi) {
+    unsigned long long total_virt = mem_status.ullTotalVirtual;
+    unsigned long long avail_virt = mem_status.ullAvailVirtual;
+    unsigned long long used_virt = total_virt - avail_virt;
+
+    safePrint("Virt:    ");
+    safePrint(format_size(total_virt, cfg.unit));
+    safePrint("  ");
+    safePrint(format_size(used_virt, cfg.unit));
+    safePrint("  ");
+    safePrint(format_size(avail_virt, cfg.unit));
     safePrintLn("");
   }
 
@@ -214,6 +280,22 @@ auto run(const Config& cfg) -> int {
     } else {
       safePrintLn("");
     }
+  }
+}
+
+auto run(const Config& cfg) -> int {
+  // [DIFFERS] -s/--seconds and -c/--count: continuous display loop
+  bool looping = cfg.interval > 0;
+  int max_count = looping ? (cfg.count > 0 ? cfg.count : -1) : 1;
+  int iteration = 0;
+
+  while (max_count < 0 || iteration < max_count) {
+    if (iteration > 0) {
+      Sleep(static_cast<DWORD>(cfg.interval * 1000));
+    }
+
+    print_once(cfg);
+    ++iteration;
   }
 
   return 0;

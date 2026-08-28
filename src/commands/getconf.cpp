@@ -42,7 +42,12 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr GETCONF_OPTIONS =
+    // [GNU]
     std::array{OPTION("-a", "--all", "display all configuration variables"),
+               // [GNU] -v SPEC: give values for compilation environment SPEC
+               OPTION("-v", "", "give values for compilation environment SPEC",
+                      STRING_TYPE),
+               // [GNU]
                OPTION("", "", "get system configuration values", STRING_TYPE)};
 
 REGISTER_COMMAND(
@@ -51,14 +56,16 @@ REGISTER_COMMAND(
     "getconf",
 
     /* synopsis */
-    "getconf [OPTION]... [VARIABLE_NAME]...",
+    "getconf [OPTION]... [VARIABLE_NAME]...\n"
+    "getconf [OPTION]... PATH_VAR PATH",
     "Display configuration variable values.\n"
     "\n"
     "If no VARIABLE_NAME is specified, display system-dependent limit values.\n"
     "On Windows, this provides limited system configuration information.\n"
     "\n"
     "Options:\n"
-    "  -a, --all  display all configuration variables",
+    "  -a, --all  display all configuration variables\n"
+    "  -v SPEC    give values for compilation environment SPEC",
     "  getconf\n"
     "  getconf PATH_MAX\n"
     "  getconf -a",
@@ -68,6 +75,11 @@ REGISTER_COMMAND(
   namespace cp = core::pipeline;
 
   bool all = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
+
+  // [GNU] -v SPEC: give values for compilation environment SPEC
+  // On Windows, compilation environment SPEC is not applicable
+  // Accept the option but ignore the SPEC value for compatibility
+  (void)ctx.get<std::string>("-v", "");
 
   SYSTEM_INFO sysInfo;
   GetSystemInfo(&sysInfo);

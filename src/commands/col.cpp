@@ -42,10 +42,15 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr COL_OPTIONS = std::array{
+    // [EXT]
     OPTION("-b", "", "do not output backspaces"),
+    // [EXT]
     OPTION("-f", "", "permit forward half line feeds"),
+    // [EXT]
     OPTION("-p", "", "pass unknown control sequences"),
+    // [EXT]
     OPTION("-x", "", "output spaces instead of tabs"),
+    // [EXT]
     OPTION("-l", "", "buffer at least NUM lines (default 128)", STRING_TYPE)};
 
 namespace col_pipeline {

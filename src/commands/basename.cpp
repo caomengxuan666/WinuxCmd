@@ -43,14 +43,20 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr BASENAME_OPTIONS = std::array{
+    // [GNU]
     OPTION("-a", "--multiple",
            "support multiple arguments and treat each as a NAME", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--mul", "alias for --multiple", BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--suffix", "remove a trailing SUFFIX; implies -a",
            STRING_TYPE),
+    // [GNU]
     OPTION("", "--suf", "alias for --suffix", STRING_TYPE),
+    // [GNU]
     OPTION("-z", "--zero", "end each output line with NUL, not newline",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--ze", "alias for --zero", BOOL_TYPE)};
 
 namespace basename_pipeline {

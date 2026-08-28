@@ -45,10 +45,15 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr DIFF3_OPTIONS =
+    // [GNU]
     std::array{OPTION("-e", "", "output ed script"),
+               // [GNU]
                OPTION("-E", "", "output ed script with bracketed conflicts"),
+               // [GNU]
                OPTION("-m", "", "output in merged format"),
+               // [GNU]
                OPTION("-A", "", "like -E, but overwrite overlapping changes"),
+               // [GNU]
                OPTION("-a", "", "treat all files as text")};
 
 // ======================================================

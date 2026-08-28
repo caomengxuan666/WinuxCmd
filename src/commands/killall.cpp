@@ -34,21 +34,31 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr KILLALL_OPTIONS = std::array{
+    // [EXT]
     OPTION("-e", "--exact", "require an exact process-name match"),
+    // [EXT]
     OPTION("-I", "--ignore-case", "match case insensitively"),
+    // [EXT]
     OPTION("-q", "--quiet", "do not complain if no processes were killed"),
+    // [EXT]
     OPTION("-v", "--verbose", "report successful signals"),
+    // [EXT]
     OPTION("-0", "", "only check for matching processes"),
+    // [GNU] Signal spellings forward to the Win32 termination operation.
     OPTION("-9", "", "send SIGKILL; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-TERM", "", "send SIGTERM; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-SIGTERM", "", "send SIGTERM; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-KILL", "", "send SIGKILL; mapped to Win32 termination"),
+    // [EXT]
     OPTION("-SIGKILL", "", "send SIGKILL; mapped to Win32 termination")};
 
 namespace killall_pipeline {
 
 struct Config {
-  bool exact = true;
+  bool exact = false;
   bool ignore_case = false;
   bool quiet = false;
   bool verbose = false;

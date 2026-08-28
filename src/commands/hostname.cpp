@@ -47,20 +47,32 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr HOSTNAME_OPTIONS = std::array{
+    // [GNU] -b, --boot: set default hostname if none available
+    OPTION("-b", "--boot", "set default hostname if none available", BOOL_TYPE),
+    // [EXT]
     OPTION("-i", "--ip-address", "addresses for the hostname", BOOL_TYPE),
+    // [EXT]
     OPTION("-I", "--all-ip-addresses", "all addresses for the hostname",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-s", "--short", "short host name", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-f", "--fqdn", "long host name (FQDN)", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-a", "--alias", "host alias names (not supported on Windows)",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-A", "--all-fqdns",
            "all FQDNs of the host (not supported on Windows)", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-d", "--domain", "DNS domain name", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-F", "--file", "read host name or NIS domain name from FILE",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("-y", "--yp", "NIS/YP domain name (not supported on Windows)",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-n", "--node", "network node hostname (not supported on Windows)",
            BOOL_TYPE)};
 
@@ -73,6 +85,7 @@ struct Config {
   bool short_name = false;
   bool fqdn = false;
   bool domain = false;
+  bool node = false;
   std::string file;
 };
 
@@ -87,10 +100,26 @@ auto build_config(const CommandContext<HOSTNAME_OPTIONS.size()>& ctx)
       ctx.get<bool>("--short", false) || ctx.get<bool>("-s", false);
   cfg.fqdn = ctx.get<bool>("--fqdn", false) || ctx.get<bool>("-f", false);
   cfg.domain = ctx.get<bool>("--domain", false) || ctx.get<bool>("-d", false);
+  cfg.node = ctx.get<bool>("--node", false) || ctx.get<bool>("-n", false);
   auto file_opt = ctx.get<std::string>("--file", "");
   if (!file_opt.empty()) {
     cfg.file = file_opt;
   }
+
+  // [DIFFERS] -a/--alias: host alias names not supported on Windows
+  if (ctx.get<bool>("--alias", false) || ctx.get<bool>("-a", false)) {
+    return std::unexpected("host alias names are not supported on Windows");
+  }
+  // [DIFFERS] -A/--all-fqdns: all FQDNs not supported on Windows
+  if (ctx.get<bool>("--all-fqdns", false) || ctx.get<bool>("-A", false)) {
+    return std::unexpected(
+        "all FQDNs of the host are not supported on Windows");
+  }
+  // [DIFFERS] -y/--yp: NIS/YP domain name not supported on Windows
+  if (ctx.get<bool>("--yp", false) || ctx.get<bool>("-y", false)) {
+    return std::unexpected("NIS/YP domain name is not supported on Windows");
+  }
+
   return cfg;
 }
 
@@ -155,6 +184,9 @@ auto run(const Config& cfg) -> int {
       safePrintLn("(none)");
     }
   } else if (cfg.fqdn) {
+    safePrintLn(hostname);
+  } else if (cfg.node) {
+    // [DIFFERS] -n/--node: on Windows, node hostname is the same as hostname
     safePrintLn(hostname);
   } else if (cfg.short_name) {
     // Print only the short name (first part before dot)

@@ -35,6 +35,9 @@ import utils;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
+// [GNU] --ignore-fail-on-non-empty: matches GNU coreutils rmdir
+// [GNU] -p, --parents: matches GNU coreutils rmdir
+// [GNU] -v, --verbose: matches GNU coreutils rmdir
 auto constexpr RMDIR_OPTIONS =
     std::array{OPTION("", "--ignore-fail-on-non-empty",
                       "ignore each failure to remove a non-empty directory"),

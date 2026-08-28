@@ -38,7 +38,9 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MKGROUP_OPTIONS = std::array{
+    // [EXT]
     OPTION("-c", "--current", "print groups from the current process token"),
+    // [EXT]
     OPTION("-l", "--local", "enumerate local machine groups (default)")};
 
 namespace mkgroup_pipeline {

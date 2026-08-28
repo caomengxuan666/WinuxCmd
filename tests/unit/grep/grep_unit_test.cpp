@@ -1040,6 +1040,27 @@ TEST(grep, grep_line_regexp) {
   EXPECT_EQ_TEXT(r.stdout_text, "needle\n");
 }
 
+TEST(grep, grep_perl_regexp_requires_pcre2_when_disabled) {
+  TempDir tmp;
+  tmp.write("a.txt", "123\n");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"grep.exe", {L"-P", L"\\d+", L"a.txt"});
+
+  auto r = p.run();
+#ifdef WINUXCMD_ENABLE_PCRE2
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "123\n");
+#else
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stdout_text, "");
+  EXPECT_NE(r.stderr_text.find("requires PCRE2 support in this build"),
+            std::string::npos);
+#endif
+}
+
+#ifdef WINUXCMD_ENABLE_PCRE2
 TEST(grep, grep_perl_regexp_supports_lookahead_and_ascii_digits) {
   TempDir tmp;
   tmp.write("a.txt", "ab\nac\n123\nd\n");
@@ -1099,6 +1120,7 @@ TEST(grep, grep_perl_backslash_d_differs_from_extended_regex) {
   EXPECT_EQ(extended_result.exit_code, 0);
   EXPECT_EQ_TEXT(extended_result.stdout_text, "2:d\n");
 }
+#endif
 
 TEST(grep, grep_devices_action_accepts_read_and_skip) {
   TempDir tmp;

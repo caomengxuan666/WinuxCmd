@@ -61,19 +61,38 @@ using cmd::meta::OptionType;
  * - @a +FORMAT: Output formatted date string [IMPLEMENTED]
  */
 auto constexpr DATE_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-d", "--date", "display time described by STRING, not 'now'",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("-u", "--utc", "Coordinated Universal Time (UTC)"),
+    // [DIFFERS]
     OPTION("-R", "--rfc-email", "output RFC 5322 compliant date string"),
+    // [DIFFERS]
     OPTION("", "--rfc-2822", "output RFC 2822 compliant date string"),
+    // [DIFFERS]
     OPTION("-I", "--iso-8601", "output ISO 8601 date/time",
            OPTIONAL_STRING_TYPE),
+    // [DIFFERS]
     OPTION("", "--rfc-3339", "output RFC 3339 date/time", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-r", "--reference", "display the last modification time of FILE",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("-f", "--file", "display date strings from DATEFILE, one per line",
            STRING_TYPE),
-    OPTION("", "--universal", "alias for --utc")};
+    // [DIFFERS]
+    OPTION("", "--universal", "alias for --utc"),
+    // [GNU] --debug: annotate the parsed date, and warn about dubious usage
+    OPTION("", "--debug",
+           "annotate the parsed date, and warn about dubious usage to stderr"),
+    // [GNU] --resolution: output the available resolution of timestamps
+    OPTION("", "--resolution", "output the available resolution of timestamps"),
+    // [GNU] --set: set time described by STRING
+    OPTION("", "--set", "set time described by STRING", STRING_TYPE),
+    // [DIFFERS] GNU: -s, --set=STRING; WinuxCmd: -s and --set are separate
+    // entries
+    OPTION("-s", "", "set time described by STRING", STRING_TYPE)};
 
 namespace date_pipeline {
 namespace cp = core::pipeline;
@@ -644,7 +663,35 @@ REGISTER_COMMAND(
     "cal(1)", "caomengxuan666", "Copyright © 2026 WinuxCmd", DATE_OPTIONS) {
   using namespace date_pipeline;
 
-  bool use_utc = ctx.get<bool>("-u", false) || ctx.get<bool>("--utc", false);
+  if (ctx.has("--set") || ctx.has("-s")) {
+    std::string set_arg = ctx.get<std::string>("--set", "");
+    if (set_arg.empty()) set_arg = ctx.get<std::string>("-s", "");
+    auto parsed = parse_date_argument(set_arg);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(set_arg);
+      safeErrorPrintLn("'");
+      return 1;
+    }
+
+    SYSTEMTIME utc{};
+    if (!FileTimeToSystemTime(&*parsed, &utc) || !SetSystemTime(&utc)) {
+      safeErrorPrintLn(
+          "date: cannot set system time (administrator privileges required)");
+      return 1;
+    }
+    return 0;
+  }
+
+  if (ctx.has("--resolution")) {
+    // FILETIME timestamps have a fixed 100 ns resolution on Windows.
+    safePrintLn("100ns");
+    return 0;
+  }
+
+  // [GNU] --universal: alias for --utc
+  bool use_utc = ctx.get<bool>("-u", false) || ctx.get<bool>("--utc", false) ||
+                 ctx.get<bool>("--universal", false);
   bool rfc2822 = ctx.get<bool>("-R", false) ||
                  ctx.get<bool>("--rfc-email", false) ||
                  ctx.get<bool>("--rfc-2822", false);
@@ -674,6 +721,10 @@ REGISTER_COMMAND(
       return 1;
     }
     selected_time = *parsed;
+    if (ctx.has("--debug")) {
+      safeErrorPrint("date: parsed date ");
+      safeErrorPrintLn(date_arg);
+    }
   } else if (reference_path.empty()) {
     GetSystemTimeAsFileTime(&selected_time);
   }
@@ -721,6 +772,40 @@ REGISTER_COMMAND(
       return 1;
     }
     format = *rfc3339_format;
+  }
+
+  // [GNU] -f/--file: display date strings from DATEFILE, one per line
+  std::string date_file = ctx.get<std::string>("--file", "");
+  if (date_file.empty()) date_file = ctx.get<std::string>("-f", "");
+  if (!date_file.empty()) {
+    std::ifstream ifs(date_file);
+    if (!ifs) {
+      safeErrorPrint("date: cannot open '");
+      safeErrorPrint(date_file);
+      safeErrorPrintLn("'");
+      return 1;
+    }
+    std::string line;
+    bool first = true;
+    while (std::getline(ifs, line)) {
+      auto parsed = parse_date_argument(line);
+      if (!parsed) {
+        safeErrorPrint("date: invalid date '");
+        safeErrorPrint(line);
+        safeErrorPrintLn("'");
+        return 1;
+      }
+      auto file_tv = make_time_value(*parsed, use_utc);
+      if (!file_tv) {
+        safeErrorPrintLn("date: failed to convert time");
+        return 1;
+      }
+      if (!first) safePrint("\n");
+      first = false;
+      safePrint(format_time(*file_tv, format));
+    }
+    safePrint("\n");
+    return 0;
   }
 
   std::string output = format_time(*tv, format);

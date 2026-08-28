@@ -43,25 +43,36 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr NL_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--body-numbering", "use STYLE for numbering body lines",
            STRING_TYPE),
+    // [GNU]
     OPTION("-d", "--section-delimiter", "use CC for logical page delimiters",
            STRING_TYPE),
+    // [GNU]
     OPTION("-f", "--footer-numbering", "use STYLE for numbering footer lines",
            STRING_TYPE),
+    // [GNU]
     OPTION("-h", "--header-numbering", "use STYLE for numbering header lines",
            STRING_TYPE),
+    // [GNU]
     OPTION("-i", "--line-increment", "line number increment at each line",
            STRING_TYPE),
+    // [GNU]
     OPTION("-l", "--join-blank-lines",
            "group NUMBER empty lines as one numbered line", STRING_TYPE),
+    // [GNU]
     OPTION("-n", "--number-format", "use FORMAT for line numbers", STRING_TYPE),
+    // [GNU]
     OPTION("-p", "--no-renumber", "do not reset line numbers at logical pages",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--number-separator",
            "add STRING after (possible) line number", STRING_TYPE),
+    // [GNU]
     OPTION("-v", "--starting-line-number",
            "first line number on each logical page", STRING_TYPE),
+    // [GNU]
     OPTION("-w", "--number-width", "width of line numbers", STRING_TYPE)};
 
 namespace nl_pipeline {

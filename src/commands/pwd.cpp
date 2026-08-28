@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright  2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,8 +62,10 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr PWD_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-L", "--logical",
            "use PWD from environment when it names the current directory"),
+    // [DIFFERS]
     OPTION("-P", "--physical", "avoid all symlinks")};
 
 // ======================================================

@@ -34,8 +34,15 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr RENICE_OPTIONS =
-    std::array{OPTION("-n", "--priority", "set niceness value", STRING_TYPE),
-               OPTION("-p", "--pid", "interpret operands as process IDs")};
+    // [EXT]
+    std::array{
+        OPTION("-n", "--priority", "set niceness value", STRING_TYPE),
+        // [EXT]
+        OPTION("-p", "--pid", "interpret operands as process IDs"),
+        // [DIFFERS] GNU renice: process group; not supported on Windows
+        OPTION("-g", "--pgrp", "interpret operands as process group IDs"),
+        // [DIFFERS] GNU renice: user-based renice; not supported on Windows
+        OPTION("-u", "--user", "interpret operands as usernames or UIDs")};
 
 namespace renice_pipeline {
 
@@ -49,6 +56,25 @@ auto parse_int(std::string_view text) -> std::optional<int> {
 }
 
 auto run(const CommandContext<RENICE_OPTIONS.size()>& ctx) -> int {
+  // [DIFFERS] -g/--pgrp: GNU renice supports process group IDs; not available
+  // on Windows
+  if (ctx.has("-g") || ctx.has("--pgrp")) {
+    safeErrorPrintLn(
+        "renice: process group IDs (-g/--pgrp) are not supported on Windows "
+        "[DIFFERS from GNU renice]");
+    return 1;
+  }
+  // [DIFFERS] -u/--user: GNU renice supports user-based renice; not available
+  // on Windows
+  if (ctx.has("-u") || ctx.has("--user")) {
+    safeErrorPrintLn(
+        "renice: user-based renice (-u/--user) is not supported on Windows "
+        "[DIFFERS from GNU renice]");
+    return 1;
+  }
+
+  // -p/--pid: always interpreted as process IDs on Windows
+  (void)ctx.get<bool>("-p", false);
   std::string priority_text = ctx.get<std::string>("-n", "");
   if (priority_text.empty()) {
     priority_text = ctx.get<std::string>("--priority", "");
@@ -118,13 +144,15 @@ auto run(const CommandContext<RENICE_OPTIONS.size()>& ctx) -> int {
 
 }  // namespace renice_pipeline
 
-REGISTER_COMMAND(renice, "renice", "renice [-n] PRIORITY [-p] PID...",
-                 "Alter the scheduling priority of running processes.\n"
-                 "Windows priority classes are mapped to Unix-like niceness "
-                 "values from -20 to 19.",
-                 "  renice 10 -p 1234\n"
-                 "  renice -n 0 1234",
-                 "nice(1), ps(1), pgrep(1)", "WinuxCmd",
-                 "Copyright © 2026 WinuxCmd", RENICE_OPTIONS) {
+REGISTER_COMMAND(
+    renice, "renice",
+    "renice [-n] PRIORITY [-p] PID...  # also: -g PGRP, -u USER [DIFFERS]",
+    "Alter the scheduling priority of running processes.\n"
+    "Windows priority classes are mapped to Unix-like niceness "
+    "values from -20 to 19.",
+    "  renice 10 -p 1234\n"
+    "  renice -n 0 1234",
+    "nice(1), ps(1), pgrep(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
+    RENICE_OPTIONS) {
   return renice_pipeline::run(ctx);
 }

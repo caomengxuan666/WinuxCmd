@@ -43,47 +43,83 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PR_OPTIONS = std::array{
+    // [GNU]
     OPTION("+PAGE", "", "begin printing with page PAGE [default 1]",
            STRING_TYPE),
+    // [GNU]
     OPTION("-COLUMN", "", "produce COLUMN-column output", STRING_TYPE),
+    // [GNU]
     OPTION("-a", "", "produce multi-column output", BOOL_TYPE),
+    // [GNU]
     OPTION("-d", "", "double-space the output", BOOL_TYPE),
+    // [GNU]
     OPTION("-e", "--expand", "expand input TABs", STRING_TYPE),
+    // [GNU]
     OPTION("-f", "--form-feed", "use form feeds instead of newlines",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-h", "--header", "use a centered HEADER", STRING_TYPE),
+    // [GNU]
     OPTION("-l", "--length", "set page length", STRING_TYPE),
+    // [GNU]
     OPTION("-n", "--number-lines", "number lines", STRING_TYPE),
+    // [GNU]
     OPTION("-o", "--indent", "offset each line", STRING_TYPE),
+    // [GNU]
     OPTION("-r", "--no-file-warnings",
            "omit warning when a file cannot be opened", BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--separator", "separate columns by characters", STRING_TYPE),
+    // [GNU]
     OPTION("-t", "--omit-header", "omit page headers and trailers", BOOL_TYPE),
+    // [GNU]
     OPTION("-T", "--omit-pagination", "omit page headers and trailers",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-w", "--width", "set page width", STRING_TYPE),
+    // [GNU]
     OPTION("-W", "--page-width", "set page width (default 72)", STRING_TYPE),
+    // [GNU]
     OPTION("-b", "--balance-columns", "balance columns on the last page",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-c", "--show-control-chars",
            "use hat notation (^G) and octal backslash notation", BOOL_TYPE),
+    // [GNU]
     OPTION("-D", "--date-format", "use FORMAT for the date in the header",
            STRING_TYPE),
+    // [GNU]
     OPTION("-F", "-f", "use form feeds instead of newlines (same as -f)",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-i", "--output-tabs", "replace spaces with TABs where possible",
            STRING_TYPE),
+    // [GNU]
     OPTION("-J", "--join-lines", "merge full lines (ignore --column warnings)",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-m", "--merge", "print all files in parallel, one in each column",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-N", "--first-line-number",
            "start counting with NUMBER at line 1 of first page", STRING_TYPE),
+    // [GNU]
     OPTION("-S", "--sep-string",
            "separate columns by STRING (default single space)", STRING_TYPE),
+    // [GNU]
     OPTION("-v", "--show-nonprinting",
            "use octal backslash notation for non-printing characters",
-           BOOL_TYPE)};
+           BOOL_TYPE),
+    // [GNU]
+    OPTION("", "--across", "print across pages", BOOL_TYPE),
+    // [GNU]
+    OPTION("", "--columns", "output COLUMN-column output", STRING_TYPE),
+    // [GNU]
+    OPTION("", "--double-space", "double-space the output", BOOL_TYPE),
+    // [GNU]
+    OPTION("", "--expand-tabs", "expand input TABs", STRING_TYPE),
+    // [GNU]
+    OPTION("", "--pages", "begin printing with page PAGE", STRING_TYPE)};
 
 namespace pr_pipeline {
 namespace cp = core::pipeline;
@@ -143,7 +179,13 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     }
   }
 
-  cfg.double_space = ctx.get<bool>("-d", false);
+  // [GNU] --double-space is the long-name alias of -d.
+  cfg.double_space =
+      ctx.get<bool>("-d", false) || ctx.get<bool>("--double-space", false);
+  // [GNU] --across requests multi-column output like -a.
+  const bool across =
+      ctx.get<bool>("--across", false) || ctx.get<bool>("-a", false);
+  if (across && cfg.columns == 1) cfg.columns = 2;
   cfg.form_feed =
       ctx.get<bool>("--form-feed", false) || ctx.get<bool>("-f", false);
   cfg.no_file_warnings =
@@ -154,6 +196,9 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
       ctx.get<bool>("--omit-pagination", false) || ctx.get<bool>("-T", false);
 
   auto expand_opt = ctx.get<std::string>("--expand", "");
+  if (expand_opt.empty()) {
+    expand_opt = ctx.get<std::string>("--expand-tabs", "");
+  }
   if (expand_opt.empty()) {
     expand_opt = ctx.get<std::string>("-e", "");
   }
@@ -215,7 +260,10 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     }
   }
 
-  auto col_opt = ctx.get<std::string>("-COLUMN", "");
+  auto col_opt = ctx.get<std::string>("--columns", "");
+  if (col_opt.empty()) {
+    col_opt = ctx.get<std::string>("-COLUMN", "");
+  }
   if (!col_opt.empty()) {
     try {
       cfg.columns = std::stoi(col_opt);
@@ -266,7 +314,18 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     cfg.form_feed = true;
   }
 
+  // [GNU] --pages is the long form of +PAGE.
+  auto pages_opt = ctx.get<std::string>("--pages", "");
+  if (!pages_opt.empty()) {
+    try {
+      cfg.start_page = std::stoi(pages_opt);
+    } catch (...) {
+      return std::unexpected("invalid page number");
+    }
+  }
+
   auto pwidth_opt = ctx.get<std::string>("--page-width", "");
+  if (pwidth_opt.empty()) pwidth_opt = ctx.get<std::string>("-W", "");
   if (!pwidth_opt.empty()) {
     try {
       cfg.page_width = std::stoi(pwidth_opt);

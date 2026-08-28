@@ -42,6 +42,8 @@ import container;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
+// [GNU] -z, --zero: matches GNU coreutils dirname
+// [GNU] -z, --zero: separate output with NUL rather than newline
 auto constexpr DIRNAME_OPTIONS = std::array{OPTION(
     "-z", "--zero", "separate output with NUL rather than newline", BOOL_TYPE)};
 
