@@ -12,11 +12,16 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr RUNCON_OPTIONS = std::array{
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-c", "--compute",
            "compute process transition context before modifying"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-u", "--user", "set user component of the context", STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-r", "--role", "set role component of the context", STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-t", "--type", "set type component of the context", STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-l", "--range", "set range component of the context", STRING_TYPE),
 };
 
@@ -41,7 +46,8 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
 
   if (cfg.has_custom_context) {
     if (ctx.positionals.empty()) {
-      return std::unexpected("no command specified");
+      return std::unexpected(winux::i18n::translate(
+          "command.runcon.error.no_command", "no command specified"));
     }
     cfg.command = std::string(ctx.positionals[0]);
     return cfg;
@@ -55,7 +61,8 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
   cfg.context = std::string(ctx.positionals[0]);
 
   if (ctx.positionals.size() < 2) {
-    return std::unexpected("no command specified");
+    return std::unexpected(winux::i18n::translate(
+        "command.runcon.error.no_command", "no command specified"));
   }
 
   cfg.command = std::string(ctx.positionals[1]);
@@ -63,13 +70,10 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  if (!cfg.has_plain_context && !cfg.has_custom_context) {
-    safeErrorPrint("runcon: failed to get current context: Not supported\n");
-    return 1;
-  }
-
-  safeErrorPrint("runcon: SELinux process contexts are not supported on ");
-  safeErrorPrint("Windows\n");
+  (void)cfg;
+  safeErrorPrintLn(winux::i18n::translate(
+      "command.runcon.error.unsupported",
+      "runcon: SELinux process contexts are not supported on Windows"));
   return 1;
 }
 
@@ -85,7 +89,7 @@ REGISTER_COMMAND(
     "WinuxCmd accepts the GNU-compatible command line surface for runcon, but\n"
     "Windows does not provide SELinux process contexts. This command "
     "therefore\n"
-    "acts as a compatibility placeholder and reports that the operation is "
+    "acts as a compatibility command and reports that the operation is "
     "not\n"
     "supported on Windows.",
     "  runcon system_u:system_r:httpd_t:s0 cmd.exe /c echo hi\n"
@@ -97,11 +101,10 @@ REGISTER_COMMAND(
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {
     safeErrorPrint("runcon: ");
-    safeErrorPrint(cfg_result.error());
+    safeErrorPrint(winux::i18n::translate_error(cfg_result.error()));
     safeErrorPrint("\n");
-    if (cfg_result.error() == "no command specified") {
-      safeErrorPrint("Try 'runcon --help' for more information.\n");
-    }
+    safeErrorPrintLn(winux::i18n::format(
+        "common.try_help", "Try '{} --help' for more information.", "runcon"));
     return 1;
   }
 

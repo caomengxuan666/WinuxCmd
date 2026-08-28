@@ -12,8 +12,11 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CHROOT_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("", "--groups", "specify supplementary groups", STRING_TYPE),
+    // [DIFFERS]
     OPTION("", "--userspec", "specify user and group", STRING_TYPE),
+    // [DIFFERS]
     OPTION("", "--skip-chdir", "do not change working directory to '/'"),
 };
 

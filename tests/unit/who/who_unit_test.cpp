@@ -79,8 +79,9 @@ TEST(who, who_all) {
   p.add(L"who.exe", {L"-a"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // Should show all information
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }
 
 TEST(who, who_boot) {
@@ -88,8 +89,9 @@ TEST(who, who_boot) {
   p.add(L"who.exe", {L"-b"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // Should show last boot time
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }
 
 TEST(who, who_dead) {
@@ -97,8 +99,9 @@ TEST(who, who_dead) {
   p.add(L"who.exe", {L"-d"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // Should show dead processes
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }
 
 TEST(who, who_login) {
@@ -106,8 +109,9 @@ TEST(who, who_login) {
   p.add(L"who.exe", {L"-l"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // Should show login processes
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }
 
 TEST(who, who_process) {
@@ -115,8 +119,9 @@ TEST(who, who_process) {
   p.add(L"who.exe", {L"-p"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // Should show active processes
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }
 
 TEST(who, who_runlevel) {
@@ -124,8 +129,9 @@ TEST(who, who_runlevel) {
   p.add(L"who.exe", {L"-r"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // Should show current runlevel
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }
 
 TEST(who, who_message) {
@@ -146,11 +152,23 @@ TEST(who, who_writable) {
   // Should show writable status
 }
 
+TEST(who, who_message_long) {
+  Pipeline p;
+  p.add(L"who.exe", {L"--message"});
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+  EXPECT_TRUE(r.stdout_text.find(" + ") != std::string::npos);
+  EXPECT_TRUE(r.stderr_text.empty());
+}
+
 TEST(who, who_lookup) {
   Pipeline p;
   p.add(L"who.exe", {L"--lookup"});
   auto r = p.run();
 
-  EXPECT_EQ(r.exit_code, 0);
-  // --lookup is no-op on Windows but should be accepted
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "not supported on Windows");
 }

@@ -3,6 +3,13 @@ project(winuxcmd-tests)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+# The top-level CMakeLists.txt strips /EHc and /EHsc from CMAKE_CXX_FLAGS to
+# disable exception handling in the main winuxcmd binary (compiled with /GS-).
+# Tests rely on C++ exceptions (Pipeline::run() throws std::runtime_error), so
+# we must re-enable /EHsc for all test targets.  Without it, an unhandled
+# throw triggers std::terminate → abort → STATUS_STACK_BUFFER_OVERRUN (0xc0000409).
+add_compile_options(/EHsc)
+
 file(GLOB WINUX_TEST_FRAMEWORK_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/framework/*.cpp"
 )
@@ -34,8 +41,9 @@ target_include_directories(test_main
 )
 
 # Use absolute path for WINUXCMD_BIN_DIR to ensure tests work correctly
-# regardless of the current working directory
-file(REAL_PATH "${CMAKE_BINARY_DIR}" WINUXCMD_BIN_DIR_ABSOLUTE)
+# regardless of the current working directory.  Command links are installed
+# under usr/bin/ by 'wpm links rebuild', so point there.
+file(REAL_PATH "${CMAKE_BINARY_DIR}/usr/bin" WINUXCMD_BIN_DIR_ABSOLUTE)
 set(WINUXCMD_BIN_DIR "${WINUXCMD_BIN_DIR_ABSOLUTE}")
 target_compile_definitions(winux-test
         PUBLIC
@@ -64,6 +72,10 @@ else()
     )
 
     target_link_libraries(winuxcmd-tests PRIVATE winux-test test_main)
+
+    if(WINUXCMD_ENABLE_PCRE2)
+        target_compile_definitions(winuxcmd-tests PRIVATE WINUXCMD_ENABLE_PCRE2)
+    endif()
     
     target_include_directories(winuxcmd-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_precompile_headers(winuxcmd-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/framework/framework_pch.h)

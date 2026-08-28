@@ -207,9 +207,10 @@ TEST(diff3, diff3_ed_script_applies_non_overlapping_yours_change) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "1c\n"
-                                "yours\n"
-                                ".\n");
+  EXPECT_EQ_TEXT(r.stdout_text,
+                 "1c\n"
+                 "yours\n"
+                 ".\n");
   EXPECT_TRUE(r.stderr_text.empty());
 }
 

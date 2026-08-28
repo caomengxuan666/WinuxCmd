@@ -42,9 +42,17 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr DIRCOLORS_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--sh", "output Bourne shell code to set LS_COLORS"),
+    // [GNU]
+    OPTION("", "--bourne-shell", "output Bourne shell code to set LS_COLORS"),
+    // [GNU]
     OPTION("-c", "--csh", "output C shell code to set LS_COLORS"),
+    // [GNU]
+    OPTION("", "--c-shell", "output C shell code to set LS_COLORS"),
+    // [GNU]
     OPTION("-p", "--print-database", "output defaults"),
+    // [GNU]
     OPTION("", "--print-ls-colors", "output fully escaped colors for display")};
 
 namespace dircolors_pipeline {
@@ -221,8 +229,10 @@ auto print_ls_colors() -> void {
 }
 
 auto run(const CommandContext<DIRCOLORS_OPTIONS.size()>& ctx) -> int {
-  bool bourne = ctx.get<bool>("-b", false) || ctx.get<bool>("--sh", false);
-  bool csh = ctx.get<bool>("-c", false) || ctx.get<bool>("--csh", false);
+  bool bourne = ctx.get<bool>("-b", false) || ctx.get<bool>("--sh", false) ||
+                ctx.get<bool>("--bourne-shell", false);
+  bool csh = ctx.get<bool>("-c", false) || ctx.get<bool>("--csh", false) ||
+             ctx.get<bool>("--c-shell", false);
   bool print_db =
       ctx.get<bool>("-p", false) || ctx.get<bool>("--print-database", false);
   bool print_colors = ctx.get<bool>("--print-ls-colors", false);

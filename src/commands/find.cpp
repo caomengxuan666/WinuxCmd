@@ -114,76 +114,151 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr FIND_OPTIONS = std::array{
+    // [GNU]
     OPTION("-name", "",
            "base of file name (the path with the leading directories removed) "
            "matches shell pattern PATTERN",
            STRING_TYPE),
+    // [GNU]
     OPTION("-iname", "", "like -name, but the match is case insensitive",
            STRING_TYPE),
+    // [GNU]
     OPTION("-path", "", "file name matches shell pattern PATTERN", STRING_TYPE),
+    // [GNU]
     OPTION("-ipath", "", "like -path, but the match is case insensitive",
            STRING_TYPE),
+    // [GNU]
     OPTION("-wholename", "", "same as -path", STRING_TYPE),
+    // [GNU]
     OPTION("-iwholename", "", "same as -ipath, but case insensitive",
            STRING_TYPE),
+    // [GNU]
     OPTION("-type", "",
            "file is of type c: b,d,p,f,l,s,D [only d,f,l are supported]",
            STRING_TYPE),
+    // [GNU]
     OPTION("-xtype", "",
            "like -type but checks the opposite symlink resolution state [only "
            "d,f,l are supported]",
            STRING_TYPE),
+    // [GNU]
+    OPTION("-execdir", "",
+           "execute command from the subdirectory containing the matched file",
+           TERMINATED_STRING_TYPE),
+    // [GNU] -D/--debug (Windows diagnostics differ from findutils categories)
+    OPTION("-D", "--debug",
+           "print find traversal diagnostics [DIFFERS: Windows diagnostics]",
+           STRING_TYPE),
+    // [GNU] warning and readdir-race policy controls
+    OPTION("-nowarn", "", "turn off file traversal warnings"),
+    OPTION("-warn", "", "turn on file traversal warnings"),
+    OPTION("-ignore_readdir_race", "",
+           "ignore errors when entries disappear during traversal"),
+    OPTION("-noignore_readdir_race", "",
+           "report errors when entries disappear during traversal"),
+    // [GNU]
+    OPTION("-nouser", "", "file has no user corresponding to its owner ID"),
+    // [GNU]
+    OPTION("-used", "",
+           "file was last accessed n days after its status was last changed",
+           STRING_TYPE),
+    // [GNU]
     OPTION("-perm", "",
            "file's permission bits match MODE [PARTIAL: octal modes only]",
            STRING_TYPE),
+    // [GNU]
     OPTION("-readable", "", "file can be read"),
+    // [GNU]
     OPTION("-writable", "", "file can be written"),
+    // [GNU]
     OPTION("-executable", "", "file can be executed or searched"),
+    // [GNU]
     OPTION("-inum", "", "file has inode/file-index number N", STRING_TYPE),
+    // [GNU]
     OPTION("-links", "", "file has N hard links", STRING_TYPE),
+    // [GNU]
     OPTION("-user", "", "file is owned by user name or UID", STRING_TYPE),
+    // [GNU]
     OPTION("-group", "", "file belongs to group name or GID", STRING_TYPE),
+    OPTION("-nogroup", "",
+           "file has no group corresponding to its group ID [DIFFERS: Windows "
+           "account mapping]"),
+    // [GNU]
     OPTION("-uid", "", "file owner's numeric UID matches N", STRING_TYPE),
+    // [GNU]
     OPTION("-gid", "", "file group's numeric GID matches N", STRING_TYPE),
+    // [GNU]
     OPTION("-size", "", "file uses n units of space", STRING_TYPE),
+    // [GNU]
     OPTION("-empty", "",
            "file is empty and is either a regular file or a directory"),
+    // [GNU]
     OPTION("-amin", "", "file was last accessed n minutes ago", STRING_TYPE),
+    // [GNU]
     OPTION("-atime", "", "file was last accessed n*24 hours ago", STRING_TYPE),
+    // [GNU]
     OPTION("-cmin", "", "file status was last changed n minutes ago",
            STRING_TYPE),
+    // [GNU]
     OPTION("-ctime", "", "file status was last changed n*24 hours ago",
            STRING_TYPE),
+    // [GNU]
     OPTION("-mtime", "", "file data was last modified n*24 hours ago",
            STRING_TYPE),
+    // [GNU]
     OPTION("-mmin", "", "file data was last modified n minutes ago",
            STRING_TYPE),
+    // [GNU]
     OPTION("-mindepth", "",
            "descend at least LEVELS levels of directories before tests",
            INT_TYPE),
+    // [GNU]
     OPTION("-maxdepth", "",
            "descend at most LEVELS levels of directories below starting-points",
            INT_TYPE),
+    // [GNU]
     OPTION("-print", "", "print the full file name on the standard output"),
+    // [GNU]
     OPTION("-print0", "",
            "print the full file name on the standard output, followed by a "
            "null character"),
+    // [GNU]
     OPTION("-fprint", "", "print the full file name into FILE", STRING_TYPE),
+    // [GNU]
     OPTION("-fprint0", "",
            "print the full file name into FILE, followed by a null character",
            STRING_TYPE),
+    // [GNU]
     OPTION("-L", "", "follow symbolic links"),
+    // [GNU]
     OPTION("-H", "",
            "do not follow symbolic links, except while processing command line "
            "arguments"),
+    // [GNU]
     OPTION("-P", "", "never follow symbolic links (default)"),
+    // [GNU]
     OPTION("-follow", "", "dereference symbolic links"),
+    // [GNU]
     OPTION("-O", "", "set optimization level (0-3, currently ignored)",
            INT_TYPE),
+    // [GNU]
     OPTION("-delete", "", "delete files"),
+    // [GNU]
     OPTION("-exec", "", "execute command", TERMINATED_STRING_TYPE),
+    // [GNU]
     OPTION("-ok", "", "execute command after confirmation",
            TERMINATED_STRING_TYPE),
+    OPTION("-okdir", "",
+           "execute command from the subdirectory after confirmation [DIFFERS: "
+           "Windows command prompt]",
+           TERMINATED_STRING_TYPE),
+    OPTION("-ls", "",
+           "list current file in ls -dils format [DIFFERS: Windows metadata]"),
+    OPTION("-fls", "",
+           "list current file in ls -dils format into FILE [DIFFERS: Windows "
+           "metadata]",
+           STRING_TYPE),
+    // [GNU]
     OPTION(
         "-printf", "",
         "print format [PARTIAL: "
@@ -191,76 +266,150 @@ auto constexpr FIND_OPTIONS = std::array{
         "i,%A@,%B@,%C@,%T@,%AY,%Am,%Ad,%AH,%AM,%AS,%Aj,%BY,%Bm,%Bd,%BH,%BM,%BS,"
         "%Bj,%CY,%Cm,%Cd,%CH,%CM,%CS,%Cj,%TY,%Tm,%Td,%TH,%TM,%TS,%Tj,%%]",
         STRING_TYPE),
+    // [GNU]
     OPTION("-fprintf", "", "print format into FILE", STRING_TYPE),
+    // [GNU]
     OPTION("-prune", "", "prune tree"),
+    // [GNU]
     OPTION("-quit", "", "exit immediately"),
+    // [GNU]
     OPTION("-true", "", "always true"),
+    // [GNU]
     OPTION("-false", "", "always false"),
+    // [GNU]
     OPTION("-regex", "", "whole path matches regular expression", STRING_TYPE),
+    // [GNU]
     OPTION("-iregex", "",
            "whole path matches regular expression, case insensitive",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newer", "",
            "file was modified more recently than the reference file",
            STRING_TYPE),
+    OPTION("-anewer", "",
+           "file was accessed more recently than the reference file",
+           STRING_TYPE),
+    OPTION("-cnewer", "",
+           "file status changed more recently than the reference file "
+           "[DIFFERS: Windows change time]",
+           STRING_TYPE),
+    OPTION("-fstype", "",
+           "file is on a file system of type TYPE [DIFFERS: Windows volume "
+           "file system name]",
+           STRING_TYPE),
+    OPTION(
+        "-ilname", "",
+        "symbolic link target matches shell pattern PATTERN, case insensitive",
+        STRING_TYPE),
+    OPTION("-lname", "", "symbolic link target matches shell pattern PATTERN",
+           STRING_TYPE),
+    // [GNU]
     OPTION("-neweraa", "", "compare access time to reference access time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-neweraB", "", "compare access time to reference birth time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerac", "", "compare access time to reference change time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-neweram", "", "compare access time to reference modify time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerat", "", "compare access time to literal time", STRING_TYPE),
+    // [GNU]
     OPTION("-newerBa", "", "compare birth time to reference access time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerBB", "", "compare birth time to reference birth time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerBc", "", "compare birth time to reference change time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerBm", "", "compare birth time to reference modify time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerBt", "", "compare birth time to literal time", STRING_TYPE),
+    // [GNU]
     OPTION("-newerca", "", "compare change time to reference access time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newercB", "", "compare change time to reference birth time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newercc", "", "compare change time to reference change time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newercm", "", "compare change time to reference modify time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newerct", "", "compare change time to literal time", STRING_TYPE),
+    // [GNU]
     OPTION("-newerma", "", "compare modify time to reference access time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newermB", "", "compare modify time to reference birth time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newermc", "", "compare modify time to reference change time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newermm", "", "compare modify time to reference modify time",
            STRING_TYPE),
+    // [GNU]
     OPTION("-newermt", "", "compare modify time to literal time", STRING_TYPE),
+    // [GNU]
     OPTION("-samefile", "",
            "file refers to the same file as the reference file", STRING_TYPE),
+    // [GNU]
     OPTION("-files0-from", "", "read starting points from NUL-delimited file",
            STRING_TYPE),
+    // [GNU]
     OPTION("-depth", "",
            "process each directory's contents before the directory itself"),
+    // [GNU]
     OPTION("-d", "", "same as -depth"),
+    // [GNU]
     OPTION("-daystart", "", "measure times from start of today"),
+    // [GNU]
     OPTION("-mount", "", "do not descend into other file systems"),
+    // [GNU]
     OPTION("-xdev", "", "same as -mount"),
+    // [GNU]
     OPTION("-noleaf", "", "do not optimize by assuming 2+ hard links"),
+    // [GNU]
     OPTION("-regextype", "", "set regex syntax for later -regex/-iregex",
            STRING_TYPE),
+    // [GNU]
     OPTION("!", "", "negate expression"),
+    // [GNU]
     OPTION("-not", "", "negate expression"),
+    // [GNU]
     OPTION("-a", "", "and expression"),
+    // [GNU]
     OPTION("-and", "", "and expression"),
+    // [GNU]
     OPTION("-o", "", "or expression"),
+    // [GNU]
     OPTION("-or", "", "or expression")};
 
 namespace find_pipeline {
 namespace cp = core::pipeline;
+
+struct Win32OwnershipInfo {
+  std::string owner_name;
+  std::string owner_id;
+  std::string group_name;
+  std::string group_id;
+};
+
+auto win32_ownership_info(const std::filesystem::path& p) -> Win32OwnershipInfo;
+
+auto win32_accessible(const std::filesystem::path& p, DWORD desired_access)
+    -> bool;
+auto win32_executable(const std::filesystem::path& p,
+                      const std::filesystem::directory_entry& e) -> bool;
 
 enum class NumericComparison { Exact, GreaterThan, LessThan };
 
@@ -310,6 +459,8 @@ enum class ExprKind {
   Inum,
   Links,
   User,
+  NoUser,
+  NoGroup,
   Group,
   Uid,
   Gid,
@@ -321,7 +472,13 @@ enum class ExprKind {
   CMin,
   MTime,
   MMin,
+  Used,
   Newer,
+  ANewer,
+  CNewer,
+  Fstype,
+  Lname,
+  ILname,
   NewerXY,
   SameFile,
   Print,
@@ -330,8 +487,11 @@ enum class ExprKind {
   FPrint0,
   Printf,
   FPrintf,
+  Ls,
+  Fls,
   False,
   Exec,
+  OkDir,
   Delete,
   Prune,
   Quit,
@@ -361,7 +521,9 @@ struct ExprNode {
 struct ExecAction {
   bool prompt = false;
   bool aggregate = false;
+  bool execdir = false;
   std::string command;
+  std::filesystem::path working_directory;
   std::vector<std::string> args;
   std::vector<std::string> pending_paths;
 };
@@ -381,6 +543,7 @@ struct Config {
   std::optional<NumericPredicate> cmin_filter;
   std::optional<NumericPredicate> mtime_filter;
   std::optional<NumericPredicate> mmin_filter;
+  std::optional<NumericPredicate> used_filter;
   int mindepth = 0;
   int maxdepth = std::numeric_limits<int>::max();
   bool has_print = false;
@@ -390,6 +553,10 @@ struct Config {
   std::unordered_map<std::string, std::unique_ptr<std::ofstream>> output_files;
   bool follow_symlinks = false;
   bool follow_arg_symlinks = false;
+  bool debug_enabled = false;
+  bool nowarn = false;
+  bool ignore_readdir_race = false;
+  std::string debug_category;
   std::string files0_from;
   bool prune_current = false;
   bool quit = false;
@@ -934,14 +1101,19 @@ auto is_path_option(std::string_view arg) -> bool {
          arg == "-ipath" || arg == "-wholename" || arg == "-iwholename" ||
          arg == "-regex" || arg == "-iregex" || arg == "-type" ||
          arg == "-xtype" || arg == "-perm" || arg == "-readable" ||
-         arg == "-executable" || arg == "-inum" || arg == "-links" ||
-         arg == "-user" || arg == "-group" || arg == "-uid" || arg == "-gid" ||
-         arg == "-size" || arg == "-empty" || arg == "-mtime" ||
-         arg == "-mmin" || arg == "-newer" || is_newerxy_option(arg) ||
-         arg == "-samefile" || arg == "-files0-from" || arg == "-mindepth" ||
-         arg == "-maxdepth" || arg == "-print" || arg == "-print0" ||
-         arg == "-fprint" || arg == "-fprint0" || arg == "-delete" ||
-         arg == "-exec" || arg == "-ok" || arg == "-printf" ||
+         arg == "-writable" || arg == "-executable" || arg == "-inum" ||
+         arg == "-links" || arg == "-user" || arg == "-nouser" ||
+         arg == "-nogroup" || arg == "-group" || arg == "-uid" ||
+         arg == "-gid" || arg == "-size" || arg == "-empty" ||
+         arg == "-mtime" || arg == "-mmin" || arg == "-used" ||
+         arg == "-anewer" || arg == "-cnewer" || arg == "-fstype" ||
+         arg == "-lname" || arg == "-ilname" || arg == "-newer" ||
+         is_newerxy_option(arg) || arg == "-samefile" ||
+         arg == "-files0-from" || arg == "-mindepth" || arg == "-maxdepth" ||
+         arg == "-print" || arg == "-print0" || arg == "-fprint" ||
+         arg == "-fprint0" || arg == "-delete" || arg == "-exec" ||
+         arg == "-execdir" || arg == "-ok" || arg == "-okdir" || arg == "-ls" ||
+         arg == "-fls" || arg == "-printf" || arg == "-fprintf" ||
          arg == "-prune" || arg == "-quit" || arg == "-true" ||
          arg == "-false" || arg == "-depth" || arg == "-d" ||
          arg == "-follow" || arg == "-mount" || arg == "-xdev" ||
@@ -994,10 +1166,13 @@ auto parse_exec_actions(std::span<const std::string_view> args)
   std::vector<ExecAction> actions;
 
   for (size_t i = 0; i < args.size(); ++i) {
-    if (args[i] != "-exec" && args[i] != "-ok") continue;
+    if (args[i] != "-exec" && args[i] != "-execdir" && args[i] != "-ok" &&
+        args[i] != "-okdir")
+      continue;
 
     ExecAction action;
-    action.prompt = args[i] == "-ok";
+    action.prompt = args[i] == "-ok" || args[i] == "-okdir";
+    action.execdir = args[i] == "-execdir" || args[i] == "-okdir";
 
     std::vector<std::string> command_words;
     std::optional<std::string_view> terminator;
@@ -1062,7 +1237,9 @@ auto expression_start_index(std::span<const std::string_view> args) -> size_t {
     if (!roots_seen &&
         (arg == "-L" || arg == "-P" || arg == "-H" || arg == "-follow" ||
          arg == "-mount" || arg == "-xdev" || arg == "-noleaf" ||
-         arg == "-daystart" || arg == "-d")) {
+         arg == "-daystart" || arg == "-d" || arg == "-nowarn" ||
+         arg == "-warn" || arg == "-ignore_readdir_race" ||
+         arg == "-noignore_readdir_race")) {
       continue;
     }
     if (!roots_seen && arg == "-O" && i + 1 < args.size()) {
@@ -1070,6 +1247,11 @@ auto expression_start_index(std::span<const std::string_view> args) -> size_t {
       continue;
     }
     if (!roots_seen && arg == "-regextype" && i + 1 < args.size()) {
+      ++i;
+      continue;
+    }
+    if (!roots_seen && (arg == "-D" || arg == "--debug") &&
+        i + 1 < args.size()) {
       ++i;
       continue;
     }
@@ -1147,25 +1329,32 @@ class ExpressionParser {
   static auto starts_primary(std::string_view token) -> bool {
     return token == "!" || token == "-not" || token == "(" ||
            token == "-name" || token == "-iname" || token == "-path" ||
-           token == "-ipath" || token == "-regex" || token == "-iregex" ||
+           token == "-ipath" || token == "-wholename" ||
+           token == "-iwholename" || token == "-regex" || token == "-iregex" ||
            token == "-type" || token == "-xtype" || token == "-perm" ||
            token == "-readable" || token == "-writable" ||
            token == "-executable" || token == "-inum" || token == "-links" ||
-           token == "-user" || token == "-group" || token == "-uid" ||
-           token == "-gid" || token == "-size" || token == "-empty" ||
-           token == "-amin" || token == "-atime" || token == "-cmin" ||
-           token == "-ctime" || token == "-mtime" || token == "-mmin" ||
-           token == "-newer" || is_newerxy_option(token) ||
-           token == "-samefile" || token == "-files0-from" ||
-           token == "-mindepth" || token == "-maxdepth" || token == "-print" ||
-           token == "-print0" || token == "-fprint" || token == "-fprint0" ||
-           token == "-printf" || token == "-prune" || token == "-quit" ||
+           token == "-user" || token == "-nouser" || token == "-group" ||
+           token == "-nogroup" || token == "-uid" || token == "-gid" ||
+           token == "-size" || token == "-empty" || token == "-amin" ||
+           token == "-atime" || token == "-cmin" || token == "-ctime" ||
+           token == "-mtime" || token == "-mmin" || token == "-used" ||
+           token == "-newer" || token == "-anewer" || token == "-cnewer" ||
+           is_newerxy_option(token) || token == "-samefile" ||
+           token == "-fstype" || token == "-lname" || token == "-ilname" ||
+           token == "-files0-from" || token == "-mindepth" ||
+           token == "-maxdepth" || token == "-print" || token == "-print0" ||
+           token == "-fprint" || token == "-fprint0" || token == "-printf" ||
+           token == "-fprintf" || token == "-prune" || token == "-quit" ||
            token == "-true" || token == "-false" || token == "-depth" ||
            token == "-d" || token == "-follow" || token == "-mount" ||
            token == "-xdev" || token == "-noleaf" || token == "-daystart" ||
            token == "-regextype" || token == "-O" || token == "-delete" ||
-           token == "-exec" || token == "-ok" || token == "-L" ||
-           token == "-P" || token == "-H";
+           token == "-exec" || token == "-execdir" || token == "-ok" ||
+           token == "-okdir" || token == "-ls" || token == "-fls" ||
+           token == "-L" || token == "-P" || token == "-H" || token == "-D" ||
+           token == "--debug" || token == "-nowarn" || token == "-warn" ||
+           token == "-ignore_readdir_race" || token == "-noignore_readdir_race";
   }
 
   auto require_value(std::string_view option) -> cp::Result<std::string> {
@@ -1312,6 +1501,22 @@ class ExpressionParser {
       return node;
     }
 
+    if (option == "-nouser" || option == "-nogroup") {
+      return make_expr(option == "-nouser" ? ExprKind::NoUser
+                                           : ExprKind::NoGroup);
+    }
+
+    if (option == "-lname" || option == "-ilname" || option == "-fstype") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      ExprKind kind = ExprKind::Lname;
+      if (option == "-ilname") kind = ExprKind::ILname;
+      if (option == "-fstype") kind = ExprKind::Fstype;
+      auto node = make_expr(kind);
+      node->text = std::move(*value);
+      return node;
+    }
+
     if (option == "-user" || option == "-group") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
@@ -1348,12 +1553,14 @@ class ExpressionParser {
     }
 
     if (option == "-amin" || option == "-atime" || option == "-cmin" ||
-        option == "-ctime" || option == "-mtime" || option == "-mmin") {
+        option == "-ctime" || option == "-mtime" || option == "-mmin" ||
+        option == "-used") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
       auto parsed = parse_numeric_predicate(*value);
       if (!parsed) return std::unexpected(parsed.error());
       ExprKind kind = ExprKind::MMin;
+      if (option == "-used") kind = ExprKind::Used;
       if (option == "-amin") kind = ExprKind::AMin;
       if (option == "-atime") kind = ExprKind::ATime;
       if (option == "-cmin") kind = ExprKind::CMin;
@@ -1361,6 +1568,23 @@ class ExpressionParser {
       if (option == "-mtime") kind = ExprKind::MTime;
       auto node = make_expr(kind);
       node->numeric = *parsed;
+      return node;
+    }
+
+    if (option == "-anewer" || option == "-cnewer") {
+      auto value = require_value(option);
+      if (!value) return std::unexpected(value.error());
+      auto reference =
+          win32_file_time_ticks(std::filesystem::path(utf8_to_wstring(*value)),
+                                option == "-anewer" ? FindFileTimeKind::Access
+                                                    : FindFileTimeKind::Change);
+      if (!reference)
+        return std::unexpected("cannot read reference file for " +
+                               std::string(option));
+      auto node =
+          make_expr(option == "-anewer" ? ExprKind::ANewer : ExprKind::CNewer);
+      node->text = std::move(*value);
+      node->reference_ticks = *reference;
       return node;
     }
 
@@ -1432,15 +1656,24 @@ class ExpressionParser {
       return make_expr(ExprKind::False);
     }
 
-    if (option == "-printf") {
+    if (option == "-printf" || option == "-fprintf") {
       auto value = require_value(option);
       if (!value) return std::unexpected(value.error());
-      auto node = make_expr(ExprKind::Printf);
-      node->text = std::move(*value);
+      auto node =
+          make_expr(option == "-printf" ? ExprKind::Printf : ExprKind::FPrintf);
+      if (option == "-fprintf") {
+        auto format = require_value(option);
+        if (!format) return std::unexpected(format.error());
+        node->text = std::move(*value);
+        node->format_text = std::move(*format);
+      } else {
+        node->text = std::move(*value);
+      }
       return node;
     }
 
-    if (option == "-exec" || option == "-ok") {
+    if (option == "-exec" || option == "-execdir" || option == "-ok" ||
+        option == "-okdir") {
       bool found_terminator = false;
       while (!at_end()) {
         auto token = consume();
@@ -1450,11 +1683,32 @@ class ExpressionParser {
         }
       }
       if (!found_terminator) {
-        return std::unexpected("missing -exec/-ok terminator");
+        return std::unexpected("missing -exec/-execdir/-ok terminator");
       }
-      auto node = make_expr(ExprKind::Exec);
+      auto node =
+          make_expr(option == "-okdir" ? ExprKind::OkDir : ExprKind::Exec);
       node->action_index = exec_index_++;
       return node;
+    }
+
+    if (option == "-ls" || option == "-fls") {
+      auto node = make_expr(option == "-ls" ? ExprKind::Ls : ExprKind::Fls);
+      if (option == "-fls") {
+        auto value = require_value(option);
+        if (!value) return std::unexpected(value.error());
+        node->text = std::move(*value);
+      }
+      return node;
+    }
+
+    if (option == "-D" || option == "--debug" || option == "-nowarn" ||
+        option == "-warn" || option == "-ignore_readdir_race" ||
+        option == "-noignore_readdir_race") {
+      if (option == "-D" || option == "--debug") {
+        auto value = require_value(option);
+        if (!value) return std::unexpected(value.error());
+      }
+      return make_expr(ExprKind::Always);
     }
 
     if (option == "-print") {
@@ -1539,7 +1793,8 @@ auto prepare_find_output_file(Config& cfg, const std::string& path)
 
 auto prepare_file_output_actions(const ExprNode& expr, Config& cfg)
     -> cp::Result<void> {
-  if (expr.kind == ExprKind::FPrint || expr.kind == ExprKind::FPrint0) {
+  if (expr.kind == ExprKind::FPrint || expr.kind == ExprKind::FPrint0 ||
+      expr.kind == ExprKind::FPrintf || expr.kind == ExprKind::Fls) {
     if (auto ok = prepare_find_output_file(cfg, expr.text); !ok) {
       return std::unexpected(ok.error());
     }
@@ -1606,6 +1861,11 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
   cfg.mindepth = ctx.get<int>("-mindepth", 0);
   cfg.maxdepth = ctx.get<int>("-maxdepth", std::numeric_limits<int>::max());
   cfg.files0_from = ctx.get<std::string>("-files0-from", "");
+  cfg.debug_category = ctx.get<std::string>("-D", "");
+  cfg.debug_enabled = ctx.has("-D") || ctx.has("--debug");
+  cfg.nowarn = ctx.has("-nowarn") && !ctx.has("-warn");
+  cfg.ignore_readdir_race =
+      ctx.has("-ignore_readdir_race") && !ctx.has("-noignore_readdir_race");
 
   cfg.delete_action = ctx.get<bool>("-delete", false);
   cfg.depth_first =
@@ -1682,6 +1942,13 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
     cfg.mtime_filter = *parsed;
   }
 
+  auto used_text = ctx.get<std::string>("-used", "");
+  if (!used_text.empty()) {
+    auto parsed = parse_numeric_predicate(used_text);
+    if (!parsed) return std::unexpected(parsed.error());
+    cfg.used_filter = *parsed;
+  }
+
   auto mmin_text = ctx.get<std::string>("-mmin", "");
   if (!mmin_text.empty()) {
     auto parsed = parse_numeric_predicate(mmin_text);
@@ -1711,9 +1978,10 @@ auto build_config(const CommandContext<FIND_OPTIONS.size()>& ctx)
     return std::unexpected(ok.error());
   }
 
-  bool has_print_action =
-      ctx.get<bool>("-print", false) || ctx.get<bool>("-print0", false) ||
-      ctx.has("-fprint") || ctx.has("-fprint0") || ctx.has("-printf");
+  bool has_print_action = ctx.get<bool>("-print", false) ||
+                          ctx.get<bool>("-print0", false) ||
+                          ctx.has("-fprint") || ctx.has("-fprint0") ||
+                          ctx.has("-printf") || ctx.has("-fprintf");
   if (!has_print_action && !cfg.delete_action && cfg.exec_actions.empty()) {
     cfg.has_print = true;  // default action
   }
@@ -1813,6 +2081,24 @@ auto file_age_units(const std::filesystem::path& p, FindFileTimeKind kind,
   return elapsed_seconds.count() / unit.count();
 }
 
+/// Compute (access_time - change_time) in the given unit for `-used`.
+/// GNU find's `-used n` tests whether the file was last accessed n*24 hours
+/// after its status was last changed.  On Windows, NTFS provides both
+/// LastAccessTime and ChangeTime via FILE_BASIC_INFO.
+auto file_used_age_units(const std::filesystem::path& p,
+                         std::chrono::seconds unit)
+    -> std::optional<long long> {
+  auto access_ticks = win32_file_time_ticks(p, FindFileTimeKind::Access);
+  auto change_ticks = win32_file_time_ticks(p, FindFileTimeKind::Change);
+  if (!access_ticks || !change_ticks) return std::nullopt;
+
+  long long diff_ticks = *access_ticks - *change_ticks;
+  if (diff_ticks < 0) diff_ticks = 0;
+
+  auto diff_seconds = std::chrono::seconds(diff_ticks / 10000000LL);
+  return diff_seconds.count() / unit.count();
+}
+
 auto modification_age_units(const std::filesystem::directory_entry& e,
                             std::chrono::seconds unit)
     -> std::optional<long long> {
@@ -1828,7 +2114,18 @@ auto printf_path(std::string_view format, const std::filesystem::path& p,
 auto execute_action_for_path(ExecAction& action, std::string_view path,
                              Config& cfg) -> bool;
 auto delete_path(const std::filesystem::path& p, Config& cfg) -> bool;
+auto link_target_display(const std::filesystem::directory_entry& e)
+    -> std::string;
 
+auto win32_filesystem_type_name(const std::filesystem::path& p) -> std::string;
+auto file_size_bytes(const std::filesystem::directory_entry& e)
+    -> unsigned long long;
+auto permission_string(const std::filesystem::path& p,
+                       const std::filesystem::directory_entry& e)
+    -> std::string;
+auto format_printf(std::string_view fmt, const std::filesystem::path& p,
+                   const std::filesystem::directory_entry& e, int depth,
+                   const std::filesystem::path& root) -> std::string;
 auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
                          const std::filesystem::directory_entry& e, int depth,
                          const std::filesystem::path& root, Config& cfg)
@@ -1878,13 +2175,13 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       return expr.permission && permission_matches(p, e, *expr.permission);
 
     case ExprKind::Readable:
-      return (permission_mode(p, e) & 0444U) != 0;
+      return win32_accessible(p, GENERIC_READ);
 
     case ExprKind::Writable:
-      return (permission_mode(p, e) & 0222U) != 0;
+      return win32_accessible(p, GENERIC_WRITE);
 
     case ExprKind::Executable:
-      return (permission_mode(p, e) & 0111U) != 0;
+      return win32_executable(p, e);
 
     case ExprKind::Inum: {
       if (!expr.numeric) return false;
@@ -1898,6 +2195,12 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
 
     case ExprKind::User:
       return owner_matches(p, expr.text);
+
+    case ExprKind::NoUser:
+      return win32_ownership_info(p).owner_name.empty();
+
+    case ExprKind::NoGroup:
+      return win32_ownership_info(p).group_name.empty();
 
     case ExprKind::Group:
       return group_matches(p, expr.text);
@@ -1954,6 +2257,12 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       return age && numeric_matches(*expr.numeric, *age);
     }
 
+    case ExprKind::Used: {
+      if (!expr.numeric) return false;
+      auto age = file_used_age_units(p, std::chrono::hours(24));
+      return age && numeric_matches(*expr.numeric, *age);
+    }
+
     case ExprKind::Newer: {
       if (!expr.reference_time) return false;
       std::error_code ec;
@@ -1966,6 +2275,23 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       auto ticks = win32_file_time_ticks(p, expr.time_kind);
       return ticks && *ticks > *expr.reference_ticks;
     }
+
+    case ExprKind::ANewer:
+    case ExprKind::CNewer: {
+      if (!expr.reference_ticks) return false;
+      auto ticks = win32_file_time_ticks(p, expr.kind == ExprKind::ANewer
+                                                ? FindFileTimeKind::Access
+                                                : FindFileTimeKind::Change);
+      return ticks && *ticks > *expr.reference_ticks;
+    }
+
+    case ExprKind::Fstype:
+      return win32_filesystem_type_name(p) == expr.text;
+
+    case ExprKind::Lname:
+    case ExprKind::ILname:
+      return wildcard_match(expr.text, link_target_display(e),
+                            expr.kind == ExprKind::Lname);
 
     case ExprKind::SameFile: {
       if (!expr.reference_identity) return false;
@@ -1997,10 +2323,31 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
       printf_path(expr.text, p, e, depth, root);
       return true;
 
+    case ExprKind::FPrintf: {
+      auto text = format_printf(expr.format_text, p, e, depth, root);
+      return write_find_output_file(cfg, expr.text, text);
+    }
+
     case ExprKind::False:
       return false;
 
+    case ExprKind::Ls:
+    case ExprKind::Fls: {
+      std::string text = permission_string(p, e) + " " +
+                         std::to_string(win32_hard_link_count(p)) + " " +
+                         win32_ownership_info(p).owner_name + " " +
+                         win32_ownership_info(p).group_name + " " +
+                         std::to_string(file_size_bytes(e)) + " " +
+                         path_display(p) + "\n";
+      if (expr.kind == ExprKind::Ls) {
+        safePrint(text);
+        return true;
+      }
+      return write_find_output_file(cfg, expr.text, text);
+    }
+
     case ExprKind::Exec:
+    case ExprKind::OkDir:
       if (expr.action_index >= cfg.exec_actions.size()) return false;
       return execute_action_for_path(cfg.exec_actions[expr.action_index],
                                      path_display(p), cfg);
@@ -2115,6 +2462,11 @@ auto entry_matches(Config& cfg, const std::filesystem::path& p,
     if (!age || !numeric_matches(*cfg.mmin_filter, *age)) return false;
   }
 
+  if (cfg.used_filter) {
+    auto age = file_used_age_units(p, std::chrono::hours(24));
+    if (!age || !numeric_matches(*cfg.used_filter, *age)) return false;
+  }
+
   return true;
 }
 
@@ -2202,6 +2554,44 @@ auto file_size_bytes(const std::filesystem::directory_entry& e)
   auto size = e.file_size(ec);
   if (ec) return 0;
   return static_cast<unsigned long long>(size);
+}
+
+auto win32_accessible(const std::filesystem::path& p, DWORD desired_access)
+    -> bool {
+  DWORD attrs = GetFileAttributesW(p.wstring().c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) return false;
+  if ((desired_access & GENERIC_WRITE) != 0 &&
+      (attrs & FILE_ATTRIBUTE_READONLY) != 0) {
+    return false;
+  }
+
+  DWORD flags = (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0
+                    ? FILE_FLAG_BACKUP_SEMANTICS
+                    : FILE_ATTRIBUTE_NORMAL;
+  HANDLE handle =
+      CreateFileW(p.wstring().c_str(), desired_access,
+                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                  nullptr, OPEN_EXISTING, flags, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return false;
+  CloseHandle(handle);
+  return true;
+}
+
+auto win32_executable(const std::filesystem::path& p,
+                      const std::filesystem::directory_entry& e) -> bool {
+  std::error_code ec;
+  if (e.is_directory(ec) && !ec) {
+    return win32_accessible(p, FILE_LIST_DIRECTORY);
+  }
+  if (!e.is_regular_file(ec) || ec || !win32_accessible(p, GENERIC_READ)) {
+    return false;
+  }
+  std::string ext = p.extension().generic_string();
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+    return static_cast<char>(std::tolower(c));
+  });
+  return ext == ".exe" || ext == ".com" || ext == ".bat" || ext == ".cmd" ||
+         ext == ".ps1";
 }
 
 auto permission_mode(const std::filesystem::path& p,
@@ -2539,13 +2929,6 @@ auto win32_io_block_size(const std::filesystem::path& p) -> unsigned long long {
       static_cast<unsigned long long>(sectors_per_cluster) * bytes_per_sector;
   return block_size == 0 ? 4096 : block_size;
 }
-
-struct Win32OwnershipInfo {
-  std::string owner_name;
-  std::string owner_id;
-  std::string group_name;
-  std::string group_id;
-};
 
 auto win32_account_name_from_sid(PSID sid) -> std::string {
   if (sid == nullptr) return {};
@@ -3144,14 +3527,17 @@ auto replace_placeholder(std::string_view text, std::string_view path)
   return out;
 }
 
-auto run_child(const std::string& command, const std::vector<std::string>& args)
-    -> int {
+auto run_child(const std::string& command, const std::vector<std::string>& args,
+               const std::filesystem::path& working_directory = {}) -> int {
   auto cmd_line = build_command_line(command, args);
   STARTUPINFOW si{sizeof(si)};
   PROCESS_INFORMATION pi{};
 
-  BOOL ok = CreateProcessW(nullptr, cmd_line.data(), nullptr, nullptr, TRUE, 0,
-                           nullptr, nullptr, &si, &pi);
+  std::wstring cwd =
+      working_directory.empty() ? L"" : working_directory.wstring();
+  BOOL ok =
+      CreateProcessW(nullptr, cmd_line.data(), nullptr, nullptr, TRUE, 0,
+                     nullptr, cwd.empty() ? nullptr : cwd.c_str(), &si, &pi);
   if (!ok) return 127;
 
   WaitForSingleObject(pi.hProcess, INFINITE);
@@ -3211,7 +3597,12 @@ auto execute_action_for_path(ExecAction& action, std::string_view path,
     args.push_back(replace_placeholder(arg, path));
   }
 
-  int status = run_child(action.command, args);
+  std::filesystem::path cwd;
+  if (action.execdir) {
+    cwd =
+        std::filesystem::path(utf8_to_wstring(std::string(path))).parent_path();
+  }
+  int status = run_child(action.command, args, cwd);
   if (status != 0) cfg.had_error = true;
   return status == 0;
 }

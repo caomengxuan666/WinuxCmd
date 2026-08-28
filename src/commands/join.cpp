@@ -44,25 +44,41 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr JOIN_OPTIONS = std::array{
+    // [GNU]
     OPTION("-1", "", "join on this FIELD of file 1", STRING_TYPE),
+    // [GNU]
     OPTION("-2", "", "join on this FIELD of file 2", STRING_TYPE),
+    // [GNU]
     OPTION("-t", "", "use CHAR as input and output field separator",
            STRING_TYPE),
+    // [GNU]
     OPTION("-e", "--empty", "replace missing input fields with EMPTY",
            STRING_TYPE),
+    // [GNU]
     OPTION("-o", "--output", "use specified output format", STRING_TYPE),
+    // [GNU]
     OPTION("-j", "", "equivalent to -1 FIELD -2 FIELD", STRING_TYPE),
+    // [GNU]
     OPTION("-a", "", "print unpairable lines from file 1 or 2", STRING_TYPE),
+    // [GNU]
     OPTION("-v", "", "print only unpairable lines from file 1 or 2",
            STRING_TYPE),
+    // [GNU]
     OPTION("-i", "--ignore-case", "ignore differences in case", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--check-order", "check that the input is correctly sorted",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--nocheck-order",
            "do not check that the input is correctly sorted", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--header", "treat the first line in each file as headers",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline",
+           BOOL_TYPE),
+    // [DIFFERS] GNU has no portable Windows equivalent for this option.
+    OPTION("-k", "", "compatibility option; not supported on Windows",
            BOOL_TYPE)};
 
 namespace join_pipeline {
@@ -263,6 +279,10 @@ auto parse_output_format(const std::string& format)
 
 auto build_config(const CommandContext<JOIN_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
+  if (ctx.has("-k")) {
+    return std::unexpected("option -k is not supported on Windows");
+  }
+
   Config cfg;
   // Don't override the default separator (space) from Config struct
   // cfg.separator = '\t';  // Removed - use default space separator

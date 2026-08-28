@@ -43,15 +43,24 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr UNAME_OPTIONS = std::array{
+    // [DIFFERS] option
     OPTION("-a", "--all", "print all information", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-s", "--kernel-name", "print the kernel name", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-n", "--nodename", "print the network node hostname", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-r", "--kernel-release", "print the kernel release", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-v", "--kernel-version", "print the kernel version", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-m", "--machine", "print the machine hardware name", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-p", "--processor", "print the processor type", BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-i", "--hardware-platform", "print the hardware platform",
            BOOL_TYPE),
+    // [DIFFERS] option
     OPTION("-o", "--operating-system", "print the operating system",
            BOOL_TYPE)};
 

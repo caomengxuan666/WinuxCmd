@@ -43,30 +43,43 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr SPLIT_OPTIONS = std::array{
+    // [GNU] -b, --bytes
     OPTION("-b", "--bytes", "put SIZE bytes per output file", STRING_TYPE),
+    // [GNU] -C, --line-bytes
     OPTION("-C", "--line-bytes",
            "put at most SIZE bytes of complete lines per output file",
            STRING_TYPE),
+    // [GNU] -l, --lines
     OPTION("-l", "--lines", "put NUMBER lines per output file", STRING_TYPE),
+    // [GNU] -n, --number
     OPTION("-n", "--number",
            "generate CHUNKS output files; see explanation below", STRING_TYPE),
+    // [GNU] -d, --numeric-suffixes
     OPTION("-d", "--numeric-suffixes",
            "use numeric suffixes instead of alphabetic", OPTIONAL_STRING_TYPE),
+    // [GNU] -x, --hex-suffixes
     OPTION("-x", "--hex-suffixes", "use hexadecimal suffixes",
            OPTIONAL_STRING_TYPE),
+    // [GNU] -a, --suffix-length
     OPTION("-a", "--suffix-length", "use suffixes of length N (default 2)",
            STRING_TYPE),
+    // [GNU] --additional-suffix
     OPTION("", "--additional-suffix", "append SUFFIX to output file names",
            STRING_TYPE),
+    // [GNU] --filter
     OPTION("", "--filter", "write to shell COMMAND; file name is $FILE",
            STRING_TYPE),
+    // [GNU] -e, --elide-empty-files
     OPTION("-e", "--elide-empty-files", "do not generate empty output files"),
+    // [GNU] --verbose
     OPTION("", "--verbose",
            "print a diagnostic just before each output file is opened"),
+    // [GNU] -t, --separator
     OPTION("-t", "--separator",
            "use SEP instead of newline as the record separator; '\\0' (zero) "
            "specifies the NUL character",
            STRING_TYPE),
+    // [GNU] -u, --unbuffered
     OPTION("-u", "--unbuffered",
            "immediately copy input to output with '-n r/...'")};
 
@@ -100,8 +113,8 @@ struct Config {
 
   Mode mode = Mode::Lines;
   int64_t chunk_size = 0;
-  int64_t chunk_lines = 1000;  // Default: 1000 lines per file
-  int64_t num_chunks = 0;      // For -n mode
+  int64_t chunk_lines = 1000;             // Default: 1000 lines per file
+  int64_t num_chunks = 0;                 // For -n mode
   std::optional<int64_t> selected_chunk;  // GNU k/N forms, 1-based
   NumberMode number_mode = NumberMode::ApproximateBytes;
   SuffixKind suffix_kind = SuffixKind::Alpha;
@@ -323,14 +336,13 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
       start = slash + 1;
     }
     if (parts.empty() || parts.size() > 2 ||
-        std::ranges::any_of(parts, [](std::string_view part) {
-          return part.empty();
-        })) {
+        std::ranges::any_of(
+            parts, [](std::string_view part) { return part.empty(); })) {
       return std::unexpected("invalid number of chunks");
     }
 
-    auto parse_number_part = [](std::string_view part, std::string_view name)
-        -> cp::Result<int64_t> {
+    auto parse_number_part = [](std::string_view part,
+                                std::string_view name) -> cp::Result<int64_t> {
       return parse_positive_i64(std::string(part), name);
     };
 
@@ -343,13 +355,14 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
     auto num_result = parse_number_part(parts.back(), "number of chunks");
     if (!num_result) return std::unexpected(num_result.error());
     cfg.num_chunks = *num_result;
-    if (cfg.selected_chunk.has_value() && *cfg.selected_chunk > cfg.num_chunks) {
+    if (cfg.selected_chunk.has_value() &&
+        *cfg.selected_chunk > cfg.num_chunks) {
       return std::unexpected("chunk number out of range");
     }
     cfg.mode = Config::Mode::Number;
     cfg.number_mode = round_robin ? Config::NumberMode::RoundRobin
-                      : line_mode  ? Config::NumberMode::PreserveRecords
-                                   : Config::NumberMode::ApproximateBytes;
+                      : line_mode ? Config::NumberMode::PreserveRecords
+                                  : Config::NumberMode::ApproximateBytes;
   }
 
   if (ctx.has("--numeric-suffixes") || ctx.has("-d")) {
@@ -778,8 +791,9 @@ auto run(const Config& cfg) -> int {
       const size_t total_records = records.size();
 
       auto record_chunk = [&](int64_t index) -> std::string_view {
-        const size_t start_record = (static_cast<size_t>(index) * total_records) /
-                                    static_cast<size_t>(cfg.num_chunks);
+        const size_t start_record =
+            (static_cast<size_t>(index) * total_records) /
+            static_cast<size_t>(cfg.num_chunks);
         const size_t end_record =
             (static_cast<size_t>(index + 1) * total_records) /
             static_cast<size_t>(cfg.num_chunks);
@@ -843,7 +857,8 @@ auto run(const Config& cfg) -> int {
       } else {
         for (int64_t i = 0; i < cfg.num_chunks; ++i) {
           auto chunk = byte_chunk(i);
-          if (chunk.empty() && static_cast<size_t>(i * chunk_size) >= input.size()) {
+          if (chunk.empty() &&
+              static_cast<size_t>(i * chunk_size) >= input.size()) {
             break;
           }
           if (!write_number_chunk(chunk)) return 1;

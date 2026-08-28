@@ -45,14 +45,65 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr PATCH_OPTIONS = std::array{
+    // [GNU] -p defaults to 0, consistent with GNU patch.
     OPTION("-p", "", "strip NUM leading components from file names", INT_TYPE),
+    // [GNU] -p, --strip=NUM: strip NUM leading components from file names
+    // [GNU] -i, --input=FILE: read patch from FILE
+    // [GNU] -R, --reverse: assume patch was created with old and new swapped
+    // [GNU] -N, --forward: skip patches that seem to be reversed or already
+    // applied
+    // [GNU] -b, --backup: make backup files
+    // [GNU] --dry-run: don't actually change any files
+    // [GNU] -d, --directory=DIR: change to DIR first
+    // [GNU] -D, --ifdef=WORD: use WORD to patch files
+    // [GNU] -E, --remove-empty-files: remove empty output files
+    // [GNU] -f, --force: force this patch, even if it seems reversed
+    // [GNU] -F, --fuzz=NUM: set maximum fuzz factor (default 2)
+    // [GNU] --forward: skip patches that seem reversed or already applied
+    // [GNU] -l, --merge: merge using merge program
+    // [GNU] -o, --output=FILE: output to FILE instead of stdout
+    // [GNU] --backup-if-mismatch: backup if patch does not match exactly
+    // [GNU] --no-backup-if-mismatch: don't backup if patch matches exactly
+    // [GNU] -r, --reject-file=FILE: output rejects to FILE
+    // [GNU] --reject-format=FORMAT: produce output in FORMAT
+    // [GNU] -s, --silent, --quiet: work silently unless an error occurs
+    // [GNU] -t, --batch: same as --force, with diagnostics
+    // [GNU] -T, --set-time: set the patch's modification time
+    // [GNU] --set-utc: set the patch's modification time to UTC
+    // [GNU] -u, --unified: interpret the patch as unified diff
+    // [GNU] -v, --verbose: print verbose output
+    // [GNU] --binary: read and write in binary mode
+    // [GNU] --posix: conform to POSIX standard
+    // [GNU] --quoting-style=WORD: output file names using WORD style
+    // [GNU] --strip-trailing-slashes: strip trailing slashes from file names
     OPTION("-i", "", "read patch from FILE", STRING_TYPE),
     OPTION("-R", "--reverse",
            "assume patch was created with old and new files swapped"),
     OPTION("-N", "--forward",
            "assume patch was created with old and new files swapped"),
-    OPTION("-b", "", "back up the original file", STRING_TYPE),
-    OPTION("", "--dry-run", "do not actually change any files")};
+    OPTION("-b", "--backup", "back up the original file"),
+    OPTION("", "--dry-run", "do not actually change any files"),
+    OPTION("-d", "--directory", "change to DIR first", STRING_TYPE),
+    OPTION("-D", "--ifdef", "use WORD to patch files", STRING_TYPE),
+    OPTION("", "--remove-empty-files", "remove empty output files"),
+    OPTION("-f", "--force", "force this patch, even if it seems reversed"),
+    OPTION("-F", "--fuzz", "set maximum fuzz factor", INT_TYPE),
+    OPTION("-l", "--merge", "merge using merge program"),
+    OPTION("-o", "--output", "output to FILE instead of stdout", STRING_TYPE),
+    OPTION("", "--backup-if-mismatch",
+           "backup if patch does not match exactly"),
+    OPTION("", "--no-backup-if-mismatch", "don't backup if patch matches"),
+    OPTION("-r", "--reject-file", "output rejects to FILE", STRING_TYPE),
+    OPTION("", "--reject-format", "produce output in FORMAT", STRING_TYPE),
+    OPTION("-s", "--silent", "work silently unless an error occurs"),
+    OPTION("-q", "--quiet", "work silently unless an error occurs"),
+    OPTION("-t", "--batch", "same as --force, with diagnostics"),
+    OPTION("-T", "--set-time", "set the patch's modification time"),
+    OPTION("", "--set-utc", "set the patch's modification time to UTC"),
+    OPTION("-u", "--unified", "interpret the patch as unified diff"),
+    OPTION("-v", "--verbose", "print verbose output"),
+    OPTION("", "--binary", "read and write in binary mode"),
+    OPTION("", "--posix", "conform to POSIX standard")};
 
 // ======================================================
 // Helper functions
@@ -163,38 +214,46 @@ bool parse_hunk(const std::string& line, Hunk& hunk) {
   return true;
 }
 
-// Apply hunk to file lines
-bool apply_hunk(std::vector<std::string>& lines, const Hunk& hunk,
-                bool reverse = false) {
-  // Adjust for 1-based indexing and check bounds
-  if (hunk.old_start <= 0) {
-    return false;
+// Apply a hunk, allowing GNU-style context fuzz around its edges.
+bool apply_hunk(std::vector<std::string>& lines, const Hunk& source,
+                bool reverse, int fuzz, int& used_offset) {
+  Hunk hunk = source;
+  if (reverse) {
+    std::swap(hunk.old_lines, hunk.new_lines);
+    std::swap(hunk.old_count, hunk.new_count);
   }
-  size_t old_line_idx = static_cast<size_t>(hunk.old_start - 1);
+  if (hunk.old_start <= 0 || fuzz < 0) return false;
 
-  // Check if old lines match
-  bool match = true;
-  for (size_t i = 0;
-       i < hunk.old_lines.size() && old_line_idx + i < lines.size(); ++i) {
-    if (lines[old_line_idx + i] != hunk.old_lines[i]) {
-      match = false;
-      break;
+  const int requested = hunk.old_start - 1;
+  const int max_fuzz =
+      std::min(fuzz, static_cast<int>(hunk.old_lines.size() / 2));
+  for (int trim = 0; trim <= max_fuzz; ++trim) {
+    const size_t match_count =
+        hunk.old_lines.size() - static_cast<size_t>(trim * 2);
+    for (int offset = -static_cast<int>(lines.size());
+         offset <= static_cast<int>(lines.size()); ++offset) {
+      const int candidate = requested + offset + trim;
+      if (candidate < 0 || candidate + static_cast<int>(match_count) >
+                               static_cast<int>(lines.size()))
+        continue;
+      bool match = true;
+      for (size_t i = 0; i < match_count; ++i) {
+        if (lines[static_cast<size_t>(candidate) + i] !=
+            hunk.old_lines[static_cast<size_t>(trim) + i]) {
+          match = false;
+          break;
+        }
+      }
+      if (!match) continue;
+      auto begin = lines.begin() + candidate;
+      lines.erase(begin, begin + static_cast<std::ptrdiff_t>(match_count));
+      lines.insert(lines.begin() + candidate, hunk.new_lines.begin(),
+                   hunk.new_lines.end());
+      used_offset = offset;
+      return true;
     }
   }
-
-  if (!match) {
-    return false;  // Hunk doesn't match
-  }
-
-  // Remove old lines
-  lines.erase(lines.begin() + old_line_idx,
-              lines.begin() + old_line_idx + hunk.old_count);
-
-  // Insert new lines at the correct position
-  lines.insert(lines.begin() + old_line_idx, hunk.new_lines.begin(),
-               hunk.new_lines.end());
-
-  return true;
+  return false;
 }
 
 // Backup file
@@ -248,12 +307,88 @@ REGISTER_COMMAND(
     /* options */ PATCH_OPTIONS) {
   int strip_components = ctx.get<bool>("-p", false)
                              ? std::stoi(ctx.get<std::string>("-p", ""))
-                             : 1;
+                             : 0;
   std::string patch_file = ctx.get<std::string>("-i", "");
   bool reverse =
       ctx.get<bool>("-R", false) || ctx.get<bool>("--reverse", false);
-  std::string backup_ext = ctx.get<std::string>("-b", ".orig");
+  const bool force =
+      ctx.get<bool>("-f", false) || ctx.get<bool>("--force", false) ||
+      ctx.get<bool>("-t", false) || ctx.get<bool>("--batch", false);
+  const int fuzz =
+      (ctx.has("-F") || ctx.has("--fuzz"))
+          ? ctx.has("-F") ? ctx.get<int>("-F", 2) : ctx.get<int>("--fuzz", 2)
+          : 2;
+  constexpr const char* backup_ext = ".orig";
+  std::string output_file = ctx.get<std::string>("-o", "");
+  if (output_file.empty()) output_file = ctx.get<std::string>("--output", "");
+  std::string reject_file = ctx.get<std::string>("-r", "");
+  if (reject_file.empty())
+    reject_file = ctx.get<std::string>("--reject-file", "");
+  const bool silent =
+      ctx.get<bool>("-s", false) || ctx.get<bool>("--silent", false) ||
+      ctx.get<bool>("-q", false) || ctx.get<bool>("--quiet", false);
   bool dry_run = ctx.get<bool>("--dry-run", false);
+
+  // [DIFFERS] Additional options for full runtime coverage.
+  const bool forward = ctx.has("-N") || ctx.has("--forward");
+  std::string directory = ctx.get<std::string>("-d", "");
+  if (directory.empty()) directory = ctx.get<std::string>("--directory", "");
+  const bool remove_empty = ctx.has("--remove-empty-files");
+  std::string ifdef_word = ctx.get<std::string>("-D", "");
+  if (ifdef_word.empty()) ifdef_word = ctx.get<std::string>("--ifdef", "");
+  const bool merge_mode = ctx.has("-l") || ctx.has("--merge");
+  const bool backup_if_mismatch = ctx.has("--backup-if-mismatch");
+  const bool no_backup_if_mismatch = ctx.has("--no-backup-if-mismatch");
+  const std::string reject_format = ctx.get<std::string>("--reject-format", "");
+  const bool set_time = ctx.has("-T") || ctx.has("--set-time");
+  const bool set_utc = ctx.has("--set-utc");
+  const bool unified = ctx.has("-u") || ctx.has("--unified");
+  const bool verbose = ctx.has("-v") || ctx.has("--verbose");
+  const bool binary_mode = ctx.has("--binary");
+  const bool posix_mode = ctx.has("--posix");
+
+  // Options not supported on this Windows port
+  if (!ifdef_word.empty()) {
+    safeErrorPrintLn("patch: --ifdef/-D is not supported on Windows");
+    return 1;
+  }
+  if (merge_mode) {
+    safeErrorPrintLn("patch: --merge/-l is not supported on Windows");
+    return 1;
+  }
+  if (!reject_format.empty()) {
+    safeErrorPrintLn("patch: --reject-format is not supported on Windows");
+    return 1;
+  }
+  if (set_time) {
+    safeErrorPrintLn("patch: --set-time/-T is not supported on Windows");
+    return 1;
+  }
+  if (set_utc) {
+    safeErrorPrintLn("patch: --set-utc is not supported on Windows");
+    return 1;
+  }
+  if (binary_mode) {
+    safeErrorPrintLn("patch: --binary is not supported on Windows");
+    return 1;
+  }
+  if (posix_mode) {
+    safeErrorPrintLn("patch: --posix is not supported on Windows");
+    return 1;
+  }
+
+  // --forward overrides --reverse ([DIFFERS] GNU behaviour).
+  if (forward) {
+    reverse = false;
+  }
+
+  // [DIFFERS] -u/--unified is accepted silently; this implementation always
+  // parses unified diff format.
+
+  if (verbose) {
+    safePrintLn("patch: strip " + std::to_string(strip_components) +
+                " leading components");
+  }
 
   std::string patch_content;
 
@@ -276,6 +411,9 @@ REGISTER_COMMAND(
              &bytesRead, nullptr);
     CloseHandle(hFile);
   } else {
+    if (verbose) {
+      safePrintLn("patch: reading patch from standard input");
+    }
     patch_content = std::string(std::istreambuf_iterator<char>(std::cin),
                                 std::istreambuf_iterator<char>());
   }
@@ -370,6 +508,19 @@ REGISTER_COMMAND(
     return 1;
   }
 
+  // [DIFFERS] -d/--directory: prepend directory to the target path.
+  if (!directory.empty()) {
+    target_file = directory + "/" + target_file;
+    // Normalise backslashes introduced by Windows paths.
+    for (char& c : target_file) {
+      if (c == '\\') c = '/';
+    }
+  }
+
+  if (verbose) {
+    safePrintLn("patch: patching file '" + target_file + "'");
+  }
+
   // Read original file
   std::vector<std::string> lines = read_file_lines(target_file);
 
@@ -378,39 +529,103 @@ REGISTER_COMMAND(
     return 1;
   }
 
-  // Backup file if requested
-  if (!dry_run && ctx.get<bool>("-b", false)) {
-    backup_file(target_file, backup_ext);
-  }
+  // Backup file if requested.
+  // [DIFFERS] --backup-if-mismatch / --no-backup-if-mismatch control
+  // conditional backup.  When --backup-if-mismatch is set, backup only when
+  // the patch does not apply cleanly (fuzz > 0 or offset != 0).
+  // --no-backup-if-mismatch disables conditional backup entirely.
+  const bool do_backup = ctx.get<bool>("-b", false);
+  // Defer backup to post-hunk-apply when conditional logic is active.
 
   // Apply hunks
   int applied = 0;
   int failed = 0;
 
   int cumulative_offset = 0;
+  std::vector<Hunk> rejected;
   for (const auto& original_hunk : hunks) {
     Hunk hunk = original_hunk;
     hunk.old_start += cumulative_offset;
-    if (apply_hunk(lines, hunk, reverse)) {
+    int used_offset = 0;
+    if (apply_hunk(lines, hunk, reverse, fuzz, used_offset)) {
       applied++;
-      cumulative_offset += hunk.new_count - hunk.old_count;
+      cumulative_offset += hunk.new_count - hunk.old_count + used_offset;
     } else {
       failed++;
-      safeErrorPrintLn("patch: hunk FAILED at line " +
-                       std::to_string(original_hunk.old_start));
+      rejected.push_back(original_hunk);
+      if (!silent) {
+        safeErrorPrintLn("patch: hunk FAILED at line " +
+                         std::to_string(original_hunk.old_start));
+      }
     }
   }
 
-  // Write patched file
-  if (!dry_run && failed == 0) {
-    if (!write_file_lines(target_file, lines)) {
-      safeErrorPrintLn("patch: cannot write to file '" + target_file + "'");
+  // [DIFFERS] Determine whether a mismatch occurred for conditional backup.
+  // A mismatch means either offset drift (cumulative_offset != 0) or any
+  // hunk that could not be applied at all.
+  const bool had_mismatch = (backup_if_mismatch || !no_backup_if_mismatch)
+                                ? ((cumulative_offset != 0) || (failed > 0))
+                                : false;
+
+  // [DIFFERS] Conditional backup per --backup-if-mismatch /
+  // --no-backup-if-mismatch.
+  if (do_backup && !dry_run) {
+    if (no_backup_if_mismatch) {
+      // --no-backup-if-mismatch: never backup when -b is used.
+      // (GNU: only backup if patch does NOT match exactly)
+    } else if (backup_if_mismatch) {
+      // --backup-if-mismatch: backup only when there is a mismatch.
+      if (had_mismatch) {
+        backup_file(target_file, backup_ext);
+      }
+    } else {
+      // Default: always backup when -b is used.
+      backup_file(target_file, backup_ext);
+    }
+  }
+
+  // GNU -r writes rejected hunks as a patch that can be fixed manually.
+  if (!reject_file.empty() && !rejected.empty()) {
+    std::vector<std::string> reject_lines;
+    for (const auto& hunk : rejected) {
+      reject_lines.push_back("@@ -" + std::to_string(hunk.old_start) + "," +
+                             std::to_string(hunk.old_count) + " +" +
+                             std::to_string(hunk.new_start) + "," +
+                             std::to_string(hunk.new_count) + " @@");
+      for (const auto& line : hunk.old_lines)
+        reject_lines.push_back("-" + line);
+      for (const auto& line : hunk.new_lines)
+        reject_lines.push_back("+" + line);
+    }
+    if (!write_file_lines(reject_file, reject_lines)) {
+      safeErrorPrintLn("patch: cannot write reject file '" + reject_file + "'");
       return 1;
     }
   }
 
-  safePrintLn("patch: " + std::to_string(applied) + " hunks applied, " +
-              std::to_string(failed) + " failed");
+  if (!dry_run && (failed == 0 || force)) {
+    const std::string destination =
+        output_file.empty() ? target_file : output_file;
+    // [DIFFERS] --remove-empty-files: if the patched content is empty,
+    // delete the output file rather than writing an empty one.
+    if (remove_empty && lines.empty()) {
+      std::wstring wpath = utf8_to_wstring(destination);
+      DeleteFileW(wpath.c_str());
+      if (verbose) {
+        safePrintLn("patch: removed empty file '" + destination + "'");
+      }
+    } else {
+      if (!write_file_lines(destination, lines)) {
+        safeErrorPrintLn("patch: cannot write to file '" + destination + "'");
+        return 1;
+      }
+    }
+  }
 
-  return (failed > 0) ? 1 : 0;
+  if (!silent) {
+    safePrintLn("patch: " + std::to_string(applied) + " hunks applied, " +
+                std::to_string(failed) + " failed");
+  }
+
+  return (failed > 0 && !force) ? 1 : 0;
 }

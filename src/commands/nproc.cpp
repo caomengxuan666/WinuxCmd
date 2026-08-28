@@ -40,9 +40,11 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr NPROC_OPTIONS =
+    // [DIFFERS] --all: On Windows, GetSystemInfo always returns the total
+    // count, so --all and default behavior are identical.
     std::array{OPTION("", "--all", "print number of all installed processors"),
-               OPTION("", "--ignore", "ignore N processors", INT_TYPE),
-               OPTION("", "", "print number of processing units", STRING_TYPE)};
+               // [GNU]
+               OPTION("", "--ignore", "ignore N processors", INT_TYPE)};
 
 REGISTER_COMMAND(
     nproc_cmd,

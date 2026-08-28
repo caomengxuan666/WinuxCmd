@@ -44,34 +44,50 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr LESS_OPTIONS = std::array{
+    // [EXT]
     OPTION("-e", "--quit-at-eof", "quit after second EOF", BOOL_TYPE),
+    // [EXT]
     OPTION("-E", "--QUIT-AT-EOF", "quit after first EOF", BOOL_TYPE),
+    // [EXT]
     OPTION("-F", "--quit-if-one-screen",
            "quit if entire file fits on first screen", BOOL_TYPE),
+    // [EXT]
     OPTION("-i", "--ignore-case",
            "ignore case in searches that do not contain uppercase", BOOL_TYPE),
+    // [EXT]
     OPTION("-I", "--IGNORE-CASE", "ignore case in all searches", BOOL_TYPE),
+    // [EXT]
     OPTION("-K", "--quit-on-intr", "exit less in response to Ctrl+C",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-n", "--line-numbers", "display line number at start of each line",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-N", "--LINE-NUMBERS", "display line number at start of each line",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-S", "--chop-long-lines", "chop long lines (do not wrap)",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-q", "--quiet", "accepted placeholder; terminal bell is not used",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-Q", "--QUIET", "accepted placeholder; terminal bell is not used",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-r", "--raw-control-chars",
            "accepted placeholder; control chars are passed through", BOOL_TYPE),
+    // [EXT]
     OPTION("-R", "--RAW-CONTROL-CHARS",
            "accepted placeholder; ANSI SGR color sequences are passed through",
            BOOL_TYPE),
+    // [EXT]
     OPTION("", "--no-init",
            "accepted placeholder; terminal init/deinit sequences are not used",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-z", "--window", "set scrolling window size", INT_TYPE),
+    // [EXT]
     OPTION("-NUM", "", "same as -z NUM", INT_TYPE)};
 
 namespace less_pipeline {

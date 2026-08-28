@@ -43,60 +43,165 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr VDIR_OPTIONS = std::array{
+    // [GNU] option
     OPTION("-a", "--all", "do not ignore entries starting with ."),
+    // [GNU] option
     OPTION("-A", "--almost-all", "do not list implied . and .."),
+    // [GNU] option
     OPTION("-b", "--escape", "print C-style escapes for nongraphic characters"),
+    // [GNU] option
     OPTION("-B", "--ignore-backups",
            "do not list implied entries ending with ~"),
+    // [GNU] option
     OPTION("-C", "", "list entries by columns"),
+    // [GNU] option
     OPTION("-d", "--directory",
            "list directories themselves, not their contents"),
+    // [GNU] option
     OPTION("-F", "--classify", "append indicator (one of */=>@|) to entries"),
+    // [GNU] option
     OPTION("-g", "", "like -l, but do not list owner"),
+    // [GNU] option
     OPTION("-h", "--human-readable",
            "with -l and -s, print sizes like 1K 234M 2G etc."),
+    // [GNU] option
     OPTION("-i", "--inode", "print the index number of each file"),
+    // [GNU] option
     OPTION("-l", "", "use a long listing format"),
+    // [GNU] option
     OPTION("", "--long", "use a long listing format"),
+    // [EXT] option
     OPTION("", "--long-list", "use a long listing format"),
+    // [GNU] option
     OPTION("-m", "", "fill width with a comma separated list of entries"),
+    // [GNU] option
     OPTION("-n", "--numeric-uid-gid",
            "like -l, but list numeric user and group IDs"),
+    // [GNU] option
     OPTION("-o", "", "like -l, but do not list group information"),
+    // [GNU] option
     OPTION("-p", "", "append / indicator to directories"),
+    // [GNU] option
     OPTION("-q", "--hide-control-chars",
            "print ? instead of nongraphic characters"),
+    // [GNU] option
     OPTION("-Q", "--quote-name", "enclose entry names in double quotes"),
+    // [GNU] option
     OPTION("-r", "--reverse", "reverse order while sorting"),
+    // [GNU] option
     OPTION("-R", "--recursive", "list subdirectories recursively"),
+    // [GNU] option
     OPTION("-s", "--size", "print the allocated size of each file, in blocks"),
+    // [GNU] option
     OPTION("-S", "", "sort by file size, largest first"),
+    // [GNU] option
     OPTION("-t", "", "sort by time, newest first"),
+    // [GNU] option
     OPTION("-u", "", "with -lt: sort by, and show, access time"),
+    // [GNU] option
     OPTION("-U", "", "do not sort; list entries in directory order"),
+    // [GNU] option
     OPTION("-v", "", "natural sort of (version) numbers within text"),
+    // [GNU] option
     OPTION("-T", "--tabsize", "assume tab stops at each COLS instead of 8",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-w", "--width", "assume screen is instead of COLS wide",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-x", "", "list entries by lines across"),
+    // [GNU] option
     OPTION("-X", "", "sort alphabetically by entry extension"),
+    // [GNU] option
     OPTION("-1", "", "list one file per line"),
+    // [GNU] option
     OPTION("", "--sort",
            "sort by WORD: none (-U), size (-S), time (-t), version (-v), "
            "extension (-X)",
            STRING_TYPE),
+    // [GNU] option
     OPTION("", "--format",
            "set output format: across, commas, horizontal, long, "
            "single-column, verbose, vertical",
            STRING_TYPE),
+    // [GNU] option
     OPTION("", "--time",
            "show time as WORD instead of default: atime, access, use, ctime, "
            "status",
            STRING_TYPE),
+    // [GNU] option
     OPTION("", "--color", "colorize the output: always, auto, never",
            STRING_TYPE),
+    // [GNU] option
     OPTION("", "--group-directories-first", "group directories before files"),
+    // [GNU] --author: show author in long format
+    OPTION("", "--author", "show author in long format"),
+    // [GNU] --block-size: scale sizes by SIZE
+    OPTION("", "--block-size", "scale sizes by SIZE", STRING_TYPE),
+    // [GNU] --context: print any security context of each file
+    // [DIFFERS]
+    OPTION("-Z", "--context", "print any security context of each file"),
+    // [GNU] --dereference: when showing file information for a symbolic link,
+    // show information for the file the link references
+    OPTION("-L", "--dereference",
+           "when showing file information for a symbolic link, show "
+           "information for the file the link references"),
+    // [GNU] --dereference-command-line: follow symlinks listed on the command
+    // line
+    OPTION("-H", "--dereference-command-line",
+           "follow symlinks listed on the command line"),
+    // [GNU] --dereference-command-line-symlink-to-dir: follow each command-line
+    // symlink to a directory
+    OPTION("", "--dereference-command-line-symlink-to-dir",
+           "follow each command-line symlink to a directory"),
+    // [GNU]
+    OPTION("", "--dereference-command-line-symlinks-to-dir",
+           "follow each command-line symlink to a directory"),
+    // [GNU] --dired: generate output designed for Emacs dired mode
+    OPTION("-D", "--dired", "generate output designed for Emacs dired mode"),
+    // [GNU] --file-type: append file type indicators, without '*'
+    OPTION("", "--file-type", "append file type indicators, without *"),
+    // [GNU] --hide: do not list implied entries matching PATTERN
+    OPTION("", "--hide", "do not list implied entries matching PATTERN",
+           STRING_TYPE),
+    // [GNU] --hyperlink: hyperlink file names when outputting to a terminal
+    OPTION("", "--hyperlink",
+           "hyperlink file names when outputting to a terminal",
+           OPTIONAL_STRING_TYPE),
+    // [GNU] --ignore: do not list implied entries matching PATTERN
+    OPTION("-I", "--ignore", "do not list implied entries matching PATTERN",
+           STRING_TYPE),
+    // [GNU] --indicator-style: append indicator using WORD
+    OPTION("", "--indicator-style", "append indicator using WORD", STRING_TYPE),
+    // [GNU] --literal: print entry names without quoting
+    OPTION("-N", "--literal", "print entry names without quoting"),
+    // [GNU] --no-group: in a long listing, don't print group names
+    OPTION("-G", "--no-group", "in a long listing, don't print group names"),
+    // [GNU] --quoting-style: use quoting style WORD
+    OPTION("", "--quoting-style", "use quoting style WORD", STRING_TYPE),
+    // [GNU] --show-control-chars: show nongraphic characters as-is in file
+    // names
+    OPTION("", "--show-control-chars",
+           "show nongraphic characters as-is in file names"),
+    // [GNU] --si: like -h, but use powers of 1000 not 1024
+    OPTION("", "--si", "like -h, but use powers of 1000 not 1024"),
+    // [GNU] --time-style: time/date format with -l
+    OPTION("", "--time-style",
+           "time/date format with -l (e.g. full-iso, long-iso, iso, locale, "
+           "+FORMAT)",
+           STRING_TYPE),
+    // [GNU]
+    OPTION("", "--full-time", "like -l --time-style=full-iso"),
+    // [GNU] -c: with -lt: sort by, and show, ctime; otherwise sort by ctime
+    OPTION("-c", "",
+           "with -lt: sort by, and show, ctime; otherwise: sort by ctime, "
+           "newest first"),
+    // [GNU] -f: list all entries in directory order
+    OPTION("-f", "", "list all entries in directory order"),
+    // [GNU] -k: default to 1024-byte blocks for file system usage
+    OPTION("-k", "--kibibytes",
+           "default to 1024-byte blocks for file system usage"),
+    // [GNU] option
     OPTION("", "--zero", "end each output line with NUL, not newline")};
 
 namespace vdir_pipeline {

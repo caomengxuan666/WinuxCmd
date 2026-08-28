@@ -61,17 +61,27 @@ using cmd::meta::OptionType;
  * - @a -o: Output to file instead of stdout [IMPLEMENTED]
  */
 auto constexpr TREE_OPTIONS = std::array{
+    // [EXT] -a, --all
     OPTION("-a", "--all", "all files are listed"),
+    // [EXT] -d
     OPTION("-d", "", "list directories only"),
+    // [EXT] -L
     OPTION("-L", "", "max display depth of the directory tree", INT_TYPE),
+    // [EXT] -f
     OPTION("-f", "", "print the full path prefix for each file"),
+    // [EXT] -I
     OPTION("-I", "", "do not list files that match the given pattern",
            STRING_TYPE),
+    // [EXT] -P
     OPTION("-P", "", "list only those files that match the given pattern",
            STRING_TYPE),
+    // [EXT] -C
     OPTION("-C", "", "colorize the output"),
+    // [EXT] -s
     OPTION("-s", "", "print the size in bytes of each file"),
+    // [EXT] -t
     OPTION("-t", "", "sort files by last modification time"),
+    // [EXT] -o
     OPTION("-o", "", "output to file instead of stdout", STRING_TYPE)};
 
 namespace tree_pipeline {

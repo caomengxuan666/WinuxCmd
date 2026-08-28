@@ -9,6 +9,7 @@ import utils;
 import container;
 
 auto constexpr TSORT_OPTIONS =
+    // [GNU] option
     std::array{OPTION("", "", "topological sort", STRING_TYPE)};
 
 REGISTER_COMMAND(tsort,

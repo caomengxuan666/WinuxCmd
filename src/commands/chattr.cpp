@@ -34,14 +34,19 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CHATTR_OPTIONS = std::array{
+    // [EXT]
     OPTION("-R", "--recursive", "recursively change attributes of directories"),
-    OPTION("-V", "--verbose", "print changed files")};
+    // [EXT]
+    OPTION("-V", "--verbose", "print changed files"),
+    // [GNU]
+    OPTION("-f", "--force", "suppress most error messages")};
 
 namespace chattr_pipeline {
 
 struct Config {
   bool recursive = false;
   bool verbose = false;
+  bool force = false;
   char op = '\0';
   DWORD set_bits = 0;
   DWORD clear_bits = 0;
@@ -103,8 +108,11 @@ auto parse_mode(std::string_view mode, Config& cfg) -> bool {
 auto apply_one(const Config& cfg, std::wstring_view path) -> bool {
   DWORD attrs = GetFileAttributesW(std::wstring(path).c_str());
   if (attrs == INVALID_FILE_ATTRIBUTES) {
-    safeErrorPrintLn(L"chattr: cannot access '" + std::wstring(path) + L"': " +
-                     utf8_to_wstring(win32_posix_error_text(GetLastError())));
+    if (!cfg.force) {
+      safeErrorPrintLn(L"chattr: cannot access '" + std::wstring(path) +
+                       L"': " +
+                       utf8_to_wstring(win32_posix_error_text(GetLastError())));
+    }
     return false;
   }
 
@@ -122,9 +130,11 @@ auto apply_one(const Config& cfg, std::wstring_view path) -> bool {
 
   if (new_attrs == attrs) return true;
   if (!SetFileAttributesW(std::wstring(path).c_str(), new_attrs)) {
-    safeErrorPrintLn(L"chattr: failed to set attributes for '" +
-                     std::wstring(path) + L"': " +
-                     utf8_to_wstring(win32_posix_error_text(GetLastError())));
+    if (!cfg.force) {
+      safeErrorPrintLn(L"chattr: failed to set attributes for '" +
+                       std::wstring(path) + L"': " +
+                       utf8_to_wstring(win32_posix_error_text(GetLastError())));
+    }
     return false;
   }
 
@@ -180,6 +190,7 @@ auto run(const CommandContext<CHATTR_OPTIONS.size()>& ctx) -> int {
   cfg.recursive =
       ctx.get<bool>("-R", false) || ctx.get<bool>("--recursive", false);
   cfg.verbose = ctx.get<bool>("-V", false) || ctx.get<bool>("--verbose", false);
+  cfg.force = ctx.get<bool>("-f", false) || ctx.get<bool>("--force", false);
   if (!parse_mode(ctx.positionals.front(), cfg)) return 1;
   for (size_t i = 1; i < ctx.positionals.size(); ++i) {
     cfg.paths.emplace_back(ctx.positionals[i]);
@@ -197,13 +208,15 @@ auto run(const CommandContext<CHATTR_OPTIONS.size()>& ctx) -> int {
 
 }  // namespace chattr_pipeline
 
-REGISTER_COMMAND(chattr, "chattr", "chattr [OPTION]... MODE FILE...",
-                 "Change Windows file attributes.\n"
-                 "Supported flags are R,H,S,A,I,T,O for readonly, hidden, "
-                 "system, archive, not indexed, temporary, and offline.",
-                 "  chattr +RH file.txt\n"
-                 "  chattr -R -H directory",
-                 "lsattr(1), chmod(1), attrib.exe", "WinuxCmd",
-                 "Copyright © 2026 WinuxCmd", CHATTR_OPTIONS) {
+REGISTER_COMMAND(
+    chattr, "chattr", "chattr [-RVf] MODE FILE...",
+    "Change Windows file attributes.\n"
+    "Supported flags are R,H,S,A,I,T,O for readonly, hidden, "
+    "system, archive, not indexed, temporary, and offline.\n"
+    "[DIFFERS] Attribute flags differ from GNU chattr (Linux ext4).",
+    "  chattr +RH file.txt\n"
+    "  chattr -R -H directory",
+    "lsattr(1), chmod(1), attrib.exe", "WinuxCmd", "Copyright © 2026 WinuxCmd",
+    CHATTR_OPTIONS) {
   return chattr_pipeline::run(ctx);
 }

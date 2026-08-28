@@ -44,19 +44,29 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MORE_OPTIONS = std::array{
+    // [EXT]
     OPTION("-d", "--silent", "display help instead of ring bell", BOOL_TYPE),
+    // [EXT]
     OPTION("-f", "--logical", "count logical lines, not screen lines",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-l", "--no-pause", "suppress pause after form feeds", BOOL_TYPE),
+    // [EXT]
     OPTION("-c", "--print-over", "clear line ends before each page", BOOL_TYPE),
+    // [EXT]
     OPTION("-p", "--clean-print",
            "do not scroll, clean screen and display text", BOOL_TYPE),
+    // [EXT]
     OPTION("-e", "--exit-on-eof", "exit on end-of-file", BOOL_TYPE),
+    // [EXT]
     OPTION("-s", "--squeeze", "squeeze multiple blank lines", BOOL_TYPE),
+    // [EXT]
     OPTION("-u", "--plain",
            "accepted placeholder; underlining and bold are already plain",
            BOOL_TYPE),
+    // [EXT]
     OPTION("-n", "--lines", "number of lines per screenful", INT_TYPE),
+    // [EXT]
     OPTION("-NUM", "", "same as -n NUM", INT_TYPE)};
 
 namespace more_pipeline {
@@ -141,6 +151,12 @@ auto get_console_height() -> size_t {
   auto [width, height] = getConsoleViewportSize();
   (void)width;
   return static_cast<size_t>(std::max(height - 1, 1));
+}
+
+auto estimate_screen_rows(const std::string& line, size_t console_width)
+    -> size_t {
+  if (line.empty()) return 1;
+  return (line.length() + console_width - 1) / console_width;
 }
 
 auto clear_console() -> void { clearConsoleViewport(); }
@@ -435,15 +451,59 @@ auto display_file(const std::string& filename, const Config& cfg,
     }
 
     size_t lines_shown = 0;
+    auto [console_width, console_height] = getConsoleViewportSize();
+    (void)console_height;
+    bool hit_form_feed = false;
     for (size_t i = 0; i < page_height && current_line < lines.size();
          ++i, ++current_line) {
       safePrintLn(lines[current_line]);
       lines_shown++;
+
+      if (!cfg.pause_form_feed &&
+          lines[current_line].find('') != std::string::npos) {
+        hit_form_feed = true;
+        break;
+      }
+
+      if (!cfg.logical_lines) {
+        size_t rows = estimate_screen_rows(lines[current_line], console_width);
+        if (rows > 1) i += rows - 1;
+      }
     }
     last_lines_shown = lines_shown;
 
     if (current_line >= lines.size()) {
+      if (!cfg.exit_on_eof) {
+        size_t eof_percent =
+            lines.empty()
+                ? 100
+                : std::min<size_t>(100, current_line * 100 / lines.size());
+        safePrint("--More--(");
+        safePrint(std::to_string(eof_percent));
+        safePrint("%) (END)");
+        MoreCommand end_command = read_more_command(input_mode.input());
+        safePrint("\r\033[K");
+        if (end_command.action == MoreAction::Quit) {
+          return {0, MoreAction::Quit};
+        }
+      }
       break;
+    }
+
+    if (hit_form_feed) {
+      size_t ff_percent =
+          lines.empty()
+              ? 100
+              : std::min<size_t>(100, current_line * 100 / lines.size());
+      safePrint("--More--(");
+      safePrint(std::to_string(ff_percent));
+      safePrint("%)");
+      MoreCommand ff_command = read_more_command(input_mode.input());
+      safePrint("\r\033[K");
+      if (ff_command.action == MoreAction::Quit) {
+        return {0, MoreAction::Quit};
+      }
+      continue;
     }
 
     size_t percent =

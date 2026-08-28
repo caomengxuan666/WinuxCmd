@@ -47,17 +47,30 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr LSOF_OPTIONS = std::array{
+    // [EXT]
     OPTION("-p", "--pid", "list files opened by process id", INT_TYPE),
+    // [EXT]
     OPTION("-a", "--all", "include non-file handles and unnamed entries"),
+    // [EXT]
+    OPTION("-d", "--descriptor", "filter by file descriptor number", INT_TYPE),
+    // [EXT]
     OPTION("-i", "--internet",
            "show internet connections; optional spec ':PORT', 'PROTO', "
            "'PROTO:PORT'",
            OPTIONAL_STRING_TYPE),
+    // [EXT]
     OPTION("-F", "--field", "machine-readable field output"),
+    // [GNU]
     OPTION("-n", "--numeric", "do not convert native paths to DOS paths"),
+    // [EXT]
     OPTION("", "--no-headers", "print no header line"),
+    // [GNU]
+    OPTION("-P", "--no-port-translation", "do not translate port numbers"),
+    // [EXT]
     OPTION("-t", "--timeout-ms", "NtQueryObject timeout in milliseconds",
-           INT_TYPE)};
+           INT_TYPE),
+    // [GNU]
+    OPTION("-u", "--user", "filter by user (UID or name)", STRING_TYPE)};
 
 namespace lsof_pipeline {
 
@@ -162,10 +175,13 @@ struct InternetFilter {
 
 struct Config {
   std::optional<DWORD> pid_filter;
+  std::optional<int> descriptor_filter;  // -d/--descriptor: filter by FD number
+  std::optional<std::string> user_filter;  // -u/--user: filter by user
   bool show_all = false;
   bool internet_only = false;
   bool field_mode = false;
   bool numeric = false;
+  bool no_port_translation = false;  // -P/--no-port-translation
   bool no_headers = false;
   DWORD timeout_ms = 80;
   std::optional<InternetFilter> inet_filter;
@@ -429,11 +445,25 @@ auto parse_config(const CommandContext<LSOF_OPTIONS.size()>& ctx)
   if (pid_opt < 0) pid_opt = ctx.get<int>("-p", -1);
   if (pid_opt >= 0) cfg.pid_filter = static_cast<DWORD>(pid_opt);
 
+  int desc_opt = ctx.get<int>("--descriptor", -1);
+  if (desc_opt < 0) desc_opt = ctx.get<int>("-d", -1);
+  if (desc_opt >= 0) cfg.descriptor_filter = desc_opt;
+
+  cfg.user_filter = ctx.get<std::string>("--user", "");
+  if (cfg.user_filter->empty()) {
+    cfg.user_filter = ctx.get<std::string>("-u", "");
+  }
+  if (cfg.user_filter->empty()) {
+    cfg.user_filter.reset();
+  }
+
   cfg.show_all = ctx.get<bool>("--all", false) || ctx.get<bool>("-a", false);
   cfg.internet_only = ctx.has("--internet");
   cfg.field_mode =
       ctx.get<bool>("--field", false) || ctx.get<bool>("-F", false);
   cfg.numeric = ctx.get<bool>("--numeric", false) || ctx.get<bool>("-n", false);
+  cfg.no_port_translation = ctx.get<bool>("--no-port-translation", false) ||
+                            ctx.get<bool>("-P", false);
   cfg.no_headers = ctx.get<bool>("--no-headers", false);
 
   int timeout_opt = ctx.get<int>("--timeout-ms", -1);
@@ -729,6 +759,25 @@ auto run(const Config& cfg) -> int {
     return 1;
   }
   auto [query_sys, query_obj] = *ntdll;
+
+  // [EXT] -u/--user: Windows does not have UIDs; print advisory and continue
+  if (cfg.user_filter.has_value()) {
+    safeErrorPrintLn(
+        L"lsof: warning: -u/--user filter is not fully supported on Windows");
+    safeErrorPrintLn(
+        L"lsof:         filtering by user is not implemented; showing all "
+        L"processes");
+  }
+
+  // [EXT] -d/--descriptor: Windows handles lack stable FD numbers;
+  // print advisory and continue
+  if (cfg.descriptor_filter.has_value()) {
+    safeErrorPrintLn(
+        L"lsof: warning: -d/--descriptor filter is not fully supported on "
+        L"Windows");
+    safeErrorPrintLn(
+        L"lsof:         Windows handles do not map to POSIX file descriptors");
+  }
 
   bool debug_enabled = enable_debug_privilege();
 

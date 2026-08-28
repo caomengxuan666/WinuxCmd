@@ -152,7 +152,8 @@ static auto grep_is_terminal(FILE* stream) -> bool {
  * - @a --no-group-separator: Do not print group separator [IMPLEMENTED]
  * - @a --color: Highlight matching strings [IMPLEMENTED]
  * - @a --colour: Highlight matching strings [IMPLEMENTED]
- * - @a -u, @a --unix-byte-offsets: Report Unix-style byte offsets [IMPLEMENTED]
+ * - @a -u, @a --unix-byte-offsets: Report Unix-style byte offsets [DIFFERS:
+ * accepted but no effect]
  * - @a -U, @a --binary: Do not strip CR at EOL [IMPLEMENTED]
  */
 auto constexpr GREP_OPTIONS = std::array{
@@ -224,6 +225,7 @@ auto constexpr GREP_OPTIONS = std::array{
         "highlight matching strings; WHEN can be 'always', 'never', or 'auto'",
         OPTIONAL_STRING_TYPE),
     OPTION("-u", "--unix-byte-offsets", "report Unix-style byte offsets"),
+    // [DIFFERS] - Unix byte offsets not applicable on Windows
     OPTION("-U", "--binary", "do not strip CR at EOL")};
 
 namespace grep_pipeline {
@@ -1040,6 +1042,7 @@ auto build_config(const CommandContext<GREP_OPTIONS.size()>& ctx,
       continue;
     }
     if (option_matches(meta, "-a", "--text")) {
+      (void)ctx.has("--unix-byte-offsets");
       binary_files = "text";
       continue;
     }

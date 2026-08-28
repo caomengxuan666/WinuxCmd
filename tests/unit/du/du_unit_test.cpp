@@ -817,3 +817,26 @@ TEST(du, du_null_separator) {
   EXPECT_TRUE(r.stdout_text.find('\n') == std::string::npos);
   EXPECT_TRUE(r.stdout_text.find("file.txt") != std::string::npos);
 }
+
+TEST(du, du_time_style_and_count_links) {
+  TempDir tmp;
+  tmp.write("file.txt", "data");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"du.exe",
+        {L"--time", L"--time-style=+%Y", L"--count-links", L"file.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("file.txt"), std::string::npos);
+}
+
+TEST(du, du_full_iso_time_style_is_accepted) {
+  TempDir tmp;
+  tmp.write("file.txt", "data");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"du.exe", {L"--time", L"--time-style=full-iso", L"file.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("file.txt"), std::string::npos);
+}

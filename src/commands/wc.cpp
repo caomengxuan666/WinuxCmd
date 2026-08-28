@@ -70,16 +70,24 @@ constexpr size_t READ_BUFFER_SIZE = 64 * 1024;
  * - @a --version: Output version information and exit [IMPLEMENTED]
  */
 auto constexpr WC_OPTIONS = std::array{
+    // [GNU] option
     OPTION("-c", "--bytes", "print the byte counts"),
+    // [GNU] option
     OPTION("-m", "--chars", "print the character counts"),
+    // [GNU] option
     OPTION("-l", "--lines", "print the newline counts"),
+    // [GNU] option
     OPTION("", "--debug", "print line-count implementation diagnostics"),
+    // [GNU] option
     OPTION(
         "", "--files0-from",
         "read input from the files specified by NUL-terminated names in file F",
         STRING_TYPE),
+    // [GNU] option
     OPTION("-L", "--max-line-length", "print the maximum display width"),
+    // [GNU] option
     OPTION("-w", "--words", "print the word counts"),
+    // [GNU] option
     OPTION("", "--total", "when to print a line with total counts",
            STRING_TYPE)};
 

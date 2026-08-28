@@ -34,6 +34,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr REGTOOL_OPTIONS =
+    // [EXT]
     std::array{OPTION("", "", "operate on the Windows registry", STRING_TYPE)};
 
 namespace regtool_pipeline {

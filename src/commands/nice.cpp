@@ -45,6 +45,7 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr NICE_OPTIONS =
+    // [DIFFERS]
     std::array{OPTION("-n", "--adjustment", "adjust increment", STRING_TYPE)};
 
 namespace {

@@ -23,8 +23,8 @@
  *  - CopyrightYear: 2026
  */
 
-#include "pch/pch.h"
 #include "core/command_macros.h"
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -33,8 +33,9 @@ import utils;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
-constexpr auto TIME_OPTIONS = std::array{
-    OPTION("-p", "--posix", "report timing in POSIX format")};
+constexpr auto TIME_OPTIONS =
+    // [GNU] -p, --posix
+    std::array{OPTION("-p", "--posix", "report timing in POSIX format")};
 
 namespace time_pipeline {
 namespace cp = core::pipeline;
@@ -47,7 +48,8 @@ struct HandleCloser {
   }
 };
 
-using unique_handle = std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleCloser>;
+using unique_handle =
+    std::unique_ptr<std::remove_pointer_t<HANDLE>, HandleCloser>;
 
 struct LaunchCommand {
   std::optional<std::wstring> application_name;
@@ -93,8 +95,8 @@ struct Config {
     std::wstring buffer(capacity, L'\0');
     const DWORD length = SearchPathW(
         nullptr, file_storage.c_str(),
-        extension_storage.empty() ? nullptr : extension_storage.c_str(), capacity,
-        buffer.data(), nullptr);
+        extension_storage.empty() ? nullptr : extension_storage.c_str(),
+        capacity, buffer.data(), nullptr);
     if (length == 0) return std::nullopt;
     if (length < capacity) {
       buffer.resize(length);
@@ -175,7 +177,8 @@ struct Config {
   LARGE_INTEGER frequency{};
   LARGE_INTEGER start{};
   LARGE_INTEGER finish{};
-  if (!QueryPerformanceFrequency(&frequency) || !QueryPerformanceCounter(&start)) {
+  if (!QueryPerformanceFrequency(&frequency) ||
+      !QueryPerformanceCounter(&start)) {
     cp::report_custom_error(L"time", L"failed to read high-resolution clock");
     return 125;
   }
@@ -196,10 +199,10 @@ struct Config {
       &pi);
   if (!ok) {
     const DWORD error = GetLastError();
-    safeErrorPrintLn("time: failed to run command '" + cfg.command + "': " +
-                     win32_posix_error_text(error));
+    safeErrorPrintLn("time: failed to run command '" + cfg.command +
+                     "': " + win32_posix_error_text(error));
     return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND ? 127
-                                                                         : 126;
+                                                                          : 126;
   }
 
   unique_handle process(pi.hProcess);

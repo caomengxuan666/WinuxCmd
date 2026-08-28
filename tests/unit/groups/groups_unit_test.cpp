@@ -51,6 +51,7 @@ TEST(groups, groups_with_user) {
   TEST_LOG_EXIT_CODE(r);
   TEST_LOG("groups output", r.stdout_text);
 
-  EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "testuser\n");
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stdout_text.empty());
+  EXPECT_CONTAINS(r.stderr_text, "user name could not be found");
 }

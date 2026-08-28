@@ -9,6 +9,7 @@ import utils;
 import container;
 
 auto constexpr TPUT_OPTIONS =
+    // [EXT] operand
     std::array{OPTION("", "", "terminal capabilities", STRING_TYPE)};
 
 REGISTER_COMMAND(tput,

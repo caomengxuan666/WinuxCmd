@@ -46,15 +46,24 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr WPM_OPTIONS = std::array{
+    // [EXT] option
     OPTION("-r", "--root", "manage a specific WinuxCmd root", STRING_TYPE),
+    // [EXT] option
     OPTION("-s", "--source", "use a specific index source", STRING_TYPE),
+    // [EXT] option
     OPTION("-a", "--all", "show index-only packages in list output"),
+    // [EXT] option
     OPTION("-f", "--force", "overwrite existing files when safe"),
+    // [EXT] option
     OPTION("-n", "--dry-run", "show planned changes without writing"),
+    // [EXT] option
     OPTION("-v", "--verbose", "print detailed progress"),
+    // [EXT] option
     OPTION("", "--category", "filter list/search output by category",
            STRING_TYPE),
+    // [EXT] option
     OPTION("", "--json", "print machine-readable JSON"),
+    // [EXT] option
     OPTION("", "--plain", "print only package names for export")};
 
 namespace wpm {
@@ -135,6 +144,7 @@ struct Options {
   bool dry_run = false;
   bool verbose = false;
   bool json = false;
+  bool plain = false;
 };
 
 struct FileId {
@@ -3207,6 +3217,7 @@ auto build_options(const CommandContext<WPM_OPTIONS.size()>& ctx) -> Options {
       ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
   opts.category = ctx.get<std::string>("--category", "");
   opts.json = ctx.get<bool>("--json", false);
+  opts.plain = ctx.has("--plain");
   if (!opts.dry_run) (void)ensure_install_layout(opts.root);
   return opts;
 }
@@ -3285,7 +3296,8 @@ auto dispatch(const Options& opts, std::span<const std::string_view> args)
     return 1;
   }
   if (args[0] == "export") {
-    if (args.size() == 1 || (args.size() == 2 && args[1] == "--plain")) {
+    if (args.size() == 1 || opts.plain ||
+        (args.size() == 2 && args[1] == "--plain")) {
       return export_installed_packages_plain(opts);
     }
     safeErrorPrintLn(winux::i18n::translate(

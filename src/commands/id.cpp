@@ -53,8 +53,9 @@ auto constexpr ID_OPTIONS = std::array{
     OPTION("-u", "--user", "print only the effective user ID", BOOL_TYPE),
     OPTION("-Z", "--context",
            "print only the security context (not implemented)", BOOL_TYPE),
-    OPTION("", "--zero", "delimit entries with NUL, not whitespace",
-           BOOL_TYPE)};
+    OPTION("", "--zero", "delimit entries with NUL, not whitespace", BOOL_TYPE),
+    // [GNU]
+    OPTION("-z", "", "delimit entries with NUL, not whitespace", BOOL_TYPE)};
 
 namespace id_pipeline {
 namespace cp = core::pipeline;
@@ -139,7 +140,9 @@ auto build_config(const CommandContext<ID_OPTIONS.size()>& ctx)
   cfg.print_user = ctx.get<bool>("--user", false) || ctx.get<bool>("-u", false);
   cfg.print_context =
       ctx.get<bool>("--context", false) || ctx.get<bool>("-Z", false);
-  cfg.zero = ctx.get<bool>("--zero", false);
+  // -a: ignore, for compatibility with other versions
+  (void)ctx.get<bool>("-a", false);
+  cfg.zero = ctx.get<bool>("--zero", false) || ctx.get<bool>("-z", false);
 
   for (auto arg : ctx.positionals) {
     cfg.users.push_back(std::string(arg));

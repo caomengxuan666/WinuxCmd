@@ -1548,6 +1548,25 @@ TEST(ls, ls_invalid_sort_and_time_options_fail) {
   EXPECT_NE(bad_time_result.exit_code, 0);
 }
 
+TEST(ls, ls_context_option_reports_windows_unsupported) {
+  TempDir tmp;
+  tmp.write("sample.txt", "sample");
+
+  for (const auto* option : {L"-Z", L"--context"}) {
+    Pipeline p;
+    p.set_cwd(tmp.wpath());
+    p.add(L"ls.exe", {option, L"sample.txt"});
+
+    auto r = p.run();
+
+    EXPECT_EQ(r.exit_code, 1);
+    EXPECT_TRUE(r.stdout_text.empty());
+    EXPECT_TRUE(
+        r.stderr_text.find("ls: --context is not supported on Windows") !=
+        std::string::npos);
+  }
+}
+
 TEST(ls, ls_comma_format) {
   TempDir tmp;
   tmp.write("a.txt", "a");

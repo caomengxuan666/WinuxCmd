@@ -9,14 +9,23 @@ import utils;
 import container;
 
 auto constexpr XXD_OPTIONS = std::array{
+    // [EXT] option
     OPTION("-r", "--reverse", "reverse: convert hex to binary"),
+    // [EXT] option
     OPTION("-p", "--plain", "plain hexdump"),
+    // [EXT] option
     OPTION("-c", "--cols", "set bytes per line", INT_TYPE),
+    // [EXT] option
     OPTION("-l", "--len", "limit input to LEN bytes", INT_TYPE),
+    // [EXT] option
     OPTION("-s", "--seek", "start at SEEK bytes into input", INT_TYPE),
+    // [EXT] option
     OPTION("-o", "--offset", "add OFFSET to displayed file position", INT_TYPE),
+    // [EXT] option
     OPTION("-u", "--upper-case", "use upper-case hex digits"),
+    // [EXT] option
     OPTION("-i", "--include", "output in C include file style"),
+    // [EXT] option
     OPTION("-n", "--name", "set the variable name used in C include output",
            STRING_TYPE)};
 

@@ -64,9 +64,15 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr TEE_OPTIONS = std::array{
+    // [GNU] -a, --append
     OPTION("-a", "--append", "append to the given FILEs, do not overwrite"),
+    // [GNU] -i, --ignore-interrupts
     OPTION("-i", "--ignore-interrupts", "ignore interrupt signals"),
+    // [GNU] -p  (no long form in GNU coreutils 9.4; --diagnose added for
+    // ergonomics — newer GNU versions may adopt this alias)
+    // [DIFFERS from GNU 9.4] GNU -p has no --diagnose long form.
     OPTION("-p", "--diagnose", "write errors to standard error"),
+    // [GNU] --output-error
     OPTION("", "--output-error",
            "set behavior on write error: 'warn' (default), 'warn-nopipe', "
            "'exit', 'exit-nopipe'",

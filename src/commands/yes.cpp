@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr YES_OPTIONS =
+    // [GNU] option
     std::array{OPTION("", "", "output a string repeatedly", STRING_TYPE)};
 
 namespace yes_pipeline {

@@ -150,30 +150,49 @@ struct TopConfig {
   bool ignore_idle = false;
   std::string user_filter;
   int selected_pid = 0;
+
+  // CLI-only options
+  std::set<DWORD> pid_filter;  // [EXT] -p, --pid
+  bool secure_mode = false;    // [EXT] -s, --secure-mode
+  int output_width = 0;        // [EXT] -w, --width
 };
 
 /**
  * @brief TOP command options
  */
 constexpr auto TOP_OPTIONS = std::array{
+    // [EXT] -b, --batch
     OPTION("-b", "--batch",
            "batch mode: don't accept input, run until -n iterations"),
+    // [EXT] -d, --delay
     OPTION("-d", "--delay", "delay between updates, in seconds", INT_TYPE),
+    // [EXT] -n, --iterations
     OPTION("-n", "--iterations", "number of iterations before exiting",
            INT_TYPE),
+    // [EXT] -p, --pid
     OPTION("-p", "--pid", "monitor only processes with given PIDs",
            STRING_TYPE),
+    // [EXT] -u, --user
     OPTION("-u", "--user", "monitor only processes with given user",
            STRING_TYPE),
+    // [EXT] -U, --User
     OPTION("-U", "--User", "monitor only processes with real user ID/name",
            STRING_TYPE),
+    // [EXT] -s, --secure-mode
     OPTION("-s", "--secure-mode", "secure mode: disables some features"),
+    // [EXT] -c, --command
     OPTION("-c", "--command", "show command line instead of process name"),
+    // [EXT] -H, --threads
     OPTION("-H", "--threads", "show threads as if they were processes"),
+    // [EXT] -o, --field-sort
     OPTION("-o", "--field-sort", "override sort field", STRING_TYPE),
+    // [EXT] -w, --width
     OPTION("-w", "--width", "override output width", INT_TYPE),
+    // [EXT] --rows
     OPTION("", "--rows", "limit number of processes displayed", INT_TYPE),
+    // [EXT] -v, --version
     OPTION("-v", "--version", "print version information"),
+    // [EXT] --help
     OPTION("", "--help", "display this help")};
 
 // ======================================================
@@ -651,6 +670,13 @@ class DisplayManager {
     // Filter processes
     std::vector<ProcessInfo> filtered_processes;
     for (const auto& proc : processes) {
+      // [EXT] -p, --pid: PID filter
+      if (!cfg.pid_filter.empty()) {
+        if (cfg.pid_filter.find(proc.pid) == cfg.pid_filter.end()) {
+          continue;
+        }
+      }
+
       // User filter
       if (!cfg.user_filter.empty()) {
         if (proc.username != cfg.user_filter) {
@@ -759,7 +785,9 @@ class DisplayManager {
       CONSOLE_SCREEN_BUFFER_INFO currCsbi;
       GetConsoleScreenBufferInfo(hConsole_, &currCsbi);
       int currentLineLength = currCsbi.dwCursorPosition.X;
-      int remainingWidth = csbi.dwSize.X - currentLineLength - 1;
+      int effectiveWidth =
+          (cfg.output_width > 0) ? cfg.output_width : csbi.dwSize.X;
+      int remainingWidth = effectiveWidth - currentLineLength - 1;
 
       if (remainingWidth > 0 &&
           cmd_to_display.length() > static_cast<size_t>(remainingWidth)) {
@@ -854,6 +882,48 @@ auto parse_config(const CommandContext<TOP_OPTIONS.size()>& ctx)
   cfg.rows = ctx.get<int>("--rows", 0);
   if (cfg.rows < 0) cfg.rows = 0;
 
+  // [EXT] -p, --pid: filter by PIDs (comma-separated)
+  std::string pid_str = ctx.get<std::string>("--pid", "");
+  if (pid_str.empty()) pid_str = ctx.get<std::string>("-p", "");
+  if (!pid_str.empty()) {
+    std::istringstream iss(pid_str);
+    std::string token;
+    while (std::getline(iss, token, ',')) {
+      DWORD pid = static_cast<DWORD>(std::stoul(token));
+      cfg.pid_filter.insert(pid);
+    }
+  }
+
+  // [EXT] -u, --user: filter by user name
+  std::string user_str = ctx.get<std::string>("--user", "");
+  if (user_str.empty()) user_str = ctx.get<std::string>("-u", "");
+  if (!user_str.empty()) {
+    cfg.user_filter = user_str;
+  }
+
+  // [EXT] -U, --User: filter by real user ID/name (same as -u on Windows)
+  std::string user_real_str = ctx.get<std::string>("--User", "");
+  if (user_real_str.empty()) user_real_str = ctx.get<std::string>("-U", "");
+  if (!user_real_str.empty()) {
+    cfg.user_filter = user_real_str;
+  }
+
+  // [EXT] -s, --secure-mode: disable interactive kill/renice
+  cfg.secure_mode =
+      ctx.get<bool>("--secure-mode", false) || ctx.get<bool>("-s", false);
+
+  // [EXT] -c, --command: show command line instead of process name
+  cfg.show_full_command =
+      ctx.get<bool>("--command", false) || ctx.get<bool>("-c", false);
+
+  // [EXT] -H, --threads: show threads as if they were processes
+  cfg.show_threads =
+      ctx.get<bool>("--threads", false) || ctx.get<bool>("-H", false);
+
+  // [EXT] -w, --width: override output width
+  cfg.output_width = ctx.get<int>("--width", 0);
+  if (cfg.output_width <= 0) cfg.output_width = ctx.get<int>("-w", 0);
+
   return cfg;
 }
 
@@ -864,14 +934,28 @@ auto check_help_version(const CommandContext<TOP_OPTIONS.size()>& ctx)
     const std::string help =
         "Usage: top [options]\n"
         "  -b, --batch        Batch mode\n"
+        "  -c, --command      Show command line instead of process name\n"
         "  -d, --delay DELAY  Update interval (default: 3s)\n"
+        "  -H, --threads      Show threads as if they were processes\n"
         "  -n, --iterations N Exit after N iterations\n"
         "  -o, --field-sort F Sort by CPU|MEM|TIME|PID|NAME\n"
+        "  -p, --pid PIDS     Monitor only comma-separated PIDs\n"
+        "  -s, --secure-mode  Secure mode (disables kill/renice)\n"
+        "  -u, --user USER    Monitor only processes with given user\n"
+        "  -U, --User USER    Monitor only by real user ID/name\n"
+        "  -w, --width WIDTH  Override output width\n"
         "      --rows N       Limit number of displayed processes\n"
         "      --help         Show help\n"
         "  -v, --version      Show version\n";
     safePrint(cmd::meta::format_custom_help(
         "top", winux::i18n::translate("command.top.custom_help", help)));
+    return true;  // Should exit
+  }
+
+  // [EXT] -v, --version: print version information
+  if (ctx.get<bool>("--version", false) || ctx.get<bool>("-v", false)) {
+    safePrint("top (WinuxCmd) 0.1.0\n");
+    safePrint("Copyright (c) 2026 WinuxCmd\n");
     return true;  // Should exit
   }
 
@@ -1005,6 +1089,12 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
             }
 
             case 'K': {
+              // [EXT] -s, --secure-mode: disable kill
+              if (cfg.secure_mode) {
+                safePrint("\nKill disabled in secure mode.\n");
+                Sleep(1000);
+                break;
+              }
               safePrint("\nEnter PID to kill: ");
               char input[32];
               if (fgets(input, sizeof(input), stdin)) {
@@ -1026,6 +1116,12 @@ auto run_top(TopConfig& cfg) -> cp::Result<bool> {
             }
 
             case 'R': {
+              // [EXT] -s, --secure-mode: disable renice
+              if (cfg.secure_mode) {
+                safePrint("\nRenice disabled in secure mode.\n");
+                Sleep(1000);
+                break;
+              }
               safePrint("\nEnter PID to renice: ");
               char input[32];
               if (fgets(input, sizeof(input), stdin)) {

@@ -16,9 +16,13 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MPICALC_OPTIONS =
-    std::array{OPTION("", "--help", "display help and exit"),
+    std::array{// [EXT]
+               OPTION("", "--help", "display help and exit"),
+               // [EXT]
                OPTION("", "--version", "display version and exit"),
+               // [EXT]
                OPTION("", "--print-config", "print local configuration"),
+               // [EXT]
                OPTION("", "--disable-hwf",
                       "accepted for libgcrypt compatibility", STRING_TYPE)};
 
@@ -473,6 +477,7 @@ auto process_token(const std::string& token, std::vector<BigInt>& stack)
     stack.back() = stack.back() + BigInt::from_uint64(1);
   } else if (token == "--") {
     if (!require_stack(stack, 1)) return;
+    stack.back() = stack.back() - BigInt::from_uint64(1);
   } else if (token == "<") {
     if (!require_stack(stack, 1)) return;
     stack.back().shift_left_one();
@@ -565,6 +570,8 @@ REGISTER_COMMAND(mpicalc, "mpicalc", "mpicalc [options]",
     safePrintLn("Simple interactive big integer RPN calculator");
     return 0;
   }
+  // --disable-hwf: accepted for libgcrypt compatibility, ignored on Windows
+  (void)ctx.has("--disable-hwf");
   if (ctx.get<bool>("--print-config", false)) {
     safePrintLn("mpi-implementation: winuxcmd-portable");
     return 0;

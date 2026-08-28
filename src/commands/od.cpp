@@ -45,23 +45,50 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr OD_OPTIONS = std::array{
-    OPTION("-A", "--address-radix", "select output address radix",
-           STRING_TYPE),
+    // [GNU]
+    OPTION("-A", "--address-radix", "select output address radix", STRING_TYPE),
+    // [GNU]
     OPTION("-a", "", "select named character output"),
+    // [GNU]
     OPTION("-b", "", "select octal byte output"),
+    // [GNU]
     OPTION("-c", "", "select ASCII output"),
+    // [GNU]
     OPTION("-d", "", "select unsigned decimal 2-byte output"),
+    // [GNU]
     OPTION("-j", "--skip-bytes", "skip bytes", STRING_TYPE),
+    // [GNU]
     OPTION("-N", "--read-bytes", "limit bytes", STRING_TYPE),
+    // [GNU]
     OPTION("-o", "", "select octal 2-byte output"),
+    // [GNU]
     OPTION("-t", "--format", "select output type", STRING_TYPE),
+    // [GNU]
     OPTION("-v", "--output-duplicates", "write all input data"),
+    // [GNU]
     OPTION("-w", "--width", "output bytes per line", OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("-x", "", "select hexadecimal 2-byte units"),
+    // [GNU]
     OPTION("", "--endian", "byte order for multi-byte input units",
            STRING_TYPE),
+    // [GNU]
     OPTION("", "--traditional",
-           "accept arguments in traditional form (e.g., od -x file)")};
+           "accept arguments in traditional form (e.g., od -x file)"),
+    // [GNU] --strings: output strings of at least BYTES graphic characters
+    OPTION("", "--strings",
+           "output strings of at least BYTES graphic characters", STRING_TYPE),
+    // [GNU] -S: output strings of at least BYTES graphic characters
+    OPTION("-S", "", "output strings of at least BYTES graphic characters",
+           STRING_TYPE),
+    // [GNU] -f: select floating-point output
+    OPTION("-f", "", "select floating-point output"),
+    // [GNU] -i: select signed decimal 2-byte output
+    OPTION("-i", "", "select signed decimal 2-byte output"),
+    // [GNU] -l: select signed decimal 4-byte output
+    OPTION("-l", "", "select signed decimal 4-byte output"),
+    // [GNU] -s: select signed decimal 2-byte output
+    OPTION("-s", "", "select signed decimal 2-byte output")};
 
 // ======================================================
 // Helper functions
@@ -76,7 +103,9 @@ enum class FormatKind {
   unsigned_decimal,
   signed_decimal,
   character,
-  named_character
+  named_character,
+  floating_point,  // [DIFFERS] Added for -f / -t f
+  string_type      // [DIFFERS] Added for -t s / --strings / -S
 };
 
 struct FormatSpec {
@@ -254,6 +283,26 @@ auto append_format_specs(std::string_view spec_text,
           return false;
         }
         break;
+      case 'f':  // [DIFFERS] Floating-point output for -t f
+        parsed.kind = FormatKind::floating_point;
+        if (auto size = integral_size(size_text, 4)) {
+          parsed.size = *size;
+        } else {
+          safeErrorPrintLn("od: invalid type string '" +
+                           std::string(spec_text) + "'");
+          return false;
+        }
+        break;
+      case 's':  // [DIFFERS] String output for -t s
+        parsed.kind = FormatKind::string_type;
+        if (auto size = integral_size(size_text, 1)) {
+          parsed.size = *size;
+        } else {
+          safeErrorPrintLn("od: invalid type string '" +
+                           std::string(spec_text) + "'");
+          return false;
+        }
+        break;
       default:
         safeErrorPrintLn("od: invalid type string '" + std::string(spec_text) +
                          "'");
@@ -326,6 +375,11 @@ auto integer_field_width(const FormatSpec& spec) -> int {
     case FormatKind::character:
     case FormatKind::named_character:
       return 3;
+    case FormatKind::floating_point:  // [DIFFERS]
+      if (spec.size <= 4) return 14;
+      return 24;
+    case FormatKind::string_type:  // [DIFFERS]
+      return static_cast<int>(spec.size + 4);
   }
   return 3;
 }
@@ -367,6 +421,38 @@ auto format_character(unsigned char c) -> std::string {
   }
 }
 
+// [DIFFERS] Added floating-point formatter for -f / -t f
+auto format_floating_point(const unsigned char* data, size_t available,
+                           size_t size, Endian endian) -> std::string {
+  if (size == 4 && available >= 4) {
+    unsigned char buf[4];
+    if (endian == Endian::little) {
+      std::memcpy(buf, data, 4);
+    } else {
+      for (size_t j = 0; j < 4; ++j) buf[j] = data[3 - j];
+    }
+    float value;
+    std::memcpy(&value, buf, sizeof(float));
+    std::ostringstream out;
+    out << std::setprecision(7) << value;
+    return out.str();
+  }
+  if (size == 8 && available >= 8) {
+    unsigned char buf[8];
+    if (endian == Endian::little) {
+      std::memcpy(buf, data, 8);
+    } else {
+      for (size_t j = 0; j < 8; ++j) buf[j] = data[7 - j];
+    }
+    double value;
+    std::memcpy(&value, buf, sizeof(double));
+    std::ostringstream out;
+    out << std::setprecision(15) << value;
+    return out.str();
+  }
+  return "?";
+}
+
 auto append_ascii_trailer(std::string& line,
                           const std::vector<unsigned char>& data, size_t offset,
                           size_t n_bytes, size_t bytes_per_line) -> void {
@@ -404,6 +490,28 @@ auto append_formatted_line(std::string& output, const Config& cfg,
       field << std::setw(width) << format_character(data[offset + i]);
     } else if (spec.kind == FormatKind::named_character) {
       field << std::setw(width) << format_named_character(data[offset + i]);
+    } else if (spec.kind == FormatKind::floating_point) {  // [DIFFERS]
+      field << format_floating_point(data.data() + offset + i, available,
+                                     spec.size, cfg.endian);
+    } else if (spec.kind == FormatKind::string_type) {  // [DIFFERS]
+      std::string str;
+      bool all_printable = true;
+      for (size_t j = 0; j < spec.size; ++j) {
+        if (i + j < n_bytes) {
+          unsigned char c = data[offset + i + j];
+          if (c >= 32 && c < 127) {
+            str += static_cast<char>(c);
+          } else {
+            all_printable = false;
+            break;
+          }
+        }
+      }
+      if (all_printable && str.size() == spec.size) {
+        field << " " << str;
+      } else {
+        field << " " << std::string(spec.size, ' ');
+      }
     } else {
       uint64_t raw =
           load_integer(data, offset + i, available, spec.size, cfg.endian);
@@ -481,7 +589,8 @@ auto build_config(const CommandContext<OD_OPTIONS.size()>& ctx)
     -> std::optional<Config> {
   Config cfg;
 
-  std::string base = ctx.get<std::string>("-A", "o");
+  std::string base = ctx.get<std::string>("-A", "");
+  if (base.empty()) base = ctx.get<std::string>("--address-radix", "o");
   if (base == "d") {
     cfg.address_base = AddressBase::decimal;
     cfg.address_width = 7;
@@ -499,20 +608,24 @@ auto build_config(const CommandContext<OD_OPTIONS.size()>& ctx)
     return std::nullopt;
   }
 
-  if (ctx.has("-j")) {
-    auto parsed = parse_count(ctx.get<std::string>("-j", ""));
+  if (ctx.has("-j") || ctx.has("--skip-bytes")) {
+    const std::string jval = ctx.has("-j")
+                                 ? ctx.get<std::string>("-j", "")
+                                 : ctx.get<std::string>("--skip-bytes", "");
+    auto parsed = parse_count(jval);
     if (!parsed) {
-      safeErrorPrintLn("od: invalid -j value '" +
-                       ctx.get<std::string>("-j", "") + "'");
+      safeErrorPrintLn("od: invalid --skip-bytes/-j value '" + jval + "'");
       return std::nullopt;
     }
     cfg.skip_bytes = *parsed;
   }
-  if (ctx.has("-N")) {
-    auto parsed = parse_count(ctx.get<std::string>("-N", ""));
+  if (ctx.has("-N") || ctx.has("--read-bytes")) {
+    const std::string nval = ctx.has("-N")
+                                 ? ctx.get<std::string>("-N", "")
+                                 : ctx.get<std::string>("--read-bytes", "");
+    auto parsed = parse_count(nval);
     if (!parsed) {
-      safeErrorPrintLn("od: invalid -N value '" +
-                       ctx.get<std::string>("-N", "") + "'");
+      safeErrorPrintLn("od: invalid --read-bytes/-N value '" + nval + "'");
       return std::nullopt;
     }
     cfg.limit_bytes = *parsed;
@@ -548,16 +661,52 @@ auto build_config(const CommandContext<OD_OPTIONS.size()>& ctx)
   if (ctx.has("-c")) cfg.specs.push_back({FormatKind::character, 1, false});
   if (ctx.has("-d"))
     cfg.specs.push_back({FormatKind::unsigned_decimal, 2, false});
+  if (ctx.has("-f"))
+    cfg.specs.push_back({FormatKind::floating_point, 4, false});  // [DIFFERS]
+  if (ctx.has("-i"))
+    cfg.specs.push_back({FormatKind::signed_decimal, 2, false});  // [DIFFERS]
+  if (ctx.has("-l"))
+    cfg.specs.push_back({FormatKind::signed_decimal, 4, false});  // [DIFFERS]
   if (ctx.has("-o")) cfg.specs.push_back({FormatKind::octal, 2, false});
+  if (ctx.has("-s"))
+    cfg.specs.push_back({FormatKind::signed_decimal, 2, false});  // [DIFFERS]
   if (ctx.has("-x")) cfg.specs.push_back({FormatKind::hexadecimal, 2, false});
   for (const auto& occurrence : ctx.get_all<std::string>("-t")) {
     if (!append_format_specs(occurrence, cfg.specs)) return std::nullopt;
   }
+  // [DIFFERS] --strings / -S: output strings of at least N bytes
+  for (const auto& occurrence : ctx.get_all<std::string>("--strings")) {
+    size_t min_len = 3;
+    if (!occurrence.empty()) {
+      auto parsed = parse_count(occurrence);
+      if (!parsed || *parsed == 0) {
+        safeErrorPrintLn("od: invalid --strings value '" + occurrence + "'");
+        return std::nullopt;
+      }
+      min_len = *parsed;
+    }
+    cfg.specs.push_back({FormatKind::string_type, min_len, false});
+  }
+  for (const auto& occurrence : ctx.get_all<std::string>("-S")) {
+    size_t min_len = 3;
+    if (!occurrence.empty()) {
+      auto parsed = parse_count(occurrence);
+      if (!parsed || *parsed == 0) {
+        safeErrorPrintLn("od: invalid -S value '" + occurrence + "'");
+        return std::nullopt;
+      }
+      min_len = *parsed;
+    }
+    cfg.specs.push_back({FormatKind::string_type, min_len, false});
+  }
   if (cfg.specs.empty()) {
     cfg.specs.push_back({FormatKind::octal, 2, false});
   }
-  cfg.abbreviate_duplicate_blocks = !ctx.get<bool>("-v", false);
+  cfg.abbreviate_duplicate_blocks =
+      !ctx.get<bool>("-v", false) &&
+      !ctx.get<bool>("--output-duplicates", false);
 
+  bool first_positional = true;
   for (auto arg : ctx.positionals) {
     std::string file_arg(arg);
     if (ctx.has("-w") && ctx.get<std::string>("-w", "").empty() &&
@@ -565,6 +714,16 @@ auto build_config(const CommandContext<OD_OPTIONS.size()>& ctx)
       cfg.bytes_per_line = *parse_positive_count("-w", file_arg);
       continue;
     }
+    // [DIFFERS] --traditional: first positional may be a skip count
+    if (first_positional && ctx.has("--traditional")) {
+      auto parsed = parse_count(file_arg);
+      if (parsed) {
+        cfg.skip_bytes = *parsed;
+        first_positional = false;
+        continue;
+      }
+    }
+    first_positional = false;
     cfg.files.push_back(file_arg);
   }
 

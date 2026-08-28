@@ -46,6 +46,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr WHOAMI_OPTIONS = std::array{
+    // [GNU] option
     OPTION("", "", "print effective userid", STRING_TYPE)
     // whoami has no standard options
     // -a, --all (not implemented - print all information)

@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright  2026 WinuxCmd
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -420,7 +420,7 @@ TEST(kill, signal_zero_current_process) {
   EXPECT_EQ(r.exit_code, 0);
 }
 
-TEST(kill, queue_option_accepts_integer_placeholder) {
+TEST(kill, queue_option_reports_windows_difference) {
   Pipeline p;
   p.add(L"kill.exe",
         {L"-q", L"42", L"-0", std::to_wstring(GetCurrentProcessId())});
@@ -432,7 +432,10 @@ TEST(kill, queue_option_accepts_integer_placeholder) {
   TEST_LOG_EXIT_CODE(r);
   TEST_LOG("kill.exe -q 42 -0 current pid stderr", r.stderr_text);
 
-  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find(
+                  "queueing signal payloads is not supported on Windows") !=
+              std::string::npos);
 }
 
 TEST(kill, queue_option_rejects_non_integer) {

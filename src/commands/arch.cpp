@@ -43,6 +43,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr ARCH_OPTIONS =
+    // [GNU]
     std::array{OPTION("", "", "print machine hardware name", STRING_TYPE)};
 
 namespace arch_pipeline {

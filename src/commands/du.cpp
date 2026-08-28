@@ -70,48 +70,75 @@ using cmd::meta::OptionType;
  * - @a --exclude=PATTERN: exclude files matching shell pattern [IMPLEMENTED]
  */
 auto constexpr DU_OPTIONS = std::array{
+    // [GNU]
     OPTION("-a", "--all", "write counts for all files, not just directories"),
+    // [GNU]
     OPTION("-A", "--apparent-size", "print apparent sizes"),
+    // [GNU]
     OPTION("-B", "--block-size", "scale sizes by SIZE before printing them",
            STRING_TYPE),
+    // [GNU]
     OPTION("-b", "--bytes", "equivalent to '--apparent-size --block-size=1'"),
+    // [GNU]
     OPTION("-c", "--total", "produce a grand total"),
+    // [GNU]
     OPTION(
         "-d", "--max-depth",
         "print the total for a directory only if it is N or fewer levels below",
         INT_TYPE),
+    // [GNU]
     OPTION("-h", "--human-readable",
            "print sizes in powers of 1024 (e.g., 1023M)"),
+    // [GNU]
     OPTION("-H", "--dereference-args",
            "dereference only symlinks that are command line arguments"),
+    // [GNU]
     OPTION("", "--si", "print sizes in powers of 1000 (e.g., 1.1G)"),
+    // [GNU]
     OPTION("-k", "", "like --block-size=1K"),
+    // [GNU]
     OPTION("-L", "--dereference", "dereference all symbolic links"),
+    // [GNU]
     OPTION("-P", "--no-dereference",
            "don't follow any symbolic links (default)"),
+    // [GNU]
     OPTION("-s", "--summarize", "display only a total for each argument"),
+    // [GNU]
     OPTION("-t", "--threshold", "exclude entries smaller/greater than SIZE",
            STRING_TYPE),
+    // [GNU]
     OPTION("", "--exclude", "exclude files that match PATTERN", STRING_TYPE),
+    // [GNU]
     OPTION("-x", "--one-file-system",
            "skip directories on different file systems"),
+    // [GNU]
     OPTION("", "--inodes",
            "list inode usage information instead of block usage"),
+    // [GNU]
     OPTION("", "--time",
            "show time of the last modification of any file in the directory; "
            "see --time-style",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
+    OPTION("", "--time-style", "show timestamps using STYLE", STRING_TYPE),
+    // [GNU]
     OPTION("-0", "--null", "end each output line with NUL, not newline"),
+    // [GNU]
     OPTION("-D", "--dereference-args",
            "dereference only symlinks that are command line arguments"),
+    // [GNU]
     OPTION("", "--files0-from",
            "summarize disk usage of the NUL-terminated file names specified in "
            "file F",
            STRING_TYPE),
+    // [GNU]
     OPTION("-l", "--count-links", "count sizes many times if hard linked"),
+    // [GNU]
     OPTION("-m", "", "like --block-size=1M"),
+    // [GNU]
     OPTION("-S", "--separate-dirs",
            "for directories, do not include size of subdirectories"),
+    // [GNU]
     OPTION("-X", "--exclude-from",
            "exclude files that match any pattern in FILE", STRING_TYPE)};
 
@@ -345,13 +372,17 @@ struct DuConfig {
   bool total = false;
   bool summarize = false;
   bool dereference = false;      // -L
+  bool apparent_size = false;    // -A / --apparent-size [DIFFERS]
+  bool no_dereference = false;   // -P / --no-dereference [DIFFERS]
+  bool count_links = false;      // -l / --count-links
   bool one_file_system = false;  // -x
   bool show_inodes = false;      // --inodes
   bool null_terminated = false;  // -0
   bool separate_dirs = false;    // -S
   bool show_time = false;        // --time
   DuTimeMode time_mode = DuTimeMode::Modification;
-  std::string time_word;  // --time
+  std::string time_word;   // --time
+  std::string time_style;  // --time-style
   int max_depth = -1;
   ThresholdMode threshold_mode = ThresholdMode::None;
   uint64_t threshold_size = 0;
@@ -421,7 +452,8 @@ auto update_latest_time(UsageSummary& summary, const FILETIME& candidate)
   }
 }
 
-auto format_time_long_iso(FILETIME file_time) -> std::string {
+auto format_time_long_iso(FILETIME file_time,
+                          std::string_view style = "long-iso") -> std::string {
   FILETIME local_ft{};
   if (!FileTimeToLocalFileTime(&file_time, &local_ft)) {
     local_ft = file_time;
@@ -429,9 +461,60 @@ auto format_time_long_iso(FILETIME file_time) -> std::string {
 
   SYSTEMTIME st{};
   if (!FileTimeToSystemTime(&local_ft, &st)) {
+    if (style == "full-iso") {
+      return "0000-01-01 00:00:00.000000000 +0000";
+    }
     return "0000-00-00 00:00";
   }
 
+  if (style == "full-iso") {
+    // full-iso: "2025-01-01 12:34:56.789012345 +0800"
+    TIME_ZONE_INFORMATION tzi{};
+    GetTimeZoneInformation(&tzi);
+    int tz_offset = -tzi.Bias;
+    char buf[64];
+    snprintf(buf, sizeof(buf),
+             "%04d-%02d-%02d %02d:%02d:%02d.000000000 %+03d%02d", st.wYear,
+             st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond,
+             tz_offset / 60, std::abs(tz_offset % 60));
+    return std::string(buf);
+  }
+
+  if (style == "iso" || style == "posix") {
+    // iso: "01-01 12:34" (same year) or "2025-01-01 12:34" (different year)
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    char buf[32];
+    if (st.wYear == now.wYear) {
+      snprintf(buf, sizeof(buf), "%02d-%02d %02d:%02d", st.wMonth, st.wDay,
+               st.wHour, st.wMinute);
+    } else {
+      snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear,
+               st.wMonth, st.wDay, st.wHour, st.wMinute);
+    }
+    return std::string(buf);
+  }
+
+  if (style.starts_with("+")) {
+    // Custom strftime format via +FORMAT
+    // Map SYSTEMTIME fields to struct tm for strftime
+    struct tm tm_val{};
+    tm_val.tm_year = st.wYear - 1900;
+    tm_val.tm_mon = st.wMonth - 1;
+    tm_val.tm_mday = st.wDay;
+    tm_val.tm_hour = st.wHour;
+    tm_val.tm_min = st.wMinute;
+    tm_val.tm_sec = st.wSecond;
+    tm_val.tm_isdst = -1;
+    std::string fmt(style.substr(1));
+    char buf[128];
+    size_t count = std::strftime(buf, sizeof(buf), fmt.c_str(), &tm_val);
+    if (count > 0) {
+      return std::string(buf);
+    }
+  }
+
+  // default: long-iso style "2025-01-01 12:34"
   char buf[32];
   snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d", st.wYear, st.wMonth,
            st.wDay, st.wHour, st.wMinute);
@@ -444,7 +527,7 @@ auto print_time_if_requested(const UsageSummary& summary, const DuConfig& cfg)
     return;
   }
   safePrint("  ");
-  safePrint(format_time_long_iso(summary.latest_time));
+  safePrint(format_time_long_iso(summary.latest_time, cfg.time_style));
 }
 
 auto configure_output(const CommandContext<DU_OPTIONS.size()>& ctx)
@@ -576,6 +659,21 @@ auto configure_du(const CommandContext<DU_OPTIONS.size()>& ctx)
 
   cfg.dereference =
       ctx.get<bool>("--dereference", false) || ctx.get<bool>("-L", false);
+  // -A / --apparent-size: On Windows, file sizes from GetFileAttributesExW
+  // are already logical (apparent) sizes, not disk allocation. Accept as no-op.
+  cfg.apparent_size =
+      ctx.get<bool>("--apparent-size", false) || ctx.get<bool>("-A", false);
+  // -P / --no-dereference: Default behavior on Windows. [DIFFERS]
+  cfg.no_dereference =
+      ctx.get<bool>("--no-dereference", false) || ctx.get<bool>("-P", false);
+  // -H / --dereference-args: Dereference only CLI symlink args. [DIFFERS]
+  // -D / --dereference-args: Duplicate of -H. [DIFFERS]
+  // On Windows, symlinks in command-line args are resolved by the kernel.
+  // Accept silently as no-op.
+  ctx.get<bool>("--dereference-args", false);
+  // -l / --count-links: count sizes many times if hard linked
+  cfg.count_links =
+      ctx.get<bool>("--count-links", false) || ctx.get<bool>("-l", false);
   cfg.one_file_system =
       ctx.get<bool>("--one-file-system", false) || ctx.get<bool>("-x", false);
   cfg.show_inodes = ctx.get<bool>("--inodes", false);
@@ -591,6 +689,11 @@ auto configure_du(const CommandContext<DU_OPTIONS.size()>& ctx)
     cfg.show_time = true;
     cfg.time_word = occurrence.value;
     cfg.time_mode = *parsed;
+  }
+
+  // --time-style: format for time display
+  for (const auto& occurrence : ctx.string_occurrences({"--time-style"})) {
+    cfg.time_style = occurrence.value;
   }
 
   return cfg;
@@ -652,6 +755,27 @@ auto passes_threshold(const DuConfig& cfg, uint64_t size) -> bool {
     return size <= cfg.threshold_size;
   }
   return true;
+}
+
+/**
+ * @brief Get hard link count for a file (Windows API)
+ * @param path File path
+ * @return Number of hard links, or 1 if unable to determine
+ */
+auto get_hard_link_count(const std::wstring& path) -> DWORD {
+  HANDLE hFile = CreateFileW(
+      path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (hFile == INVALID_HANDLE_VALUE) {
+    return 1;
+  }
+  BY_HANDLE_FILE_INFORMATION info{};
+  DWORD result = 1;
+  if (GetFileInformationByHandle(hFile, &info)) {
+    result = info.nNumberOfLinks;
+  }
+  CloseHandle(hFile);
+  return result;
 }
 
 /**
@@ -744,6 +868,13 @@ auto calculate_dir_size(const std::wstring& path,
     } else {
       // It's a file
       uint64_t file_size = get_file_size(full_path);
+      // --count-links: multiply by hard link count [DIFFERS]
+      if (cfg.count_links) {
+        DWORD nlinks = get_hard_link_count(full_path);
+        if (nlinks > 1) {
+          file_size *= nlinks;
+        }
+      }
       summary.size += file_size;
       if (cfg.show_time) {
         WIN32_FILE_ATTRIBUTE_DATA file_data{};
@@ -911,6 +1042,13 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
     } else {
       // It's a file
       uint64_t file_size = get_file_size(wpath);
+      // --count-links: multiply by hard link count [DIFFERS]
+      if (cfg.count_links) {
+        DWORD nlinks = get_hard_link_count(wpath);
+        if (nlinks > 1) {
+          file_size *= nlinks;
+        }
+      }
       grand_total += file_size;
 
       if (passes_threshold(cfg, file_size)) {

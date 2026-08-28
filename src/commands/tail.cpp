@@ -85,38 +85,54 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr TAIL_OPTIONS = std::array{
+    // [GNU] -c, --bytes
     OPTION("-c", "--bytes",
            "output the last NUM bytes; or use -c +NUM to output\n"
            "starting with byte NUM of each file",
            STRING_TYPE),
+    // [GNU] --debug
     OPTION("", "--debug", "output extra follow diagnostics to stderr"),
+    // [GNU] -f
     OPTION("-f", "", "output appended data as the file grows"),
+    // [GNU] --follow
     OPTION("", "--follow",
            "output appended data as the file grows; with --follow=name,\n"
            "follow the file name rather than the descriptor",
            OPTIONAL_STRING_TYPE),
+    // [GNU] -F
     OPTION("-F", "", "same as --follow=name --retry"),
+    // [GNU] -n, --lines
     OPTION("-n", "--lines",
            "output the last NUM lines, instead of the last 10; or\n"
            "use -n +NUM to skip NUM-1 lines at the start",
            STRING_TYPE),
+    // [GNU] --max-unchanged-stats
     OPTION("", "--max-unchanged-stats",
            "with --follow=name, reopen a FILE which has not changed\n"
            "size after N iterations to see if it has been renamed\n"
            "[IMPLEMENTED]",
            INT_TYPE),
+    // [GNU] --pid
     OPTION("", "--pid",
            "with -f, terminate after process ID, PID dies [IMPLEMENTED]",
            INT_TYPE),
+    // [GNU] -q, --quiet
     OPTION("-q", "--quiet", "never output headers giving file names"),
+    // [GNU] --silent
     OPTION("", "--silent", "never output headers giving file names"),
+    // [GNU] --retry
     OPTION("", "--retry", "keep trying to open a file if it is inaccessible"),
+    // [GNU] --use-polling
+    // [DIFFERS] - not applicable; Windows uses ReadDirectoryChangesW
     OPTION("", "--use-polling",
            "disable native directory change watching and use polling instead"),
+    // [GNU] -s, --sleep-interval
     OPTION("-s", "--sleep-interval",
            "with -f, sleep for approximately N seconds between iterations",
            STRING_TYPE),
+    // [GNU] -v, --verbose
     OPTION("-v", "--verbose", "always output headers giving file names"),
+    // [GNU] -z, --zero-terminated
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline")};
 
 namespace tail_pipeline {
@@ -617,6 +633,7 @@ template <size_t N>
 auto build_config(const CommandContext<N>& ctx) -> cp::Result<TailConfig> {
   TailConfig config;
   config.delimiter = ctx.get<bool>("--zero-terminated", false) ? '\0' : '\n';
+  (void)ctx.has("--use-polling");
   config.debug = ctx.get<bool>("--debug", false);
 
   for (const auto& occurrence : ctx.options.occurrences()) {

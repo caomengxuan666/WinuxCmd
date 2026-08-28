@@ -50,44 +50,83 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr TEST_OPTIONS =
+    // [GNU] -n
     std::array{OPTION("-n", "", "string length is non-zero"),
+               // [GNU] -z
                OPTION("-z", "", "string length is zero"),
+               // [GNU] -b
                OPTION("-b", "", "file is block special"),
+               // [GNU] -c
                OPTION("-c", "", "file is character special"),
+               // [GNU] -d
                OPTION("-d", "", "file is a directory"),
+               // [GNU] -e
                OPTION("-e", "", "file exists"),
+               // [GNU] -f
                OPTION("-f", "", "file is a regular file"),
+               // [GNU] -g
                OPTION("-g", "", "file has set-group-ID bit"),
+               // [GNU] -G
                OPTION("-G", "", "file is owned by effective group ID"),
+               // [GNU] -h
                OPTION("-h", "", "file is a symbolic link"),
+               // [GNU] -L
                OPTION("-L", "", "file is a symbolic link"),
+               // [GNU] -k
                OPTION("-k", "", "file has sticky bit"),
+               // [GNU] -p
                OPTION("-p", "", "file is a named pipe"),
+               // [GNU] -r
                OPTION("-r", "", "file is readable"),
+               // [GNU] -s
                OPTION("-s", "", "file size is non-zero"),
+               // [GNU] -S
                OPTION("-S", "", "file is a socket"),
+               // [GNU] -t
                OPTION("-t", "", "file descriptor is a terminal"),
+               // [GNU] -u
                OPTION("-u", "", "file has set-user-ID bit"),
+               // [GNU] -w
                OPTION("-w", "", "file is writable"),
+               // [GNU] -x
                OPTION("-x", "", "file is executable"),
+               // [GNU] -O
                OPTION("-O", "", "file is owned by effective user ID"),
+               // [GNU] -eq
                OPTION("-eq", "", "integer equal"),
+               // [GNU] -ne
                OPTION("-ne", "", "integer not equal"),
+               // [GNU] -lt
                OPTION("-lt", "", "integer less than"),
+               // [GNU] -le
                OPTION("-le", "", "integer less than or equal"),
+               // [GNU] -gt
                OPTION("-gt", "", "integer greater than"),
+               // [GNU] -ge
                OPTION("-ge", "", "integer greater than or equal"),
+               // [GNU] -a
                OPTION("-a", "", "logical and"),
+               // [EXT] -and
                OPTION("-and", "", "logical and"),
+               // [GNU] -o
                OPTION("-o", "", "logical or"),
+               // [EXT] -or
                OPTION("-or", "", "logical or"),
+               // [GNU] !
                OPTION("!", "", "logical not"),
+               // [GNU] =
                OPTION("=", "", "string equal"),
+               // [GNU] ==
                OPTION("==", "", "string equal"),
+               // [GNU] !=
                OPTION("!=", "", "string not equal"),
+               // [GNU] <
                OPTION("<", "", "string less than"),
+               // [GNU] <=
                OPTION("<=", "", "string less than or equal"),
+               // [GNU] >
                OPTION(">", "", "string greater than"),
+               // [GNU] >=
                OPTION(">=", "", "string greater than or equal")};
 
 // ======================================================

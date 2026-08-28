@@ -43,12 +43,17 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr WATCH_OPTIONS = std::array{
+    // [EXT] option
     OPTION("-n", "--interval", "seconds to wait between updates", INT_TYPE),
+    // [EXT] option
     OPTION("-d", "--differences", "highlight changes between updates",
            BOOL_TYPE),
+    // [EXT] option
     OPTION("-t", "--no-title", "turn off header showing interval and command",
            BOOL_TYPE),
+    // [EXT] option
     OPTION("-b", "--beep", "beep if command has a non-zero exit", BOOL_TYPE),
+    // [EXT] option
     OPTION("-c", "--count", "number of times to run the command (for testing)",
            INT_TYPE)};
 
@@ -117,6 +122,50 @@ auto clear_screen() -> void {
   SetConsoleCursorPosition(hConsole, coordScreen);
 }
 
+/// Split a string into lines (preserving content, stripping trailing newline).
+auto split_lines(const std::string& text) -> std::vector<std::string> {
+  std::vector<std::string> lines;
+  std::istringstream stream(text);
+  std::string line;
+  while (std::getline(stream, line)) {
+    lines.push_back(line);
+  }
+  // If the original text ends with a newline, std::getline already consumed it;
+  // if it does not end with a newline the last line is correct as-is.
+  return lines;
+}
+
+/// Produce output with changed lines highlighted using ANSI escape codes.
+/// Changed lines are wrapped in bold-underline (\033[1;4m ... \033[0m),
+/// matching the behaviour of GNU watch -d.
+auto highlight_differences(const std::string& current,
+                           const std::string& previous) -> std::string {
+  constexpr const char* HIGHLIGHT_START = "\033[1;4m";
+  constexpr const char* HIGHLIGHT_END = "\033[0m";
+
+  auto cur_lines = split_lines(current);
+  auto prev_lines = split_lines(previous);
+
+  std::string result;
+  size_t max_count = std::max(cur_lines.size(), prev_lines.size());
+  result.reserve(current.size() + max_count * 20);
+
+  for (size_t i = 0; i < cur_lines.size(); ++i) {
+    bool changed = (i >= prev_lines.size()) || (cur_lines[i] != prev_lines[i]);
+    if (changed) {
+      result += HIGHLIGHT_START;
+      result += cur_lines[i];
+      result += HIGHLIGHT_END;
+    } else {
+      result += cur_lines[i];
+    }
+    if (i + 1 < cur_lines.size()) {
+      result += '\n';
+    }
+  }
+  return result;
+}
+
 auto run(const Config& cfg) -> int {
   std::string previous_output;
   int iteration = 0;
@@ -171,12 +220,40 @@ auto run(const Config& cfg) -> int {
     int exit_code = _pclose(pipe.release());
     last_exit_code = exit_code < 0 ? 1 : exit_code;
 
-    // Print output
-    safePrint(output);
+    // Print output, highlighting differences if -d is active
+    if (cfg.differences) {
+      if (previous_output.empty()) {
+        // First iteration – highlight everything as new
+        std::istringstream first_stream(output);
+        std::string first_line;
+        constexpr const char* HL_START = "\033[1;4m";
+        constexpr const char* HL_END = "\033[0m";
+        bool first = true;
+        while (std::getline(first_stream, first_line)) {
+          if (!first) {
+            safePrint("\n");
+          }
+          safePrint(HL_START);
+          safePrint(first_line);
+          safePrint(HL_END);
+          first = false;
+        }
+        safePrint("\n");
+      } else {
+        safePrint(highlight_differences(output, previous_output));
+      }
+    } else {
+      safePrint(output);
+    }
 
     // Beep on non-zero exit if enabled
     if (cfg.beep && exit_code != 0) {
       safePrint("\a");  // ASCII bell
+    }
+
+    // Save current output for next comparison
+    if (cfg.differences) {
+      previous_output = output;
     }
 
     // Wait for interval

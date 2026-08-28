@@ -179,6 +179,27 @@ TEST(diff, diff_ignore_all_space_side_by_side) {
   EXPECT_TRUE(r.stdout_text.empty());
 }
 
+TEST(diff, diff_ignore_blank_lines_text_and_color_options) {
+  TempDir tmp;
+  tmp.write("a.txt", "alpha\n\n");
+  tmp.write("b.txt", "alpha\n");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"diff.exe", {L"--ignore-blank-lines", L"a.txt", L"b.txt"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_TRUE(r.stdout_text.empty());
+
+  tmp.write("c.txt", "alpha\n");
+  tmp.write("d.txt", "beta\n");
+  Pipeline colored;
+  colored.set_cwd(tmp.wpath());
+  colored.add(L"diff.exe", {L"--text", L"--color=always", L"c.txt", L"d.txt"});
+  auto cr = colored.run();
+  EXPECT_EQ(cr.exit_code, 1);
+  EXPECT_FALSE(cr.stdout_text.empty());
+}
+
 TEST(diff, diff_wildcard_pair_expands) {
   TempDir tmp;
   tmp.write("a.txt", "same\n");

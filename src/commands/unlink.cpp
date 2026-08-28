@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr UNLINK_OPTIONS =
+    // [GNU] option
     std::array{OPTION("", "", "remove single file", STRING_TYPE)};
 
 namespace {

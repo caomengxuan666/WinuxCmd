@@ -43,7 +43,12 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PRINTF_OPTIONS =
-    std::array{OPTION("", "", "format and print data", STRING_TYPE)};
+    // [GNU]
+    std::array{// [GNU] -v, --variable: assign the output to shell variable VAR
+               OPTION("-v", "", "assign the output to shell variable VAR",
+                      STRING_TYPE),
+               // [GNU]
+               OPTION("", "", "format and print data", STRING_TYPE)};
 
 namespace {
 

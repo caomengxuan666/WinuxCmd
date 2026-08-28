@@ -59,22 +59,144 @@ using cmd::meta::OptionType;
  * -B, @a --ignore-blank-lines: Ignore changes whose lines are all blank [NOT
  * SUPPORT]
  */
-auto constexpr DIFF_OPTIONS =
-    std::array{OPTION("-q", "--brief", "report only when files differ"),
-               OPTION("-u", "--unified",
-                      "output NUM (default 3) lines of unified context",
-                      OPTIONAL_INT_TYPE),
-               OPTION("-U", "", "output NUM lines of unified context", INT_TYPE),
-               OPTION("-c", "--context",
-                      "output NUM (default 3) lines of copied context",
-                      OPTIONAL_INT_TYPE),
-               OPTION("-C", "", "output NUM lines of copied context", INT_TYPE),
-               OPTION("", "--label", "use LABEL instead of file name",
-                      STRING_TYPE),
-               OPTION("-y", "--side-by-side", "output in two columns"),
-               OPTION("-w", "--ignore-all-space", "ignore all white space"),
-               OPTION("-B", "--ignore-blank-lines",
-                      "ignore changes whose lines are all blank")};
+// [GNU] -a, --text: treat all files as text
+// [GNU] -b, --ignore-space-change: ignore changes in amount of white space
+// [GNU] --binary: read and write data as binary
+// [GNU] --color: colorize the output
+// [GNU] -d, --minimal: try hard to find a smaller set of changes
+// [GNU] --diff-program=PROGRAM: use PROGRAM to compare files
+// [GNU] -e, --ed: output an ed script
+// [GNU] --exclude=PATTERN: exclude files that match PATTERN
+// [GNU] --exclude-from=FILE: exclude files that match any pattern in FILE
+// [GNU] --exclude-dir=PATTERN: exclude directories that match PATTERN
+// [GNU] -f, --forward-ed: output an ed script for current changes
+// [GNU] -i, --ignore-case: ignore case when comparing files
+// [GNU] --ignore-file-name-case: ignore case when comparing file names
+// [GNU] -I, --ignore-matching-lines=NUM: ignore changes that match NUM lines
+// [GNU] -l, --paginate: pass output through pr
+// [GNU] -n, --rcs: output an RCS-format diff
+// [GNU] -N, --new-file: treat absent files as empty
+// [GNU] --no-dereference: don't follow symbolic links
+// [GNU] -p, --show-c-function: show which C function each change is in
+// [GNU] --show-function-line=REGEXP: show the most recent line matching REGEXP
+// [GNU] -r, --recursive: recursively compare any subdirectories found
+// [GNU] --report-identical-files: report when two files are the same
+// [GNU] -s, --report-identical-files: report when two files are the same
+// [GNU] --strip-trailing-cr: strip trailing carriage return on input
+// [GNU] -S, --starting-file=FILE: start with FILE when comparing directories
+// [GNU] --suppress-blank-empty: suppress empty common lines
+// [GNU] --suppress-common-lines: suppress common lines in side-by-side format
+// [GNU] -t, --expand-tabs: expand tabs to spaces in output
+// [GNU] -T, --initial-tab: tab stop every NUM output lines
+// [GNU] --tabsize=NUM: tab stop every NUM (default 8) print positions
+// [GNU] --unidirectional-new-file: treat absent first files as empty
+// [GNU] -W, --width=NUM: output at most NUM (default 130) columns
+// [GNU] -x, --exclude=PAT: exclude files that match PAT
+// [GNU] -X, --exclude-from=FILE: exclude files that match any pattern in FILE
+// [GNU] -Z, --strip-trailing-cr: strip trailing carriage return on input
+auto constexpr DIFF_OPTIONS = std::array{
+    // [GNU]
+    OPTION("-q", "--brief", "report only when files differ"),
+    // [GNU]
+    OPTION("-u", "--unified", "output NUM (default 3) lines of unified context",
+           OPTIONAL_INT_TYPE),
+    // [GNU]
+    OPTION("-U", "", "output NUM lines of unified context", INT_TYPE),
+    // [GNU]
+    OPTION("-c", "--context", "output NUM (default 3) lines of copied context",
+           OPTIONAL_INT_TYPE),
+    // [GNU]
+    OPTION("-C", "", "output NUM lines of copied context", INT_TYPE),
+    // [GNU]
+    OPTION("", "--label", "use LABEL instead of file name", STRING_TYPE),
+    // [GNU]
+    OPTION("-y", "--side-by-side", "output in two columns"),
+    // [GNU]
+    OPTION("-w", "--ignore-all-space", "ignore all white space"),
+    // [GNU]
+    OPTION("-B", "--ignore-blank-lines",
+           "ignore changes whose lines are all blank"),
+    // [GNU]
+    OPTION("-a", "--text", "treat all files as text"),
+    // [GNU]
+    OPTION("-b", "--ignore-space-change",
+           "ignore changes in amount of white space"),
+    // [GNU]
+    OPTION("", "--binary", "read and write data as binary"),
+    // [GNU]
+    OPTION("", "--color", "colorize the output"),
+    // [GNU]
+    OPTION("-d", "--minimal", "try hard to find a smaller set of changes"),
+    // [GNU]
+    OPTION("", "--diff-program", "use PROGRAM to compare files", STRING_TYPE),
+    // [GNU]
+    OPTION("-e", "--ed", "output an ed script"),
+    // [GNU]
+    OPTION("", "--exclude", "exclude files that match PATTERN", STRING_TYPE),
+    // [GNU]
+    OPTION("", "--exclude-from", "exclude files matching pattern in FILE",
+           STRING_TYPE),
+    // [GNU]
+    OPTION("", "--exclude-dir", "exclude directories matching PATTERN",
+           STRING_TYPE),
+    // [GNU]
+    OPTION("-f", "--forward-ed", "output an ed script for current changes"),
+    // [GNU]
+    OPTION("-i", "--ignore-case", "ignore case when comparing files"),
+    // [GNU]
+    OPTION("", "--ignore-file-name-case", "ignore case for file names"),
+    // [GNU]
+    OPTION("-I", "--ignore-matching-lines", "ignore changes matching NUM lines",
+           STRING_TYPE),
+    // [GNU]
+    OPTION("-l", "--paginate", "pass output through pr"),
+    // [GNU]
+    OPTION("-n", "--rcs", "output an RCS-format diff"),
+    // [GNU]
+    OPTION("-N", "--new-file", "treat absent files as empty"),
+    // [GNU]
+    OPTION("", "--no-dereference", "don't follow symbolic links"),
+    // [GNU]
+    OPTION("-p", "--show-c-function",
+           "show which C function each change is in"),
+    // [GNU]
+    OPTION("", "--show-function-line", "show most recent line matching REGEXP",
+           STRING_TYPE),
+    // [GNU]
+    OPTION("-r", "--recursive", "recursively compare subdirectories"),
+    // [GNU]
+    OPTION("", "--report-identical-files",
+           "report when two files are the same"),
+    // [GNU]
+    OPTION("-s", "", "report when two files are the same"),
+    // [GNU]
+    OPTION("", "--strip-trailing-cr",
+           "strip trailing carriage return on input"),
+    // [GNU]
+    OPTION("-S", "--starting-file", "start with FILE when comparing dirs",
+           STRING_TYPE),
+    // [GNU]
+    OPTION("", "--suppress-blank-empty", "suppress empty common lines"),
+    // [GNU]
+    OPTION("", "--suppress-common-lines",
+           "suppress common lines in side-by-side"),
+    // [GNU]
+    OPTION("-t", "--expand-tabs", "expand tabs to spaces in output"),
+    // [GNU]
+    OPTION("-T", "--initial-tab", "tab stop every NUM output lines"),
+    // [GNU]
+    OPTION("", "--tabsize", "tab stop every NUM print positions", INT_TYPE),
+    // [GNU]
+    OPTION("", "--unidirectional-new-file",
+           "treat absent first files as empty"),
+    // [GNU]
+    OPTION("-W", "--width", "output at most NUM columns", INT_TYPE),
+    // [GNU]
+    OPTION("-x", "", "exclude files that match PAT", STRING_TYPE),
+    // [GNU]
+    OPTION("-X", "", "exclude files matching pattern in FILE", STRING_TYPE),
+    // [GNU]
+    OPTION("-Z", "", "strip trailing carriage return on input")};
 
 namespace diff_pipeline {
 namespace cp = core::pipeline;
@@ -297,6 +419,120 @@ auto normalize_lines_for_compare(const std::vector<std::string> &lines,
   return normalized;
 }
 
+auto strip_trailing_cr_lines(const std::vector<std::string> &lines)
+    -> std::vector<std::string> {
+  std::vector<std::string> result;
+  result.reserve(lines.size());
+  for (const auto &line : lines) {
+    if (!line.empty() && line.back() == '\r') {
+      result.emplace_back(line.substr(0, line.size() - 1));
+    } else {
+      result.push_back(line);
+    }
+  }
+  return result;
+}
+
+auto filter_blank_lines(const std::vector<std::string> &lines)
+    -> std::vector<std::string> {
+  std::vector<std::string> result;
+  for (const auto &line : lines) {
+    bool all_space = true;
+    for (char ch : line) {
+      if (!std::isspace(static_cast<unsigned char>(ch))) {
+        all_space = false;
+        break;
+      }
+    }
+    if (!all_space) {
+      result.push_back(line);
+    }
+  }
+  return result;
+}
+
+auto normalize_space_change(const std::string &line) -> std::string {
+  std::string result;
+  result.reserve(line.size());
+  bool in_space = false;
+  for (char ch : line) {
+    if (std::isspace(static_cast<unsigned char>(ch))) {
+      if (!in_space) {
+        result.push_back(' ');
+        in_space = true;
+      }
+    } else {
+      result.push_back(ch);
+      in_space = false;
+    }
+  }
+  return result;
+}
+
+auto normalize_lines_space_change(const std::vector<std::string> &lines)
+    -> std::vector<std::string> {
+  std::vector<std::string> result;
+  result.reserve(lines.size());
+  for (const auto &line : lines) {
+    result.push_back(normalize_space_change(line));
+  }
+  return result;
+}
+
+auto normalize_lines_case(const std::vector<std::string> &lines)
+    -> std::vector<std::string> {
+  std::vector<std::string> result;
+  result.reserve(lines.size());
+  for (const auto &line : lines) {
+    std::string lowered;
+    lowered.reserve(line.size());
+    for (char ch : line) {
+      lowered.push_back(
+          static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+    }
+    result.push_back(std::move(lowered));
+  }
+  return result;
+}
+
+auto filter_matching_lines(const std::vector<std::string> &lines,
+                           const std::string &pattern)
+    -> std::vector<std::string> {
+  std::vector<std::string> result;
+  for (const auto &line : lines) {
+    if (line.find(pattern) == std::string::npos) {
+      result.push_back(line);
+    }
+  }
+  return result;
+}
+
+auto expand_tabs_in_line(const std::string &line, int tabsize) -> std::string {
+  std::string result;
+  int col = 0;
+  for (char ch : line) {
+    if (ch == '\t') {
+      int spaces = tabsize - (col % tabsize);
+      result.append(spaces, ' ');
+      col += spaces;
+    } else {
+      result.push_back(ch);
+      ++col;
+    }
+  }
+  return result;
+}
+
+auto expand_tabs_lines(const std::vector<std::string> &lines, int tabsize)
+    -> std::vector<std::string> {
+  std::vector<std::string> result;
+  result.reserve(lines.size());
+  for (const auto &line : lines) {
+    result.push_back(expand_tabs_in_line(line, tabsize));
+  }
+  return result;
+}
+
 /**
  * @brief Compare two files
  * @param path1 First file path
@@ -434,13 +670,12 @@ auto build_diff_hunks(const std::vector<Edit> &edits, size_t line1_count,
     size_t prev_line2 = edits[i - 1].line2_index;
     size_t curr_line2 = edits[i].line2_index;
 
-    size_t distance =
-        std::max((curr_line1 > prev_line1 + context_lines)
-                     ? curr_line1 - prev_line1 - context_lines
-                     : 0,
-                 (curr_line2 > prev_line2 + context_lines)
-                     ? curr_line2 - prev_line2 - context_lines
-                     : 0);
+    size_t distance = std::max((curr_line1 > prev_line1 + context_lines)
+                                   ? curr_line1 - prev_line1 - context_lines
+                                   : 0,
+                               (curr_line2 > prev_line2 + context_lines)
+                                   ? curr_line2 - prev_line2 - context_lines
+                                   : 0);
 
     if (distance > context_lines * 2) {
       groups.push_back({hunk_start, i});
@@ -478,15 +713,15 @@ auto build_diff_hunks(const std::vector<Edit> &edits, size_t line1_count,
       hunk.file2_end = hunk.file2_start;
     }
 
-    hunk.file1_start = static_cast<size_t>(std::max(
-        static_cast<ptrdiff_t>(hunk.file1_start) -
-            static_cast<ptrdiff_t>(context_lines),
-        static_cast<ptrdiff_t>(0)));
+    hunk.file1_start =
+        static_cast<size_t>(std::max(static_cast<ptrdiff_t>(hunk.file1_start) -
+                                         static_cast<ptrdiff_t>(context_lines),
+                                     static_cast<ptrdiff_t>(0)));
     hunk.file1_end = std::min(hunk.file1_end + context_lines, line1_count);
-    hunk.file2_start = static_cast<size_t>(std::max(
-        static_cast<ptrdiff_t>(hunk.file2_start) -
-            static_cast<ptrdiff_t>(context_lines),
-        static_cast<ptrdiff_t>(0)));
+    hunk.file2_start =
+        static_cast<size_t>(std::max(static_cast<ptrdiff_t>(hunk.file2_start) -
+                                         static_cast<ptrdiff_t>(context_lines),
+                                     static_cast<ptrdiff_t>(0)));
     hunk.file2_end = std::min(hunk.file2_end + context_lines, line2_count);
 
     hunks.push_back(hunk);
@@ -756,14 +991,16 @@ auto output_side_by_side(const std::string &path1, const std::string &path2,
                          const std::vector<std::string> &compare_lines1,
                          const std::vector<std::string> &compare_lines2,
                          const std::vector<std::string> &lines1,
-                         const std::vector<std::string> &lines2) -> void {
+                         const std::vector<std::string> &lines2, int width,
+                         bool suppress_common) -> void {
   auto edits = compute_diff(compare_lines1, compare_lines2);
 
   if (edits.empty()) {
     return;  // Files are identical
   }
 
-  const size_t col_width = 30;
+  // -- Use caller-provided width, halved for each column [DIFFERS] --
+  const size_t col_width = static_cast<size_t>(std::max(width / 2 - 1, 10));
 
   auto print_padded = [](const std::string &s, size_t width) {
     if (s.size() <= width) {
@@ -779,6 +1016,12 @@ auto output_side_by_side(const std::string &path1, const std::string &path2,
   for (const auto &edit : edits) {
     if (edit.type == EditType::KEEP) {
       while (i1 < edit.line1_index) {
+        // -- suppress-common-lines: skip unchanged lines [DIFFERS] --
+        if (suppress_common) {
+          ++i1;
+          ++i2;
+          continue;
+        }
         print_padded(lines1[i1], col_width);
         safePrint("  ");
         print_padded(lines2[i2], col_width);
@@ -786,10 +1029,13 @@ auto output_side_by_side(const std::string &path1, const std::string &path2,
         ++i1;
         ++i2;
       }
-      print_padded(lines1[edit.line1_index], col_width);
-      safePrint("  ");
-      print_padded(lines2[edit.line2_index], col_width);
-      safePrint("\n");
+      // -- suppress-common-lines: skip the kept line too [DIFFERS] --
+      if (!suppress_common) {
+        print_padded(lines1[edit.line1_index], col_width);
+        safePrint("  ");
+        print_padded(lines2[edit.line2_index], col_width);
+        safePrint("\n");
+      }
       ++i1;
       ++i2;
     } else if (edit.type == EditType::DEL) {
@@ -838,9 +1084,98 @@ REGISTER_COMMAND(
     DIFF_OPTIONS) {
   using namespace diff_pipeline;
 
+  // -- Boolean flags [DIFFERS] --
   bool brief = ctx.get<bool>("-q", false) || ctx.get<bool>("--brief", false);
   bool ignore_all_space =
       ctx.get<bool>("-w", false) || ctx.get<bool>("--ignore-all-space", false);
+  bool ignore_blank_lines = ctx.has("-B") || ctx.has("--ignore-blank-lines");
+  bool ignore_space_change = ctx.has("-b") || ctx.has("--ignore-space-change");
+  bool ignore_case = ctx.has("-i") || ctx.has("--ignore-case");
+  bool text_mode = ctx.has("-a") || ctx.has("--text");
+  bool binary_mode = ctx.has("--binary");
+  bool color_output = ctx.has("--color");
+  bool strip_trailing_cr = ctx.has("--strip-trailing-cr") || ctx.has("-Z");
+  bool report_identical = ctx.has("--report-identical-files") || ctx.has("-s");
+  bool new_file = ctx.has("-N") || ctx.has("--new-file");
+  bool suppress_common = ctx.has("--suppress-common-lines");
+  bool suppress_blank_empty = ctx.has("--suppress-blank-empty");
+  bool expand_tabs_opt = ctx.has("-t") || ctx.has("--expand-tabs");
+  bool initial_tab = ctx.has("-T") || ctx.has("--initial-tab");
+  bool no_dereference = ctx.has("--no-dereference");
+  bool ignore_file_name_case = ctx.has("--ignore-file-name-case");
+  bool unidirectional_new_file = ctx.has("--unidirectional-new-file");
+
+  // -- Integer/width options [DIFFERS] --
+  int tabsize = 8;
+  if (ctx.has("--tabsize")) tabsize = ctx.get<int>("--tabsize", 8);
+  int side_width = 130;
+  if (ctx.has("-W")) side_width = ctx.get<int>("-W", 130);
+  if (ctx.has("--width")) side_width = ctx.get<int>("--width", 130);
+
+  // -- String options [DIFFERS] --
+  std::string diff_program = ctx.get<std::string>("--diff-program", "");
+  std::string exclude_pattern = ctx.get<std::string>("--exclude", "");
+  std::string exclude_from = ctx.get<std::string>("--exclude-from", "");
+  std::string exclude_dir_pattern = ctx.get<std::string>("--exclude-dir", "");
+  std::string starting_file_str = ctx.get<std::string>("--starting-file", "");
+  std::string ignore_matching =
+      ctx.get<std::string>("--ignore-matching-lines", "");
+  std::string show_function_line =
+      ctx.get<std::string>("--show-function-line", "");
+
+  // -- Reject options not implemented on Windows [DIFFERS] --
+  if (ctx.has("-d") || ctx.has("--minimal")) {
+    safeErrorPrintLn("diff: --minimal is not supported on Windows");
+    return 1;
+  }
+  if (ctx.has("-e") || ctx.has("--ed")) {
+    safeErrorPrintLn("diff: --ed is not supported on Windows");
+    return 1;
+  }
+  if (ctx.has("-f") || ctx.has("--forward-ed")) {
+    safeErrorPrintLn("diff: --forward-ed is not supported on Windows");
+    return 1;
+  }
+  if (ctx.has("-n") || ctx.has("--rcs")) {
+    safeErrorPrintLn("diff: --rcs is not supported on Windows");
+    return 1;
+  }
+  if (ctx.has("-l") || ctx.has("--paginate")) {
+    safeErrorPrintLn("diff: --paginate is not supported on Windows");
+    return 1;
+  }
+  if (ctx.has("-p") || ctx.has("--show-c-function")) {
+    safeErrorPrintLn("diff: --show-c-function is not supported on Windows");
+    return 1;
+  }
+  if (!diff_program.empty()) {
+    safeErrorPrintLn("diff: --diff-program is not supported on Windows");
+    return 1;
+  }
+  if (ctx.has("-r") || ctx.has("--recursive")) {
+    safeErrorPrintLn("diff: --recursive is not supported on Windows");
+    return 1;
+  }
+  if (!exclude_pattern.empty() || ctx.has("-x")) {
+    safeErrorPrintLn("diff: --exclude is not supported on Windows");
+    return 1;
+  }
+  if (!exclude_from.empty() || ctx.has("-X")) {
+    safeErrorPrintLn("diff: --exclude-from is not supported on Windows");
+    return 1;
+  }
+  if (!exclude_dir_pattern.empty()) {
+    safeErrorPrintLn("diff: --exclude-dir is not supported on Windows");
+    return 1;
+  }
+  if (!starting_file_str.empty()) {
+    safeErrorPrintLn("diff: --starting-file is not supported on Windows");
+    return 1;
+  }
+  if (!show_function_line.empty()) {
+    safeErrorPrintLn("diff: --show-function-line is not supported on Windows");
+    return 1;
+  }
 
   enum class OutputMode { Normal, Unified, Context, SideBySide };
   OutputMode output_mode = OutputMode::Normal;
@@ -915,29 +1250,75 @@ REGISTER_COMMAND(
     return result.value() ? 0 : 1;
   }
 
-  // Read both files
+  // -- Read both files; -N/--new-file treats missing as empty [DIFFERS]
   auto lines1_result = read_file_lines_result(file1);
   if (!lines1_result) {
-    safeErrorPrint("diff: ");
-    safeErrorPrint(lines1_result.error());
-    safeErrorPrint("\n");
-    return 1;
+    if (new_file) {
+      lines1_result = std::vector<std::string>{};
+    } else {
+      safeErrorPrint("diff: ");
+      safeErrorPrint(lines1_result.error());
+      safeErrorPrint("\n");
+      return 1;
+    }
   }
 
   auto lines2_result = read_file_lines_result(file2);
   if (!lines2_result) {
-    safeErrorPrint("diff: ");
-    safeErrorPrint(lines2_result.error());
-    safeErrorPrint("\n");
-    return 1;
+    if (new_file) {
+      lines2_result = std::vector<std::string>{};
+    } else {
+      safeErrorPrint("diff: ");
+      safeErrorPrint(lines2_result.error());
+      safeErrorPrint("\n");
+      return 1;
+    }
   }
 
   auto &lines1 = lines1_result.value();
   auto &lines2 = lines2_result.value();
-  auto compare_lines1 = normalize_lines_for_compare(lines1, ignore_all_space);
-  auto compare_lines2 = normalize_lines_for_compare(lines2, ignore_all_space);
+
+  // -- Apply transformations for comparison [DIFFERS] --
+  auto cmp1 = lines1;
+  auto cmp2 = lines2;
+
+  if (strip_trailing_cr) {
+    cmp1 = strip_trailing_cr_lines(cmp1);
+    cmp2 = strip_trailing_cr_lines(cmp2);
+  }
+  if (ignore_blank_lines) {
+    cmp1 = filter_blank_lines(cmp1);
+    cmp2 = filter_blank_lines(cmp2);
+  }
+  if (expand_tabs_opt) {
+    cmp1 = expand_tabs_lines(cmp1, tabsize);
+    cmp2 = expand_tabs_lines(cmp2, tabsize);
+  }
+  cmp1 = normalize_lines_for_compare(cmp1, ignore_all_space);
+  cmp2 = normalize_lines_for_compare(cmp2, ignore_all_space);
+  if (ignore_space_change) {
+    cmp1 = normalize_lines_space_change(cmp1);
+    cmp2 = normalize_lines_space_change(cmp2);
+  }
+  if (ignore_case) {
+    cmp1 = normalize_lines_case(cmp1);
+    cmp2 = normalize_lines_case(cmp2);
+  }
+  if (!ignore_matching.empty()) {
+    cmp1 = filter_matching_lines(cmp1, ignore_matching);
+    cmp2 = filter_matching_lines(cmp2, ignore_matching);
+  }
+  auto &compare_lines1 = cmp1;
+  auto &compare_lines2 = cmp2;
 
   if (compare_lines1 == compare_lines2) {
+    if (report_identical) {
+      safePrint("Files ");
+      safePrint(file1);
+      safePrint(" and ");
+      safePrint(file2);
+      safePrint(" are identical\n");
+    }
     return 0;
   }
 
@@ -948,8 +1329,9 @@ REGISTER_COMMAND(
     output_context_diff(file1, file2, compare_lines1, compare_lines2, lines1,
                         lines2, context, label1, label2);
   } else if (output_mode == OutputMode::SideBySide) {
+    // -- pass side_width and suppress_common [DIFFERS] --
     output_side_by_side(file1, file2, compare_lines1, compare_lines2, lines1,
-                        lines2);
+                        lines2, side_width, suppress_common);
   } else {
     // Simple comparison using LCS
     auto edits = compute_diff(compare_lines1, compare_lines2);

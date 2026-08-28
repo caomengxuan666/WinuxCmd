@@ -64,10 +64,15 @@ using namespace core::pipeline;
  */
 // clang-format off
 auto constexpr MKDIR_OPTIONS =
-    std::array{OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask", STRING_TYPE),
+    std::array{
+               // [DIFFERS]
+               OPTION("-m", "--mode", "set file mode (as in chmod), not a=rwx - umask", STRING_TYPE),
+               // [GNU]
                OPTION("-p", "--parents", "no error if existing, make parent directories as needed"),
+               // [GNU]
                OPTION("-v", "--verbose", "print a message for each created directory"),
-               OPTION("-Z", "--context", "set SELinux security context of each created directory", OPTIONAL_STRING_TYPE)};
+               // [DIFFERS] SELinux contexts are not available on Windows; accepted as a no-op.
+               OPTION("-Z", "--context", "set SELinux security context of each created directory (ignored on Windows)", OPTIONAL_STRING_TYPE)};
 // clang-format on
 
 // ======================================================
@@ -162,6 +167,8 @@ auto build_config(const CommandContext<MKDIR_OPTIONS.size()>& ctx)
   cfg.parents = ctx.get<bool>("--parents", false) || ctx.get<bool>("-p", false);
   cfg.verbose = ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
   if (ctx.has("--mode") || ctx.has("-m")) {
+    // [DIFFERS] - SELinux not available on Windows
+    (void)ctx.has("--context");
     std::string mode = ctx.get<std::string>("--mode", "");
     if (mode.empty()) mode = ctx.get<std::string>("-m", "");
     if (mode.empty()) return std::unexpected("invalid mode");

@@ -84,48 +84,69 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr XARGS_OPTIONS = std::array{
+    // [GNU] option
     OPTION("-n", "--max-args",
            "use at most max-args arguments per command line", INT_TYPE),
+    // [GNU] option
     OPTION("-I", "",
            "replace occurrences of replace-str in the initial-arguments with "
            "names",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-i", "--replace",
            "deprecated alias for -I; replace occurrences of replace-str",
            OPTIONAL_STRING_TYPE),
+    // [GNU] option
     OPTION("-0", "--null", "input items are terminated by a null character"),
+    // [GNU] option
     OPTION("-d", "--delimiter",
            "input items are terminated by the specified character",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-o", "--open-tty",
            "reopen standard input as the console in the child process"),
+    // [GNU] option
     OPTION("-t", "--verbose",
            "print the command line on the standard error before executing it"),
+    // [GNU] option
     OPTION("-p", "--interactive", "prompt before running each command line"),
+    // [GNU] option
     OPTION("-r", "--no-run-if-empty",
            "if the standard input is completely empty, do not run the "
            "command"),
+    // [GNU] option
     OPTION("-P", "--max-procs", "run up to max-procs processes at a time",
            INT_TYPE),
+    // [GNU] option
     OPTION("-s", "--max-chars", "use at most max-chars chars per command line",
            INT_TYPE),
+    // [GNU] option
     OPTION("-x", "--exit", "exit if the size (see -s) is exceeded"),
+    // [GNU] option
     OPTION("-L", "",
            "use at most max-lines nonblank input lines per command line",
            INT_TYPE),
+    // [GNU] option
     OPTION("", "--max-lines",
            "use at most max-lines nonblank input lines per command line",
            OPTIONAL_INT_TYPE),
+    // [GNU] option
     OPTION("-l", "",
            "deprecated alias for -L; use max-lines nonblank input lines",
            OPTIONAL_INT_TYPE),
+    // [GNU] option
     OPTION("-a", "--arg-file", "read items from file instead of standard input",
            STRING_TYPE),
+    // [GNU] option
     OPTION("-E", "", "set the logical EOF string", STRING_TYPE),
+    // [GNU] option
     OPTION("", "--eof", "set or disable the logical EOF string",
            OPTIONAL_STRING_TYPE),
+    // [GNU] option
     OPTION("-e", "", "deprecated alias for --eof", OPTIONAL_STRING_TYPE),
+    // [GNU] option
     OPTION("", "--show-limits", "display command-line length limits"),
+    // [GNU] option
     OPTION("", "--process-slot-var",
            "set an environment variable to the child process slot",
            STRING_TYPE)};

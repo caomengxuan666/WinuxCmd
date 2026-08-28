@@ -45,6 +45,7 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr HOSTID_OPTIONS =
+    // [DIFFERS]
     std::array{OPTION("", "", "print machine identifier", STRING_TYPE)};
 
 // ======================================================

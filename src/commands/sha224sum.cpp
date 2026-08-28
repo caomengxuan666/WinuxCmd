@@ -43,21 +43,31 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr SHA224SUM_OPTIONS = std::array{
+    // [DIFFERS] -b, --binary
     OPTION("-b", "--binary", "read in binary mode (default)", BOOL_TYPE),
+    // [GNU] -c, --check
     OPTION("-c", "--check", "read SHA224 sums from the FILEs and check them",
            STRING_TYPE),
+    // [GNU] --ignore-missing
     OPTION("", "--ignore-missing",
            "don't fail or report status for missing files", BOOL_TYPE),
+    // [DIFFERS] -t, --text
     OPTION("-t", "--text", "read in text mode", BOOL_TYPE),
+    // [GNU] -q, --quiet
     OPTION("-q", "--quiet",
            "don't print OK for each successfully verified file", BOOL_TYPE),
+    // [GNU] -s, --status
     OPTION("-s", "--status", "don't output anything, status code shows success",
            BOOL_TYPE),
+    // [GNU] -w, --warn
     OPTION("-w", "--warn", "warn about improperly formatted checksum lines",
            BOOL_TYPE),
+    // [GNU] --tag
     OPTION("", "--tag", "create a BSD-style checksum", BOOL_TYPE),
+    // [GNU] -z, --zero
     OPTION("-z", "--zero", "end each output line with NUL, not newline",
            BOOL_TYPE),
+    // [GNU] --strict
     OPTION("", "--strict", "with --check, exit non-zero for any invalid input",
            BOOL_TYPE)};
 

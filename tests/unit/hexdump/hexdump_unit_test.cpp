@@ -150,6 +150,17 @@ TEST(hexdump, hexdump_stdin) {
   EXPECT_TRUE(r.stdout_text.find("0000000b") != std::string::npos);
 }
 
+TEST(hexdump, hexdump_invalid_format_reports_error) {
+  TempDir tmp;
+  write_binary_file(tmp.path / "test.bin", "abc");
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"hexdump.exe", {L"-e", L"%", L"test.bin"});
+  auto r = p.run();
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_FALSE(r.stderr_text.empty());
+}
+
 TEST(hexdump, hexdump_nonexistent_file) {
   Pipeline p;
   p.add(L"hexdump.exe", {L"nonexistent_file_xyz.bin"});

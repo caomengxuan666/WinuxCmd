@@ -43,6 +43,12 @@ import container;
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
+// [GNU] -L, --dereference: follow symbolic links
+// [GNU] -f, --file-system: display file system status
+// [GNU] -c, --format: use specified FORMAT
+// [GNU] -t, --terse: print information in terse form
+// [GNU] --printf: like --format with backslash escapes
+// [DIFFERS] --cached: GNU cache controls are unavailable on Windows
 auto constexpr STAT_OPTIONS = std::array{
     OPTION("-L", "--dereference", "follow symbolic links", BOOL_TYPE),
     OPTION("-f", "--file-system",
@@ -52,8 +58,9 @@ auto constexpr STAT_OPTIONS = std::array{
     OPTION("-t", "--terse", "print the information in terse form", BOOL_TYPE),
     OPTION("", "--printf", "like --format, but interpret backslash escapes",
            STRING_TYPE),
-    OPTION("", "--cached", "ignored; Windows status is always fetched fresh",
-           STRING_TYPE)};
+    OPTION("", "--cached",
+           "control cached attribute data (unsupported on Windows)",
+           OPTIONAL_STRING_TYPE)};
 
 namespace stat_pipeline {
 namespace cp = core::pipeline;
@@ -93,6 +100,11 @@ struct FileSystemStatData {
 auto build_config(const CommandContext<STAT_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
+  if (ctx.has("--cached")) {
+    return std::unexpected(
+        "--cached is not supported on Windows; file status is always fetched "
+        "fresh");
+  }
   cfg.dereference =
       ctx.get<bool>("--dereference", false) || ctx.get<bool>("-L", false);
   cfg.file_system =

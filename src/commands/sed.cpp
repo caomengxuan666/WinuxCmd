@@ -20,24 +20,44 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr SED_OPTIONS = std::array{
+    // [GNU]
     OPTION("-n", "--quiet", "suppress automatic printing of pattern space"),
+    // [GNU]
     OPTION("", "--silent", "alias for -n"),
+    // [GNU]
     OPTION("-s", "--separate",
            "consider files as separate rather than as a single continuous "
            "long stream"),
+    // [GNU]
     OPTION("-z", "--null-data", "separate lines by NUL characters"),
+    // [GNU]
     OPTION("", "--zero-terminated", "alias for -z"),
+    // [GNU]
     OPTION("-u", "--unbuffered", "buffer input and output minimally"),
+    // [DIFFERS]
     OPTION("-b", "--binary", "open files in binary mode"),
+    // [GNU]
     OPTION("-i", "--in-place", "edit files in place", OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("-e", "--expression",
            "add the script to the commands to be executed", STRING_TYPE),
+    // [GNU]
     OPTION("-f", "--file", "add the script from FILE", STRING_TYPE),
+    // [GNU]
     OPTION("-l", "--line-length", "specify line-wrap length for the l command",
            INT_TYPE),
+    // [GNU]
     OPTION("-E", "--regexp-extended", "use extended regular expressions"),
+    // [DIFFERS]
+    OPTION("", "--debug", "annotate program execution (unsupported)"),
+    // [DIFFERS]
+    OPTION("", "--follow-symlinks",
+           "follow symlinks when processing in place (unsupported)"),
+    // [GNU]
     OPTION("", "--sandbox", "restrict file system access in the script"),
+    // [GNU]
     OPTION("", "--posix", "disable GNU extensions and follow POSIX sed"),
+    // [GNU]
     OPTION("-r", "", "alias for -E")};
 
 // ======================================================
@@ -1116,6 +1136,21 @@ auto resolve_labels(std::vector<Script>& scripts) -> cp::Result<void> {
 auto build_config(const CommandContext<SED_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
+  if (ctx.has("--debug")) {
+    return std::unexpected(
+        "--debug is not supported by this sed implementation");
+  }
+  if (ctx.has("--follow-symlinks")) {
+    return std::unexpected(
+        "--follow-symlinks is not supported by this sed implementation");
+  }
+  // [DIFFERS] -u/--unbuffered: accepted; Windows stdout is line-buffered
+  (void)ctx.has("--unbuffered");
+  (void)ctx.has("-u");
+  // [DIFFERS] -b/--binary: accepted; files are opened in binary mode on
+  // Windows by default
+  (void)ctx.has("--binary");
+  (void)ctx.has("-b");
   cfg.suppress_output = ctx.get<bool>("--quiet", false) ||
                         ctx.get<bool>("-n", false) ||
                         ctx.get<bool>("--silent", false);

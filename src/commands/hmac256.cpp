@@ -13,6 +13,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr HMAC256_OPTIONS =
+    // [EXT]
     std::array{OPTION("", "", "key string", STRING_TYPE)};
 
 // ======================================================

@@ -59,18 +59,27 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr TOUCH_OPTIONS = std::array{
+    // [DIFFERS] -a
     OPTION("-a", "", "change only the access time"),
+    // [DIFFERS] -c, --no-create
     OPTION("-c", "--no-create", "do not create any files"),
+    // [DIFFERS] -d, --date
     OPTION("-d", "--date", "parse STRING and use it instead of current time",
            STRING_TYPE),
+    // [DIFFERS] -f
     OPTION("-f", "", "(ignored)"),
+    // [DIFFERS] -h, --no-dereference
     OPTION("-h", "--no-dereference",
            "affect symbolic link instead of referenced file"),
+    // [DIFFERS] -m
     OPTION("-m", "", "change only the modification time"),
+    // [DIFFERS] -r, --reference
     OPTION("-r", "--reference", "use this file's times instead of current time",
            STRING_TYPE),
+    // [DIFFERS] -t
     OPTION("-t", "", "use [[CC]YY]MMDDhhmm[.ss] instead of current time",
            STRING_TYPE),
+    // [DIFFERS] --time
     OPTION("", "--time",
            "change the specified time (access/atime/use/modify/mtime)",
            STRING_TYPE)};

@@ -43,10 +43,13 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PASTE_OPTIONS = std::array{
+    // [GNU]
     OPTION("-d", "--delimiters", "reuse characters from LIST instead of TAB",
            OPTIONAL_STRING_TYPE),
+    // [GNU]
     OPTION("-s", "--serial", "paste one file at a time instead of in parallel",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline")};
 
 namespace paste_pipeline {

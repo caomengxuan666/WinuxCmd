@@ -80,3 +80,16 @@ TEST(free, free_megabytes) {
 
   EXPECT_EQ(r.exit_code, 0);
 }
+
+TEST(free, free_new_display_options) {
+  for (const auto& args :
+       {std::vector<std::wstring>{L"--mega"},
+        std::vector<std::wstring>{L"--lohi"},
+        std::vector<std::wstring>{L"--seconds", L"0", L"--count", L"1"}}) {
+    Pipeline p;
+    p.add(L"free.exe", args);
+    auto r = p.run();
+    EXPECT_EQ(r.exit_code, 0);
+    EXPECT_TRUE(r.stderr_text.empty());
+  }
+}

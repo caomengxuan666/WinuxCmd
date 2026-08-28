@@ -41,39 +41,58 @@ import container;
 using cmd::meta::OptionType;
 
 auto constexpr INSTALL_OPTIONS = std::array{
+    // [GNU]
     OPTION("-b", "--backup", "make a backup of each existing destination file",
            BOOL_TYPE),
-    OPTION("-c", "", "ignored (for compatibility with old Unix versions)",
+    // [GNU] -c is an alias for -C/--compare (GNU Coreutils behavior)
+    OPTION("-c", "", "compare source and destination (alias for -C)",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-C", "--compare",
            "compare source and destination and skip copy if identical",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-d", "--directory", "treat all arguments as directory names",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-D", "", "create all leading components of DEST except the last",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-g", "--group", "set group ownership", STRING_TYPE),
+    // [GNU]
     OPTION("-m", "--mode", "set permission mode", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-o", "--owner", "set ownership", STRING_TYPE),
+    // [GNU]
     OPTION("-p", "--preserve-timestamps",
            "apply access/modification times of SOURCE files", BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--strip", "strip symbol tables", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--debug", "print debugging information", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--strip-program", "program used to strip binaries",
            STRING_TYPE),
+    // [GNU]
     OPTION("-S", "--suffix", "override the usual backup suffix", STRING_TYPE),
+    // [GNU]
     OPTION("-t", "--target-directory", "specify the destination directory",
            STRING_TYPE),
+    // [GNU]
     OPTION("-T", "--no-target-directory",
            "do not treat the last operand specially when it is a directory",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-v", "--verbose",
            "print the name of each directory as it is created", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("", "--preserve-context", "preserve SELinux security context",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-Z", "",
            "set SELinux security context of destination files to default",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("", "--context", "set SELinux security context of destination files",
            OPTIONAL_STRING_TYPE)};
 
@@ -287,7 +306,8 @@ auto build_config(const CommandContext<INSTALL_OPTIONS.size()>& ctx)
       ctx.get<bool>("--directory", false) || ctx.get<bool>("-d", false);
   cfg.preserve_timestamps = ctx.get<bool>("--preserve-timestamps", false) ||
                             ctx.get<bool>("-p", false);
-  cfg.compare = ctx.get<bool>("--compare", false) || ctx.get<bool>("-C", false);
+  cfg.compare = ctx.get<bool>("--compare", false) ||
+                ctx.get<bool>("-C", false) || ctx.get<bool>("-c", false);
   cfg.strip = ctx.get<bool>("--strip", false) || ctx.get<bool>("-s", false);
   cfg.verbose = ctx.get<bool>("--verbose", false) ||
                 ctx.get<bool>("-v", false) || ctx.get<bool>("--debug", false);
@@ -457,11 +477,6 @@ auto run(const Config& cfg) -> int {
         "install: warning: SELinux context options are not supported on "
         "Windows\n");
   }
-  if (cfg.strip && !cfg.strip_program.empty()) {
-    safeErrorPrint(
-        "install: warning: --strip-program is not supported on "
-        "Windows\n");
-  }
 
   if (cfg.directory_mode) {
     for (const auto& dir : cfg.sources) {
@@ -610,7 +625,9 @@ auto run(const Config& cfg) -> int {
 
     // Strip symbol tables if requested (Windows: call strip.exe if available)
     if (cfg.strip) {
-      std::string strip_cmd = "strip \"" + dest + "\"";
+      std::string strip_program =
+          cfg.strip_program.empty() ? "strip" : cfg.strip_program;
+      std::string strip_cmd = "\"" + strip_program + "\" \"" + dest + "\"";
       int ret = std::system(strip_cmd.c_str());
       if (ret != 0 && cfg.verbose) {
         safePrint("install: warning: strip failed for '");

@@ -44,17 +44,25 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CSPLIT_OPTIONS = std::array{
+    // [GNU]
     OPTION("-f", "--prefix", "use PREFIX instead of 'xx'", STRING_TYPE),
+    // [GNU]
     OPTION("-b", "--suffix-format", "use sprintf FORMAT instead of %02d",
            STRING_TYPE),
+    // [GNU]
     OPTION("-n", "--digits", "use specified number of digits", STRING_TYPE),
+    // [GNU]
     OPTION("-k", "--keep-files", "do not remove output files on errors",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-s", "--quiet", "do not print counts of output file sizes",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-q", "--silent", "do not print counts of output file sizes",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-z", "--elide-empty-files", "remove empty output files", BOOL_TYPE),
+    // [GNU]
     OPTION("", "--suppress-matched",
            "suppress lines matching PATTERN from output", BOOL_TYPE)};
 

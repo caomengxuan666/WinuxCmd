@@ -66,19 +66,28 @@ using cmd::meta::OptionType;
  * [IMPLEMENTED]
  */
 auto constexpr REALPATH_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-e", "--canonicalize-existing",
            "all components of the path must exist"),
+    // [EXT] not in GNU coreutils realpath
     OPTION("-E", "--canonicalize", "all components but the last must exist"),
+    // [DIFFERS]
     OPTION("-m", "--canonicalize-missing", "no path components need to exist"),
+    // [DIFFERS]
     OPTION("-L", "--logical", "resolve '..' and '.' before symlinks"),
+    // [DIFFERS]
     OPTION("-P", "--physical", "resolve symlinks before '..' and '.'"),
+    // [DIFFERS]
     OPTION("-q", "--quiet", "suppress error messages"),
     OPTION("-s", "--strip", "do not expand symlinks"),
     OPTION("", "--no-symlinks", "do not expand symlinks"),
+    // [DIFFERS]
     OPTION("", "--relative-to", "print the resolved path relative to DIR",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("", "--relative-base", "print relative paths below DIR",
            STRING_TYPE),
+    // [DIFFERS]
     OPTION("-z", "--zero", "end output with NUL byte instead of newline")};
 
 // ======================================================
@@ -98,6 +107,10 @@ struct Config {
   bool quiet = false;
   bool no_symlinks = false;
   bool zero_terminated = false;
+  bool logical = false;   // -L: resolve ".." before symlinks (accepted, Windows
+                          // normalization)
+  bool physical = false;  // -P: resolve symlinks before ".." (accepted, Windows
+                          // normalization)
   std::string relative_to;
   std::string relative_base;
   SmallVector<std::string, 32> paths{};
@@ -319,6 +332,9 @@ auto build_config(const CommandContext<REALPATH_OPTIONS.size()>& ctx)
   cfg.no_symlinks = ctx.get<bool>("--strip", false) ||
                     ctx.get<bool>("-s", false) ||
                     ctx.get<bool>("--no-symlinks", false);
+  cfg.logical = ctx.get<bool>("--logical", false) || ctx.get<bool>("-L", false);
+  cfg.physical =
+      ctx.get<bool>("--physical", false) || ctx.get<bool>("-P", false);
   cfg.zero_terminated =
       ctx.get<bool>("--zero", false) || ctx.get<bool>("-z", false);
 
@@ -439,10 +455,10 @@ REGISTER_COMMAND(
     "  -E, --canonicalize           all but the last component must exist\n"
     "  -m, --canonicalize-missing   no path components need to exist\n"
     "  -e, --canonicalize-existing   all components must exist\n"
-    "  -L, --logical                 resolve '..' and '.' before symlinks\n"
-    "  -P, --physical                resolve symlinks before '..' and '.'\n"
+    "  -L, --logical                 resolve '..' before symlinks (accepted)\n"
+    "  -P, --physical                resolve symlinks before '..' (accepted)\n"
     "  -q, --quiet                   suppress most error messages\n"
-    "  -s, --strip                   do not expand symlinks\n"
+    "  -s, --strip, --no-symlinks    do not expand symlinks\n"
     "      --relative-to=DIR         print the resolved path relative to DIR\n"
     "      --relative-base=DIR       print relative paths below DIR\n"
     "  -z, --zero                    end output with NUL instead of newline",

@@ -67,15 +67,25 @@ using cmd::meta::OptionType;
  */
 // clang-format off
 auto constexpr CAT_OPTIONS =
+    // [GNU]
     std::array{OPTION("-A", "--show-all", "equivalent to -vET"),
+    // [GNU]
                OPTION("-b", "--number-nonblank", "number nonempty output lines, overrides -n"),
+    // [GNU]
                OPTION("-e", "", "equivalent to -vE"),
+    // [GNU]
                OPTION("-E", "--show-ends", "display $ at end of each line"),
+    // [GNU]
                OPTION("-n", "--number", "number all output lines"),
+    // [GNU]
                OPTION("-s", "--squeeze-blank", "suppress repeated empty output lines"),
+    // [GNU]
                OPTION("-t", "", "equivalent to -vT"),
+    // [GNU]
                OPTION("-T", "--show-tabs", "display TAB characters as ^I"),
+    // [GNU]
                OPTION("-u", "", "(ignored, for POSIX compatibility)"),
+    // [GNU]
                OPTION("-v", "--show-nonprinting", "use ^ and M- notation, except for LFD and TAB")};
 // clang-format on
 
@@ -119,6 +129,9 @@ REGISTER_COMMAND(cat, "cat",
                  "Copyright © 2026 WinuxCmd", CAT_OPTIONS) {
   using namespace cat_pipeline;
   using namespace core::pipeline;
+
+  // [GNU] -u: accepted for POSIX compatibility (no-op)
+  (void)ctx.get<bool>("-u", false);
 
   const bool fast_passthrough =
       !ctx.get<bool>("--show-all", false) &&

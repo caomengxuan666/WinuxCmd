@@ -57,8 +57,10 @@ std::string format_open_error(const std::string& path, DWORD error) {
 }  // namespace
 
 auto constexpr SYNC_OPTIONS =
+    // [GNU] -d, --data
     std::array{OPTION("-d", "--data",
                       "sync only file data, no unneeded metadata", BOOL_TYPE),
+               // [GNU] -f, --file-system
                OPTION("-f", "--file-system",
                       "sync the file systems that contain files", BOOL_TYPE)};
 
@@ -85,9 +87,15 @@ REGISTER_COMMAND(
     "fsync(2)", "WinuxCmd", "Copyright © 2026 WinuxCmd", SYNC_OPTIONS) {
   namespace cp = core::pipeline;
 
-  [[maybe_unused]] bool sync_data =
-      ctx.get<bool>("--data", false) || ctx.get<bool>("-d", false);
-  [[maybe_unused]] bool sync_fs =
+  // [GNU] -d/--data: On Linux, fdatasync() flushes data without metadata.
+  // On Windows, FlushFileBuffers() flushes both data and metadata; there is
+  // no data-only mode. The flag is accepted for GNU compatibility but has no
+  // behavioral difference.
+  bool sync_data = ctx.get<bool>("--data", false) || ctx.get<bool>("-d", false);
+  // [GNU] -f/--file-system: On Linux, syncfs() flushes the containing
+  // filesystem. On Windows, there is no syncfs() equivalent, so we fall back to
+  // FlushFileBuffers() on each file (best-effort approximation).
+  bool sync_fs =
       ctx.get<bool>("--file-system", false) || ctx.get<bool>("-f", false);
 
   if (sync_data && sync_fs) {
@@ -137,8 +145,11 @@ REGISTER_COMMAND(
           cp::Result<int> result = std::unexpected(err);
           cp::report_error(result, L"sync");
           had_error = true;
+          continue;
         }
-        continue;
+        // [DIFFERS from GNU] GNU syncfs() flushes the entire filesystem.
+        // Windows has no syncfs() equivalent; fall through to
+        // FlushFileBuffers() as a best-effort approximation.
       }
 
       if (std::filesystem::is_directory(fs_path, path_ec)) {

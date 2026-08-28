@@ -38,10 +38,23 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MKPASSWD_OPTIONS = std::array{
+    // [EXT]
     OPTION("-c", "--current", "print only the current process user"),
+    // [EXT] [DIFFERS] GNU mkpasswd: -l means password length; here it means
+    // local users
     OPTION("-l", "--local", "enumerate local machine users (default)"),
+    // [EXT]
     OPTION("-p", "--path-prefix", "home directory prefix", STRING_TYPE),
-    OPTION("-s", "--shell", "login shell path", STRING_TYPE)};
+    // [EXT] [DIFFERS] GNU mkpasswd: -s means salt; here it means login shell
+    OPTION("-s", "--shell", "login shell path", STRING_TYPE),
+    // [DIFFERS] GNU mkpasswd: read password from file descriptor; not
+    // applicable on Windows
+    OPTION("-P", "--password-fd", "read password from file descriptor",
+           STRING_TYPE),
+    // [DIFFERS] GNU mkpasswd: encrypt method (des,md5,sha-256,sha-512); not
+    // applicable on Windows
+    OPTION("-S", "--method", "encrypt method (not supported on Windows)",
+           STRING_TYPE)};
 
 namespace mkpasswd_pipeline {
 
@@ -118,10 +131,29 @@ auto print_local_users(const Config& cfg) -> int {
 auto run(const CommandContext<MKPASSWD_OPTIONS.size()>& ctx) -> int {
   Config cfg;
   cfg.current = ctx.get<bool>("-c", false) || ctx.get<bool>("--current", false);
+  // -l/--local: always lists local users (default behavior)
+  (void)ctx.has("--local");
   cfg.path_prefix = ctx.get<std::string>(
       "-p", ctx.get<std::string>("--path-prefix", "/home"));
   cfg.shell =
       ctx.get<std::string>("-s", ctx.get<std::string>("--shell", "/bin/sh"));
+
+  // [DIFFERS] -P/--password-fd: GNU mkpasswd reads password from fd; not
+  // applicable on Windows
+  if (ctx.has("-P") || ctx.has("--password-fd")) {
+    safeErrorPrintLn(
+        "mkpasswd: --password-fd is not supported on Windows [DIFFERS from GNU "
+        "mkpasswd]");
+    return 1;
+  }
+  // [DIFFERS] -S/--method: GNU mkpasswd uses encryption method; not applicable
+  // on Windows
+  if (ctx.has("-S") || ctx.has("--method")) {
+    safeErrorPrintLn(
+        "mkpasswd: --method is not supported on Windows [DIFFERS from GNU "
+        "mkpasswd]");
+    return 1;
+  }
 
   if (!ctx.positionals.empty()) {
     safeErrorPrintLn("mkpasswd: unexpected operand '" +
@@ -134,11 +166,14 @@ auto run(const CommandContext<MKPASSWD_OPTIONS.size()>& ctx) -> int {
 
 }  // namespace mkpasswd_pipeline
 
-REGISTER_COMMAND(mkpasswd, "mkpasswd", "mkpasswd [OPTION]...",
-                 "Generate passwd-like entries from Windows accounts.",
-                 "  mkpasswd --current\n"
-                 "  mkpasswd --path-prefix /home --shell /bin/sh",
-                 "id(1), whoami(1), mkgroup(1)", "WinuxCmd",
-                 "Copyright © 2026 WinuxCmd", MKPASSWD_OPTIONS) {
+REGISTER_COMMAND(
+    mkpasswd, "mkpasswd",
+    "mkpasswd [-c] [-l] [-p PREFIX] [-s SHELL] [-P FD] [-S METHOD]",
+    "Generate passwd-like entries from Windows accounts.",
+    "  mkpasswd --current\n"
+    "  mkpasswd --path-prefix /home --shell /bin/sh\n"
+    "  mkpasswd -P 3 -S sha-512  # [DIFFERS] not supported",
+    "id(1), whoami(1), mkgroup(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
+    MKPASSWD_OPTIONS) {
   return mkpasswd_pipeline::run(ctx);
 }

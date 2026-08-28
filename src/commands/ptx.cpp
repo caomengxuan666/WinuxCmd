@@ -14,31 +14,57 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr PTX_OPTIONS = std::array{
+    // [GNU]
     OPTION("-A", "--auto-reference",
            "output automatically generated references", BOOL_TYPE),
+    // [GNU]
     OPTION("-C", "--copyright", "display copyright and version", BOOL_TYPE),
+    // [GNU]
     OPTION("-G", "--traditional", "use traditional non-GNU word splitting",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-F", "--flag-truncation", "string used for line truncation",
            STRING_TYPE),
+    // [GNU]
     OPTION("-M", "--macro-name", "macro name for formatted output",
            STRING_TYPE),
-    OPTION("-O", "--format", "roff format for output", BOOL_TYPE),
+    // [GNU]
+    OPTION("-O", "",
+           "generate output as roff directives [DIFFERS: --format=roff not "
+           "supported]",
+           BOOL_TYPE),
+    // [GNU]
     OPTION("-R", "--right-side-refs", "put references in right margin",
            BOOL_TYPE),
+    // [GNU]
     OPTION("-S", "--sentence-regexp", "regexp for sentence ends", STRING_TYPE),
-    OPTION("-T", "--tabs", "TeX output mode", STRING_TYPE),
+    // [GNU]
+    OPTION("-T", "",
+           "generate output as TeX directives [DIFFERS: --format=tex not "
+           "supported]",
+           BOOL_TYPE),
+    // [GNU]
     OPTION("-W", "--word-regexp", "regexp for words", STRING_TYPE),
-    OPTION("-b", "--break", "file containing word break characters",
+    // [GNU]
+    OPTION("-b", "--break-file", "file containing word break characters",
            STRING_TYPE),
+    // [GNU]
     OPTION("-f", "--ignore-case", "fold lower case to upper case for sorting",
            BOOL_TYPE),
-    OPTION("-g", "--gap-size", "gap size for output", STRING_TYPE),
+    // [GNU]
+    OPTION("-g", "--gap-size", "gap size in columns between output fields",
+           INT_TYPE),
+    // [GNU]
     OPTION("-i", "--ignore-file", "ignore words from file", STRING_TYPE),
+    // [GNU]
     OPTION("-o", "--only-file", "only output words from file", STRING_TYPE),
+    // [GNU]
     OPTION("-r", "--references", "first input field is reference", BOOL_TYPE),
+    // [GNU]
     OPTION("-t", "--typeset-mode", "output for troff or nroff", BOOL_TYPE),
-    OPTION("-w", "--width", "output width", STRING_TYPE)};
+    // [GNU]
+    OPTION("-w", "--width", "output width in columns, reference excluded",
+           INT_TYPE)};
 
 namespace ptx_pipeline {
 namespace cp = core::pipeline;
@@ -124,11 +150,11 @@ auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
   cfg.input_references =
       ctx.get<bool>("--references", false) || ctx.get<bool>("-r", false);
 
-  if (ctx.get<bool>("--format", false) || ctx.get<bool>("-O", false) ||
-      ctx.get<bool>("--typeset-mode", false) || ctx.get<bool>("-t", false)) {
+  if (ctx.get<bool>("-O", false) || ctx.get<bool>("--typeset-mode", false) ||
+      ctx.get<bool>("-t", false)) {
     cfg.output_format = OutputFormat::Roff;
   }
-  if (!option_value(ctx, "--tabs", "-T").empty()) {
+  if (ctx.get<bool>("-T", false)) {
     cfg.output_format = OutputFormat::Tex;
   }
 
@@ -138,19 +164,13 @@ auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
   if (cfg.macro_name.empty()) cfg.macro_name = "xx";
   cfg.sentence_regexp = option_value(ctx, "--sentence-regexp", "-S");
   cfg.word_regexp = option_value(ctx, "--word-regexp", "-W");
-  cfg.break_file = option_value(ctx, "--break", "-b");
+  cfg.break_file = option_value(ctx, "--break-file", "-b");
   cfg.ignore_file = option_value(ctx, "--ignore-file", "-i");
   cfg.only_file = option_value(ctx, "--only-file", "-o");
 
-  auto gap =
-      parse_int_option(option_value(ctx, "--gap-size", "-g"), 3, "gap size");
-  if (!gap) return std::unexpected(gap.error());
-  cfg.gap_size = std::max(0, *gap);
+  cfg.gap_size = std::max(0, ctx.get<int>("--gap-size", ctx.get<int>("-g", 3)));
 
-  auto width =
-      parse_int_option(option_value(ctx, "--width", "-w"), 78, "width");
-  if (!width) return std::unexpected(width.error());
-  cfg.width = std::max(1, *width);
+  cfg.width = std::max(1, ctx.get<int>("--width", ctx.get<int>("-w", 78)));
 
   for (auto arg : ctx.positionals) cfg.files.push_back(std::string(arg));
   if (cfg.files.empty()) cfg.files.push_back("-");

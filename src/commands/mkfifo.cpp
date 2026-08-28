@@ -12,8 +12,11 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr MKFIFO_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-m", "--mode", "set file permission bits", STRING_TYPE),
+    // [DIFFERS]
     OPTION("-Z", "", "set the SELinux security context to default type"),
+    // [DIFFERS]
     OPTION("", "--context", "set the SELinux security context",
            OPTIONAL_STRING_TYPE),
 };
@@ -45,6 +48,8 @@ auto is_plausible_mode(std::string_view mode) -> bool {
 
 struct Config {
   std::vector<std::string> fifos;
+  std::string mode;
+  bool context_requested = false;
 };
 
 auto add_fifo_args(Config& cfg, std::span<const std::string_view> args)
@@ -64,15 +69,17 @@ auto build_config(const CommandContext<MKFIFO_OPTIONS.size()>& ctx)
     if (!is_plausible_mode(mode)) {
       return std::unexpected("invalid mode");
     }
+    cfg.mode = mode;
   }
 
-  (void)ctx.get<bool>("-Z", false);
-  (void)ctx.get<std::string>("--context", "");
+  const bool context_requested =
+      ctx.get<bool>("-Z", false) || ctx.has("--context");
 
   if (ctx.positionals.empty()) {
     return std::unexpected("missing operand");
   }
 
+  cfg.context_requested = context_requested;
   add_fifo_args(cfg, std::span<const std::string_view>(ctx.positionals.data(),
                                                        ctx.positionals.size()));
 
@@ -80,6 +87,13 @@ auto build_config(const CommandContext<MKFIFO_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
+  if (cfg.context_requested) {
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.mkfifo.error.context-unsupported",
+        "mkfifo: SELinux security contexts are not supported on Windows"));
+    return 1;
+  }
+
   int exit_code = 0;
   for (const auto& fifo : cfg.fifos) {
     std::filesystem::path p(fifo);

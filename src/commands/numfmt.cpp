@@ -45,25 +45,53 @@ using cmd::meta::OptionType;
 // ======================================================
 
 auto constexpr NUMFMT_OPTIONS = std::array{
+    // [GNU]
     OPTION("-d", "--delimiter",
            "use X instead of whitespace for field delimiter", STRING_TYPE),
+    // [GNU]
     OPTION("", "--from", "autoconvert from X", STRING_TYPE),
+    // [GNU]
     OPTION("", "--to", "autoconvert to X", STRING_TYPE),
+    // [GNU]
     OPTION("", "--round", "use METHOD for rounding", STRING_TYPE),
+    // [GNU]
     OPTION("", "--padding", "pad numbers to width N", INT_TYPE),
+    // [EXT]
     OPTION("", "--pad", "pad numbers to width N", INT_TYPE),
+    // [GNU]
     OPTION("", "--suffix", "add STRING after formatted numbers", STRING_TYPE),
+    // [GNU]
     OPTION("", "--field", "replace numbers in field N", INT_TYPE),
+    // [GNU]
     OPTION("-f", "--format", "use printf style floating-point FORMAT",
            STRING_TYPE),
+    // [GNU]
     OPTION("", "--header", "print the first N header lines unchanged",
            INT_TYPE),
+    // [GNU]
     OPTION("", "--grouping", "group digits with locale thousands separator",
            BOOL_TYPE),
+    // [GNU]
     OPTION("", "--invalid",
            "set policy for invalid values: 'abort' (default), 'warn', 'ignore'",
            STRING_TYPE),
-    OPTION("", "--debug", "print conversion diagnostics", BOOL_TYPE)};
+    // [GNU]
+    OPTION("", "--debug", "print conversion diagnostics", BOOL_TYPE),
+    // [GNU] --from-unit: multiply input numbers by UNIT
+    OPTION("", "--from-unit", "multiply input numbers by UNIT", STRING_TYPE),
+    // [GNU] --to-unit: divide numbers by UNIT before formatting
+    OPTION("", "--to-unit", "divide numbers by UNIT before formatting",
+           STRING_TYPE),
+    // [GNU] --unit-separator: use STRING between number and unit
+    OPTION("", "--unit-separator", "use STRING between number and unit",
+           STRING_TYPE),
+    // [GNU] --zero-terminated: line delimiter is NUL, not newline
+    OPTION("-z", "--zero-terminated", "line delimiter is NUL, not newline",
+           BOOL_TYPE),
+    // [GNU] -M: use IEC units (powers of 1024)
+    OPTION("-M", "", "use IEC units (powers of 1024)", BOOL_TYPE),
+    // [GNU] -l: use locale grouping
+    OPTION("-l", "", "use locale grouping", BOOL_TYPE)};
 
 // ======================================================
 // Helper functions
@@ -267,6 +295,13 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */ NUMFMT_OPTIONS) {
   std::string to_unit = ctx.get<std::string>("--to", "");
+  const std::string from_unit_value = ctx.get<std::string>("--from-unit", "");
+  const std::string to_unit_value = ctx.get<std::string>("--to-unit", "");
+  const std::string unit_separator =
+      ctx.get<std::string>("--unit-separator", "");
+  const bool zero_terminated =
+      ctx.get<bool>("--zero-terminated", false) || ctx.get<bool>("-z", false);
+  const bool iec_short = ctx.get<bool>("-M", false);
   bool to_si = to_unit == "si";
   bool to_iec = to_unit == "iec";
   bool to_iec_i = to_unit == "iec-i";
@@ -282,6 +317,7 @@ REGISTER_COMMAND(
   int header = 0;
   header = ctx.get<int>("--header", 0);
   bool grouping = ctx.get<bool>("--grouping", false);
+  const bool locale_grouping = grouping || ctx.get<bool>("-l", false);
   std::string invalid_policy = ctx.get<std::string>("--invalid", "abort");
   bool debug = ctx.get<bool>("--debug", false);
   std::string round_mode = ctx.get<std::string>("--round", "");
@@ -294,6 +330,45 @@ REGISTER_COMMAND(
       safeErrorPrint("numfmt: debug: " + msg + "\n");
     }
   };
+
+  auto parse_unit_scale = [](const std::string& text) -> double {
+    if (text.empty()) return 1.0;
+    try {
+      size_t used = 0;
+      double value = std::stod(text, &used);
+      if (used == text.size()) return value;
+      if (used + 1 == text.size()) {
+        const char suffix = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(text[used])));
+        switch (suffix) {
+          case 'K':
+            return value * 1000.0;
+          case 'M':
+            return value * 1000000.0;
+          case 'G':
+            return value * 1000000000.0;
+          case 'T':
+            return value * 1000000000000.0;
+          case 'P':
+            return value * 1000000000000000.0;
+          default:
+            return 0.0;
+        }
+      }
+    } catch (...) {
+    }
+    return 0.0;
+  };
+  const double from_scale = parse_unit_scale(from_unit_value);
+  const double to_scale = parse_unit_scale(to_unit_value);
+  if (from_scale <= 0.0 || to_scale <= 0.0) {
+    safeErrorPrintLn("numfmt: invalid unit value");
+    return 1;
+  }
+  if (iec_short && to_unit.empty()) {
+    to_unit = "iec-i";
+    to_iec_i = true;
+  }
 
   auto add_grouping = [](const std::string& s) -> std::string {
     // Add thousands separator commas
@@ -319,7 +394,7 @@ REGISTER_COMMAND(
     } else {
       result = std::to_string(num);
     }
-    if (grouping) {
+    if (locale_grouping) {
       result = add_grouping(result);
     }
     if (padding > 0 && static_cast<int>(result.size()) < padding) {
@@ -346,6 +421,11 @@ REGISTER_COMMAND(
       return s;
     }
 
+    if (from_scale != 1.0 || to_scale != 1.0) {
+      num = static_cast<long long>(
+          std::llround(static_cast<double>(num) * from_scale / to_scale));
+    }
+
     // Apply --from conversion
     if (!from_unit.empty()) {
       if (from_unit == "si") {
@@ -367,7 +447,8 @@ REGISTER_COMMAND(
       if (debug) {
         debug_log("converted '" + s + "' -> '" + formatted + suffix + "'");
       }
-      return formatted + suffix;
+      return formatted + (unit_separator.empty() ? "" : unit_separator) +
+             suffix;
     }
     if (!format_str.empty()) {
       double value = 0.0;
@@ -381,7 +462,8 @@ REGISTER_COMMAND(
         return std::string(buf) + suffix;
       }
     }
-    auto applied = apply_format(num) + suffix;
+    auto applied = apply_format(num) +
+                   (unit_separator.empty() ? "" : unit_separator) + suffix;
     if (debug) {
       debug_log("formatted '" + s + "' -> '" + applied + "'");
     }
@@ -391,7 +473,8 @@ REGISTER_COMMAND(
   int line_num = 0;
   auto process_line = [&](const std::string& line) {
     if (line_num < header) {
-      safePrintLn(line);
+      safePrint(line);
+      safePrint(zero_terminated ? std::string(1, '\0') : std::string("\n"));
       ++line_num;
       return;
     }
@@ -411,9 +494,10 @@ REGISTER_COMMAND(
         first = false;
         ++field_number;
       }
-      safePrint("\n");
+      safePrint(zero_terminated ? std::string(1, '\0') : std::string("\n"));
     } else {
-      safePrintLn(process_number(line));
+      safePrint(process_number(line));
+      safePrint(zero_terminated ? std::string(1, '\0') : std::string("\n"));
     }
     ++line_num;
   };
@@ -428,7 +512,8 @@ REGISTER_COMMAND(
                  std::istreambuf_iterator<char>());
     std::istringstream iss(input);
     std::string line;
-    while (std::getline(iss, line)) {
+    const char delimiter_char = zero_terminated ? '\0' : '\n';
+    while (std::getline(iss, line, delimiter_char)) {
       process_line(line);
     }
   }

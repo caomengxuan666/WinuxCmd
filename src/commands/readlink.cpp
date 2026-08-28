@@ -83,17 +83,25 @@ struct ReparseDataBuffer {
 }  // namespace readlink_win32_compat
 
 auto constexpr READLINK_OPTIONS = std::array{
+    // [DIFFERS]
     OPTION("-f", "--canonicalize", "canonicalize by following every symlink",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-e", "--canonicalize-existing",
            "canonicalize by following symlinks (must exist)", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-m", "--canonicalize-missing",
            "canonicalize by following symlinks (may not exist)", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-n", "--no-newline", "do not output the trailing delimiter",
            BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-q", "--quiet", "suppress most error messages", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-s", "--silent", "suppress most error messages", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-v", "--verbose", "report error message", BOOL_TYPE),
+    // [DIFFERS]
     OPTION("-z", "--zero", "end each output line with NUL", BOOL_TYPE)};
 
 namespace readlink_pipeline {

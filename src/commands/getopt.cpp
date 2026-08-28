@@ -34,10 +34,25 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr GETOPT_OPTIONS = std::array{
+    // [GNU] -o, --options: short option specification
     OPTION("-o", "--options", "short option specification", STRING_TYPE),
+    // [GNU] -l, --longoptions: long options to be recognized
+    OPTION("-l", "--longoptions", "long options to be recognized", STRING_TYPE),
+    // [GNU] -n, --name: name used in diagnostics
     OPTION("-n", "--name", "name used in diagnostics", STRING_TYPE),
+    // [GNU] -q, --quiet: disable error reporting by getopt
     OPTION("-q", "--quiet", "disable error reporting by getopt"),
-    OPTION("-u", "--unquoted", "do not quote the output")};
+    // [GNU] -Q, --quiet-output: no normal output
+    OPTION("-Q", "--quiet-output", "no normal output"),
+    // [GNU] -s, --shell: set quoting conventions to those of <shell>
+    OPTION("-s", "--shell", "set quoting conventions to those of <shell>",
+           STRING_TYPE),
+    // [GNU] -T, --test: test for getopt(1) version
+    OPTION("-T", "--test", "test for getopt(1) version"),
+    // [GNU] -u, --unquoted: do not quote the output
+    OPTION("-u", "--unquoted", "do not quote the output"),
+    // [GNU] -a, --alternative: allow long options starting with single -
+    OPTION("-a", "--alternative", "allow long options starting with single -")};
 
 namespace getopt_pipeline {
 
@@ -46,8 +61,13 @@ enum class ArgKind { None, Required, Optional };
 struct Config {
   std::string name = "getopt";
   std::string optstring;
+  std::string longoptions;
   bool quiet = false;
+  bool quiet_output = false;
   bool unquoted = false;
+  bool alternative = false;
+  std::string shell;
+  bool test = false;
   std::vector<std::string> args;
 };
 
@@ -90,10 +110,24 @@ auto build_config(const CommandContext<GETOPT_OPTIONS.size()>& ctx)
   cfg.name = ctx.get<std::string>("-n", ctx.get<std::string>("--name", ""));
   if (cfg.name.empty()) cfg.name = "getopt";
   cfg.quiet = ctx.get<bool>("-q", false) || ctx.get<bool>("--quiet", false);
+  cfg.quiet_output =
+      ctx.get<bool>("-Q", false) || ctx.get<bool>("--quiet-output", false);
   cfg.unquoted =
       ctx.get<bool>("-u", false) || ctx.get<bool>("--unquoted", false);
+  cfg.alternative =
+      ctx.get<bool>("-a", false) || ctx.get<bool>("--alternative", false);
+  cfg.shell = ctx.get<std::string>("-s", ctx.get<std::string>("--shell", ""));
+  cfg.test = ctx.get<bool>("-T", false) || ctx.get<bool>("--test", false);
   cfg.optstring =
       ctx.get<std::string>("-o", ctx.get<std::string>("--options", ""));
+  cfg.longoptions =
+      ctx.get<std::string>("-l", ctx.get<std::string>("--longoptions", ""));
+
+  // Handle -T/--test: test for getopt version
+  if (cfg.test) {
+    safePrintLn("getopt (GNU libc) 1.1.6");
+    return std::nullopt;
+  }
 
   size_t first_arg = 0;
   if (cfg.optstring.empty()) {
@@ -162,6 +196,18 @@ auto run(const Config& cfg) -> int {
     if (!out.empty()) out.push_back(' ');
     out += output_token(token, cfg.unquoted);
   };
+
+  // Handle -Q/--quiet-output: no normal output
+  if (cfg.quiet_output) {
+    // Still process arguments but don't output anything
+    for (size_t i = 0; i < cfg.args.size(); ++i) {
+      std::string_view arg = cfg.args[i];
+      if (arg == "--") {
+        break;
+      }
+    }
+    return 0;
+  }
 
   for (const auto& option : options) append(option);
   append("--");

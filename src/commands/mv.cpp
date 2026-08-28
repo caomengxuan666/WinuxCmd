@@ -86,26 +86,54 @@ using cmd::meta::OptionType;
 
 // clang-format off
 auto constexpr MV_OPTIONS =
-    std::array{OPTION("-b", "", "like --backup but does not accept an argument"),
+    std::array{
+               // [GNU]
+               OPTION("-b", "", "like --backup but does not accept an argument"),
+               // [GNU] --debug: explain how a file is moved
+               OPTION("", "--debug", "explain how a file is moved"),
+               // [DIFFERS] --exchange is not supported on Windows
+               OPTION("", "--exchange", "exchange source and destination"),
+               // [GNU]
                OPTION("-f", "--force", "do not prompt before overwriting"),
+               // [GNU]
                OPTION("-i", "", "prompt before overwrite"),
+               // [GNU]
                OPTION("-I", "", "prompt once before removing more than three files, or when moving recursively"),
+               // [GNU]
                OPTION("-n", "--no-clobber", "do not overwrite an existing file"),
+               // [GNU]
+               OPTION("", "--no-copy", "do not copy if renaming fails"),
+               // [GNU]
                OPTION("", "--strip-trailing-slashes", "remove any trailing slashes from each SOURCE argument"),
+               // [GNU]
                OPTION("-S", "--suffix", "override the usual backup suffix", STRING_TYPE),
+               // [GNU]
                OPTION("-t", "--target-directory", "move all SOURCE arguments into DIRECTORY", STRING_TYPE),
+               // [GNU]
                OPTION("-T", "--no-target-directory", "treat DEST as a normal file"),
-               OPTION("-u", "--update", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
+               // [GNU]
+               OPTION("-u", "", "equivalent to --update[=older]"),
+               // [GNU]
                OPTION("-v", "--verbose", "explain what is being done"),
+               // [DIFFERS]
                OPTION("-Z", "--context", "set SELinux security context of destination file to default type"),
+               // [GNU]
                OPTION("", "--backup", "make a backup of each existing destination file", OPTIONAL_STRING_TYPE),
+               // [GNU]
                OPTION("", "--interactive", "prompt according to WHEN: never, once (-I), or always (-i)", OPTIONAL_STRING_TYPE),
+               // [GNU]
                OPTION("", "--no-clobber", "do not overwrite an existing file"),
+               // [GNU]
                OPTION("", "--suffix", "override the usual backup suffix", STRING_TYPE),
+               // [GNU]
                OPTION("", "--target-directory", "move all SOURCE arguments into DIRECTORY", STRING_TYPE),
+               // [GNU]
                OPTION("", "--no-target-directory", "treat DEST as a normal file"),
-               OPTION("", "--update", "move only when the SOURCE file is newer than the destination file or when the destination file is missing"),
+               // [GNU]
+               OPTION("", "--update", "control which existing files are updated; UPDATE={all,none,older(default)}", OPTIONAL_STRING_TYPE),
+               // [GNU]
                OPTION("", "--verbose", "explain what is being done"),
+               // [DIFFERS]
                OPTION("", "--context", "set SELinux security context of destination file to default type")};
 // clang-format on
 
@@ -115,11 +143,19 @@ auto constexpr MV_OPTIONS =
 namespace mv_pipeline {
 namespace cp = core::pipeline;
 
+// --update[=UPDATE] mode: controls which existing files are replaced.
+enum class UpdateMode {
+  all,    // always replace (default without --update)
+  older,  // replace only if source is newer (-u, --update, --update=older)
+  none,   // never replace (--update=none, similar to --no-clobber)
+};
+
 struct MoveContext {
   SmallVector<std::string, 64> source_paths;
   std::string dest_path;
   bool target_directory_option = false;
   bool no_target_directory = false;
+  UpdateMode update_mode = UpdateMode::all;
 };
 
 enum class OverwriteMode {
@@ -129,6 +165,8 @@ enum class OverwriteMode {
   interactive_always,
   no_clobber,
 };
+
+// --update[=UPDATE] mode: controls which existing files are replaced.
 
 template <size_t N>
 auto parse_overwrite_mode(const CommandContext<N>& ctx)
@@ -227,6 +265,23 @@ auto parse_arguments(const CommandContext<MV_OPTIONS.size()>& ctx)
   if (!target_dir.empty() && move_ctx.no_target_directory) {
     return std::unexpected(
         "cannot combine --target-directory and --no-target-directory");
+  }
+
+  // Parse --update[=UPDATE] mode
+  if (ctx.get<bool>("-u", false)) {
+    move_ctx.update_mode = UpdateMode::older;
+  } else if (ctx.has("--update")) {
+    auto update_opt = ctx.get<std::string>("--update", "");
+    if (update_opt == "all") {
+      move_ctx.update_mode = UpdateMode::all;
+    } else if (update_opt == "none") {
+      move_ctx.update_mode = UpdateMode::none;
+    } else if (update_opt == "older" || update_opt.empty()) {
+      move_ctx.update_mode = UpdateMode::older;
+    } else {
+      return std::unexpected("invalid argument '" + update_opt +
+                             "' for '--update'");
+    }
   }
 
   bool strip_slashes = ctx.get<bool>("--strip-trailing-slashes", false);
@@ -351,7 +406,8 @@ auto backup_existing_destination(const std::wstring& dest_path,
 
 auto move_single_path(const std::string& src_path, const std::string& dest_path,
                       const CommandContext<MV_OPTIONS.size()>& ctx,
-                      OverwriteMode overwrite_mode) -> cp::Result<bool> {
+                      OverwriteMode overwrite_mode, UpdateMode update_mode)
+    -> cp::Result<bool> {
   std::wstring wsrc_path = utf8_to_wstring(src_path);
   std::wstring wdest_path = utf8_to_wstring(dest_path);
 
@@ -361,8 +417,12 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
     return true;
   }
 
-  bool update = ctx.get<bool>("--update", false) || ctx.get<bool>("-u", false);
-  if (update && dest_exists && !is_source_newer(wsrc_path, wdest_path)) {
+  // --update mode handling
+  if (update_mode == UpdateMode::none && dest_exists) {
+    return true;
+  }
+  if (update_mode == UpdateMode::older && dest_exists &&
+      !is_source_newer(wsrc_path, wdest_path)) {
     return true;
   }
 
@@ -394,6 +454,11 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
   // Try to rename first
   if (!MoveFileExW(wsrc_path.c_str(), wdest_path.c_str(),
                    MOVEFILE_REPLACE_EXISTING)) {
+    if (ctx.has("--no-copy")) {
+      return std::unexpected(
+          "rename failed and copying is disabled by --no-copy");
+    }
+
     // If rename fails, try copy and delete
     // First, check if source is a file
     DWORD src_attr = GetFileAttributesW(wsrc_path.c_str());
@@ -433,8 +498,8 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
     }
   }
 
-  bool verbose =
-      ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
+  bool verbose = ctx.get<bool>("--verbose", false) ||
+                 ctx.get<bool>("-v", false) || ctx.get<bool>("--debug", false);
   if (verbose) {
     // OPTIMIZED: Avoid multiple wstring conversions and concatenations
     safePrint("'");
@@ -465,11 +530,18 @@ auto process_single_source(const std::string& src_path,
     return std::unexpected(final_dest.error());
   }
 
-  return move_single_path(src_path, *final_dest, ctx, overwrite_mode);
+  return move_single_path(src_path, *final_dest, ctx, overwrite_mode,
+                          move_ctx.update_mode);
 }
 
 template <size_t N>
 auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
+  if (ctx.has("--exchange")) {
+    safeErrorPrintLn(
+        "mv: --exchange option not yet fully implemented on Windows");
+    return std::unexpected("--exchange is not supported on Windows");
+  }
+
   return parse_arguments(ctx).and_then(
       [&](MoveContext move_ctx) -> cp::Result<bool> {
         auto overwrite_mode = parse_overwrite_mode(ctx);

@@ -42,6 +42,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CLEAR_OPTIONS =
+    // [EXT]
     std::array{OPTION("", "", "clear terminal screen", STRING_TYPE)};
 
 REGISTER_COMMAND(

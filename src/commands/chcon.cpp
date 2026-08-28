@@ -12,24 +12,38 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr CHCON_OPTIONS = std::array{
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("", "--dereference", "affect the referent of each symbolic link"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-h", "--no-dereference",
            "affect symbolic links instead of referenced files"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("", "--preserve-root", "fail to operate recursively on '/'"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("", "--no-preserve-root", "do not treat '/' specially"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("", "--reference", "use RFILE's security context", STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-u", "--user", "set user component of the security context",
            STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-r", "--role", "set role component of the security context",
            STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-t", "--type", "set type component of the security context",
            STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-l", "--range", "set range component of the security context",
            STRING_TYPE),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-R", "--recursive", "operate on files and directories recursively"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-H", "", "follow command-line symbolic links to directories"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-L", "", "follow every symbolic link to a directory"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-P", "", "do not follow symbolic links"),
+    // [DIFFERS] - SELinux is unavailable on Windows
     OPTION("-v", "--verbose", "output a diagnostic for every file processed"),
 };
 
@@ -69,6 +83,8 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
   Config cfg;
   cfg.verbose = ctx.get<bool>("-v", false) || ctx.get<bool>("--verbose", false);
 
+  // [DIFFERS] - SELinux is unavailable on Windows; these flags are parsed
+  // for GNU-compatible surface but have no runtime effect.
   (void)ctx.get<bool>("--dereference", false);
   (void)ctx.get<bool>("-h", false);
   (void)ctx.get<bool>("--no-dereference", false);
@@ -88,17 +104,21 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
 
   if (using_reference || using_components) {
     if (ctx.positionals.empty()) {
-      return std::unexpected("missing file operand");
+      return std::unexpected(winux::i18n::translate(
+          "command.chcon.error.missing_file_operand", "missing file operand"));
     }
     add_file_args(cfg, std::span<const std::string_view>(
                            ctx.positionals.data(), ctx.positionals.size()));
   } else {
     if (ctx.positionals.empty()) {
-      return std::unexpected("missing operand");
+      return std::unexpected(winux::i18n::translate(
+          "command.chcon.error.missing_operand", "missing operand"));
     }
     if (ctx.positionals.size() < 2) {
-      return std::unexpected(make_error("missing operand after '" +
-                                        std::string(ctx.positionals[0]) + "'"));
+      return std::unexpected(
+          winux::i18n::translate("command.chcon.error.missing_operand_after",
+                                 std::string("missing operand after '") +
+                                     std::string(ctx.positionals[0]) + "'"));
     }
     add_file_args(
         cfg, std::span<const std::string_view>(ctx.positionals.data() + 1,
@@ -106,14 +126,17 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
   }
 
   if (cfg.files.empty()) {
-    return std::unexpected("missing file operand");
+    return std::unexpected(winux::i18n::translate(
+        "command.chcon.error.missing_file_operand", "missing file operand"));
   }
 
   for (const auto& file : cfg.files) {
     std::wstring wfile = utf8_to_wstring(file);
     if (GetFileAttributesW(wfile.c_str()) == INVALID_FILE_ATTRIBUTES) {
-      return std::unexpected(make_error("cannot access '" + file +
-                                        "': No such file or directory"));
+      return std::unexpected(
+          winux::i18n::translate("command.chcon.error.cannot_access",
+                                 std::string("cannot access '") + file +
+                                     "': No such file or directory"));
     }
   }
 
@@ -121,16 +144,10 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  if (cfg.verbose) {
-    for (const auto& file : cfg.files) {
-      safeErrorPrint("chcon: preserving security context of '");
-      safeErrorPrint(file);
-      safeErrorPrint("' is not supported on Windows\n");
-    }
-    return 1;
-  }
-
-  safeErrorPrint("chcon: SELinux file contexts are not supported on Windows\n");
+  (void)cfg;
+  safeErrorPrintLn(winux::i18n::translate(
+      "command.chcon.error.unsupported",
+      "chcon: SELinux file contexts are not supported on Windows"));
   return 1;
 }
 
@@ -146,7 +163,7 @@ REGISTER_COMMAND(
     "\n"
     "WinuxCmd accepts the GNU-compatible command line surface for chcon, but\n"
     "Windows does not provide SELinux file contexts. This command therefore\n"
-    "acts as a compatibility placeholder and reports that the operation is "
+    "acts as a compatibility command and reports that the operation is "
     "not\n"
     "supported on Windows.",
     "  chcon system_u:object_r:httpd_sys_content_t:s0 file.txt\n"
@@ -159,11 +176,10 @@ REGISTER_COMMAND(
   auto cfg_result = build_config(ctx);
   if (!cfg_result) {
     safeErrorPrint("chcon: ");
-    safeErrorPrint(cfg_result.error());
+    safeErrorPrint(winux::i18n::translate_error(cfg_result.error()));
     safeErrorPrint("\n");
-    if (cfg_result.error().starts_with("missing operand")) {
-      safeErrorPrint("Try 'chcon --help' for more information.\n");
-    }
+    safeErrorPrintLn(winux::i18n::format(
+        "common.try_help", "Try '{} --help' for more information.", "chcon"));
     return 1;
   }
 

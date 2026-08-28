@@ -34,6 +34,7 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr ENVSUBST_OPTIONS = std::array{
+    // [GNU]
     OPTION("-v", "--variables", "output variables occurring in SHELL-FORMAT")};
 
 namespace envsubst_pipeline {

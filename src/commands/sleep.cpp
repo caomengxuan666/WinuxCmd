@@ -43,7 +43,8 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr SLEEP_OPTIONS =
-    std::array{OPTION("", "", "pause for NUMBER seconds", STRING_TYPE)};
+    std::array{// [GNU] NUMBER: pause for seconds
+               OPTION("", "", "pause for NUMBER seconds", STRING_TYPE)};
 
 namespace sleep_pipeline {
 namespace cp = core::pipeline;

@@ -34,10 +34,39 @@ using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
 
 auto constexpr LOGGER_OPTIONS = std::array{
+    // [GNU] -i, --id: log the logger command's PID
+    OPTION("-i", "--id", "log the logger command's PID"),
+    // [GNU] -f, --file: log the contents of this file
+    OPTION("-f", "--file", "log the contents of this file", STRING_TYPE),
+    // [GNU] -e, --skip-empty: do not log empty lines when processing files
+    OPTION("-e", "--skip-empty",
+           "do not log empty lines when processing files"),
+    // [GNU] -p, --priority: mark given message with this priority
     OPTION("-p", "--priority", "message priority", STRING_TYPE),
-    OPTION("-t", "--tag", "mark every line with this tag", STRING_TYPE),
+    // [GNU] -s, --stderr: output message to standard error as well
     OPTION("-s", "--stderr", "also write the message to standard error"),
-    OPTION("", "--id", "accepted for compatibility", STRING_TYPE)};
+    // [GNU] -t, --tag: mark every line with this tag
+    OPTION("-t", "--tag", "mark every line with this tag", STRING_TYPE),
+    // [GNU] -n, --server: write to this remote syslog server
+    OPTION("-n", "--server", "write to this remote syslog server", STRING_TYPE),
+    // [GNU] -P, --port: use this port for UDP or TCP connection
+    OPTION("-P", "--port", "use this port for UDP or TCP connection",
+           STRING_TYPE),
+    // [GNU] -T, --tcp: use TCP only
+    OPTION("-T", "--tcp", "use TCP only"),
+    // [GNU] -d, --udp: use UDP only
+    OPTION("-d", "--udp", "use UDP only"),
+    // [GNU] --prio-prefix: look for a prefix on every line read from stdin
+    OPTION("", "--prio-prefix",
+           "look for a prefix on every line read from stdin"),
+    // [GNU] --no-act: do everything except the write the log
+    OPTION("", "--no-act", "do everything except the write the log"),
+    // [GNU] -S, --size: maximum size for a single message
+    OPTION("-S", "--size", "maximum size for a single message", STRING_TYPE),
+    // [GNU] --rfc3164: use the obsolete BSD syslog protocol
+    OPTION("", "--rfc3164", "use the obsolete BSD syslog protocol"),
+    // [GNU] --rfc5424: use the syslog protocol (default for remote)
+    OPTION("", "--rfc5424", "use the syslog protocol (default for remote)")};
 
 namespace logger_pipeline {
 
@@ -98,6 +127,8 @@ auto run(const CommandContext<LOGGER_OPTIONS.size()>& ctx) -> int {
   cfg.tag = ctx.get<std::string>("-t", ctx.get<std::string>("--tag", cfg.tag));
   cfg.stderr_too =
       ctx.get<bool>("-s", false) || ctx.get<bool>("--stderr", false);
+  // --id: accepted for compatibility, no-op on Windows
+  (void)ctx.has("--id");
   cfg.message = join_message(ctx.positionals);
   if (cfg.message.empty()) cfg.message = read_stdin_message();
 

@@ -214,3 +214,21 @@ TEST(column, column_directory_input_reports_is_a_directory) {
                   "column: cannot open 'indir' for reading: Is a directory") !=
               std::string::npos);
 }
+
+TEST(column, column_new_layout_options) {
+  Pipeline p;
+  p.set_stdin("a\tb\tc\n1\t2\t3\n");
+  p.add(L"column.exe", {L"-x", L"1,2", L"-N", L"A,B,C", L"-E", L"-t"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+}
+
+TEST(column, column_width_option_c_is_accepted) {
+  Pipeline p;
+  p.set_stdin("a\nb\nc\n");
+  p.add(L"column.exe", {L"-c", L"20"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_FALSE(r.stdout_text.empty());
+}

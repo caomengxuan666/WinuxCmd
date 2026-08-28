@@ -66,6 +66,11 @@ constexpr int MAX_REPEAT = 100000;
  * - @a -u, @a --upper: Convert text to uppercase [IMPLEMENTED]
  * - @a -r, @a --repeat: Repeat output N times [IMPLEMENTED]
  */
+// [GNU] -n: do not append a newline
+// [GNU] -e: enable backslash escapes
+// [GNU] -E: suppress backslash escapes
+// [EXT] -u, --upper: WinuxCmd extension, not in GNU coreutils
+// [EXT] -r, --repeat: WinuxCmd extension, not in GNU coreutils
 auto constexpr ECHO_OPTIONS =
     std::array{OPTION("-n", "", "do not append a newline"),
                OPTION("-e", "", "enable backslash escapes"),
