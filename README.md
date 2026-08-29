@@ -6,6 +6,7 @@
 
 **Real Unix commands. Real Windows paths. One ~2 MB executable.**
 No WSL · No Cygwin · No MSYS2 · No path-translation pain
+**v1.0.0 stable is out.** 🎉
 
 [![GitHub release](https://img.shields.io/github/v/release/unixwin/WinuxCmd)](https://github.com/unixwin/WinuxCmd/releases)
 [![GitHub downloads](https://img.shields.io/github/downloads/unixwin/WinuxCmd/total)](https://github.com/unixwin/WinuxCmd/releases)
@@ -13,7 +14,7 @@ No WSL · No Cygwin · No MSYS2 · No path-translation pain
 [![License](https://img.shields.io/github/license/unixwin/WinuxCmd)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)
 
-[💾 Install](#-install) · [⚡ Demo](#-unix-muscle-memory-on-windows) · [📦 WPM](#-wpm-package-manager) · [🆚 Compare](#-how-it-compares) · [📚 Docs](#-documentation) · [中文](README-zh.md)
+[💾 Install](#-install) · [⚡ Demo](#-unix-muscle-memory-on-windows) · [🐂 niubash](#-better-together-the-niubash-shell) · [📦 WPM](#-wpm-package-manager) · [🆚 Compare](#-how-it-compares) · [📚 Docs](#-documentation) · [中文](README-zh.md)
 
 </div>
 
@@ -48,8 +49,9 @@ grep -rn "TODO" src/
 sed -i 's/http:/https:/g' config.ini
 find . -name "*.tmp" -exec rm {} \;
 
-# Full pipelines, zero setup
-find . -name "*.cpp" -print0 | winuxcmd xargs -0 winuxcmd wc -l
+# Full pipelines, zero setup — command links land on your PATH,
+# so there are no prefixes and nothing to configure
+find . -name "*.cpp" -print0 | xargs -0 wc -l
 
 # And when a tool shouldn't be reimplemented, WPM installs the real thing
 wpm install jq
@@ -70,6 +72,23 @@ wpm install jq
 - 📦 **WPM built in** — a package manager for the tools that shouldn't be reimplemented: jq, ripgrep, fd, fzf, bat, make, neovim, curl, wget…
 - 🧪 **Tested like it matters** — 2,346 test cases across 178 test files, 99.6% pass rate, plus differential output testing against GNU Coreutils 9.11.
 - ⚡ **Small and fast** — ~2 MB, zero dependencies, instant startup (Cygwin takes 2–5 s just to boot).
+
+## 🐂 Better together: the niubash shell
+
+WinuxCmd gives Windows real Unix **commands**. [niubash](https://github.com/unixwin/niubash) gives them a real **bash language** to live in — the same unixwin org, two halves of one workflow:
+
+```bash
+# In niubash (native bash on Windows — no WSL):
+for f in *.log; do
+  grep -c ERROR "$f" | xargs -I{} echo "$f: {} errors"
+done | sort -t: -k2 -rn | head -5
+```
+
+- **Real bash semantics** — `if`/`for`/functions/arrays/pipelines run on the [rubash](https://github.com/unixwin/rubash) engine, green across the GNU Bash upstream test suite (86/86).
+- **Agent-friendly** — `niu -c` is quiet and deterministic: no banners, stable stdout/stderr, exact exit codes. The shell your AI tooling already speaks.
+- **Zero glue** — niubash injects WinuxCmd's command links onto the `PATH` at startup, so `grep`, `sed` and `find` above are the real binaries you're looking at right now.
+
+Ship WinuxCmd alone in a 2 MB exe, or drop in [niubash](https://github.com/unixwin/niubash) (v1.0.0) and get the whole bash workflow.
 
 ## 📦 WPM package manager
 
@@ -258,6 +277,7 @@ MIT — see [LICENSE](LICENSE).
 <div align="center">
 
 **WinuxCmd** — because `ls` shouldn't require a Linux kernel.
+Pair it with [**niubash**](https://github.com/unixwin/niubash) — the native bash shell that speaks GNU fluently on Windows.
 
 [⬆ Back to top](#top)
 

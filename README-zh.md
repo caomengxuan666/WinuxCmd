@@ -6,6 +6,7 @@
 
 **真正的 Unix 命令，原生的 Windows 路径，一个约 2 MB 的 exe。**
 无需 WSL · 无需 Cygwin · 无需 MSYS2 · 没有路径转换的坑
+**v1.0.0 正式版已发布。** 🎉
 
 [![GitHub release](https://img.shields.io/github/v/release/unixwin/WinuxCmd)](https://github.com/unixwin/WinuxCmd/releases)
 [![GitHub downloads](https://img.shields.io/github/downloads/unixwin/WinuxCmd/total)](https://github.com/unixwin/WinuxCmd/releases)
@@ -13,7 +14,7 @@
 [![License](https://img.shields.io/github/license/unixwin/WinuxCmd)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64%20%7C%20ARM64-blue)
 
-[💾 安装](#-安装) · [⚡ 演示](#-windows-上的-unix-手感) · [📦 WPM](#-wpm-包管理器) · [🆚 对比](#-横向对比) · [📚 文档](#-文档) · [English](README.md)
+[💾 安装](#-安装) · [⚡ 演示](#-windows-上的-unix-手感) · [🐂 niubash](#-更好的搭档niubash-shell) · [📦 WPM](#-wpm-包管理器) · [🆚 对比](#-横向对比) · [📚 文档](#-文档) · [English](README.md)
 
 </div>
 
@@ -48,8 +49,9 @@ grep -rn "TODO" src/
 sed -i 's/http:/https:/g' config.ini
 find . -name "*.tmp" -exec rm {} \;
 
-# 完整管道，零配置
-find . -name "*.cpp" -print0 | winuxcmd xargs -0 winuxcmd wc -l
+# 完整管道，零配置——命令链接直接注入 PATH，
+# 不带前缀、不用配置
+find . -name "*.cpp" -print0 | xargs -0 wc -l
 
 # 不该重复造轮子的工具，WPM 一条命令装真身
 wpm install jq
@@ -70,6 +72,23 @@ wpm install jq
 - 📦 **WPM 内置** —— 不该重复造轮子的工具交给包管理器：jq、ripgrep、fd、fzf、bat、make、neovim、curl、wget……
 - 🧪 **按标准来测试** —— 2,346 个测试用例、178 个测试文件、99.6% 通过率，并与 GNU Coreutils 9.11 做差分输出对比。
 - ⚡ **小而快** —— 约 2 MB、零依赖、启动即开（Cygwin 光启动就要 2–5 秒）。
+
+## 🐂 更好的搭档：niubash shell
+
+WinuxCmd 给 Windows 带来了真正的 Unix **命令**；[niubash](https://github.com/unixwin/niubash) 给这些命令一个真正的 **bash 语言**栖身之所——同一个 unixwin 组织，一条工作流的两半：
+
+```bash
+# 在 niubash 里（Windows 原生 bash——不用 WSL）：
+for f in *.log; do
+  grep -c ERROR "$f" | xargs -I{} echo "$f: {} errors"
+done | sort -t: -k2 -rn | head -5
+```
+
+- **真·bash 语义** —— `if`/`for`/函数/数组/管道跑在 [rubash](https://github.com/unixwin/rubash) 引擎上，GNU Bash 上游测试套件 86/86 全绿。
+- **对 AI agent 友好** —— `niu -c` 安静且确定：无 banner、stdout/stderr 稳定、退出码精确传递。你的 AI 工具天生就会说的 shell。
+- **零胶水** —— niubash 启动时把 WinuxCmd 的命令链接注入 `PATH`，上面示例里的 `grep`、`sed`、`find` 就是真二进制本尊。
+
+2 MB 的 exe 单独能打；装上 [niubash](https://github.com/unixwin/niubash)（v1.0.0），整条 bash 工作流都是你的。
 
 ## 📦 WPM 包管理器
 
@@ -253,6 +272,7 @@ MIT——详见 [LICENSE](LICENSE)。
 <div align="center">
 
 **WinuxCmd** —— 用 `ls` 不再需要 Linux 内核。
+搭配 [**niubash**](https://github.com/unixwin/niubash)——在 Windows 上把 GNU 讲得字正腔圆的原生 bash shell。
 
 [⬆ 回到顶部](#top)
 
