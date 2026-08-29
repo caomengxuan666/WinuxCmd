@@ -1,0 +1,6 @@
+aardvark
+bear
+cat
+dog
+elephant
+fox
