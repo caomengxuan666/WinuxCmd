@@ -4,7 +4,7 @@
 
 <img src=".github/assets/banner.svg" alt="WinuxCmd — Unix commands, native on Windows. 169 commands, 1827 options, 98% GNU compatibility." width="100%">
 
-**Real Unix commands. Real Windows paths. One ~2 MB executable.**
+**Real Unix commands. Real Windows paths. One ~3 MB executable.**
 No WSL · No Cygwin · No MSYS2 · No path-translation pain
 **v1.0.0 stable is out.** 🎉
 
@@ -33,7 +33,7 @@ You're on Windows and you need `grep -rn`, `sed -i`, `find -exec`, `xargs -0` �
 
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|
-| **169** | **1,827** | **98%** | **2,346** | **~2 MB** |
+| **169** | **1,827** | **98%** | **2,346** | **~3 MB** |
 | commands | options | GNU compat¹ | tests · 99.6% pass | zero-dependency binary |
 
 > ¹ 22 commands / 56 differential test cases against GNU Coreutils 9.11 — [full report](DOCS/en/gnu_comparison_report.md).
@@ -71,7 +71,7 @@ wpm install jq
 - 🧠 **GNU where it counts** — `find` alone implements 88 options (full expression parser, `-exec`/`-execdir`/`-ok`, `-printf`); `grep` ships PCRE2; `sed` supports in-place `-i` editing.
 - 📦 **WPM built in** — a package manager for the tools that shouldn't be reimplemented: jq, ripgrep, fd, fzf, bat, make, neovim, curl, wget…
 - 🧪 **Tested like it matters** — 2,346 test cases across 178 test files, 99.6% pass rate, plus differential output testing against GNU Coreutils 9.11.
-- ⚡ **Small and fast** — ~2 MB, zero dependencies, instant startup (Cygwin takes 2–5 s just to boot).
+- ⚡ **Small and fast** — ~3 MB, zero dependencies, instant startup (Cygwin takes 2–5 s just to boot).
 
 ## 🐂 Better together: the niubash shell
 
@@ -88,7 +88,7 @@ done | sort -t: -k2 -rn | head -5
 - **Agent-friendly** — `niu -c` is quiet and deterministic: no banners, stable stdout/stderr, exact exit codes. The shell your AI tooling already speaks.
 - **Zero glue** — niubash injects WinuxCmd's command links onto the `PATH` at startup, so `grep`, `sed` and `find` above are the real binaries you're looking at right now.
 
-Ship WinuxCmd alone in a 2 MB exe, or drop in [niubash](https://github.com/unixwin/niubash) (v1.0.0) and get the whole bash workflow.
+Ship WinuxCmd alone in a 3 MB exe, or drop in [niubash](https://github.com/unixwin/niubash) (v1.0.0) and get the whole bash workflow.
 
 ## 📦 WPM package manager
 
@@ -118,7 +118,7 @@ Details in the [WPM User Guide](DOCS/en/wpm_guide.md).
 | **Native Win32** | ✅ | ❌ | ✅ | ❌ | ❌ |
 | **Package manager** | ✅ WPM | ❌ | ❌ | apt-cyg | ❌ |
 | **Test cases** | **2,346** | ~2,000 | 0 | — | ~100 |
-| **Binary size** | **~2 MB** | ~5 MB | — | 1 GB+ | — |
+| **Binary size** | **~3 MB** | ~5 MB | — | 1 GB+ | — |
 | **Startup** | **Instant** | Instant | — | 2–5 s | — |
 | **Maintained** | ✅ 2026 | ✅ | ❌ since 2012 | ✅ | ❌ |
 
@@ -132,7 +132,7 @@ Details in the [WPM User Guide](DOCS/en/wpm_guide.md).
 | Language | C++23 | Rust |
 | Commands | 169 | ~100 |
 | Options | 1,827 | ~600 |
-| Binary size | ~2 MB | ~5 MB |
+| Binary size | ~3 MB | ~5 MB |
 | Dependencies | None | Rust runtime |
 | Build time | 2 min | 15 min |
 | Package manager | WPM built-in | None |
@@ -150,7 +150,7 @@ Details in the [WPM User Guide](DOCS/en/wpm_guide.md).
 
 | Aspect | WinuxCmd | Cygwin |
 |--------|----------|--------|
-| Install size | ~2 MB | 1 GB+ |
+| Install size | ~3 MB | 1 GB+ |
 | Startup time | Instant | 2–5 s |
 | Path handling | Native Windows | Unix emulation |
 | Dependencies | None | MSYS2 runtime |
