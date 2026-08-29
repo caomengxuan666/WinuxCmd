@@ -4,7 +4,7 @@
 
 <img src=".github/assets/banner.svg" alt="WinuxCmd — Unix 命令，Windows 原生。169 个命令，1827 个选项，98% GNU 兼容性。" width="100%">
 
-**真正的 Unix 命令，原生的 Windows 路径，一个约 2 MB 的 exe。**
+**真正的 Unix 命令，原生的 Windows 路径，一个约 3 MB 的 exe。**
 无需 WSL · 无需 Cygwin · 无需 MSYS2 · 没有路径转换的坑
 **v1.0.0 正式版已发布。** 🎉
 
@@ -33,7 +33,7 @@
 
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|
-| **169** | **1,827** | **98%** | **2,346** | **~2 MB** |
+| **169** | **1,827** | **98%** | **2,346** | **~3 MB** |
 | 个命令 | 个选项 | GNU 兼容¹ | 个测试 · 99.6% 通过 | 零依赖二进制 |
 
 > ¹ 22 个命令 / 56 个差分测试用例，对照 GNU Coreutils 9.11——详见[对比报告](DOCS/en/gnu_comparison_report.md)。
@@ -71,7 +71,7 @@ wpm install jq
 - 🧠 **该 GNU 的地方就是 GNU** —— 光 `find` 一个命令就实现了 88 个选项（完整表达式解析器、`-exec`/`-execdir`/`-ok`、`-printf`）；`grep` 自带 PCRE2；`sed` 支持就地 `-i` 编辑。
 - 📦 **WPM 内置** —— 不该重复造轮子的工具交给包管理器：jq、ripgrep、fd、fzf、bat、make、neovim、curl、wget……
 - 🧪 **按标准来测试** —— 2,346 个测试用例、178 个测试文件、99.6% 通过率，并与 GNU Coreutils 9.11 做差分输出对比。
-- ⚡ **小而快** —— 约 2 MB、零依赖、启动即开（Cygwin 光启动就要 2–5 秒）。
+- ⚡ **小而快** —— 约 3 MB、零依赖、启动即开（Cygwin 光启动就要 2–5 秒）。
 
 ## 🐂 更好的搭档：niubash shell
 
@@ -88,7 +88,7 @@ done | sort -t: -k2 -rn | head -5
 - **对 AI agent 友好** —— `niu -c` 安静且确定：无 banner、stdout/stderr 稳定、退出码精确传递。你的 AI 工具天生就会说的 shell。
 - **零胶水** —— niubash 启动时把 WinuxCmd 的命令链接注入 `PATH`，上面示例里的 `grep`、`sed`、`find` 就是真二进制本尊。
 
-2 MB 的 exe 单独能打；装上 [niubash](https://github.com/unixwin/niubash)（v1.0.0），整条 bash 工作流都是你的。
+3 MB 的 exe 单独能打；装上 [niubash](https://github.com/unixwin/niubash)（v1.0.0），整条 bash 工作流都是你的。
 
 ## 📦 WPM 包管理器
 
@@ -118,7 +118,7 @@ wpm list --all          # 查看已安装
 | **原生 Win32** | ✅ | ❌ | ✅ | ❌ | ❌ |
 | **包管理器** | ✅ WPM | ❌ | ❌ | apt-cyg | ❌ |
 | **测试用例** | **2,346** | ~2,000 | 0 | — | ~100 |
-| **二进制体积** | **~2 MB** | ~5 MB | — | 1 GB+ | — |
+| **二进制体积** | **~3 MB** | ~5 MB | — | 1 GB+ | — |
 | **启动速度** | **即开** | 即开 | — | 2–5 秒 | — |
 | **活跃维护** | ✅ 2026 | ✅ | ❌ 2012 年起 | ✅ | ❌ |
 
@@ -132,7 +132,7 @@ wpm list --all          # 查看已安装
 | 语言 | C++23 | Rust |
 | 命令数 | 169 | ~100 |
 | 选项数 | 1,827 | ~600 |
-| 二进制体积 | ~2 MB | ~5 MB |
+| 二进制体积 | ~3 MB | ~5 MB |
 | 依赖 | 无 | Rust 运行时 |
 | 构建时间 | 2 分钟 | 15 分钟 |
 | 包管理器 | WPM 内置 | 无 |
@@ -150,7 +150,7 @@ wpm list --all          # 查看已安装
 
 | 维度 | WinuxCmd | Cygwin |
 |------|----------|--------|
-| 安装体积 | ~2 MB | 1 GB+ |
+| 安装体积 | ~3 MB | 1 GB+ |
 | 启动时间 | 即开 | 2–5 秒 |
 | 路径处理 | 原生 Windows | Unix 模拟层 |
 | 依赖 | 无 | MSYS2 运行时 |
