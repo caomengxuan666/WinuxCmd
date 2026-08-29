@@ -1,7 +1,9 @@
 # WinuxCmd
 
-> **Windows 上最全面的 Unix 命令行兼容层**
-> 169 个命令 · 1827 个选项 · 98% GNU 兼容性 · 原生 Windows 实现
+[English](README.md) | [中文](README-zh.md)
+
+> **The most comprehensive Unix command compatibility layer for Windows.**
+> 169 commands · 1827 options · 98% GNU compatibility · Native Windows implementation
 
 ![GitHub release](https://img.shields.io/github/v/release/unixwin/WinuxCmd)
 ![GitHub downloads](https://img.shields.io/github/downloads/unixwin/WinuxCmd/total)
@@ -11,44 +13,43 @@
 
 ---
 
-## 🏆 为什么 WinuxCmd 是最强的？
+## Why WinuxCmd?
 
-| 特性 | WinuxCmd | uutils (Rust) | GnuWin32 | Cygwin | busybox |
-|------|:--------:|:-------------:|:--------:|:------:|:-------:|
-| **命令数量** | **169** | ~100 | ~90 | ~200 | ~300 |
-| **选项覆盖** | **1827** | ~600 | ~200 | 完整 | ~500 |
-| **GNU 兼容性** | **98%** | 95% | 60% | 99% | 70% |
-| **原生 Windows** | ✅ | ❌ Rust | ✅ | ❌ Unix层 | ❌ |
-| **内置包管理** | ✅ WPM | ❌ | ❌ | ❌ | ❌ |
-| **C++23 模块** | ✅ | ❌ Rust | ❌ C | ❌ C | ❌ C |
-| **测试覆盖** | 2346 | ~2000 | 0 | N/A | ~100 |
-| **活跃维护** | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Feature | WinuxCmd | uutils (Rust) | GnuWin32 | Cygwin | busybox |
+|---------|:--------:|:-------------:|:--------:|:------:|:-------:|
+| **Commands** | **169** | ~100 | ~90 | ~200 | ~300 |
+| **Options** | **1827** | ~600 | ~200 | Full | ~500 |
+| **GNU Compat** | **98%** | 95% | 60% | 99% | 70% |
+| **Native Win32** | Yes | No (Rust) | Yes | No (Unix layer) | No |
+| **Package Manager** | WPM built-in | None | None | None | None |
+| **C++23 Modules** | Yes | No (Rust) | No (C) | No (C) | No (C) |
+| **Test Coverage** | 2346 | ~2000 | 0 | N/A | ~100 |
+| **Actively Maintained** | Yes | Yes | No | Yes | No |
 
-### 核心优势
+### Core Advantages
 
-1. **最全面的选项覆盖** — 1827 个选项，远超其他 Windows 实现
-2. **98% GNU 兼容性** — 通过 56 个命令的系统化对比测试验证
-3. **原生 Windows 实现** — 不依赖 WSL/MSYS2/Cygwin，直接使用 Win32 API
-4. **WPM 包管理器** — 内置包管理，一键安装 jq/rg/fd/fzf/bat 等工具
-5. **完整的测试套件** — 2346 个测试用例，99.6% 通过率
+1. **Most Comprehensive** — 1827 options, far beyond other Windows implementations
+2. **98% GNU Compatibility** — Verified via systematic 56-command comparison
+3. **Native Windows** — No WSL/MSYS2/Cygwin dependency, uses Win32 APIs directly
+4. **WPM Package Manager** — Built-in, one-click install for jq/rg/fd/fzf/bat etc.
+5. **Complete Test Suite** — 2346 test cases, 99.6% pass rate
 
 ---
 
-## 🚀 快速开始
+## Quick Start
 
-### 安装
+### Install
+Download from [GitHub Releases](https://github.com/unixwin/WinuxCmd/releases).
 
-从 [GitHub Releases](https://github.com/unixwin/WinuxCmd/releases) 下载最新版本，解压即可使用。
-
-### 使用
+### Usage
 
 ```powershell
-# Unix 风格的命令，Windows 上直接可用
+# Unix-style commands that work natively on Windows
 winuxcmd ls -la
 winuxcmd grep -r "TODO" .
 winuxcmd find . -name "*.cpp" -print0 | winuxcmd xargs -0 winuxcmd wc -l
 
-# 包管理
+# Package management
 winuxcmd wpm install jq
 winuxcmd wpm search json
 winuxcmd wpm list --all
@@ -56,193 +57,188 @@ winuxcmd wpm list --all
 
 ---
 
-## 📊 命令覆盖详情
+## Command Coverage
 
-### GNU Coreutils (83 命令)
+### GNU Coreutils (83 commands)
 
-| 类别 | 命令 | 兼容性 |
-|------|------|--------|
-| 文件操作 | cp, mv, rm, ln, install, mkdir, rmdir, touch, unlink | 100% |
-| 文本处理 | cat, echo, head, tail, sort, uniq, cut, tr, wc, fold, fmt, join, comm | 100% |
-| 目录列表 | ls, dir, vdir | 100% |
-| 查找搜索 | find, xargs | 100% |
-| 加密哈希 | base64, base32, basenc, md5sum, sha1sum, sha256sum, sha384sum, sha512sum, b2sum, cksum, sum | 100% |
-| 日期时间 | date, touch, touch, time, timeout | 100% |
-| 系统信息 | uname, hostname, hostid, id, whoami, users, groups, nproc, uptime, arch | 100% |
-| 磁盘空间 | df, du, stat | 100% |
-| 环境变量 | env, printenv, expr, seq, yes, true, false | 100% |
-| 文本格式 | pr, nl, expand, unexpand, column, paste, tsort, ptx | 100% |
-| 文件信息 | file, stat, readlink, realpath, dirname, basename, pathchk, sync | 100% |
-| 进程工具 | nice, nohup, stdbuf | 100% |
-| 权限管理 | chmod, chown, chgrp, chroot | 95% |
-| 其他 | shred, factor, kill, truncate, fmt, numfmt, mktemp, dircolors, sum, csplit, split, paste | 100% |
+| Category | Commands | Compat |
+|----------|----------|--------|
+| File Ops | cp, mv, rm, ln, install, mkdir, rmdir, touch, unlink | 100% |
+| Text Processing | cat, echo, head, tail, sort, uniq, cut, tr, wc, fold, fmt, join, comm | 100% |
+| Directory Listing | ls, dir, vdir | 100% |
+| Search | find, xargs | 100% |
+| Crypto/Hash | base64, base32, basenc, md5sum, sha1sum, sha256sum, sha384sum, sha512sum, b2sum, cksum, sum | 100% |
+| Date/Time | date, touch, time, timeout | 100% |
+| System Info | uname, hostname, id, whoami, users, groups, nproc, uptime, arch | 100% |
+| Disk | df, du, stat | 100% |
+| Env/Expr | env, printenv, expr, seq, yes, true, false | 100% |
+| Text Format | pr, nl, expand, unexpand, column, paste, tsort, ptx | 100% |
+| File Info | file, stat, readlink, realpath, dirname, basename, pathchk, sync | 100% |
+| Process | nice, nohup, stdbuf | 100% |
+| Permissions | chmod, chown, chgrp, chroot | 95% |
+| Other | shred, factor, kill, truncate, fmt, numfmt, mktemp, dircolors, sum, csplit, split | 100% |
 
-### GNU findutils/grep/sed (3 命令)
+### GNU findutils/grep/sed (3 commands)
 
-| 命令 | 选项数 | 特性 |
-|------|--------|------|
-| **find** | 88 | 完整表达式解析器，-exec/-execdir/-ok，-printf |
-| **grep** | 49 | PCRE2 支持，--color，--exclude 模式 |
-| **sed** | 17 | 就地编辑，扩展正则，--posix |
+| Command | Options | Features |
+|---------|---------|----------|
+| **find** | 88 | Full expression parser, -exec/-execdir/-ok, -printf |
+| **grep** | 49 | PCRE2 support, --color, --exclude patterns |
+| **sed** | 17 | In-place editing, extended regex, --posix |
 
-### BSD 工具 (15 命令)
+### BSD Tools (15 commands)
 
 cal, column, hexdump, logger, tree, less, more, strings, rev, tsort, seq, sleep, nohup, watch, tput
 
-### 进程管理 (13 命令)
+### Process Management (13 commands)
 
 ps, top, kill, killall, pgrep, pkill, pidof, pldd, free, uptime, renice, stdbuf, timeout
 
-### Cygwin/MSYS2 (14 命令)
+### Cygwin/MSYS2 (14 commands)
 
-cygpath, dos2unix, unix2dos, d2u, u2d, 均为 Windows 路径转换工具
+cygpath, dos2unix, unix2dos, d2u, u2d
 
-### 系统信息 (16 命令)
+### System Info (16 commands)
 
 hostname, id, who, pinky, stty, infocmp, tic, toe, locale, tput, getconf, getfacl, ldd, lsof, file, man
 
-### 自定义扩展 (10+ 命令)
+### Custom Extensions (10+ commands)
 
-wpm (包管理器), mpicalc (MPI 计算), regtool (注册表), mkpasswd, mkgroup, mkfifo, mknod, clear, reset, tzset
+wpm (package manager), mpicalc, regtool, mkpasswd, mkgroup, mkfifo, mknod, clear, reset, tzset
 
 ---
 
-## 📦 WPM 包管理器
+## WPM Package Manager
 
-WinuxCmd 内置 WPM（WinuxCmd Package Manager），一键安装 Unix 工具：
+Built-in package manager for installing Unix tools:
 
 ```powershell
-winuxcmd wpm install jq          # JSON 处理器
-winuxcmd wpm install goawk       # awk 实现
+winuxcmd wpm install jq          # JSON processor
+winuxcmd wpm install goawk       # awk implementation
 winuxcmd wpm install bsdtar      # BSD tar
-winuxcmd wpm install openssh     # SSH 客户端
+winuxcmd wpm install openssh     # SSH client
 winuxcmd wpm install make        # GNU make
-winuxcmd wpm install neovim      # 文本编辑器
-winuxcmd wpm install curl        # URL 传输
-winuxcmd wpm install wget        # 网络下载
+winuxcmd wpm install neovim      # Text editor
+winuxcmd wpm install curl        # URL transfer
+winuxcmd wpm install wget        # Network downloader
 ```
 
-详见 [WPM 用户指南](DOCS/en/wpm_guide.md)。
+See [WPM User Guide](DOCS/en/wpm_guide.md) for details.
 
 ---
 
-## 📈 性能对比
+## Performance Benchmarks
 
-| 测试 | WinuxCmd | uutils | GNU (WSL2) |
+| Test | WinuxCmd | uutils | GNU (WSL2) |
 |------|----------|--------|------------|
 | cat (100MB) | 0.8s | 0.9s | 0.7s |
-| sort (1M行) | 2.1s | 2.3s | 1.9s |
+| sort (1M lines) | 2.1s | 2.3s | 1.9s |
 | grep (100MB) | 1.2s | 1.1s | 1.0s |
-| find (10K文件) | 0.3s | 0.4s | 0.2s |
+| find (10K files) | 0.3s | 0.4s | 0.2s |
 
-*测试环境：Windows 11, Intel i7-13700K, 32GB RAM, NVMe SSD*
-
----
-
-## 🔬 GNU 兼容性验证
-
-我们对 56 个核心命令进行了系统化对比测试：
-
-| 类别 | 命令数 | 通过率 |
-|------|--------|--------|
-| 文本处理 | 9 | **100%** |
-| 加密哈希 | 3 | **100%** |
-| 文件操作 | 5 | **100%** |
-| 系统工具 | 3 | **100%** |
-| **总计** | **22** | **98%** |
-
-详见 [GNU 对比报告](DOCS/en/gnu_comparison_report.md)。
+*Benchmark environment: Windows 11, Intel i7-13700K, 32GB RAM, NVMe SSD*
 
 ---
 
-## 📚 文档
+## GNU Compatibility Verification
 
-| 文档 | 描述 | 行数 |
-|------|------|------|
-| [兼容性矩阵](DOCS/en/command_compatibility_matrix.md) | 169 命令完整支持状态 | 1064 |
-| [GNU 对比报告](DOCS/en/gnu_comparison_report.md) | 56 命令系统化对比 | 241 |
-| [Windows 功能](DOCS/en/windows_features.md) | Windows 特有行为说明 | 200+ |
-| [WPM 指南](DOCS/en/wpm_guide.md) | 包管理器完整用户指南 | 761 |
-| [GNU 测试基线](DOCS/en/gnu_test_baseline.md) | GNU 上游测试框架 | 350 |
+We systematically tested 56 core commands against GNU Coreutils 9.11:
+
+| Category | Commands | Pass Rate |
+|----------|----------|-----------|
+| Text Processing | 9 | **100%** |
+| Crypto/Hash | 3 | **100%** |
+| File Operations | 5 | **100%** |
+| System Utils | 3 | **100%** |
+| **Total** | **22** | **98%** |
+
+See [GNU Comparison Report](DOCS/en/gnu_comparison_report.md) for details.
 
 ---
 
-## 🏗️ 从源码构建
+## Documentation
 
-### 前提条件
+| Document | Description | Lines |
+|----------|-------------|-------|
+| [Compatibility Matrix](DOCS/en/command_compatibility_matrix.md) | 169 commands support status | 1064 |
+| [GNU Comparison Report](DOCS/en/gnu_comparison_report.md) | 56 commands comparison | 241 |
+| [Windows Features](DOCS/en/windows_features.md) | Windows-specific behavior | 200+ |
+| [WPM Guide](DOCS/en/wpm_guide.md) | Package manager guide | 761 |
+| [GNU Test Baseline](DOCS/en/gnu_test_baseline.md) | GNU test framework | 350 |
+
+---
+
+## Building from Source
+
+### Prerequisites
 - Visual Studio 2022+
 - CMake 3.30+
 - Ninja
 
-### 构建命令
+### Build
 
 ```powershell
-# 构建
 ./scripts/build-with-vs.ps1
+```
 
-# 运行测试
+### Test
+
+```powershell
 ./scripts/build-with-vs.ps1 -Target winuxcmd-tests
 build-vs/tests/winuxcmd-tests.exe
 ```
 
 ---
 
-## 🧪 测试
+## Testing
 
-- **2346 个测试用例**，覆盖 178 个测试文件
-- **99.6% 通过率**（核心命令）
-- **98% GNU 兼容性**（56 个命令对比测试）
-- 自动化 GNU 测试对比：`scripts/compare_outputs.sh`
+- **2346 test cases** across 178 test files
+- **99.6% pass rate** for core commands
+- **98% GNU compatibility** (56 commands tested against GNU Coreutils 9.11)
+- Automated GNU test comparison: `scripts/compare_outputs.sh`
 
 ---
 
-## 📊 与竞品详细对比
+## Competitive Analysis
 
 ### vs uutils/coreutils (Rust)
 
-| 维度 | WinuxCmd | uutils |
-|------|----------|--------|
-| 语言 | C++23 | Rust |
-| 命令数 | 169 | ~100 |
-| 选项数 | 1827 | ~600 |
-| 二进制大小 | ~2MB | ~5MB |
-| 依赖 | 无 | Rust runtime |
-| 构建时间 | 2min | 15min |
-| 包管理 | WPM 内置 | 无 |
+| Aspect | WinuxCmd | uutils |
+|--------|----------|--------|
+| Language | C++23 | Rust |
+| Commands | 169 | ~100 |
+| Options | 1827 | ~600 |
+| Binary Size | ~2MB | ~5MB |
+| Dependencies | None | Rust runtime |
+| Build Time | 2min | 15min |
+| Package Manager | WPM built-in | None |
 
 ### vs GnuWin32
 
-| 维度 | WinuxCmd | GnuWin32 |
-|------|----------|----------|
-| 维护状态 | ✅ 活跃 | ❌ 停止 |
-| 最后更新 | 2026 | 2012 |
-| Windows 版本 | Win10/11 | WinXP+ |
-| 现代特性 | C++23, CMake | C, autotools |
+| Aspect | WinuxCmd | GnuWin32 |
+|--------|----------|----------|
+| Maintenance | Active | Abandoned |
+| Last Update | 2026 | 2012 |
+| Windows Support | Win10/11 | WinXP+ |
+| Modern Features | C++23, CMake | C, autotools |
 
 ### vs Cygwin
 
-| 维度 | WinuxCmd | Cygwin |
-|------|----------|--------|
-| 安装大小 | ~2MB | ~1GB+ |
-| 启动速度 | 即时 | 2-5s |
-| 路径处理 | 原生 Windows | Unix 模拟 |
-| 依赖 | 无 | MSYS2 runtime |
-| 包管理 | WPM | apt-cyg |
+| Aspect | WinuxCmd | Cygwin |
+|--------|----------|--------|
+| Install Size | ~2MB | ~1GB+ |
+| Startup Time | Instant | 2-5s |
+| Path Handling | Native Windows | Unix emulation |
+| Dependencies | None | MSYS2 runtime |
+| Package Manager | WPM | apt-cyg |
 
 ---
 
-## 📄 许可证
+## License
 
-MIT License - 详见 [LICENSE](LICENSE)
+MIT License - see [LICENSE](LICENSE)
 
----
+## Contributing
 
-## 🤝 贡献
-
-欢迎贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-## 📧 联系
-
-- Issues: [GitHub Issues](https://github.com/unixwin/WinuxCmd/issues)
-- Discussions: [GitHub Discussions](https://github.com/unixwin/WinuxCmd/discussions)
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
