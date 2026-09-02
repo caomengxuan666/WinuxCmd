@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src=".github/assets/banner.svg" alt="WinuxCmd — Unix commands, native on Windows. 169 commands, 1827 options, 98% GNU compatibility." width="100%">
+<img src=".github/assets/banner.svg" alt="WinuxCmd — Unix commands, native on Windows. 169 commands, 1855 options, 81% differential pass rate (43 cases / 8 known gaps tracked)." width="100%">
 
 **Real Unix commands. Real Windows paths. One ~3 MB executable.**
 No WSL · No Cygwin · No MSYS2 · No path-translation pain
@@ -29,14 +29,14 @@ You're on Windows and you need `grep -rn`, `sed -i`, `find -exec`, `xargs -0` �
 - **GnuWin32** — abandoned in 2012, stuck at 60% compatibility
 - **uutils** — a great Rust project, but ~100 commands and ~600 options
 
-**WinuxCmd skips the compromise.** A single native Win32 executable that speaks GNU syntax on Windows paths: **169 commands, 1,827 options, 98% GNU compatibility** — verified command-by-command against GNU Coreutils 9.11.
+**WinuxCmd skips the compromise.** A single native Win32 executable that speaks GNU syntax on Windows paths: **169 commands, 1,855 options** — with ongoing differential testing against GNU Coreutils 9.11 (43 cases, 35 pass, 8 known gaps tracked in issue-140).
 
 | | | | | |
 |:---:|:---:|:---:|:---:|:---:|
-| **169** | **1,827** | **98%** | **2,346** | **~3 MB** |
-| commands | options | GNU compat¹ | tests · 99.6% pass | zero-dependency binary |
+| **169** | **1,855** | **43 cases** | **2,346** | **~3 MB** |
+| commands | options¹ | GNU diff tests · 81% pass | tests · 99.6% pass | zero-dependency binary |
 
-> ¹ 22 commands / 56 differential test cases against GNU Coreutils 9.11 — [full report](DOCS/en/gnu_comparison_report.md).
+> ¹ 1,855 = `OPTION(` macro count in `src/commands/`. Differential corpus: 43 cases across ~35 commands, 35 pass / 8 known gaps (issue-140). See the [GNU comparison report](DOCS/en/gnu_comparison_report.md).
 
 ---
 
@@ -70,7 +70,7 @@ wpm install jq
 - 🪟 **Native, not emulated** — talks to Win32 APIs directly. Understands `C:\`, UNC paths and NTFS ACLs (with `cygpath` and `getfacl` for bridging). No VM, no runtime DLLs, instant startup.
 - 🧠 **GNU where it counts** — `find` alone implements 88 options (full expression parser, `-exec`/`-execdir`/`-ok`, `-printf`); `grep` ships PCRE2; `sed` supports in-place `-i` editing.
 - 📦 **WPM built in** — a package manager for the tools that shouldn't be reimplemented: jq, ripgrep, fd, fzf, bat, make, neovim, curl, wget…
-- 🧪 **Tested like it matters** — 2,346 test cases across 178 test files, 99.6% pass rate, plus differential output testing against GNU Coreutils 9.11.
+- 🧪 **Tested like it matters** — 2,346 unit tests across 178 test files (99.6% pass), plus differential output testing against GNU Coreutils 9.11 (43 cases, 81% pass, 8 known gaps tracked in issue-140).
 - ⚡ **Small and fast** — ~3 MB, zero dependencies, instant startup (Cygwin takes 2–5 s just to boot).
 
 ## 🐂 Better together: the niubash shell
@@ -84,7 +84,7 @@ for f in *.log; do
 done | sort -t: -k2 -rn | head -5
 ```
 
-- **Real bash semantics** — `if`/`for`/functions/arrays/pipelines run on the [rubash](https://github.com/unixwin/rubash) engine, green across the GNU Bash upstream test suite (86/86).
+- **Real bash semantics** — `if`/`for`/functions/arrays/pipelines run on [niubash](https://github.com/unixwin/niubash), powered by its [rubash](https://github.com/unixwin/rubash) engine, green across the GNU Bash upstream test suite (86/86).
 - **Agent-friendly** — `niu -c` is quiet and deterministic: no banners, stable stdout/stderr, exact exit codes. The shell your AI tooling already speaks.
 - **Zero glue** — niubash injects WinuxCmd's command links onto the `PATH` at startup, so `grep`, `sed` and `find` above are the real binaries you're looking at right now.
 
@@ -113,8 +113,8 @@ Details in the [WPM User Guide](DOCS/en/wpm_guide.md).
 | Feature | WinuxCmd | uutils (Rust) | GnuWin32 | Cygwin | busybox |
 |---------|:--------:|:-------------:|:--------:|:------:|:-------:|
 | **Commands** | **169** | ~100 | ~90 | ~200 | ~300 |
-| **Options** | **1,827** | ~600 | ~200 | Full | ~500 |
-| **GNU compat** | **98%** | 95% | 60% | 99% | 70% |
+| **Options** | **1,855** | ~600 | ~200 | Full | ~500 |
+| **GNU compat** | **81% diff pass** | 95% | 60% | 99% | 70% |
 | **Native Win32** | ✅ | ❌ | ✅ | ❌ | ❌ |
 | **Package manager** | ✅ WPM | ❌ | ❌ | apt-cyg | ❌ |
 | **Test cases** | **2,346** | ~2,000 | 0 | — | ~100 |
@@ -131,7 +131,7 @@ Details in the [WPM User Guide](DOCS/en/wpm_guide.md).
 |--------|----------|--------|
 | Language | C++23 | Rust |
 | Commands | 169 | ~100 |
-| Options | 1,827 | ~600 |
+| Options | 1,855 | ~600 |
 | Binary size | ~3 MB | ~5 MB |
 | Dependencies | None | Rust runtime |
 | Build time | 2 min | 15 min |
@@ -165,22 +165,22 @@ Details in the [WPM User Guide](DOCS/en/wpm_guide.md).
 
 ### GNU Coreutils (83 commands)
 
-| Category | Commands | Compat |
-|----------|----------|--------|
-| File Ops | cp, mv, rm, ln, install, mkdir, rmdir, touch, unlink | 100% |
-| Text Processing | cat, echo, head, tail, sort, uniq, cut, tr, wc, fold, fmt, join, comm | 100% |
-| Directory Listing | ls, dir, vdir | 100% |
-| Search | find, xargs | 100% |
-| Crypto/Hash | base64, base32, basenc, md5sum, sha1sum, sha256sum, sha384sum, sha512sum, b2sum, cksum, sum | 100% |
-| Date/Time | date, touch, time, timeout | 100% |
-| System Info | uname, hostname, id, whoami, users, groups, nproc, uptime, arch | 100% |
-| Disk | df, du, stat | 100% |
-| Env/Expr | env, printenv, expr, seq, yes, true, false | 100% |
-| Text Format | pr, nl, expand, unexpand, column, paste, tsort, ptx | 100% |
-| File Info | file, stat, readlink, realpath, dirname, basename, pathchk, sync | 100% |
-| Process | nice, nohup, stdbuf | 100% |
-| Permissions | chmod, chown, chgrp, chroot | 95% |
-| Other | shred, factor, kill, truncate, fmt, numfmt, mktemp, dircolors, sum, csplit, split | 100% |
+| Category | Commands | Differential status |
+|----------|----------|---------------------|
+| File Ops | cp, mv, rm, ln, install, mkdir, rmdir, touch, unlink | ✅ mostly verified; cp has 9+ options rejected on Windows (issue-140) |
+| Text Processing | cat, echo, head, tail, sort, uniq, cut, tr, wc, fold, fmt, join, comm | ✅ diff PASS except **fmt** (OUT_DIFF, issue-140) |
+| Directory Listing | ls, dir, vdir | ✅ ls PASS; `dir` Windows-columnar by design |
+| Search | find, xargs | ✅ |
+| Crypto/Hash | base64, base32, basenc, md5sum, sha1sum, sha256sum, sha384sum, sha512sum, b2sum, cksum, sum | ✅ |
+| Date/Time | date, touch, time, timeout | ✅ |
+| System Info | uname, hostname, id, whoami, users, groups, nproc, uptime, arch | ⚠️ **whoami/users/groups** thin stubs (≤1 declared option each) |
+| Disk | df, du, stat | ⚠️ **stat** deep-path gap (OUT_DIFF, issue-140) |
+| Env/Expr | env, printenv, expr, seq, yes, true, false | ✅ |
+| Text Format | pr, nl, expand, unexpand, column, paste, tsort, ptx | ⚠️ **tsort** and **ptx** output-format gaps (OUT_DIFF, issue-140) |
+| File Info | file, stat, readlink, realpath, dirname, basename, pathchk, sync | ⚠️ **stat** deep-path; **file** no-magic stub |
+| Process | nice, nohup, stdbuf | ⚠️ **nice** thin (1 option); **stdbuf** EXIT_DIFF (issue-140) |
+| Permissions | chmod, chown, chgrp, chroot | ⚠️ Linux ownership/SELinux options rejected on Windows |
+| Other | shred, factor, kill, truncate, fmt, numfmt, mktemp, dircolors, sum, csplit, split | ⚠️ **fmt** OUT_DIFF gap |
 
 ### GNU findutils/grep/sed (3 commands)
 
@@ -228,25 +228,26 @@ Consistently in the same league as uutils — and within ~10–15% of native GNU
 ## 🧪 Testing and GNU verification
 
 - **2,346 automated test cases** across 178 test files — **99.6% pass rate**
-- **22 commands / 56 differential test cases** executed against GNU Coreutils 9.11 (WSL2) with identical inputs — **98% pass rate** (53/54; the only mismatch is `dir`, which is Windows-columnar by design)
-- Automated GNU comparison: `scripts/compare_outputs.sh` and `gnu_comparison_tests.sh`
+- **Differential corpus**: 99 test cases (3 corpus + 43 regressions + 53 expansion cases, covering **71 commands**), executed against GNU Coreutils 9.4 (WSL2) with identical inputs — **95 pass / 4 whitelisted platform-environment differences**, verified on the current build (2026-09)
+- Automated GNU comparison: `scripts/compare_outputs.sh` and `gnu_comparison_tests.sh`; per-case runner: `tests/differential/runner.sh`
 
-| Category | Passed / Total | Pass rate |
-|----------|:--------------:|:---------:|
-| Text Processing | 29 / 29 | **100%** |
-| Crypto & Hash | 4 / 4 | **100%** |
-| File Operations | 6 / 7 | 86%¹ |
-| System Utilities | 11 / 11 | **100%** |
-| **Overall** | **53 / 54** | **98%** |
+| Whitelisted | Command | Reason |
+|-----------|---------|--------|
+| 21 | `id -g` | platform: Windows has no POSIX gid; prints primary-group RID (197121) |
+| 23 | `cp -l` | environment: hardlinks across `\\wsl.localhost` 9p unsupported in the WSL-side runner; verified on native NTFS |
+| 35 | `ln -hard` | environment: same 9p hardlink limitation as `cp -l` |
+| 30 | `mkdir` exists | format: GNU uses locale-dependent curly quotes (U+2018/2019); winuxcmd uses ASCII `'` |
 
-> ¹ The single mismatch is `dir`, which intentionally uses Windows-style columnar output. See the [GNU Comparison Report](DOCS/en/gnu_comparison_report.md).
+The eight former issue-140 gaps (dd, diff -u, tsort, fmt, stat, sdiff, ptx, stdbuf) all pass; normal-format `diff` hunk-header, hash-family separator, cksum line-ending, realpath forward-slash, and od -c octal-escaping gaps were all found and fixed in 2026-09.
+
+See the [GNU Comparison Report](DOCS/en/gnu_comparison_report.md).
 
 ## 📚 Documentation
 
 | Document | Description |
 |----------|-------------|
 | [Compatibility Matrix](DOCS/en/command_compatibility_matrix.md) | Support status of all 169 commands |
-| [GNU Comparison Report](DOCS/en/gnu_comparison_report.md) | Differential testing vs GNU Coreutils 9.11 |
+| [GNU Comparison Report](DOCS/en/gnu_comparison_report.md) | Differential testing vs GNU Coreutils 9.4 |
 | [Windows Features](DOCS/en/windows_features.md) | Windows-specific behavior |
 | [WPM Guide](DOCS/en/wpm_guide.md) | Package manager user guide |
 | [GNU Test Baseline](DOCS/en/gnu_test_baseline.md) | GNU test framework |

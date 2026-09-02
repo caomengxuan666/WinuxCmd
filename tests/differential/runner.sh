@@ -26,6 +26,17 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+# Load the whitelist of known differential gaps (case path<TAB>reason).
+# These cases are reported as KNOWN_DIFF instead of failing the run.
+declare -A KNOWN_DIFFS
+if [ -f "$WHITELIST" ]; then
+  while IFS=$'\t' read -r case_path reason || [ -n "$case_path" ]; do
+    [ -z "$case_path" ] && continue
+    case "$case_path" in \#*) continue ;; esac
+    KNOWN_DIFFS["$case_path"]="$reason"
+  done < "$WHITELIST"
+fi
+
 find_oracle() {
   if [ -n "$GNU_BIN" ] && [ -x "$GNU_BIN/$1" ]; then
     printf '%s/%s' "$GNU_BIN" "$1"
@@ -150,7 +161,7 @@ run_case() {
     wcommand="exec $wquoted $(shell_quote "$cmd") $case_args"
   fi
   local gcommand="exec $gquoted $case_args"
-  (cd "$wdir" && export PATH="$(dirname "$wcmd"):$PATH" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
+  (cd "$wdir" && export PATH="$(dirname "$wcmd"):$PATH" WINUX_LANG=en && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
     "$timeout_cmd" "$timeout" bash -c "$wcommand" >"$wout" 2>"$werr"); wrc=$?
   (cd "$gdir" && export PATH="$(dirname "$gcmd"):$PATH" && printf '%b' "$stdin" | MSYS2_ARG_CONV_EXCL='*' MSYS_NO_PATHCONV=1 \
     "$timeout_cmd" "$timeout" bash -c "$gcommand" >"$gout" 2>"$gerr"); grc=$?
@@ -175,6 +186,9 @@ run_case() {
     bucket=CRLF_DIFF
   else
     bucket=OUT_DIFF
+  fi
+  if [ "$bucket" != PASS ] && [ -n "${KNOWN_DIFFS["${case_file#$ROOT/}"]+x}" ]; then
+    bucket=KNOWN_DIFF
   fi
   printf '%s\t%s\t%s\n' "${case_file#$ROOT/}" "$cmd" "$bucket"
   rm -rf "$work"
@@ -241,19 +255,20 @@ fi
 total=$(wc -l < "$results")
 pass=$(awk -F '\t' '$3 == "PASS" { count++ } END { print count + 0 }' "$results")
 skip=$(awk -F '\t' '$3 ~ /^SKIP/ { count++ } END { print count + 0 }' "$results")
-diffs=$((total - pass - skip))
-printf '\nCases executed: %d\nPASS: %d\nSKIP: %d\nDifferences: %d\n' "$total" "$pass" "$skip" "$diffs" >> "$REPORT"
+known=$(awk -F '\t' '$3 == "KNOWN_DIFF" { count++ } END { print count + 0 }' "$results")
+diffs=$((total - pass - skip - known))
+printf '\nCases executed: %d\nPASS: %d\nKNOWN_DIFF: %d\nSKIP: %d\nDifferences: %d\n' "$total" "$pass" "$known" "$skip" "$diffs" >> "$REPORT"
 if [ "$total" -eq 0 ]; then
   echo "ERROR: no cases selected (corpus=$CORPUS only=$ONLY)" >&2
   rm -f "$results"
   exit 2
 fi
 if [ "$diffs" -gt 0 ]; then
-  echo "ERROR: $diffs differential case(s) did not match" >&2
+  echo "ERROR: $diffs unexpected differential case(s) did not match" >&2
   rm -f "$results"
   exit 1
 fi
 if [ -n "$BASELINE" ] && [ -s "$BASELINE" ] && [ -n "$RESULTS_FILE" ]; then
-  python "$ROOT/compare-baseline.py" "$BASELINE" "$RESULTS_FILE" || exit 1
+  python3 "$ROOT/compare-baseline.py" "$BASELINE" "$RESULTS_FILE" || exit 1
 fi
 rm -f "$results"

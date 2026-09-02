@@ -1,1 +1,6 @@
 # case path<TAB>reason
+# Verified against GNU coreutils 9.4 (WSL) on the current build. Runner pins WINUX_LANG=en.
+regressions/21-id-group.case	platform: Windows has no POSIX gid; id -g prints the primary-group RID (197121) instead of /etc/group gid
+regressions/23-cp-link-option.case	environment: CreateHardLinkW cannot hardlink across \\wsl.localhost 9p shares in the WSL-side runner; verified working (hardlink count 2) on native NTFS
+corpus/ln/35-hard.case	environment: same 9p hardlink limitation as cp -l; hard links created on NTFS match GNU
+corpus/mkdir/30-exists.case	format: GNU 9.4 mkdir error uses locale-dependent curly quotes U+2018/2019; winuxcmd uses ASCII ' consistently

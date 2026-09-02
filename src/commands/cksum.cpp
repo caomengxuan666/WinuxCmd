@@ -358,7 +358,7 @@ auto output_digest(const Config& cfg, const std::string& digest_hex,
       safePrint("  ");
       safePrint(filename);
     }
-    putchar(sep);
+    safePrint(std::string(1, sep));
     return;
   }
 
@@ -371,7 +371,7 @@ auto output_digest(const Config& cfg, const std::string& digest_hex,
       safePrint(" ");
       safePrint(filename);
     }
-    putchar(sep);
+    safePrint(std::string(1, sep));
     return;
   }
 
@@ -435,7 +435,7 @@ auto output_digest(const Config& cfg, const std::string& digest_hex,
     }
   }
 
-  putchar(sep);
+  safePrint(std::string(1, sep));
 }
 
 auto run_check_mode(const Config& cfg) -> int {

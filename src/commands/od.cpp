@@ -417,7 +417,9 @@ auto format_character(unsigned char c) -> std::string {
       if (c >= 32 && c < 127) return std::string(1, static_cast<char>(c));
       char buf[8];
       sprintf_s(buf, sizeof(buf), "%03o", c);
-      return std::string("\\") + buf;
+      // GNU od -c prints non-special non-printables as bare octal (001), not
+      // \001.
+      return std::string(buf);
   }
 }
 
