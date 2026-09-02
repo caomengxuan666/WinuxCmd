@@ -1,18 +1,214 @@
 {
   "format": 1,
-  "oracle": "cat (GNU coreutils) 8.32",
-  "generated_at": "2026-08-13T09:18:05.636811+00:00",
+  "oracle": "cat (GNU coreutils) 9.4",
+  "generated_at": "2026-09-02T06:46:48.601Z",
   "cases": {
+    "corpus/b2sum/45-fixed.case": {
+      "command": "b2sum",
+      "bucket": "PASS"
+    },
+    "corpus/base32/23-encode.case": {
+      "command": "base32",
+      "bucket": "PASS"
+    },
+    "corpus/base64/21-encode.case": {
+      "command": "base64",
+      "bucket": "PASS"
+    },
+    "corpus/base64/22-decode.case": {
+      "command": "base64",
+      "bucket": "PASS"
+    },
+    "corpus/basename/49-suffix.case": {
+      "command": "basename",
+      "bucket": "PASS"
+    },
     "corpus/cat/basic.case": {
       "command": "cat",
+      "bucket": "PASS"
+    },
+    "corpus/cksum/38-fixed.case": {
+      "command": "cksum",
+      "bucket": "PASS"
+    },
+    "corpus/cmp/13-identical.case": {
+      "command": "cmp",
+      "bucket": "PASS"
+    },
+    "corpus/cmp/14-differ.case": {
+      "command": "cmp",
+      "bucket": "PASS"
+    },
+    "corpus/comm/15-basic.case": {
+      "command": "comm",
+      "bucket": "PASS"
+    },
+    "corpus/du/47-apparent-bytes.case": {
+      "command": "du",
+      "bucket": "PASS"
+    },
+    "corpus/echo/25-no-newline.case": {
+      "command": "echo",
+      "bucket": "PASS"
+    },
+    "corpus/env/48-empty.case": {
+      "command": "env",
+      "bucket": "PASS"
+    },
+    "corpus/expand/18-tabs.case": {
+      "command": "expand",
+      "bucket": "PASS"
+    },
+    "corpus/expr/24-arith.case": {
+      "command": "expr",
+      "bucket": "PASS"
+    },
+    "corpus/factor/46-small.case": {
+      "command": "factor",
+      "bucket": "PASS"
+    },
+    "corpus/false/27-rc.case": {
+      "command": "false",
+      "bucket": "PASS"
+    },
+    "corpus/find/06-single-match.case": {
+      "command": "find",
+      "bucket": "PASS"
+    },
+    "corpus/find/07-no-match.case": {
+      "command": "find",
+      "bucket": "PASS"
+    },
+    "corpus/fold/17-width.case": {
+      "command": "fold",
+      "bucket": "PASS"
+    },
+    "corpus/grep/01-fixed-match.case": {
+      "command": "grep",
+      "bucket": "PASS"
+    },
+    "corpus/grep/02-no-match.case": {
+      "command": "grep",
+      "bucket": "PASS"
+    },
+    "corpus/grep/03-line-number.case": {
+      "command": "grep",
+      "bucket": "PASS"
+    },
+    "corpus/grep/04-count.case": {
+      "command": "grep",
+      "bucket": "PASS"
+    },
+    "corpus/grep/05-invert.case": {
+      "command": "grep",
       "bucket": "PASS"
     },
     "corpus/head/positive-offset.case": {
       "command": "head",
       "bucket": "PASS"
     },
+    "corpus/ln/35-hard.case": {
+      "command": "ln",
+      "bucket": "KNOWN_DIFF"
+    },
+    "corpus/md5sum/40-fixed.case": {
+      "command": "md5sum",
+      "bucket": "PASS"
+    },
+    "corpus/mkdir/29-parents.case": {
+      "command": "mkdir",
+      "bucket": "PASS"
+    },
+    "corpus/mkdir/30-exists.case": {
+      "command": "mkdir",
+      "bucket": "KNOWN_DIFF"
+    },
+    "corpus/nl/16-basic.case": {
+      "command": "nl",
+      "bucket": "PASS"
+    },
+    "corpus/od/12-chars.case": {
+      "command": "od",
+      "bucket": "PASS"
+    },
+    "corpus/paste/20-basic.case": {
+      "command": "paste",
+      "bucket": "PASS"
+    },
+    "corpus/printenv/28-unset-var.case": {
+      "command": "printenv",
+      "bucket": "PASS"
+    },
+    "corpus/realpath/36-relative-to.case": {
+      "command": "realpath",
+      "bucket": "PASS"
+    },
+    "corpus/rm/34-missing.case": {
+      "command": "rm",
+      "bucket": "PASS"
+    },
+    "corpus/rmdir/31-nonempty.case": {
+      "command": "rmdir",
+      "bucket": "PASS"
+    },
+    "corpus/sha1sum/41-fixed.case": {
+      "command": "sha1sum",
+      "bucket": "PASS"
+    },
+    "corpus/sha256sum/42-fixed.case": {
+      "command": "sha256sum",
+      "bucket": "PASS"
+    },
+    "corpus/sha256sum/43-check-ok.case": {
+      "command": "sha256sum",
+      "bucket": "PASS"
+    },
+    "corpus/sha512sum/44-fixed.case": {
+      "command": "sha512sum",
+      "bucket": "PASS"
+    },
     "corpus/split/no-overlap.case": {
       "command": "split",
+      "bucket": "PASS"
+    },
+    "corpus/stat/37-file-type.case": {
+      "command": "stat",
+      "bucket": "PASS"
+    },
+    "corpus/sum/39-fixed.case": {
+      "command": "sum",
+      "bucket": "PASS"
+    },
+    "corpus/tail/08-lines.case": {
+      "command": "tail",
+      "bucket": "PASS"
+    },
+    "corpus/tail/09-from-line.case": {
+      "command": "tail",
+      "bucket": "PASS"
+    },
+    "corpus/touch/32-new.case": {
+      "command": "touch",
+      "bucket": "PASS"
+    },
+    "corpus/touch/33-no-create.case": {
+      "command": "touch",
+      "bucket": "PASS"
+    },
+    "corpus/true/26-rc.case": {
+      "command": "true",
+      "bucket": "PASS"
+    },
+    "corpus/unexpand/19-tabs.case": {
+      "command": "unexpand",
+      "bucket": "PASS"
+    },
+    "corpus/wc/10-default.case": {
+      "command": "wc",
+      "bucket": "PASS"
+    },
+    "corpus/wc/11-lines-words-bytes.case": {
+      "command": "wc",
       "bucket": "PASS"
     },
     "regressions/01-shred-size-zero.case": {
@@ -97,7 +293,7 @@
     },
     "regressions/21-id-group.case": {
       "command": "id",
-      "bucket": "PASS"
+      "bucket": "KNOWN_DIFF"
     },
     "regressions/22-dirname-basename-root.case": {
       "command": "dirname",
@@ -105,7 +301,7 @@
     },
     "regressions/23-cp-link-option.case": {
       "command": "cp",
-      "bucket": "PASS"
+      "bucket": "KNOWN_DIFF"
     },
     "regressions/23-date-relative.case": {
       "command": "date",
@@ -185,6 +381,22 @@
     },
     "regressions/42-locale-keyword.case": {
       "command": "locale",
+      "bucket": "PASS"
+    },
+    "regressions/43-diff-normal-change.case": {
+      "command": "diff",
+      "bucket": "PASS"
+    },
+    "regressions/44-diff-normal-insert.case": {
+      "command": "diff",
+      "bucket": "PASS"
+    },
+    "regressions/45-diff-normal-delete.case": {
+      "command": "diff",
+      "bucket": "PASS"
+    },
+    "regressions/46-diff-normal-multi-hunk.case": {
+      "command": "diff",
       "bucket": "PASS"
     }
   }

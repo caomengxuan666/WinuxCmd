@@ -47,3 +47,6 @@ README-GIT-PROTECTION.md
 /tmp
 
 .wpm/
+
+# AGENTS TEAM working state (local only)
+.agent-teams/

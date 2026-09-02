@@ -303,7 +303,7 @@ auto apply_relative_options(const std::string& resolved, const Config& cfg)
   if (ec) {
     return resolved;
   }
-  return wstring_to_utf8(relative.wstring());
+  return wstring_to_utf8(relative.generic_wstring());
 }
 
 auto emit_error(const std::string& message, bool zero_terminated) -> void {

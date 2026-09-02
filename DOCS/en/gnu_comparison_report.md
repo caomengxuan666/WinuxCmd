@@ -4,8 +4,10 @@
 
 > **Date / 日期**: 2026-08-29
 > **GNU Version**: coreutils 9.11
-> **WinuxCmd Version**: 0.17.1
+> **WinuxCmd Version**: 1.0.0
 > **Test Method / 测试方法**: Output comparison between GNU coreutils (Linux/WSL2) and WinuxCmd (Windows PE binary) with identical inputs
+
+> ⚠️ **Status / 状态**: This report documents the **historical 56-case differential run** captured on 2026-08-29. The **current differential corpus** (`tests/differential/`) contains **99 cases** (3 corpus + 43 regressions + 53 expansion, covering 71 commands), of which **95 pass / 4 are whitelisted platform-environment differences** against GNU coreutils 9.4 (WSL2) — a **96% pass rate**, re-verified on the current build (2026-09). The eight former issue-140 gaps all pass; the normal-format `diff` hunk-header, hash-family separator, cksum line-ending, realpath forward-slash, and od -c octal-escaping gaps were all found and fixed in 2026-09. See the README for the live list. 本报告记录 2026-08-29 的历史 56 用例差分运行。当前差分语料库（`tests/differential/`）含 99 用例（3 corpus + 43 regressions + 53 扩展，覆盖 71 命令），对照 GNU coreutils 9.4（WSL2），95 通过 / 4 为白名单化的平台-环境差异（`id -g` Windows RID、WSL 9p 上的 `cp -l`），96% 通过率，已在当前构建复验（2026-09）。原 issue-140 的 8 个缺口全部通过；normal 格式 `diff` hunk 头、哈希分隔符、cksum 行尾、realpath 路径分隔、od -c 八进制转义等缺口均已于 2026-09 发现并修复。
 
 ---
 
@@ -223,7 +225,7 @@ The following commands show 100% output compatibility with GNU coreutils:
 | WSL Distribution / WSL 发行版 | Ubuntu-GitLab (WSL2) |
 | Test Date / 测试日期 | 2026-08-29 |
 | GNU Version / GNU 版本 | coreutils 9.11 |
-| WinuxCmd Version / WinuxCmd 版本 | 0.17.1 |
+| WinuxCmd Version / WinuxCmd 版本 | 1.0.0 (historical run captured v0.17.1) |
 
 ### Test Input Files / 测试输入文件
 

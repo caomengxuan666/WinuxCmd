@@ -624,12 +624,33 @@ auto run(const Config& cfg) -> int {
     }
 
     // Strip symbol tables if requested (Windows: call strip.exe if available)
+    // [SECURITY] Launch strip via CreateProcessW with proper argv quoting
+    // instead of std::system: a dest path containing a double quote must not
+    // be able to break out of the command line (command injection).
     if (cfg.strip) {
-      std::string strip_program =
-          cfg.strip_program.empty() ? "strip" : cfg.strip_program;
-      std::string strip_cmd = "\"" + strip_program + "\" \"" + dest + "\"";
-      int ret = std::system(strip_cmd.c_str());
-      if (ret != 0 && cfg.verbose) {
+      const std::string strip_name =
+          cfg.strip_program.empty() ? std::string("strip") : cfg.strip_program;
+      std::wstring strip_command_line;
+      append_windows_command_arg(strip_command_line,
+                                 utf8_to_wstring(strip_name));
+      append_windows_command_arg(strip_command_line, utf8_to_wstring(dest));
+
+      STARTUPINFOW si{};
+      si.cb = sizeof(si);
+      PROCESS_INFORMATION pi{};
+      if (CreateProcessW(nullptr, strip_command_line.data(), nullptr, nullptr,
+                         FALSE, 0, nullptr, nullptr, &si, &pi)) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        DWORD strip_exit_code = 1;
+        GetExitCodeProcess(pi.hProcess, &strip_exit_code);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+        if (strip_exit_code != 0 && cfg.verbose) {
+          safePrint("install: warning: strip failed for '");
+          safePrint(dest);
+          safePrintLn("'");
+        }
+      } else if (cfg.verbose) {
         safePrint("install: warning: strip failed for '");
         safePrint(dest);
         safePrintLn("'");

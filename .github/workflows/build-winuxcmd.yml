@@ -88,6 +88,13 @@ jobs:
           call "${{ steps.locate_vcvars.outputs.vcvars_path }}" ${{ matrix.vcvars_arg }}
           cmake --build . --config Release --parallel %NUMBER_OF_PROCESSORS%
 
+      - name: Run Unit Tests (ctest)
+        shell: cmd
+        working-directory: build-${{ matrix.package_arch }}
+        run: |
+          call "${{ steps.locate_vcvars.outputs.vcvars_path }}" ${{ matrix.vcvars_arg }}
+          ctest --output-on-failure -C Release
+
       - name: Package with CPack (7Z + ZIP + TGZ)
         shell: cmd
         working-directory: build-${{ matrix.package_arch }}

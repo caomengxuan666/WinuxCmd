@@ -1,9 +1,7 @@
 name: GNU differential parity
 
-# TEMPORARILY DISABLED: tests/differential/runner.sh not yet implemented
-# on:
-#   pull_request:
 on:
+  pull_request:
   workflow_dispatch:
 
 jobs:

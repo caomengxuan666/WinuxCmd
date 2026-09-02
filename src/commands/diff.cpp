@@ -663,26 +663,47 @@ auto build_diff_hunks(const std::vector<Edit> &edits, size_t line1_count,
 
   auto context_lines = static_cast<size_t>(std::max(context, 0));
   std::vector<std::pair<size_t, size_t>> groups;
-  size_t hunk_start = 0;
-  for (size_t i = 1; i < edits.size(); ++i) {
-    size_t prev_line1 = edits[i - 1].line1_index;
-    size_t curr_line1 = edits[i].line1_index;
-    size_t prev_line2 = edits[i - 1].line2_index;
-    size_t curr_line2 = edits[i].line2_index;
-
-    size_t distance = std::max((curr_line1 > prev_line1 + context_lines)
-                                   ? curr_line1 - prev_line1 - context_lines
-                                   : 0,
-                               (curr_line2 > prev_line2 + context_lines)
-                                   ? curr_line2 - prev_line2 - context_lines
-                                   : 0);
-
-    if (distance > context_lines * 2) {
-      groups.push_back({hunk_start, i});
-      hunk_start = i;
+  if (context_lines == 0) {
+    // GNU normal format: one hunk per maximal run of non-KEEP edits. The
+    // distance heuristic below cannot be used with zero context because
+    // DEL/INS records carry cross-file anchors that make adjacent change
+    // pairs look farther apart than they are.
+    bool in_run = false;
+    size_t run_start = 0;
+    for (size_t i = 0; i < edits.size(); ++i) {
+      if (edits[i].type == EditType::KEEP) {
+        if (in_run) {
+          groups.push_back({run_start, i});
+          in_run = false;
+        }
+      } else if (!in_run) {
+        run_start = i;
+        in_run = true;
+      }
     }
+    if (in_run) groups.push_back({run_start, edits.size()});
+  } else {
+    size_t hunk_start = 0;
+    for (size_t i = 1; i < edits.size(); ++i) {
+      size_t prev_line1 = edits[i - 1].line1_index;
+      size_t curr_line1 = edits[i].line1_index;
+      size_t prev_line2 = edits[i - 1].line2_index;
+      size_t curr_line2 = edits[i].line2_index;
+
+      size_t distance = std::max((curr_line1 > prev_line1 + context_lines)
+                                     ? curr_line1 - prev_line1 - context_lines
+                                     : 0,
+                                 (curr_line2 > prev_line2 + context_lines)
+                                     ? curr_line2 - prev_line2 - context_lines
+                                     : 0);
+
+      if (distance > context_lines * 2) {
+        groups.push_back({hunk_start, i});
+        hunk_start = i;
+      }
+    }
+    groups.push_back({hunk_start, edits.size()});
   }
-  groups.push_back({hunk_start, edits.size()});
 
   for (auto [group_start, group_end] : groups) {
     DiffHunk hunk;
@@ -1333,27 +1354,81 @@ REGISTER_COMMAND(
     output_side_by_side(file1, file2, compare_lines1, compare_lines2, lines1,
                         lines2, side_width, suppress_common);
   } else {
-    // Simple comparison using LCS
+    // GNU normal format: per-hunk command line (Na / Nd / NcN) with the
+    // deleted lines (<), a `---` separator for changes, and added lines (>).
     auto edits = compute_diff(compare_lines1, compare_lines2);
-
-    bool has_diffs = false;
-    for (const auto &edit : edits) {
-      if (edit.type == EditType::DEL) {
-        safePrint("< ");
-        safePrint(lines1[edit.line1_index]);
-        safePrint("\n");
-        has_diffs = true;
-      } else if (edit.type == EditType::INS) {
-        safePrint("> ");
-        safePrint(lines2[edit.line2_index]);
-        safePrint("\n");
-        has_diffs = true;
-      }
-    }
-
-    if (!has_diffs) {
+    auto hunks = build_diff_hunks(edits, lines1.size(), lines2.size(), 0);
+    if (hunks.empty()) {
       // Files are identical
       return 0;
+    }
+
+    // backtrack_lcs emits edits bottom-up; GNU prints hunks and lines in
+    // ascending file order, so sort both levels.
+    std::sort(hunks.begin(), hunks.end(), [](const auto &a, const auto &b) {
+      if (a.file1_start != b.file1_start) return a.file1_start < b.file1_start;
+      return a.file2_start < b.file2_start;
+    });
+
+    auto format_normal_range = [](size_t start_line, size_t count) {
+      std::string out = std::to_string(start_line);
+      if (count > 1) {
+        out += ",";
+        out += std::to_string(start_line + count - 1);
+      }
+      return out;
+    };
+
+    for (const auto &hunk : hunks) {
+      std::vector<size_t> del_lines;
+      std::vector<size_t> ins_lines;
+      for (size_t i = hunk.edit_start; i < hunk.edit_end; ++i) {
+        const auto &edit = edits[i];
+        if (edit.type == EditType::DEL) {
+          del_lines.push_back(edit.line1_index);
+        } else if (edit.type == EditType::INS) {
+          ins_lines.push_back(edit.line2_index);
+        }
+      }
+      std::sort(del_lines.begin(), del_lines.end());
+      std::sort(ins_lines.begin(), ins_lines.end());
+      if (del_lines.empty() && ins_lines.empty()) continue;
+
+      const size_t n_del = hunk.file1_end - hunk.file1_start;
+      const size_t n_ins = hunk.file2_end - hunk.file2_start;
+      if (n_del == 0) {
+        // Insert after file1 line `file1_start` (0a1 when prepending).
+        safePrint(std::to_string(hunk.file1_start));
+        safePrint("a");
+        safePrint(format_normal_range(hunk.file2_start + 1, n_ins));
+        safePrint("\n");
+      } else if (n_ins == 0) {
+        // Delete file1 lines; file2 anchor is the line count before the
+        // deletion point (5d4 when deleting the last line of five).
+        safePrint(format_normal_range(hunk.file1_start + 1, n_del));
+        safePrint("d");
+        safePrint(std::to_string(hunk.file2_start));
+        safePrint("\n");
+      } else {
+        safePrint(format_normal_range(hunk.file1_start + 1, n_del));
+        safePrint("c");
+        safePrint(format_normal_range(hunk.file2_start + 1, n_ins));
+        safePrint("\n");
+      }
+
+      for (size_t idx : del_lines) {
+        safePrint("< ");
+        safePrint(lines1[idx]);
+        safePrint("\n");
+      }
+      if (!del_lines.empty() && !ins_lines.empty()) {
+        safePrint("---\n");
+      }
+      for (size_t idx : ins_lines) {
+        safePrint("> ");
+        safePrint(lines2[idx]);
+        safePrint("\n");
+      }
     }
   }
 
