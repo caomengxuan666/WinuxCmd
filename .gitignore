@@ -50,3 +50,7 @@ README-GIT-PROTECTION.md
 
 # AGENTS TEAM working state (local only)
 .agent-teams/
+
+# DSH harness temp files
+.dsh.env
+%USERPROFILE%.dsh.env
