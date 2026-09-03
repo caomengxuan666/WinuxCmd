@@ -23,6 +23,7 @@ auto constexpr XXD_OPTIONS = std::array{
     OPTION("-o", "--offset", "add OFFSET to displayed file position", INT_TYPE),
     // [EXT] option
     OPTION("-u", "--upper-case", "use upper-case hex digits"),
+    OPTION("-g", "--group", "set bytes per hex group", INT_TYPE),
     // [EXT] option
     OPTION("-i", "--include", "output in C include file style"),
     // [EXT] option
@@ -41,6 +42,7 @@ struct XxdConfig {
   size_t display_offset = 0;
   size_t columns = 16;
   bool columns_specified = false;
+  size_t group_width = 2;
   std::string input_file = "-";
   std::optional<std::string> output_file;
 };
@@ -193,7 +195,7 @@ void print_plain_xxd(const std::vector<unsigned char>& data, size_t columns,
 }
 
 void print_default_xxd(const std::vector<unsigned char>& data, size_t columns,
-                       bool upper_case, size_t display_offset) {
+                       bool upper_case, size_t display_offset, size_t group_width) {
   for (size_t offset = 0; offset < data.size(); offset += columns) {
     size_t count = std::min(columns, data.size() - offset);
     safePrint(offset_hex(display_offset + offset, upper_case));
@@ -205,7 +207,7 @@ void print_default_xxd(const std::vector<unsigned char>& data, size_t columns,
       } else {
         safePrint("  ");
       }
-      if (i % 2 == 1) safePrint(" ");
+      if (group_width > 1 && i % group_width == group_width - 1) safePrint(" ");
     }
 
     safePrint(" ");
@@ -301,6 +303,11 @@ XxdConfig build_config(const CommandContext<XXD_OPTIONS.size()>& ctx) {
           "command.xxd.error.invalid_columns", "xxd: invalid column count"));
     }
     cfg.columns = static_cast<size_t>(cols);
+  }
+  if (ctx.has("-g") || ctx.has("--group")) {
+    int g = ctx.get<int>("--group", ctx.get<int>("-g", 2));
+    if (g < 1) g = 2;
+    cfg.group_width = static_cast<size_t>(g);
   }
   if (cfg.columns == 0) {
     throw std::runtime_error(winux::i18n::translate(
@@ -411,7 +418,7 @@ REGISTER_COMMAND(xxd,
   } else if (cfg.plain) {
     print_plain_xxd(*input, cfg.columns, cfg.upper_case);
   } else {
-    print_default_xxd(*input, cfg.columns, cfg.upper_case, cfg.display_offset);
+    print_default_xxd(*input, cfg.columns, cfg.upper_case, cfg.display_offset, cfg.group_width);
   }
   return 0;
 }
