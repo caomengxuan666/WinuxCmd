@@ -4,3 +4,11 @@ regressions/21-id-group.case	platform: Windows has no POSIX gid; id -g prints th
 regressions/23-cp-link-option.case	environment: CreateHardLinkW cannot hardlink across \\wsl.localhost 9p shares in the WSL-side runner; verified working (hardlink count 2) on native NTFS
 corpus/ln/35-hard.case	environment: same 9p hardlink limitation as cp -l; hard links created on NTFS match GNU
 corpus/mkdir/30-exists.case	format: GNU 9.4 mkdir error uses locale-dependent curly quotes U+2018/2019; winuxcmd uses ASCII ' consistently
+
+# Round-4 environment/platform-only differences (not product defects)
+corpus/readlink/01-resolve.case	platform: readlink -f resolves WSL path to Windows UNC (\wsl$Ubuntu-GitLab...); GNU returns the WSL absolute path
+corpus/envsubst/01-basic.case	environment: $HOME is /root on WSL-GNU vs Windows UserProfile on winux
+corpus/mktemp/01-basic.case	environment: tmpdir differs (WSL /tmp vs Windows TEMP)
+corpus/dd/01-count.case	environment: dd stderr includes non-deterministic timing info (bytes/sec) and format variation (+0 records)
+corpus/dd/02-skip.case	environment: dd stderr timing/format variation; file bytes are identical
+regressions/12-seq-limit.case	platform: winux seq is slower for 1M-line output; times out at runner's 10s limit while GNU seq completes fast
