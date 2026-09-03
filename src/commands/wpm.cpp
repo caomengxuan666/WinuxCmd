@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright (c) 2026 [caomengxuan666]
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -82,8 +82,8 @@ constexpr std::string_view kBuiltinIndex = R"json(
 {
   "schema": 1,
   "name": "official",
-  "version": "builtin-2026.09.02",
-  "updated": "2026-09-02",
+  "version": "builtin-2026.09.03",
+  "updated": "2026-09-03",
   "sources": [
     {
       "name": "official-github-raw",
