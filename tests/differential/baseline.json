@@ -667,6 +667,50 @@
     "corpus/look/02-ignore-case.case": {
       "bucket": "PASS",
       "command": "look"
+    },
+    "corpus/namei/01-basic.case": {
+      "bucket": "KNOWN_DIFF",
+      "command": "namei"
+    },
+    "corpus/namei/02-no-exist.case": {
+      "bucket": "KNOWN_DIFF",
+      "command": "namei"
+    },
+    "corpus/arch/01-basic.case": {
+      "bucket": "PASS",
+      "command": "arch"
+    },
+    "corpus/cal/01-current.case": {
+      "bucket": "PASS",
+      "command": "cal"
+    },
+    "corpus/cal/02-month.case": {
+      "bucket": "PASS",
+      "command": "cal"
+    },
+    "corpus/install/01-basic.case": {
+      "bucket": "PASS",
+      "command": "install"
+    },
+    "corpus/install/02-file.case": {
+      "bucket": "PASS",
+      "command": "install"
+    },
+    "corpus/timeout/01-complete.case": {
+      "bucket": "PASS",
+      "command": "timeout"
+    },
+    "corpus/timeout/02-expire.case": {
+      "bucket": "PASS",
+      "command": "timeout"
+    },
+    "corpus/shuf/01-basic.case": {
+      "bucket": "PASS",
+      "command": "shuf"
+    },
+    "corpus/which/01-basic.case": {
+      "bucket": "KNOWN_DIFF",
+      "command": "which"
     }
   }
 }
