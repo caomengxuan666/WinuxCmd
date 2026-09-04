@@ -659,6 +659,14 @@
     "regressions/46-diff-normal-multi-hunk.case": {
       "bucket": "PASS",
       "command": "diff"
+    },
+    "corpus/look/01-prefix.case": {
+      "bucket": "PASS",
+      "command": "look"
+    },
+    "corpus/look/02-ignore-case.case": {
+      "bucket": "PASS",
+      "command": "look"
     }
   }
 }
