@@ -780,6 +780,7 @@ TEST(wpm, wpm_install_single_exe_can_rename_command) {
             "    {\"name\":\"tealdeer\",\"version\":\"1.0.0\","
             "\"description\":\"single exe rename fixture\","
             "\"kind\":\"external\",\"commands\":[\"tldr\"],"
+            "\"aliases\":[{\"name\":\"tl\",\"target\":\"tldr\"}],"
             "\"artifacts\":{\"" +
                 current_arch_key() +
                 "\":{\"type\":\"exe\","
@@ -802,6 +803,9 @@ TEST(wpm, wpm_install_single_exe_can_rename_command) {
   EXPECT_TRUE(install_result.stdout_text.find("installed tealdeer") !=
               std::string::npos);
   EXPECT_EQ(tmp.read("usr/bin/tldr.exe"), "external exe\n");
+  EXPECT_EQ(tmp.read("usr/bin/tl.exe"), "external exe\n");
+  EXPECT_TRUE(same_file(canonical_exe(tmp.path, L"tldr.exe"),
+                        canonical_exe(tmp.path, L"tl.exe")));
 }
 
 TEST(wpm, wpm_install_tar_gz_with_directory_mapping) {
