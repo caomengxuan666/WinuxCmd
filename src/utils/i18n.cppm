@@ -137,6 +137,31 @@ export std::string translate_error(std::string_view error) {
                error.substr(0, error.size() - kOverflowSuffix.size())) +
            translate("common.error.value_too_large", kOverflowSuffix);
   }
+  // "invalid repeat count '<digits>' in [c*n] construct" (tr).
+  constexpr std::string_view kRepeatCountPrefix = "invalid repeat count '";
+  constexpr std::string_view kRepeatCountSuffix = "' in [c*n] construct";
+  if (error.size() > kRepeatCountPrefix.size() + kRepeatCountSuffix.size() &&
+      error.starts_with(kRepeatCountPrefix) &&
+      error.ends_with(kRepeatCountSuffix)) {
+    const auto value =
+        error.substr(kRepeatCountPrefix.size(),
+                     error.size() - kRepeatCountPrefix.size() -
+                         kRepeatCountSuffix.size());
+    return ::winux::i18n::format("command.tr.error.invalid_repeat_count",
+                                 "invalid repeat count '{}' in [c*n] construct",
+                                 value);
+  }
+  // Static tr [c*] repeat-construct diagnostics.
+  if (error == "the [c*] repeat construct may not appear in string1") {
+    return translate("command.tr.error.string1_repeat", error);
+  }
+  if (error == "only one [c*] repeat construct may appear in string2") {
+    return translate("command.tr.error.one_repeat_string2", error);
+  }
+  if (error == "the [c*] construct may appear in string2 only when "
+               "translating") {
+    return translate("command.tr.error.repeat_only_translate", error);
+  }
   // "'<token>': unary operator expected" — the value precedes the quote.
   constexpr std::string_view kUnarySuffix = "': unary operator expected";
   if (error.size() > kUnarySuffix.size() && error.starts_with('\'') &&
