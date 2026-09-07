@@ -464,17 +464,32 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
                              "': No such file or directory");
     }
 
-    if (!(src_attr & FILE_ATTRIBUTE_DIRECTORY)) {
-      // It's a file, try to copy
-      if (!CopyFileW(wsrc_path.c_str(), wdest_path.c_str(), FALSE)) {
-        return std::unexpected("cannot copy '" + src_path + "' to '" +
-                               dest_path + "'");
+    // [GNU] Check if source is a reparse point (symlink/junction)
+    // and copy it as a symlink instead of following it
+    if ((src_attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+      // Get the symlink target
+      wchar_t target[4096] = {};
+      if (!GetFinalPathNameByHandleW(
+              CreateFileW(wsrc_path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                          nullptr, OPEN_EXISTING,
+                          FILE_FLAG_OPEN_REPARSE_POINT, nullptr),
+              target, 4096, 0)) {
+        return std::unexpected("cannot read symlink target");
       }
-      // If copy succeeds, delete the source
+      // Create symlink at destination
+      bool is_dir = (src_attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+      if (!CreateSymbolicLinkW(wdest_path.c_str(), target, is_dir ? 1 : 0)) {
+        // Fallback: copy the file as-is (will follow symlink)
+        if (!CopyFileW(wsrc_path.c_str(), wdest_path.c_str(), FALSE)) {
+          return std::unexpected("cannot copy '" + src_path + "' to '" +
+                                 dest_path + "'");
+        }
+      }
+      // If copy/symlink succeeds, delete the source
       if (!DeleteFileW(wsrc_path.c_str())) {
         return std::unexpected("cannot delete source file '" + src_path + "'");
       }
-    } else {
+    } else if (!(src_attr & FILE_ATTRIBUTE_DIRECTORY)) {
       // MoveFileEx cannot rename a directory across volumes.  Fall back to a
       // recursive copy, then remove the source only after the copy succeeds.
       std::error_code ec;
