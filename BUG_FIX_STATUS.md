@@ -125,10 +125,15 @@
 ### Platform Limitations (Cannot Fix)
 | Command | Tests | Reason |
 |---------|-------|--------|
-| find | 1 | -nogroup doesn't match any files on Windows |
 | ldd | 5 | Exit code is 1 on Windows (platform limitation) |
 
 ## Notes
+- 2026-09-07: find -nogroup now treats the Windows "None" primary group as
+  "no corresponding POSIX group" (uutils-style parity), fixing the last
+  find platform-limitation failure. Test status: 2361/2366.
+- 2026-09-07: echo -e no longer expands \u/\U (GNU prints them literally);
+  printf now rejects malformed \u/\U escapes with "missing hexadecimal
+  number in escape" and exit 1 (uutils #14404/#14406/#14414).
 - COFF linker error (LNK1236) is pre-existing non-deterministic MSVC issue
 - Clean build required when linker errors occur
 - All fixes verified against GNU coreutils behavior
