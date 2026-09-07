@@ -2597,6 +2597,15 @@ auto list_directory(const std::string &path,
 
   if (hFind == INVALID_HANDLE_VALUE) {
     DWORD error_code = GetLastError();
+    // [GNU] Empty directory should succeed with no output
+    if (error_code == ERROR_FILE_NOT_FOUND) {
+      // Check if path exists as directory
+      std::error_code ec;
+      std::filesystem::path fs_path(utf8_to_wstring(path));
+      if (std::filesystem::is_directory(fs_path, ec)) {
+        return true;  // Empty directory, no entries
+      }
+    }
     std::string error_msg;
     if (error_code == ERROR_ACCESS_DENIED) {
       error_msg = "Permission denied";
