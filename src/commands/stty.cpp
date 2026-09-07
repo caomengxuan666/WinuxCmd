@@ -155,10 +155,8 @@ void print_console_settings(HANDLE hCon) {
     safePrint(" echo");
   else
     safePrint(" -echo");
-  if (mode & ENABLE_ECHO_INPUT)
-    safePrint(" echoe");
-  else
-    safePrint(" -echoe");
+  // [GNU] echoe is not directly supported on Windows; always show as disabled
+  safePrint(" -echoe");
   if (mode & ENABLE_LINE_INPUT)
     safePrint(" echok");
   else
