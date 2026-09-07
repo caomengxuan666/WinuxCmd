@@ -236,7 +236,7 @@ bool ls_is_terminal(FILE *stream) {
 namespace ls_pipeline {
 namespace cp = core::pipeline;
 
-enum class SortMode { Name, Size, Time, Version, Extension, None };
+enum class SortMode { Name, Size, Time, Version, Extension, Type, None };
 enum class IndicatorStyle { None, Slash, FileType, Classify };
 enum class TimeMode { Modification, Access, Status, Birth };
 enum class TimeStyle { Default, Locale, FullIso, LongIso, Iso, CustomFormat };
@@ -1027,6 +1027,7 @@ auto parse_sort_mode(std::string_view value) -> std::optional<SortMode> {
   if (value == "time") return SortMode::Time;
   if (value == "version") return SortMode::Version;
   if (value == "extension") return SortMode::Extension;
+  if (value == "type") return SortMode::Type;
   if (value == "none") return SortMode::None;
   return std::nullopt;
 }
@@ -2679,6 +2680,16 @@ auto list_directory(const std::string &path,
         break;
       case SortMode::Extension:
         std::sort(entries.begin(), entries.end(), compare_extensions);
+        break;
+      case SortMode::Type:
+        // [GNU] --sort=type: directories first, then files, alphabetical within
+        std::sort(entries.begin(), entries.end(),
+                  [](const EntryInfo &a, const EntryInfo &b) {
+                    bool a_dir = is_directory_entry(a);
+                    bool b_dir = is_directory_entry(b);
+                    if (a_dir != b_dir) return a_dir;  // dirs first
+                    return a.name < b.name;
+                  });
         break;
       case SortMode::Name:
         std::sort(entries.begin(), entries.end(),
