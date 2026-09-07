@@ -585,7 +585,7 @@ auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
   };
   std::smatch match;
   const std::regex relative_re(
-      R"(^([+-])([0-9]+)\s*(second|seconds|minute|minutes|hour|hours|day|days|week|weeks)$)");
+      R"(^([+-])([0-9]+)\s*(second|seconds|minute|minutes|hour|hours|day|days|week|weeks|fortnight|fortnights|month|months|year|years)$)");
   if (std::regex_match(lower, match, relative_re)) {
     long long amount = std::stoll(match[2].str());
     if (match[1].str() == "-") amount = -amount;
@@ -597,8 +597,14 @@ auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
       seconds = 3600;
     else if (unit.starts_with("day"))
       seconds = 86400;
+    else if (unit.starts_with("fortnight"))
+      seconds = 1209600;  // 2 weeks
     else if (unit.starts_with("week"))
       seconds = 604800;
+    else if (unit.starts_with("month"))
+      seconds = 2629746;  // Average month length (30.44 days)
+    else if (unit.starts_with("year"))
+      seconds = 31557600;  // Average year length (365.25 days)
     return relative(amount, seconds);
   }
   if (lower == "tomorrow") return relative(1, 86400);
