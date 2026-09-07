@@ -142,8 +142,8 @@ export std::string translate_error(std::string_view error) {
   if (error.size() > kUnarySuffix.size() && error.starts_with('\'') &&
       error.ends_with(kUnarySuffix)) {
     const auto value = error.substr(1, error.size() - 1 - kUnarySuffix.size());
-    return format("common.error.unary_operator",
-                  "'{}': unary operator expected", value);
+    return ::winux::i18n::format("common.error.unary_operator",
+                                 "'{}': unary operator expected", value);
   }
   constexpr std::array<std::pair<std::string_view, std::string_view>, 28> exact{
       {{"invalid input", "common.error.invalid_input"},

@@ -468,7 +468,10 @@ auto split_range(std::string_view range)
     -> cp::Result<std::pair<int64_t, int64_t>> {
   const auto dash_pos = range.find('-');
   if (dash_pos == std::string_view::npos) {
-    return std::unexpected(make_range_error(range, false));
+    // No separator: GNU parses the whole argument as one number, so an
+    // overflowing value still gets the EOVERFLOW diagnostic.
+    const auto whole = parse_unsigned_number(range);
+    return std::unexpected(make_range_error(range, whole.overflow));
   }
 
   const auto lo_text = range.substr(0, dash_pos);
