@@ -57,7 +57,9 @@
 | expr.cpp | 1 CRITICAL (is_null treats "0" as null) | ✅ | 11/11 ✅ |
 | mv.cpp | 4 HIGH (overflow in build_dest_path) | ✅ | ✅ |
 | dd.cpp | 5 HIGH (conv=sync padding, iflag/oflag positional) | ✅ | ✅ |
-| ls.cpp | 13 bugs (2 CRITICAL, 5 HIGH) | Partial | --group-directories-first fixed |
+| ls.cpp | 13 bugs (2 CRITICAL, 5 HIGH) | Partial | --sort=type, --group-directories-first fixed |
+| mkdir.cpp | 1 HIGH (UNC path corruption) | ✅ | ✅ |
+| date.cpp | 4 HIGH (month/year/fortnight units) | ✅ | ✅ |
 | stty.cpp | 10 bugs (2 CRITICAL) | Partial | Some fixes applied |
 
 ### Commands Fixed in Current Session (Not in Audit)
@@ -73,6 +75,9 @@
 | wpm.cpp | Alias creation |
 | dd.cpp | conv=sync padding to cbs, iflag/oflag positional parser, status error message |
 | mv.cpp | build_dest_path overflow fix |
+| mkdir.cpp | UNC path handling in progressive_directory_paths |
+| date.cpp | month, year, fortnight units in relative time parsing |
+| ls.cpp | --sort=type support |
 
 ## Completed Fixes
 
