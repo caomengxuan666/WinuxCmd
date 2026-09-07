@@ -349,7 +349,8 @@ auto build_dest_path(const std::string& src_path, const std::string& dest_path,
     return dest_path + "\\" + std::string(file_name_buf);
   }
 
-  // WideCharToMultiByte failed; fall back to raw wstring to avoid empty filename
+  // WideCharToMultiByte failed; fall back to raw wstring to avoid empty
+  // filename
   return dest_path + "\\" + wstring_to_utf8(std::wstring(file_name));
 }
 
@@ -470,9 +471,9 @@ auto move_single_path(const std::string& src_path, const std::string& dest_path,
       // Get the symlink target
       wchar_t target[4096] = {};
       if (!GetFinalPathNameByHandleW(
-              CreateFileW(wsrc_path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                          nullptr, OPEN_EXISTING,
-                          FILE_FLAG_OPEN_REPARSE_POINT, nullptr),
+              CreateFileW(wsrc_path.c_str(), 0,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                          OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr),
               target, 4096, 0)) {
         return std::unexpected("cannot read symlink target");
       }
@@ -581,10 +582,11 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
 
         // -I / --interactive=once: prompt once before removing more than three
         // files, or when moving recursively
-        bool recursive = ctx.get<bool>("-r", false) ||
-                         ctx.get<bool>("--recursive", false);
-        bool need_prompt = (*overwrite_mode == OverwriteMode::interactive_once &&
-                            (move_ctx.source_paths.size() > 3 || recursive));
+        bool recursive =
+            ctx.get<bool>("-r", false) || ctx.get<bool>("--recursive", false);
+        bool need_prompt =
+            (*overwrite_mode == OverwriteMode::interactive_once &&
+             (move_ctx.source_paths.size() > 3 || recursive));
         if (need_prompt) {
           safeErrorPrint("mv: remove ");
           if (recursive) {

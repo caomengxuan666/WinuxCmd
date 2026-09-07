@@ -457,7 +457,10 @@ class Parser {
   auto eval_keyword(bool evaluate) -> Value {
     if (next("+")) {
       require_more_args();
-      std::string token(args_[pos_++]); auto parsed = parse_integer(token); if (parsed) return Value::make_integer(*parsed); return Value::make_string(token);
+      std::string token(args_[pos_++]);
+      auto parsed = parse_integer(token);
+      if (parsed) return Value::make_integer(*parsed);
+      return Value::make_string(token);
     }
 
     if (next("length")) {
@@ -513,7 +516,10 @@ class Parser {
       return value;
     }
     if (next(")")) throw ExprError{"syntax error: unexpected ')'"};
-    std::string token(args_[pos_++]); auto parsed = parse_integer(token); if (parsed) return Value::make_integer(*parsed); return Value::make_string(token);
+    std::string token(args_[pos_++]);
+    auto parsed = parse_integer(token);
+    if (parsed) return Value::make_integer(*parsed);
+    return Value::make_string(token);
   }
 };
 

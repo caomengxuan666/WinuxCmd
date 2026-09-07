@@ -52,8 +52,7 @@ auto build_config(const CommandContext<CHROOT_OPTIONS.size()>& ctx)
   bool exists = std::filesystem::exists(root_path, ec);
   if (ec || !exists || !std::filesystem::is_directory(root_path, ec)) {
     return std::unexpected(make_error("cannot change root directory to '" +
-                                      cfg.newroot +
-                                      "': no such directory"));
+                                      cfg.newroot + "': no such directory"));
   }
 
   return cfg;

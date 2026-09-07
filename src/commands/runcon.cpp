@@ -71,9 +71,10 @@ auto build_config(const CommandContext<RUNCON_OPTIONS.size()>& ctx)
 
 auto run(const Config& cfg) -> int {
   (void)cfg;
-  safeErrorPrintLn(winux::i18n::translate(
-      "command.runcon.error.unsupported",
-      "runcon: failed to get current context: SELinux is not supported on Windows"));
+  safeErrorPrintLn(
+      winux::i18n::translate("command.runcon.error.unsupported",
+                             "runcon: failed to get current context: SELinux "
+                             "is not supported on Windows"));
   return 1;
 }
 

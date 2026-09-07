@@ -168,8 +168,10 @@ REGISTER_COMMAND(cat, "cat",
     CatFlags flags;
     // GNU cat: -n/--number and -b/--number-nonblank are mutually exclusive;
     // the last one specified wins.
-    const bool opt_number = ctx.get<bool>("--number", false) || ctx.get<bool>("-n", false);
-    const bool opt_nonblank = ctx.get<bool>("--number-nonblank", false) || ctx.get<bool>("-b", false);
+    const bool opt_number =
+        ctx.get<bool>("--number", false) || ctx.get<bool>("-n", false);
+    const bool opt_nonblank =
+        ctx.get<bool>("--number-nonblank", false) || ctx.get<bool>("-b", false);
     flags.number_nonblank = opt_nonblank;
     flags.number_all = opt_number && !opt_nonblank;
     flags.show_ends =

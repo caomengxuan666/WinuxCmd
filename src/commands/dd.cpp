@@ -141,10 +141,10 @@ auto parse_required_size(std::string_view name, std::string_view text,
   if (text.empty()) return true;
   auto parsed = parse_size_operand(text);
   if (!parsed || (!allow_zero && *parsed == 0)) {
-    safeErrorPrintLn(winux::i18n::translate(
-        "command.dd.error.invalid_value",
-        std::string("dd: invalid ") + std::string(name) +
-            " value '" + std::string(text) + "'"));
+    safeErrorPrintLn(winux::i18n::translate("command.dd.error.invalid_value",
+                                            std::string("dd: invalid ") +
+                                                std::string(name) + " value '" +
+                                                std::string(text) + "'"));
     return false;
   }
   target = *parsed;
@@ -595,8 +595,7 @@ REGISTER_COMMAND(dd,
                          input_buffer.begin() + bytes_read);
     if (cfg.sync_blocks && bytes_read < request) {
       // [GNU] conv=sync pads to cbs (conversion block size), not ibs
-      std::uintmax_t pad_target =
-          cfg.cbs > 0 ? cfg.cbs : cfg.ibs;
+      std::uintmax_t pad_target = cfg.cbs > 0 ? cfg.cbs : cfg.ibs;
       if (bytes_read < pad_target) {
         output_buffer.insert(output_buffer.end(),
                              static_cast<size_t>(pad_target - bytes_read),

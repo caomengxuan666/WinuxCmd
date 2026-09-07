@@ -2074,8 +2074,8 @@ auto create_package_aliases(const fs::path& root, const nlohmann::json& pkg,
   std::error_code ec;
   int created = 0;
   for (const auto& alias : pkg["aliases"]) {
-    const auto alias_name = alias.is_string() ? alias.get<std::string>()
-                                              : alias.value("name", "");
+    const auto alias_name =
+        alias.is_string() ? alias.get<std::string>() : alias.value("name", "");
     auto target_name =
         alias.is_string() ? std::string{} : alias.value("target", "");
     if (target_name.empty() && pkg.contains("commands") &&
@@ -2107,11 +2107,10 @@ auto create_package_aliases(const fs::path& root, const nlohmann::json& pkg,
     if (dry_run) continue;
     if (!CreateHardLinkW(destination.wstring().c_str(),
                          source.wstring().c_str(), nullptr)) {
-      safeErrorPrintLn(
-          wpm_text("command.wpm.error.alias_create",
-                   "wpm: failed to create alias '{}' -> '{}': {}",
-                   destination.string(), source.string(),
-                   win32_error_text(GetLastError())));
+      safeErrorPrintLn(wpm_text("command.wpm.error.alias_create",
+                                "wpm: failed to create alias '{}' -> '{}': {}",
+                                destination.string(), source.string(),
+                                win32_error_text(GetLastError())));
       return false;
     }
     ++created;

@@ -2710,9 +2710,9 @@ auto list_directory(const std::string &path,
         break;
     }
 
-    // Apply --reverse first, then --group-directories-first to match GNU ls behavior
-    // GNU ls reverses the sort order, then partitions directories before files
-    // while preserving the reversed order within each group.
+    // Apply --reverse first, then --group-directories-first to match GNU ls
+    // behavior GNU ls reverses the sort order, then partitions directories
+    // before files while preserving the reversed order within each group.
     if (ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false)) {
       std::reverse(entries.begin(), entries.end());
     }
