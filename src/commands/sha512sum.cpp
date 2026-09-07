@@ -194,7 +194,8 @@ auto calculate_sha512(const std::string& filename, bool text_mode = false)
     success = true;
   } else {
     // Read from file (binary mode by default, text mode if --text)
-    std::ifstream file(filename, text_mode ? std::ios::in : std::ios::binary);
+    std::ifstream file(native_path::normalize_api_operand(filename),
+                       text_mode ? std::ios::in : std::ios::binary);
     if (!file) {
       CryptDestroyHash(hHash);
       CryptReleaseContext(hProv, 0);
@@ -318,7 +319,7 @@ auto run(const Config& cfg) -> int {
     std::ifstream file;
     std::string input_name = "standard input";
     if (!cfg.check_file.empty() && cfg.check_file != "-") {
-      file.open(cfg.check_file);
+      file.open(native_path::normalize_api_operand(cfg.check_file));
       if (!file) {
         cp::report_custom_error(
             L"sha512sum", utf8_to_wstring(input_open_error(cfg.check_file)));

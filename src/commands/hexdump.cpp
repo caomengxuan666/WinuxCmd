@@ -293,7 +293,8 @@ auto dump_file(const std::string& filename, const Config& cfg) -> int {
       data.insert(data.end(), buf, buf + std::cin.gcount());
     }
   } else {
-    std::ifstream file(filename, std::ios::binary);
+    std::ifstream file(native_path::normalize_api_operand(filename),
+                       std::ios::binary);
     if (!file) {
       safeErrorPrint("hexdump: '");
       safeErrorPrint(filename);

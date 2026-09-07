@@ -215,7 +215,8 @@ auto read_file(const std::string& filename) -> cp::Result<FileData> {
       return std::unexpected("error reading from standard input");
     }
   } else {
-    std::ifstream f(filename, std::ios::binary);
+    std::ifstream f(native_path::normalize_api_operand(filename),
+                    std::ios::binary);
     if (!f) {
       return std::unexpected(input_open_error(filename));
     }
@@ -235,7 +236,9 @@ auto read_crc_file(const std::string& filename)
   std::istream* input = &std::cin;
   std::ifstream file;
   if (filename != "-" && !filename.empty()) {
-    file.open(std::filesystem::u8path(filename), std::ios::binary);
+    file.open(
+        std::filesystem::u8path(native_path::normalize_api_operand(filename)),
+        std::ios::binary);
     if (!file) {
       return std::unexpected(input_open_error(filename));
     }
@@ -442,7 +445,7 @@ auto run_check_mode(const Config& cfg) -> int {
   std::ifstream file;
   std::string input_name = "standard input";
   if (!cfg.check_file.empty() && cfg.check_file != "-") {
-    file.open(cfg.check_file);
+    file.open(native_path::normalize_api_operand(cfg.check_file));
     if (!file) {
       safeErrorPrint("cksum: " + input_open_error(cfg.check_file) + "\n");
       return 1;

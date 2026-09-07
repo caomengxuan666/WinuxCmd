@@ -2019,7 +2019,8 @@ auto scan_stream(std::istream& in, std::string_view display_name,
 }
 
 auto read_file_binary(const std::string& path) -> cp::Result<std::string> {
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected("cannot open '" + path + "'");
@@ -2029,7 +2030,8 @@ auto read_file_binary(const std::string& path) -> cp::Result<std::string> {
 }
 
 auto read_file_text(const std::string& path) -> cp::Result<std::string> {
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected("cannot open '" + path + "'");
@@ -2060,7 +2062,8 @@ auto should_stream_file_fast_path(const std::string& path, const Config& cfg)
     -> bool {
   if (cfg.binary_mode == BinaryMode::WithoutMatch) return false;
 
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) return true;
 
@@ -2081,7 +2084,8 @@ auto should_stream_file_fast_path(const std::string& path, const Config& cfg)
 auto scan_file_streaming(const std::string& path, std::string_view display_name,
                          bool show_filename, Config& cfg)
     -> cp::Result<std::pair<bool, size_t>> {
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected("cannot open '" + path + "'");

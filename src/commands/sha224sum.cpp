@@ -236,7 +236,7 @@ auto run(const Config& cfg) -> int {
     std::ifstream file;
     std::string input_name = "standard input";
     if (!cfg.check_file.empty() && cfg.check_file != "-") {
-      file.open(cfg.check_file);
+      file.open(native_path::normalize_api_operand(cfg.check_file));
       if (!file) {
         cp::report_custom_error(
             L"sha224sum", utf8_to_wstring(input_open_error(cfg.check_file)));

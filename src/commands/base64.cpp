@@ -183,7 +183,7 @@ auto run(const Config& cfg) -> int {
   auto data = std::span<const uint8_t>(
       reinterpret_cast<const uint8_t*>(content.data()), content.size());
   std::string output = encoding::base64_encode(data, cfg.wrap);
-  if (!output.empty()) output.push_back('\n');
+  if (!output.empty() && cfg.wrap > 0) output.push_back('\n');
   safePrint(output);
   return 0;
 }

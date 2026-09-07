@@ -315,7 +315,8 @@ auto run(const Config& cfg) -> int {
                      std::istreambuf_iterator<char>());
     } else {
       // Read from file
-      std::ifstream f(file, std::ios::binary);
+      std::ifstream f(native_path::normalize_api_operand(file),
+                      std::ios::binary);
       if (!f) {
         auto err = fold_input_open_error(file);
         cp::Result<int> result = std::unexpected(err);

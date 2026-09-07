@@ -198,7 +198,7 @@ auto read_source(std::string_view path) -> cp::Result<std::string> {
     return std::string(std::istreambuf_iterator<char>(std::cin),
                        std::istreambuf_iterator<char>());
   }
-  std::ifstream in(std::string(path), std::ios::binary);
+  std::ifstream in(native_path::normalize_api_operand(path), std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected(cut_input_open_error(path));
   }
@@ -510,7 +510,7 @@ auto run_file_fast_fields(const std::string& path, const Config& cfg) -> int {
   if (path == "-") {
     input = &std::cin;
   } else {
-    file.open(path, std::ios::binary);
+    file.open(native_path::normalize_api_operand(path), std::ios::binary);
     if (!file.is_open()) {
       cp::report_custom_error(L"cut",
                               utf8_to_wstring(cut_input_open_error(path)));

@@ -135,7 +135,7 @@ TEST(base64, base64_wrap_width_and_wrap_zero) {
   auto unwrapped_result = unwrapped.run();
 
   EXPECT_EQ(unwrapped_result.exit_code, 0);
-  EXPECT_EQ_TEXT(unwrapped_result.stdout_text, "aGVsbG8gd29ybGQ=\n");
+  EXPECT_EQ_TEXT(unwrapped_result.stdout_text, "aGVsbG8gd29ybGQ=");
 }
 
 TEST(base64, base64_empty_input_produces_no_output) {

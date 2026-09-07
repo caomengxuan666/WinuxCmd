@@ -662,7 +662,7 @@ auto run(const Config& cfg) -> int {
   if (cfg.decode) {
     safePrint(*output);
   } else {
-    if (!output->empty()) output->push_back('\n');
+    if (!output->empty() && cfg.wrap > 0) output->push_back('\n');
     safePrint(*output);
   }
 

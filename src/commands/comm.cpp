@@ -244,7 +244,8 @@ auto read_lines(const std::string& filename, char delimiter)
     };
 
     // Read from file
-    std::ifstream f(filename, std::ios::binary);
+    std::ifstream f(native_path::normalize_api_operand(filename),
+                    std::ios::binary);
     if (!f) {
       return std::unexpected(comm_input_open_error(filename));
     }

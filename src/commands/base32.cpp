@@ -184,7 +184,7 @@ auto run(const Config& cfg) -> int {
       reinterpret_cast<const uint8_t*>(content_result->data()),
       content_result->size());
   std::string output = encoding::base32_encode(data, cfg.wrap);
-  if (!output.empty()) output.push_back('\n');
+  if (!output.empty() && cfg.wrap > 0) output.push_back('\n');
   safePrint(output);
   return 0;
 }
