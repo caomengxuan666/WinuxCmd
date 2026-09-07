@@ -141,11 +141,10 @@ auto parse_required_size(std::string_view name, std::string_view text,
   if (text.empty()) return true;
   auto parsed = parse_size_operand(text);
   if (!parsed || (!allow_zero && *parsed == 0)) {
-    safeErrorPrint("dd: invalid ");
-    safeErrorPrint(std::string(name));
-    safeErrorPrint(" value '");
-    safeErrorPrint(std::string(text));
-    safeErrorPrint("'\n");
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.dd.error.invalid_value",
+        std::string("dd: invalid ") + std::string(name) +
+            " value '" + std::string(text) + "'"));
     return false;
   }
   target = *parsed;
@@ -165,9 +164,9 @@ auto set_operand(Config& cfg, std::string_view name, std::string_view value)
   } else if (name == "bs") {
     auto parsed = parse_size_operand(value);
     if (!parsed || *parsed == 0) {
-      safeErrorPrint("dd: invalid bs value '");
-      safeErrorPrint(std::string(value));
-      safeErrorPrint("'\n");
+      safeErrorPrintLn(winux::i18n::translate(
+          "command.dd.error.invalid_bs",
+          std::string("dd: invalid bs value '") + std::string(value) + "'"));
       return false;
     }
     cfg.ibs = *parsed;
