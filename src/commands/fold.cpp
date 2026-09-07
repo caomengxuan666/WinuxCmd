@@ -71,13 +71,22 @@ struct FoldUnit {
 };
 
 auto parse_width(std::string_view value) -> cp::Result<int> {
-  int parsed = 0;
+  long long parsed = 0;
   auto [ptr, ec] =
       std::from_chars(value.data(), value.data() + value.size(), parsed);
-  if (ec != std::errc() || ptr != value.data() + value.size() || parsed <= 0) {
-    return std::unexpected("invalid width");
+  // Match GNU fold (xnumtoumax): a zero or overflowing width is reported as
+  // an ERANGE-style failure, while unparseable or negative values keep the
+  // "invalid number of columns" diagnostic with the value quoted.
+  if (ec == std::errc::result_out_of_range ||
+      (ec == std::errc() && ptr == value.data() + value.size() &&
+       parsed == 0)) {
+    return std::unexpected("Numerical result out of range");
   }
-  return parsed;
+  if (ec != std::errc() || ptr != value.data() + value.size() || parsed < 0) {
+    return std::unexpected("invalid number of columns: '" +
+                           std::string(value) + "'");
+  }
+  return static_cast<int>(parsed);
 }
 
 auto build_config(const CommandContext<FOLD_OPTIONS.size()>& ctx)

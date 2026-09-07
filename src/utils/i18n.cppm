@@ -170,7 +170,7 @@ export std::string translate_error(std::string_view error) {
     return ::winux::i18n::format("common.error.unary_operator",
                                  "'{}': unary operator expected", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 28> exact{
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 29> exact{
       {{"invalid input", "common.error.invalid_input"},
        {"error reading from file", "common.error.read_file"},
        {"error reading input", "common.error.read_input"},
@@ -182,6 +182,7 @@ export std::string translate_error(std::string_view error) {
        {"invalid input range", "common.error.invalid_input_range"},
        {"invalid wrap size", "common.error.invalid_wrap"},
        {"invalid line count", "common.error.invalid_line_count"},
+       {"Numerical result out of range", "common.error.numerical_range"},
        {"invalid regular expression", "common.error.invalid_regex"},
        {"target is not a directory", "common.error.target_directory"},
        {"cannot create directory", "common.error.create_directory"},
@@ -231,7 +232,7 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 31>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 32>
       quoted{
           {{"cannot open '", "common.error.cannot_open"},
            {"cannot access '", "common.error.cannot_access"},
@@ -252,6 +253,7 @@ export std::string translate_error(std::string_view error) {
            {"invalid input range: '", "common.error.invalid_input_range"},
            {"invalid line count: '", "common.error.invalid_line_count_value"},
            {"invalid number of bytes: '", "common.error.invalid_num_bytes"},
+           {"invalid number of columns: '", "common.error.invalid_num_columns"},
            {"invalid number of lines: '", "common.error.invalid_num_lines"},
            {"tab size contains invalid character(s): '",
             "common.error.tab_invalid_chars"},
@@ -282,7 +284,7 @@ export std::string translate_error(std::string_view error) {
       return ::winux::i18n::format(key, "error writing '{}'", value);
     if (key == "common.error.invalid_mode")
       return ::winux::i18n::format(key, "invalid mode: '{}'", value);
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 25>
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 26>
         fallbacks{
             {{"common.error.invalid_group", "invalid group: '{}'"},
              {"common.error.invalid_user", "invalid user: '{}'"},
@@ -302,6 +304,8 @@ export std::string translate_error(std::string_view error) {
               "invalid line count: '{}'"},
              {"common.error.invalid_num_bytes",
               "invalid number of bytes: '{}'"},
+             {"common.error.invalid_num_columns",
+              "invalid number of columns: '{}'"},
              {"common.error.invalid_num_lines",
               "invalid number of lines: '{}'"},
              {"common.error.tab_invalid_chars",
