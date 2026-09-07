@@ -323,11 +323,12 @@ struct PatternApplication {
   bool skip = false;
   Segment output;
   size_t next_start = 0;
+  size_t matched_line = 0;
 };
 
 auto apply_pattern(const std::vector<std::string>& lines,
-                   const ParsedPattern& pattern, size_t current, bool repeated,
-                   bool suppress_matched) -> cp::Result<PatternApplication> {
+                   const ParsedPattern& pattern, size_t current, bool repeated)
+    -> cp::Result<PatternApplication> {
   PatternApplication result;
   result.skip = pattern.skip;
   result.output.begin = current;
@@ -339,13 +340,9 @@ auto apply_pattern(const std::vector<std::string>& lines,
       return std::unexpected("line number out of range");
     }
     result.found = true;
-    if (suppress_matched && boundary < lines.size()) {
-      result.output.end = boundary;
-      result.next_start = boundary + 1;
-    } else {
-      result.output.end = boundary;
-      result.next_start = boundary;
-    }
+    result.matched_line = boundary;
+    result.output.end = boundary;
+    result.next_start = boundary;
     return result;
   }
 
@@ -366,13 +363,9 @@ auto apply_pattern(const std::vector<std::string>& lines,
 
     size_t boundary = static_cast<size_t>(boundary_signed);
     result.found = true;
-    if (suppress_matched && !pattern.skip) {
-      result.output.end = std::min(boundary, i);
-      result.next_start = std::max(boundary, i + 1);
-    } else {
-      result.output.end = boundary;
-      result.next_start = boundary;
-    }
+    result.matched_line = i;
+    result.output.end = boundary;
+    result.next_start = boundary;
     return result;
   }
 
@@ -432,7 +425,8 @@ auto make_filename(const Config& cfg, int file_number)
 }
 
 auto write_outputs(const Config& cfg, const std::vector<std::string>& lines,
-                   const std::vector<Segment>& segments) -> cp::Result<int> {
+                   const std::vector<Segment>& segments,
+                   const std::vector<bool>& suppress) -> cp::Result<int> {
   std::vector<std::string> created_files;
   auto cleanup = [&] {
     if (cfg.keep_files) return;
@@ -444,7 +438,11 @@ auto write_outputs(const Config& cfg, const std::vector<std::string>& lines,
   int file_count = 0;
 
   for (const auto& segment : segments) {
-    size_t bytes = line_byte_count(lines, segment);
+    size_t bytes = 0;
+    for (size_t i = segment.begin; i < segment.end; ++i) {
+      if (i < suppress.size() && suppress[i]) continue;
+      bytes += lines[i].size();
+    }
     if (bytes == 0 && cfg.elide_empty) continue;
 
     auto filename_result = make_filename(cfg, file_count);
@@ -460,6 +458,7 @@ auto write_outputs(const Config& cfg, const std::vector<std::string>& lines,
       return std::unexpected(std::string("cannot create '") + filename + "'");
     }
     for (size_t i = segment.begin; i < segment.end; ++i) {
+      if (i < suppress.size() && suppress[i]) continue;
       out.write(lines[i].data(), static_cast<std::streamsize>(lines[i].size()));
     }
     if (!out) {
@@ -487,6 +486,7 @@ auto run(const Config& cfg) -> int {
 
   const auto& lines = *lines_result;
   std::vector<Segment> segments;
+  std::vector<bool> suppress(lines.size(), false);
   size_t current = 0;
 
   for (size_t i = 0; i < cfg.patterns.size(); ++i) {
@@ -515,8 +515,7 @@ auto run(const Config& cfg) -> int {
         repeat.has_repeat && !repeat.until_exhausted ? repeat.count + 1 : 1;
     bool repeated = false;
     for (size_t application = 0;; ++application) {
-      auto applied = apply_pattern(lines, pattern, current, repeated,
-                                   cfg.suppress_matched);
+      auto applied = apply_pattern(lines, pattern, current, repeated);
       if (!applied) {
         cp::Result<int> error = std::unexpected(applied.error());
         cp::report_error(error, L"csplit");
@@ -528,6 +527,10 @@ auto run(const Config& cfg) -> int {
                                                 pattern_text + "' not found");
         cp::report_error(error, L"csplit");
         return 1;
+      }
+
+      if (cfg.suppress_matched && applied->matched_line < suppress.size()) {
+        suppress[applied->matched_line] = true;
       }
 
       size_t old_current = current;
@@ -544,7 +547,7 @@ auto run(const Config& cfg) -> int {
 
   segments.push_back(Segment{current, lines.size()});
 
-  auto write_result = write_outputs(cfg, lines, segments);
+  auto write_result = write_outputs(cfg, lines, segments, suppress);
   if (!write_result) {
     cp::report_error(write_result, L"csplit");
     return 1;

@@ -152,6 +152,8 @@ auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
         cfg.zero_terminated = true;
         continue;
       }
+      // Unknown long option
+      return std::unexpected("invalid option -- '" + arg + "'");
     }
 
     if (!end_of_options && arg.size() >= 2 && arg[0] == '-' && arg[1] != '-') {
@@ -177,6 +179,9 @@ auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
         if (!all_flags) break;
       }
       if (all_flags) continue;
+      // Unknown short option
+      return std::unexpected("invalid option -- '" + std::string(1, arg[1]) +
+                             "'");
     }
 
     add_file_arg(cfg, arg);

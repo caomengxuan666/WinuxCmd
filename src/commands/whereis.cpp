@@ -25,13 +25,14 @@
  */
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
-/// @Description: Implementation for whereis (locate binary/source/manual files).
+/// @Description: Implementation for whereis (locate binary/source/manual
+/// files).
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "pch/pch.h"
 #include "core/command_macros.h"
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -81,7 +82,12 @@ auto build_config(const CommandContext<WHEREIS_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
   bool any_filter = false;
-  if (ctx.has("-b") || ctx.has("--b")) { cfg.want_bin = true; cfg.want_man = false; cfg.want_src = false; any_filter = true; }
+  if (ctx.has("-b") || ctx.has("--b")) {
+    cfg.want_bin = true;
+    cfg.want_man = false;
+    cfg.want_src = false;
+    any_filter = true;
+  }
   // The flags -b/-m/-s are independent selectors; GNU: specifying any means
   // search ONLY that category.  Use presence of each to narrow.
   cfg.want_bin = false;
@@ -126,7 +132,8 @@ auto build_config(const CommandContext<WHEREIS_OPTIONS.size()>& ctx)
     }
     if (!in_filenames) {
       // still accumulating dir-list entries; route to whichever last -B/-M/-S
-      // was seen.  For simplicity, if -B/-M/-S were all unset, treat as filename.
+      // was seen.  For simplicity, if -B/-M/-S were all unset, treat as
+      // filename.
       cfg.names.push_back(s);
     } else {
       cfg.names.push_back(s);
@@ -149,7 +156,8 @@ auto get_env_utf8(const wchar_t* key) -> std::optional<std::string> {
   if (size == 0) return std::nullopt;
   std::wstring value;
   value.resize(size - 1);
-  if (GetEnvironmentVariableW(key, value.data(), size) == 0) return std::nullopt;
+  if (GetEnvironmentVariableW(key, value.data(), size) == 0)
+    return std::nullopt;
   return wstring_to_utf8(value);
 }
 
@@ -180,25 +188,29 @@ auto file_exists(const std::string& path) -> bool {
 
 auto to_lower(std::string_view s) -> std::string {
   std::string out(s);
-  for (char& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  for (char& c : out)
+    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
   return out;
 }
 
-// Deduplicate a list of paths, case-insensitively (Windows FS is case-insensitive).
+// Deduplicate a list of paths, case-insensitively (Windows FS is
+// case-insensitive).
 auto dedupe_paths(std::vector<std::string>& v) -> void {
   std::set<std::string> seen;
   std::vector<std::string> out;
   for (auto& p : v) {
     std::string key = to_lower(p);
     // also normalise backslashes to forward slashes for the key
-    for (char& c : key) if (c == '\\') c = '/';
+    for (char& c : key)
+      if (c == '\\') c = '/';
     if (seen.insert(key).second) out.push_back(p);
   }
   v = std::move(out);
 }
 
 auto join_path(const std::string& dir, const std::string& name,
-               const std::vector<std::string>& exts) -> std::vector<std::string> {
+               const std::vector<std::string>& exts)
+    -> std::vector<std::string> {
   std::vector<std::string> hits;
   for (const auto& ext : exts) {
     std::string full = dir;
@@ -222,9 +234,9 @@ auto default_bin_dirs() -> std::vector<std::string> {
     for (auto& d : split_path(*p)) dirs.push_back(d);
   }
   // Common Windows system locations.
-  const char* extra[] = {
-      "C:/Windows/System32", "C:/Windows", "C:/Windows/SysWOW64",
-      "C:/Program Files/WinuxCmd", "C:/Program Files (x86)/WinuxCmd"};
+  const char* extra[] = {"C:/Windows/System32", "C:/Windows",
+                         "C:/Windows/SysWOW64", "C:/Program Files/WinuxCmd",
+                         "C:/Program Files (x86)/WinuxCmd"};
   for (auto* e : extra) {
     std::string s(e);
     if (file_exists(s)) dirs.push_back(s);
@@ -242,23 +254,21 @@ auto default_man_dirs() -> std::vector<std::string> {
 }
 
 // Default source directories (none standard on Windows).
-auto default_src_dirs() -> std::vector<std::string> {
-  return {};
-}
+auto default_src_dirs() -> std::vector<std::string> { return {}; }
 
 auto run(const Config& cfg) -> int {
   std::vector<std::string> bin_dirs =
-      cfg.bin_dirs.empty() ? default_bin_dirs()
-                           : std::vector<std::string>(cfg.bin_dirs.begin(),
-                                                      cfg.bin_dirs.end());
+      cfg.bin_dirs.empty()
+          ? default_bin_dirs()
+          : std::vector<std::string>(cfg.bin_dirs.begin(), cfg.bin_dirs.end());
   std::vector<std::string> man_dirs =
-      cfg.man_dirs.empty() ? default_man_dirs()
-                           : std::vector<std::string>(cfg.man_dirs.begin(),
-                                                      cfg.man_dirs.end());
+      cfg.man_dirs.empty()
+          ? default_man_dirs()
+          : std::vector<std::string>(cfg.man_dirs.begin(), cfg.man_dirs.end());
   std::vector<std::string> src_dirs =
-      cfg.src_dirs.empty() ? default_src_dirs()
-                           : std::vector<std::string>(cfg.src_dirs.begin(),
-                                                      cfg.src_dirs.end());
+      cfg.src_dirs.empty()
+          ? default_src_dirs()
+          : std::vector<std::string>(cfg.src_dirs.begin(), cfg.src_dirs.end());
 
   dedupe_paths(bin_dirs);
   dedupe_paths(man_dirs);
@@ -266,19 +276,28 @@ auto run(const Config& cfg) -> int {
 
   if (cfg.list_paths) {
     safePrintLn("whereis binary dirs:");
-    for (const auto& d : bin_dirs) { safePrint("  "); safePrintLn(d); }
+    for (const auto& d : bin_dirs) {
+      safePrint("  ");
+      safePrintLn(d);
+    }
     safePrintLn("whereis manual dirs:");
-    for (const auto& d : man_dirs) { safePrint("  "); safePrintLn(d); }
+    for (const auto& d : man_dirs) {
+      safePrint("  ");
+      safePrintLn(d);
+    }
     safePrintLn("whereis source dirs:");
-    for (const auto& d : src_dirs) { safePrint("  "); safePrintLn(d); }
+    for (const auto& d : src_dirs) {
+      safePrint("  ");
+      safePrintLn(d);
+    }
     return 0;
   }
 
   std::vector<std::string> bin_exts = {".exe", ".bat", ".cmd", ".com", ".ps1"};
-  std::vector<std::string> man_exts = {".1", ".2", ".3", ".4", ".5", ".6",
-                                       ".7", ".8", ".9", ""};
-  std::vector<std::string> src_exts = {".c", ".cpp", ".cc", ".h", ".hpp",
-                                       ".rs", ".go", ".py", ""};
+  std::vector<std::string> man_exts = {".1", ".2", ".3", ".4", ".5",
+                                       ".6", ".7", ".8", ".9", ""};
+  std::vector<std::string> src_exts = {".c",  ".cpp", ".cc", ".h", ".hpp",
+                                       ".rs", ".go",  ".py", ""};
 
   int rc = 0;
   for (const auto& name : cfg.names) {
@@ -321,13 +340,22 @@ auto run(const Config& cfg) -> int {
     safePrint(name);
     safePrint(":");
     if (!cfg.unusual || (cfg.want_bin && has_bin)) {
-      for (auto& b : bins) { safePrint(" "); safePrint(b); }
+      for (auto& b : bins) {
+        safePrint(" ");
+        safePrint(b);
+      }
     }
     if (!cfg.unusual || (cfg.want_man && has_man)) {
-      for (auto& m : mans) { safePrint(" "); safePrint(m); }
+      for (auto& m : mans) {
+        safePrint(" ");
+        safePrint(m);
+      }
     }
     if (!cfg.unusual || (cfg.want_src && has_src)) {
-      for (auto& s : srcs) { safePrint(" "); safePrint(s); }
+      for (auto& s : srcs) {
+        safePrint(" ");
+        safePrint(s);
+      }
     }
     safePrintLn("");
   }

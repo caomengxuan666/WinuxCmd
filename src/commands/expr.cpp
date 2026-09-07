@@ -108,13 +108,7 @@ auto coerce_integer(const Value& value) -> long long {
   if (value.kind == Value::Kind::Integer) return value.integer == 0;
 
   std::string_view s = value.text;
-  if (s.empty()) return true;
-  size_t pos = s[0] == '-' ? 1 : 0;
-  if (pos == s.size()) return false;
-  for (; pos < s.size(); ++pos) {
-    if (s[pos] != '0') return false;
-  }
-  return true;
+  return s.empty();
 }
 
 [[nodiscard]] auto trim_integer_zeros(std::string_view digits)
@@ -319,6 +313,8 @@ class Parser {
       if (is_null(lhs)) {
         lhs = std::move(rhs);
         if (is_null(lhs)) lhs = Value::make_integer(0);
+      } else {
+        lhs = Value::make_integer(1);
       }
     }
     return lhs;
@@ -461,7 +457,7 @@ class Parser {
   auto eval_keyword(bool evaluate) -> Value {
     if (next("+")) {
       require_more_args();
-      return Value::make_string(args_[pos_++]);
+      std::string token(args_[pos_++]); auto parsed = parse_integer(token); if (parsed) return Value::make_integer(*parsed); return Value::make_string(token);
     }
 
     if (next("length")) {
@@ -517,7 +513,7 @@ class Parser {
       return value;
     }
     if (next(")")) throw ExprError{"syntax error: unexpected ')'"};
-    return Value::make_string(args_[pos_++]);
+    std::string token(args_[pos_++]); auto parsed = parse_integer(token); if (parsed) return Value::make_integer(*parsed); return Value::make_string(token);
   }
 };
 

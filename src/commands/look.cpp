@@ -25,13 +25,14 @@
  */
 /// @contributors:
 ///   - caomengxuan666 <2507560089@qq.com>
-/// @Description: Implementation for look (display lines beginning with a string).
+/// @Description: Implementation for look (display lines beginning with a
+/// string).
 /// @Version: 0.1.0
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
-#include "pch/pch.h"
 #include "core/command_macros.h"
+#include "pch/pch.h"
 
 import std;
 import core;
@@ -67,14 +68,16 @@ struct Config {
 auto build_config(const CommandContext<LOOK_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
-  cfg.alphanum = ctx.get<bool>("-d", false) || ctx.get<bool>("--alphanum", false);
+  cfg.alphanum =
+      ctx.get<bool>("-d", false) || ctx.get<bool>("--alphanum", false);
   cfg.ignore_case =
       ctx.get<bool>("-f", false) || ctx.get<bool>("--ignore-case", false);
   cfg.alternative =
       ctx.get<bool>("-a", false) || ctx.get<bool>("--alternative", false);
 
   if (ctx.has("-t") || ctx.has("--terminate")) {
-    auto t = ctx.get<std::string>("--terminate", ctx.get<std::string>("-t", ""));
+    auto t =
+        ctx.get<std::string>("--terminate", ctx.get<std::string>("-t", ""));
     if (!t.empty()) cfg.terminator = t;
   }
 
@@ -139,8 +142,8 @@ auto line_for_compare(std::string_view line, const std::string& terminator,
 }
 
 // Read all lines from a file.
-auto read_lines(const std::string& filename,
-                std::vector<std::string>& out) -> bool {
+auto read_lines(const std::string& filename, std::vector<std::string>& out)
+    -> bool {
   std::wstring wfn = utf8_to_wstring(filename);
   HANDLE h = CreateFileW(wfn.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -154,7 +157,8 @@ auto read_lines(const std::string& filename,
   DWORD got = 0;
   BOOL ok = TRUE;
   if (!data.empty()) {
-    ok = ReadFile(h, data.data(), static_cast<DWORD>(data.size()), &got, nullptr);
+    ok = ReadFile(h, data.data(), static_cast<DWORD>(data.size()), &got,
+                  nullptr);
   }
   CloseHandle(h);
   if (!ok) return false;
@@ -181,8 +185,7 @@ auto run(const Config& cfg) -> int {
     // GNU falls back to /usr/share/dict/words; on Windows there is no
     // canonical dictionary, so require an explicit file.
     safeErrorPrintLn("look: no dictionary file given");
-    safeErrorPrintLn(
-        "Try 'look --help' for more information.");
+    safeErrorPrintLn("Try 'look --help' for more information.");
     return 1;
   }
 
@@ -195,8 +198,8 @@ auto run(const Config& cfg) -> int {
   if (lines.empty()) return 0;
 
   // Binary search for the lower bound of the key prefix.
-  std::string key = key_for_compare(cfg.key, cfg.terminator, cfg.alphanum,
-                                   cfg.ignore_case);
+  std::string key =
+      key_for_compare(cfg.key, cfg.terminator, cfg.alphanum, cfg.ignore_case);
 
   // lower_bound: first line whose compare-form >= key.
   size_t lo = 0;
@@ -242,8 +245,7 @@ REGISTER_COMMAND(
     "(not available on Windows, so an explicit FILE is required).",
     "  look apple words.txt\n"
     "  look -f apple words.txt",
-    "grep(1), sort(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd",
-    LOOK_OPTIONS) {
+    "grep(1), sort(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd", LOOK_OPTIONS) {
   using namespace look_pipeline;
 
   auto cfg_result = build_config(ctx);

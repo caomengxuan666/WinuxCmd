@@ -13,9 +13,9 @@ using cmd::meta::OptionType;
 
 auto constexpr CHROOT_OPTIONS = std::array{
     // [DIFFERS]
-    OPTION("", "--groups", "specify supplementary groups", STRING_TYPE),
+    OPTION("-g", "--groups", "specify supplementary groups", STRING_TYPE),
     // [DIFFERS]
-    OPTION("", "--userspec", "specify user and group", STRING_TYPE),
+    OPTION("-u", "--userspec", "specify user and group", STRING_TYPE),
     // [DIFFERS]
     OPTION("", "--skip-chdir", "do not change working directory to '/'"),
 };
@@ -52,7 +52,8 @@ auto build_config(const CommandContext<CHROOT_OPTIONS.size()>& ctx)
   bool exists = std::filesystem::exists(root_path, ec);
   if (ec || !exists || !std::filesystem::is_directory(root_path, ec)) {
     return std::unexpected(make_error("cannot change root directory to '" +
-                                      cfg.newroot + "': no such directory"));
+                                      cfg.newroot +
+                                      "': no such directory"));
   }
 
   return cfg;

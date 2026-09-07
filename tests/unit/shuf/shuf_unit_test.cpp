@@ -134,7 +134,7 @@ TEST(shuf, shuf_zero_terminated_reads_and_writes_nul_records) {
   EXPECT_TRUE(r.stdout_text.find("c") != std::string::npos);
 }
 
-TEST(shuf, shuf_trims_cr_from_crlf_records_in_newline_mode) {
+TEST(shuf, shuf_preserves_crlf_records_in_newline_mode) {
   TempDir tmp;
   tmp.write_bytes("crlf.txt",
                   {'l', 'i',  'n',  'e', '1', '\r', '\n', 'l', 'i',  'n', 'e',
@@ -148,11 +148,12 @@ TEST(shuf, shuf_trims_cr_from_crlf_records_in_newline_mode) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(r.stdout_text.find('\r'), std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("line1\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("line2\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("line3\n") != std::string::npos);
+  // GNU shuf preserves original line endings; CR is not stripped.
   EXPECT_EQ(count_char(r.stdout_text, '\n'), 3);
+  EXPECT_EQ(count_char(r.stdout_text, '\r'), 3);
+  EXPECT_TRUE(r.stdout_text.find("line1\r\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line2\r\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line3\r\n") != std::string::npos);
 }
 
 TEST(shuf, shuf_output_file_is_written_after_input_is_read) {

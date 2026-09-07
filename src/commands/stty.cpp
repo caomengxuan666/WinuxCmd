@@ -54,9 +54,7 @@ auto constexpr STTY_OPTIONS = std::array{
            "print all current settings in a stty-readable form"),
     // [DIFFERS] -F, --file
     OPTION("-F", "--file", "open and use the specified device instead of stdin",
-           STRING_TYPE),
-    // [DIFFERS] -echo
-    OPTION("-echo", "", "do not echo input characters")};
+           STRING_TYPE)};
 
 namespace stty_pipeline {
 namespace cp = core::pipeline;
@@ -82,10 +80,6 @@ auto build_config(const CommandContext<STTY_OPTIONS.size()>& ctx)
   for (const auto& pos : ctx.positionals) {
     cfg.settings.push_back(std::string(pos));
   }
-  if (ctx.has("-echo")) {
-    cfg.settings.push_back("-echo");
-  }
-
   return cfg;
 }
 
@@ -203,29 +197,29 @@ void print_machine_readable(HANDLE hCon) {
       "0:0:0:0:0:0:0:0:0:0:0:0:0");
 }
 
-void apply_sane(HANDLE hCon) {
+bool apply_sane(HANDLE hCon) {
   // Reset to reasonable defaults
   DWORD mode = ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT |
                ENABLE_ECHO_NEWLINE;
-  SetConsoleMode(hCon, mode);
+  return SetConsoleMode(hCon, mode) != 0;
 }
 
-void apply_raw(HANDLE hCon) {
+bool apply_raw(HANDLE hCon) {
   // Disable all processing
   DWORD mode = 0;
-  SetConsoleMode(hCon, mode);
+  return SetConsoleMode(hCon, mode) != 0;
 }
 
-void apply_cooked(HANDLE hCon) {
+bool apply_cooked(HANDLE hCon) {
   // Enable standard processing
   DWORD mode = ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT;
-  SetConsoleMode(hCon, mode);
+  return SetConsoleMode(hCon, mode) != 0;
 }
 
-void apply_cbreak(HANDLE hCon) {
+bool apply_cbreak(HANDLE hCon) {
   // Like -icanon with min=1
   DWORD mode = ENABLE_PROCESSED_INPUT | ENABLE_ECHO_INPUT;
-  SetConsoleMode(hCon, mode);
+  return SetConsoleMode(hCon, mode) != 0;
 }
 
 void print_try_help() {
@@ -340,20 +334,16 @@ bool apply_setting(HANDLE hCon, const std::string& setting) {
   GetConsoleMode(hCon, &mode);
 
   if (setting == "sane") {
-    apply_sane(hCon);
-    return true;
+    return apply_sane(hCon);
   }
   if (setting == "raw") {
-    apply_raw(hCon);
-    return true;
+    return apply_raw(hCon);
   }
   if (setting == "cooked" || setting == "-raw") {
-    apply_cooked(hCon);
-    return true;
+    return apply_cooked(hCon);
   }
   if (setting == "cbreak") {
-    apply_cbreak(hCon);
-    return true;
+    return apply_cbreak(hCon);
   }
 
   // Boolean settings
@@ -369,34 +359,22 @@ bool apply_setting(HANDLE hCon, const std::string& setting) {
       mode |= ENABLE_ECHO_INPUT;
     else
       mode &= ~ENABLE_ECHO_INPUT;
-    SetConsoleMode(hCon, mode);
-    return true;
+    return SetConsoleMode(hCon, mode) != 0;
   }
   if (name == "icanon") {
     if (value)
       mode |= ENABLE_LINE_INPUT;
     else
       mode &= ~ENABLE_LINE_INPUT;
-    SetConsoleMode(hCon, mode);
-    return true;
+    return SetConsoleMode(hCon, mode) != 0;
   }
   if (name == "isig") {
     if (value)
       mode |= ENABLE_PROCESSED_INPUT;
     else
       mode &= ~ENABLE_PROCESSED_INPUT;
-    SetConsoleMode(hCon, mode);
-    return true;
+    return SetConsoleMode(hCon, mode) != 0;
   }
-  if (name == "echoe") {
-    if (value)
-      mode |= ENABLE_ECHO_NEWLINE;
-    else
-      mode &= ~ENABLE_ECHO_NEWLINE;
-    SetConsoleMode(hCon, mode);
-    return true;
-  }
-
   // Settings that don't map to Windows but we accept silently
   static const std::vector<std::string> accepted = {
       "ignbrk",  "brkint",  "parmrk", "istrip", "inlcr",   "igncr",  "icrnl",

@@ -179,13 +179,16 @@ auto filetime_to_unix_seconds(FILETIME ft) -> int64_t {
   value.LowPart = ft.dwLowDateTime;
   value.HighPart = ft.dwHighDateTime;
   constexpr uint64_t kWindowsToUnixEpoch100ns = 116444736000000000ULL;
-  if (value.QuadPart < kWindowsToUnixEpoch100ns) return 0;
+  if (value.QuadPart < kWindowsToUnixEpoch100ns) {
+    return -static_cast<int64_t>((kWindowsToUnixEpoch100ns - value.QuadPart) /
+                                 10000000ULL);
+  }
   return static_cast<int64_t>((value.QuadPart - kWindowsToUnixEpoch100ns) /
                               10000000ULL);
 }
 
 auto format_size(uint64_t size) -> std::string {
-  const char* units[] = {"B", "KB", "MB", "GB", "TB"};
+  const char* units[] = {"B", "K", "M", "G", "T"};
   int unit_index = 0;
   double dsize = static_cast<double>(size);
 
@@ -467,10 +470,10 @@ auto render_format(std::string_view format, const std::string& filename,
         out += stat.group_id.empty() ? "0" : stat.group_id;
         break;
       case 'U':
-        out += stat.owner_name.empty() ? "UNKNOWN" : stat.owner_name;
+        out += stat.owner_name.empty() ? "?" : stat.owner_name;
         break;
       case 'G':
-        out += stat.group_name.empty() ? "UNKNOWN" : stat.group_name;
+        out += stat.group_name.empty() ? "?" : stat.group_name;
         break;
       case 'x':
         out += format_timestamp(stat.attrs.ftLastAccessTime);
@@ -482,7 +485,7 @@ auto render_format(std::string_view format, const std::string& filename,
         out += format_timestamp(stat.attrs.ftCreationTime);
         break;
       case 'z':
-        out += format_timestamp(stat.attrs.ftLastWriteTime);
+        out += format_timestamp(stat.attrs.ftLastAccessTime);
         break;
       case 'X':
         out += std::to_string(
@@ -494,7 +497,7 @@ auto render_format(std::string_view format, const std::string& filename,
         break;
       case 'Z':
         out += std::to_string(
-            filetime_to_unix_seconds(stat.attrs.ftLastWriteTime));
+            filetime_to_unix_seconds(stat.attrs.ftLastAccessTime));
         break;
       case 'W':
         out +=

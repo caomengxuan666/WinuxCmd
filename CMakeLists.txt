@@ -322,6 +322,15 @@ if (WIN32)
     target_sources(winuxcmd PRIVATE "${WINUXCMD_RESOURCE_RC}")
 endif ()
 
+# Copy winuxcmd.exe to usr/bin so tests can find it
+if (WIN32)
+    add_custom_command(TARGET winuxcmd POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:winuxcmd> ${CMAKE_BINARY_DIR}/usr/bin/winuxcmd.exe
+        COMMENT "Copying winuxcmd.exe to usr/bin..."
+    )
+endif ()
+
 # PCH for winuxcmd
 target_precompile_headers(winuxcmd PRIVATE ${CMAKE_SOURCE_DIR}/src/pch/pch.h)
 

@@ -439,57 +439,92 @@ auto parse_unsigned_decimal(std::string_view text, std::string_view diagnostic)
   return value;
 }
 
+auto parse_signed_decimal(std::string_view text, std::string_view diagnostic)
+    -> cp::Result<int64_t> {
+  if (text.empty()) {
+    return std::unexpected<cp::Error>(std::string(diagnostic));
+  }
+
+  // Validate format: optional leading '-', then digits only.
+  size_t start = 0;
+  if (text[0] == '-') {
+    start = 1;
+    if (text.size() == 1) {
+      return std::unexpected<cp::Error>(std::string(diagnostic));
+    }
+  }
+  for (size_t i = start; i < text.size(); ++i) {
+    if (!std::isdigit(static_cast<unsigned char>(text[i]))) {
+      return std::unexpected<cp::Error>(std::string(diagnostic));
+    }
+  }
+
+  // Use int64_t directly so INT64_MIN parses correctly.
+  int64_t value = 0;
+  auto [ptr, ec] =
+      std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
+    return std::unexpected<cp::Error>(std::string(diagnostic));
+  }
+  return value;
+}
+
 auto split_range(std::string_view range)
-    -> cp::Result<std::pair<uint64_t, uint64_t>> {
-  const auto dash_pos = range.find('-');
-  if (dash_pos == std::string_view::npos ||
-      range.find('-', dash_pos + 1) != std::string_view::npos) {
+    -> cp::Result<std::pair<int64_t, int64_t>> {
+  // Split on the last '-' so a leading sign is handled correctly.
+  const auto dash_pos = range.rfind('-');
+  if (dash_pos == std::string_view::npos || dash_pos == 0 ||
+      dash_pos == range.size() - 1) {
     return std::unexpected("invalid input range");
   }
 
   auto lo =
-      parse_unsigned_decimal(range.substr(0, dash_pos), "invalid input range");
+      parse_signed_decimal(range.substr(0, dash_pos), "invalid input range");
   if (!lo) return std::unexpected(lo.error());
 
   auto hi =
-      parse_unsigned_decimal(range.substr(dash_pos + 1), "invalid input range");
+      parse_signed_decimal(range.substr(dash_pos + 1), "invalid input range");
   if (!hi) return std::unexpected(hi.error());
 
   if (*lo > *hi) {
     return std::unexpected("invalid input range");
   }
 
-  return std::pair<uint64_t, uint64_t>{*lo, *hi};
+  return std::pair<int64_t, int64_t>{*lo, *hi};
 }
 
-void append_record(SmallVector<std::string, 1024>& records, std::string record,
-                   bool skip_bom, bool zero_terminated) {
-  if (skip_bom && record.size() >= 3 &&
-      static_cast<unsigned char>(record[0]) == 0xEF &&
-      static_cast<unsigned char>(record[1]) == 0xBB &&
-      static_cast<unsigned char>(record[2]) == 0xBF) {
-    record = record.substr(3);
-  }
-  if (!zero_terminated && !record.empty() && record.back() == '\r') {
-    record.pop_back();
-  }
+void append_record(SmallVector<std::string, 1024>& records,
+                   std::string record) {
+  // GNU shuf does not strip BOMs or CRLF; preserve original content.
   records.push_back(std::move(record));
 }
 
 auto read_records(std::istream& in, bool zero_terminated,
-                  SmallVector<std::string, 1024>& records) -> cp::Result<int> {
+                  SmallVector<std::string, 1024>& records, bool& first_record)
+    -> cp::Result<int> {
   const char delimiter = zero_terminated ? '\0' : '\n';
   std::string record;
-  bool first = records.empty();
 
-  while (std::getline(in, record, delimiter)) {
-    append_record(records, std::move(record), first, zero_terminated);
-    first = false;
-    record.clear();
-  }
-
-  if (in.fail() && !in.eof()) {
-    return std::unexpected("error reading from file");
+  // Read character by character so embedded NUL bytes are preserved.
+  while (true) {
+    const int ch = in.get();
+    if (ch == std::char_traits<char>::eof()) {
+      if (in.fail() && !in.eof()) {
+        return std::unexpected("error reading from file");
+      }
+      if (!record.empty()) {
+        append_record(records, std::move(record));
+        first_record = false;
+      }
+      break;
+    }
+    if (static_cast<char>(ch) == delimiter) {
+      append_record(records, std::move(record));
+      first_record = false;
+      record.clear();
+    } else {
+      record.push_back(static_cast<char>(ch));
+    }
   }
 
   return 0;
@@ -594,17 +629,6 @@ auto build_config(const CommandContext<SHUF_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  auto shuf_input_open_error = [](std::string_view path) -> std::string {
-    std::error_code ec;
-    auto status = std::filesystem::status(std::filesystem::u8path(path), ec);
-    if (!ec && status.type() == std::filesystem::file_type::directory) {
-      return std::string("cannot open '") + std::string(path) +
-             "' for reading: Is a directory";
-    }
-    return std::string("cannot open '") + std::string(path) +
-           "' for reading: No such file or directory";
-  };
-
   SmallVector<std::string, 1024> lines;
 
   if (cfg.echo_mode) {
@@ -619,9 +643,9 @@ auto run(const Config& cfg) -> int {
       cp::report_error(range, L"shuf");
       return 1;
     }
-    for (uint64_t i = range->first; i <= range->second; ++i) {
+    for (int64_t i = range->first; i <= range->second; ++i) {
       lines.push_back(std::to_string(i));
-      if (i == std::numeric_limits<uint64_t>::max()) break;
+      if (i == std::numeric_limits<int64_t>::max()) break;
     }
   } else {
     // File mode: read from files
@@ -630,9 +654,11 @@ auto run(const Config& cfg) -> int {
       files.push_back("-");  // Read from stdin
     }
 
+    bool first_record = true;
     for (const auto& file : files) {
       if (file == "-") {
-        auto read_result = read_records(std::cin, cfg.zero_terminated, lines);
+        auto read_result =
+            read_records(std::cin, cfg.zero_terminated, lines, first_record);
         if (!read_result) {
           cp::report_error(read_result, L"shuf");
           return 1;
@@ -646,7 +672,8 @@ auto run(const Config& cfg) -> int {
         }
 
         std::istringstream input(*content);
-        auto read_result = read_records(input, cfg.zero_terminated, lines);
+        auto read_result =
+            read_records(input, cfg.zero_terminated, lines, first_record);
         if (!read_result) {
           cp::report_error(read_result, L"shuf");
           return 1;
@@ -684,9 +711,9 @@ auto run(const Config& cfg) -> int {
         return emit_output(cfg, output);
       }
 
-      while (!is_stdout_pipe_closed()) {
+      while (true) {
         output.clear();
-        for (size_t i = 0; i < 256 && !is_stdout_pipe_closed(); ++i) {
+        for (size_t i = 0; i < 256; ++i) {
           auto record = rng.choose_from_slice(lines);
           if (!record) {
             cp::report_error(record, L"shuf");
@@ -694,7 +721,12 @@ auto run(const Config& cfg) -> int {
           }
           append_output_record(output, *record, cfg.zero_terminated);
         }
-        if (emit_output(cfg, output) != 0) return 1;
+        int emit_result = emit_output(cfg, output);
+        if (emit_result != 0) {
+          if (!cfg.output_file.empty()) return 1;
+          break;
+        }
+        if (is_stdout_pipe_closed()) break;
       }
       return 0;
     }
@@ -725,13 +757,18 @@ auto run(const Config& cfg) -> int {
         return emit_output(cfg, output);
       }
 
-      while (!is_stdout_pipe_closed()) {
+      while (true) {
         output.clear();
-        for (size_t i = 0; i < 256 && !is_stdout_pipe_closed(); ++i) {
+        for (size_t i = 0; i < 256; ++i) {
           append_output_record(output, rng.choose_from_slice(lines),
                                cfg.zero_terminated);
         }
-        if (emit_output(cfg, output) != 0) return 1;
+        int emit_result = emit_output(cfg, output);
+        if (emit_result != 0) {
+          if (!cfg.output_file.empty()) return 1;
+          break;
+        }
+        if (is_stdout_pipe_closed()) break;
       }
       return 0;
     }
@@ -762,12 +799,17 @@ auto run(const Config& cfg) -> int {
       return emit_output(cfg, output);
     }
 
-    while (!is_stdout_pipe_closed()) {
+    while (true) {
       output.clear();
-      for (size_t i = 0; i < 256 && !is_stdout_pipe_closed(); ++i) {
+      for (size_t i = 0; i < 256; ++i) {
         append_output_record(output, lines[dist(g)], cfg.zero_terminated);
       }
-      if (emit_output(cfg, output) != 0) return 1;
+      int emit_result = emit_output(cfg, output);
+      if (emit_result != 0) {
+        if (!cfg.output_file.empty()) return 1;
+        break;
+      }
+      if (is_stdout_pipe_closed()) break;
     }
     return 0;
   }

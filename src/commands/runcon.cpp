@@ -73,7 +73,7 @@ auto run(const Config& cfg) -> int {
   (void)cfg;
   safeErrorPrintLn(winux::i18n::translate(
       "command.runcon.error.unsupported",
-      "runcon: SELinux process contexts are not supported on Windows"));
+      "runcon: failed to get current context: SELinux is not supported on Windows"));
   return 1;
 }
 

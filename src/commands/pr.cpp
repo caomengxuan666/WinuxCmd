@@ -270,6 +270,9 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     } catch (...) {
       return std::unexpected("invalid column count");
     }
+    if (cfg.columns < 1) {
+      return std::unexpected("column count must be at least 1");
+    }
   }
 
   // New options

@@ -108,12 +108,16 @@ auto input_open_error(std::string_view path) -> std::string {
 auto build_config(const CommandContext<SHA224SUM_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
+  cfg.text_mode = ctx.get<bool>("--text", false) || ctx.get<bool>("-t", false);
+#ifdef _WIN32
+  cfg.binary_mode = !cfg.text_mode;  // Binary mode is default on Windows
+#else
   cfg.binary_mode =
       ctx.get<bool>("--binary", false) || ctx.get<bool>("-b", false);
+#endif
   auto check_opt = ctx.get<std::string>("--check", "");
   cfg.check_mode =
       !check_opt.empty() || !ctx.get<std::string>("-c", "").empty();
-  cfg.text_mode = ctx.get<bool>("--text", false) || ctx.get<bool>("-t", false);
   cfg.quiet = ctx.get<bool>("--quiet", false) || ctx.get<bool>("-q", false);
   cfg.status = ctx.get<bool>("--status", false) || ctx.get<bool>("-s", false);
   cfg.warn = ctx.get<bool>("--warn", false) || ctx.get<bool>("-w", false);

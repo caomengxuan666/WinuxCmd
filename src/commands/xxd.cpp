@@ -195,7 +195,8 @@ void print_plain_xxd(const std::vector<unsigned char>& data, size_t columns,
 }
 
 void print_default_xxd(const std::vector<unsigned char>& data, size_t columns,
-                       bool upper_case, size_t display_offset, size_t group_width) {
+                       bool upper_case, size_t display_offset,
+                       size_t group_width) {
   for (size_t offset = 0; offset < data.size(); offset += columns) {
     size_t count = std::min(columns, data.size() - offset);
     safePrint(offset_hex(display_offset + offset, upper_case));
@@ -418,7 +419,8 @@ REGISTER_COMMAND(xxd,
   } else if (cfg.plain) {
     print_plain_xxd(*input, cfg.columns, cfg.upper_case);
   } else {
-    print_default_xxd(*input, cfg.columns, cfg.upper_case, cfg.display_offset, cfg.group_width);
+    print_default_xxd(*input, cfg.columns, cfg.upper_case, cfg.display_offset,
+                      cfg.group_width);
   }
   return 0;
 }

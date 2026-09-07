@@ -101,8 +101,13 @@ struct CheckLine {
 auto build_config(const CommandContext<B2SUM_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
+  cfg.text_mode = ctx.get<bool>("--text", false) || ctx.get<bool>("-t", false);
+#ifdef _WIN32
+  cfg.binary_mode = !cfg.text_mode;  // Binary mode is default on Windows
+#else
   cfg.binary_mode =
       ctx.get<bool>("--binary", false) || ctx.get<bool>("-b", false);
+#endif
 
   auto length_opt = ctx.get<std::string>("--length", "");
   if (length_opt.empty()) {
@@ -132,7 +137,6 @@ auto build_config(const CommandContext<B2SUM_OPTIONS.size()>& ctx)
     cfg.check_file = check_opt;
   }
 
-  cfg.text_mode = ctx.get<bool>("--text", false) || ctx.get<bool>("-t", false);
   cfg.quiet = ctx.get<bool>("--quiet", false) || ctx.get<bool>("-q", false);
   cfg.status = ctx.get<bool>("--status", false) || ctx.get<bool>("-s", false);
   cfg.warn = ctx.get<bool>("--warn", false) || ctx.get<bool>("-w", false);

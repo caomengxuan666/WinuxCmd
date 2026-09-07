@@ -2149,6 +2149,7 @@ auto get_file_index_string(const std::wstring &path,
                            static_cast<ULONGLONG>(info.nFileIndexLow);
     result = std::to_string(file_index);
   }
+  CloseHandle(handle);
   return result;
 }
 
@@ -2594,8 +2595,14 @@ auto list_directory(const std::string &path,
   HANDLE hFind = FindFirstFileW(search_path.c_str(), &find_data);
 
   if (hFind == INVALID_HANDLE_VALUE) {
-    return std::unexpected("cannot access '" + path +
-                           "': No such file or directory");
+    DWORD error_code = GetLastError();
+    std::string error_msg;
+    if (error_code == ERROR_ACCESS_DENIED) {
+      error_msg = "Permission denied";
+    } else {
+      error_msg = "No such file or directory";
+    }
+    return std::unexpected("cannot access '" + path + "': " + error_msg);
   }
 
   std::vector<EntryInfo> entries;
@@ -2683,14 +2690,16 @@ auto list_directory(const std::string &path,
         break;
     }
 
+    // Apply --reverse first, then --group-directories-first to match GNU ls behavior
+    // GNU ls reverses the sort order, then partitions directories before files
+    // while preserving the reversed order within each group.
     if (ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false)) {
       std::reverse(entries.begin(), entries.end());
     }
-  }
 
-  if (sort_mode != SortMode::None &&
-      ctx.get<bool>("--group-directories-first", false)) {
-    std::stable_partition(entries.begin(), entries.end(), is_directory_entry);
+    if (ctx.get<bool>("--group-directories-first", false)) {
+      std::stable_partition(entries.begin(), entries.end(), is_directory_entry);
+    }
   }
 
   bool long_format = format_mode == FormatMode::Long;
@@ -3074,16 +3083,23 @@ auto list_file(const std::string &path,
 }
 
 /**
- * @brief List directory recursively
+ * @brief List directory recursively with symlink loop detection
  * @param path Path to directory
  * @param ctx Command context
- * @param depth Current recursion depth
+ * @param print_current_header Whether to print directory header
+ * @param visited Set of already-visited directory paths (for loop detection)
  * @return Result with success status
  */
 auto list_directory_recursive(const std::string &path,
                               const CommandContext<LS_OPTIONS.size()> &ctx,
-                              bool print_current_header = true)
+                              bool print_current_header,
+                              std::set<std::string> &visited)
     -> cp::Result<bool> {
+  // Check for symlink loops
+  if (visited.count(path) > 0) {
+    return true;  // Already visited - skip to prevent infinite recursion
+  }
+  visited.insert(path);
   // GNU ls prints a directory header for every directory in recursive mode,
   // including a single command-line directory operand.
   if (print_current_header) {
@@ -3136,7 +3152,13 @@ auto list_directory_recursive(const std::string &path,
     }
 
     std::wstring full_path = wpath + L"\\" + filename;
-    subdirs.push_back(make_generic_display_path(wstring_to_utf8(full_path)));
+    std::string subdir_path =
+        make_generic_display_path(wstring_to_utf8(full_path));
+    // Skip if already visited (symlink loop detection)
+    if (visited.count(subdir_path) > 0) {
+      continue;
+    }
+    subdirs.push_back(subdir_path);
   } while (FindNextFileW(hFind, &find_data) != 0);
 
   FindClose(hFind);
@@ -3145,7 +3167,7 @@ auto list_directory_recursive(const std::string &path,
   // section with a blank line before the next header.
   for (const auto &subdir : subdirs) {
     safePrintLn(L"");
-    auto subdir_result = list_directory_recursive(subdir, ctx, true);
+    auto subdir_result = list_directory_recursive(subdir, ctx, true, visited);
     if (!subdir_result) {
       return subdir_result;
     }
@@ -3289,7 +3311,8 @@ auto process_paths(const std::vector<std::string> &paths,
       }
 
       if (recursive_requested(ctx)) {
-        auto result = list_directory_recursive(path, ctx, true);
+        std::set<std::string> visited;
+        auto result = list_directory_recursive(path, ctx, true, visited);
         if (!result) {
           print_ls_error(std::string(result.error()));
           success = false;

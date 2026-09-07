@@ -674,8 +674,31 @@ REGISTER_COMMAND(
       return 1;
     }
 
-    SYSTEMTIME utc{};
-    if (!FileTimeToSystemTime(&*parsed, &utc) || !SetSystemTime(&utc)) {
+    // Convert FILETIME (UTC) to SYSTEMTIME (UTC), then to local time
+    // because SetSystemTime expects local time
+    SYSTEMTIME utc_st{};
+    if (!FileTimeToSystemTime(&*parsed, &utc_st)) {
+      safeErrorPrintLn("date: cannot convert date");
+      return 1;
+    }
+    // Convert UTC SYSTEMTIME to FILETIME, then to local FILETIME, then to
+    // SYSTEMTIME
+    FILETIME utc_ft{};
+    if (!SystemTimeToFileTime(&utc_st, &utc_ft)) {
+      safeErrorPrintLn("date: cannot convert time");
+      return 1;
+    }
+    FILETIME local_ft{};
+    if (!FileTimeToLocalFileTime(&utc_ft, &local_ft)) {
+      safeErrorPrintLn("date: cannot convert to local time");
+      return 1;
+    }
+    SYSTEMTIME local_st2{};
+    if (!FileTimeToSystemTime(&local_ft, &local_st2)) {
+      safeErrorPrintLn("date: cannot convert time");
+      return 1;
+    }
+    if (!SetSystemTime(&local_st2)) {
       safeErrorPrintLn(
           "date: cannot set system time (administrator privileges required)");
       return 1;

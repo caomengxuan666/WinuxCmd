@@ -208,6 +208,25 @@ auto progressive_directory_paths(std::string_view path)
       current += path[i];
       ++i;
     }
+  } else if (path.size() >= 2 && is_separator(path[0]) &&
+             is_separator(path[1])) {
+    // UNC path (\\server\share)
+    current = std::string(path.substr(0, 2));
+    i = 2;
+    // Include the server name and share name as part of the base path
+    while (i < path.size() && !is_separator(path[i])) {
+      current += path[i];
+      ++i;
+    }
+    if (i < path.size() && is_separator(path[i])) {
+      current += path[i];
+      ++i;
+    }
+    // Include the share name
+    while (i < path.size() && !is_separator(path[i])) {
+      current += path[i];
+      ++i;
+    }
   } else if (is_separator(path[0])) {
     current = std::string(1, path[0]);
     while (i < path.size() && is_separator(path[i])) ++i;

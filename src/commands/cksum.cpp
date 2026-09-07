@@ -375,16 +375,24 @@ auto output_digest(const Config& cfg, const std::string& digest_hex,
     return;
   }
 
-  // GNU 9.4 cksum --tag is a no-op for CRC (it aliases the default form):
-  //   "--tag create a BSD-style checksum (the default for compatibility)"
-  // So keep CRC output in traditional untagged form: "<checksum> <bytes> [<file>]".
   if (algo == Algorithm::CRC) {
-    safePrint(std::to_string(checksum_or_crc));
-    safePrint(" ");
-    safePrint(std::to_string(byte_count));
-    if (filename != "-") {
+    if (cfg.tag_mode) {
+      safePrint("CRC32");
+      if (filename != "-") {
+        safePrint(" (");
+        safePrint(filename);
+        safePrint(")");
+      }
+      safePrint(" = ");
+      safePrint(digest_hex);
+    } else {
+      safePrint(std::to_string(checksum_or_crc));
       safePrint(" ");
-      safePrint(filename);
+      safePrint(std::to_string(byte_count));
+      if (filename != "-") {
+        safePrint(" ");
+        safePrint(filename);
+      }
     }
   } else if (algo == Algorithm::SYSV) {
     if (cfg.tag_mode) {

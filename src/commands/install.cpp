@@ -488,9 +488,9 @@ auto run(const Config& cfg) -> int {
 
       std::error_code ec;
       if (!std::filesystem::create_directories(dir, ec) && ec) {
-        safePrint("install: cannot create directory '");
-        safePrint(dir);
-        safePrintLn("'");
+        safeErrorPrint("install: cannot create directory '");
+        safeErrorPrint(dir);
+        safeErrorPrintLn("'");
         return 1;
       }
     }
@@ -506,7 +506,7 @@ auto run(const Config& cfg) -> int {
   sources.pop_back();
 
   if (cfg.no_target_directory && sources.size() > 1) {
-    safePrintLn("install: too many sources for -T/--no-target-directory");
+    safeErrorPrintLn("install: too many sources for -T/--no-target-directory");
     return 1;
   }
 
@@ -524,12 +524,12 @@ auto run(const Config& cfg) -> int {
     }
 
     if (!target_is_dir) {
-      safePrintLn("install: target is not a directory");
+      safeErrorPrintLn("install: target is not a directory");
       return 1;
     }
   }
   if (!target_is_dir && sources.size() > 1) {
-    safePrintLn("install: target is not a directory");
+    safeErrorPrintLn("install: target is not a directory");
     return 1;
   }
 
@@ -554,9 +554,9 @@ auto run(const Config& cfg) -> int {
     if (cfg.compare && std::filesystem::exists(dest) &&
         files_match(source, dest) && dest_mode_matches) {
       if (cfg.verbose) {
-        safePrint("install: skipping identical destination '");
-        safePrint(dest);
-        safePrintLn("'");
+        safeErrorPrint("install: skipping identical destination '");
+        safeErrorPrint(dest);
+        safeErrorPrintLn("'");
       }
       continue;
     }
@@ -592,27 +592,27 @@ auto run(const Config& cfg) -> int {
     }
 
     if (!CopyFileA(source.c_str(), dest.c_str(), FALSE)) {
-      safePrint("install: cannot copy '");
-      safePrint(source);
-      safePrint("' to '");
-      safePrint(dest);
-      safePrintLn("'");
+      safeErrorPrint("install: cannot copy '");
+      safeErrorPrint(source);
+      safeErrorPrint("' to '");
+      safeErrorPrint(dest);
+      safeErrorPrintLn("'");
       return 1;
     }
 
     if (cfg.preserve_timestamps && !preserve_timestamps(source, dest)) {
-      safePrint("install: cannot preserve timestamps for '");
-      safePrint(dest);
-      safePrintLn("'");
+      safeErrorPrint("install: cannot preserve timestamps for '");
+      safeErrorPrint(dest);
+      safeErrorPrintLn("'");
       return 1;
     }
 
     // GNU install always applies the final mode after copying.  Windows has no
     // group/other mode bits, so map the final owner-write bit to ReadOnly.
     if (!apply_mode_state(dest, desired_mode)) {
-      safePrint("install: cannot change permissions of '");
-      safePrint(dest);
-      safePrintLn("'");
+      safeErrorPrint("install: cannot change permissions of '");
+      safeErrorPrint(dest);
+      safeErrorPrintLn("'");
       return 1;
     }
     if (cfg.verbose && !cfg.mode.empty()) {
