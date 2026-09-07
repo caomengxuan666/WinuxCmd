@@ -55,6 +55,8 @@
 | Command | Audit Bugs | Fixed? | Tests Passing? |
 |---------|------------|--------|----------------|
 | expr.cpp | 1 CRITICAL (is_null treats "0" as null) | ✅ | 11/11 ✅ |
+| mv.cpp | 4 HIGH (overflow in build_dest_path) | ✅ | ✅ |
+| dd.cpp | 5 HIGH (conv=sync padding, iflag/oflag positional) | ✅ | ✅ |
 | ls.cpp | 13 bugs (2 CRITICAL, 5 HIGH) | Partial | --group-directories-first fixed |
 | stty.cpp | 10 bugs (2 CRITICAL) | Partial | Some fixes applied |
 
@@ -69,6 +71,8 @@
 | chroot.cpp, chcon.cpp, runcon.cpp | Error messages |
 | CMakeLists.txt | Build infrastructure |
 | wpm.cpp | Alias creation |
+| dd.cpp | conv=sync padding to cbs, iflag/oflag positional parser, status error message |
+| mv.cpp | build_dest_path overflow fix |
 
 ## Completed Fixes
 

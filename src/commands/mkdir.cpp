@@ -227,6 +227,8 @@ auto progressive_directory_paths(std::string_view path)
       current += path[i];
       ++i;
     }
+    // [GNU] For UNC paths, the share itself is the base directory
+    paths.push_back(current);
   } else if (is_separator(path[0])) {
     current = std::string(1, path[0]);
     while (i < path.size() && is_separator(path[i])) ++i;
