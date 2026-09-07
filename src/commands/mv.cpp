@@ -565,12 +565,21 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
         }
 
         // -I / --interactive=once: prompt once before removing more than three
-        // files
-        if (*overwrite_mode == OverwriteMode::interactive_once &&
-            move_ctx.source_paths.size() > 3) {
+        // files, or when moving recursively
+        bool recursive = ctx.get<bool>("-r", false) ||
+                         ctx.get<bool>("--recursive", false);
+        bool need_prompt = (*overwrite_mode == OverwriteMode::interactive_once &&
+                            (move_ctx.source_paths.size() > 3 || recursive));
+        if (need_prompt) {
           safeErrorPrint("mv: remove ");
-          safeErrorPrint(std::to_string(move_ctx.source_paths.size()));
-          safeErrorPrint(" arguments? (y/n) ");
+          if (recursive) {
+            safeErrorPrint("directory ");
+            safeErrorPrint(move_ctx.source_paths[0]);
+          } else {
+            safeErrorPrint(std::to_string(move_ctx.source_paths.size()));
+            safeErrorPrint(" arguments");
+          }
+          safeErrorPrint("? (y/n) ");
           char response = '\0';
           std::cin >> response;
           if (response != 'y' && response != 'Y') {
