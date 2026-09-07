@@ -150,10 +150,10 @@ git add -A && git commit -m "fix(command): description"
 | Phase | Bugs | Fixed | Remaining |
 |-------|------|-------|-----------|
 | CRITICAL | 5 | 3 | 2 (date --set, stty negative - may be outdated) |
-| HIGH | 25 | 10 | 15 |
+| HIGH | 25 | 11 | 14 |
 | MEDIUM | 37 | 0 | 37 |
 | LOW | 28 | 0 | 28 |
-| **Total** | **95** | **13** | **82** |
+| **Total** | **95** | **14** | **81** |
 
 ## Fixed Bugs (This Session)
 1. ✅ ls.cpp - Empty directory error
@@ -161,14 +161,15 @@ git add -A && git commit -m "fix(command): description"
 3. ✅ stty.cpp - -F/--file device ignored (open device handle)
 4. ✅ mv.cpp - -I never prompts on recursive
 5. ✅ mv.cpp - Cross-device preserves symlinks (CreateSymbolicLinkW)
-6. ✅ ls.cpp - --sort=type support (previous)
-7. ✅ date.cpp - month/year/fortnight units (previous)
-8. ✅ mkdir.cpp - UNC path handling (previous)
-9. ✅ dd.cpp - conv=sync padding + iflag/oflag (previous)
-10. ✅ mv.cpp - build_dest_path overflow (previous)
-11. ✅ stty.cpp - echoe display (previous)
-12. ✅ ls.cpp - --group-directories-first (previous)
-13. ✅ expr.cpp - is_null treats 0 as null (previous)
+6. ✅ date.cpp - Natural language dates (now, today, tomorrow, yesterday, next/last day/week/month/year)
+7. ✅ ls.cpp - --sort=type support (previous)
+8. ✅ date.cpp - month/year/fortnight units (previous)
+9. ✅ mkdir.cpp - UNC path handling (previous)
+10. ✅ dd.cpp - conv=sync padding + iflag/oflag (previous)
+11. ✅ mv.cpp - build_dest_path overflow (previous)
+12. ✅ stty.cpp - echoe display (previous)
+13. ✅ ls.cpp - --group-directories-first (previous)
+14. ✅ expr.cpp - is_null treats 0 as null (previous)
 
 ## Notes
 - Some audit items may be outdated (e.g., stty negative settings, comm unknown options)
