@@ -349,11 +349,8 @@ auto build_dest_path(const std::string& src_path, const std::string& dest_path,
     return dest_path + "\\" + std::string(file_name_buf);
   }
 
-  // Fallback to dynamic allocation if needed
-  std::string file_name_str(file_name_length, 0);
-  WideCharToMultiByte(CP_UTF8, 0, file_name, -1, &file_name_str[0],
-                      file_name_length, NULL, NULL);
-  return dest_path + "\\" + file_name_str;
+  // WideCharToMultiByte failed; fall back to raw wstring to avoid empty filename
+  return dest_path + "\\" + wstring_to_utf8(std::wstring(file_name));
 }
 
 auto confirm_overwrite(const std::string& dest_path) -> cp::Result<bool> {

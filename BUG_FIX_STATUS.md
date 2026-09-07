@@ -10,6 +10,7 @@
 - **UUTILS**: 11 files (1000+ issues, 10 pages)
 - **UUTILS_OPEN**: 8 files (8 pages, open issues)
 - **Microsoft**: 167 issues (2 pages)
+- **WinuxCmd**: 192 issues (100 + 92 from GitHub API, mostly PRs/releases)
 - **Summary**: 8 analysis reports
 
 ## Previous Audit (COMPREHENSIVE_BUG_REPORT.md)
