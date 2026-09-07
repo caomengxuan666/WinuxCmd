@@ -3115,11 +3115,12 @@ auto list_directory_recursive(const std::string &path,
                               bool print_current_header,
                               std::set<std::string> &visited)
     -> cp::Result<bool> {
-  // Check for symlink loops
-  if (visited.count(path) > 0) {
+  // Check for symlink loops - normalize path for consistent comparison
+  std::string normalized_path = make_generic_display_path(path);
+  if (visited.count(normalized_path) > 0) {
     return true;  // Already visited - skip to prevent infinite recursion
   }
-  visited.insert(path);
+  visited.insert(normalized_path);
   // GNU ls prints a directory header for every directory in recursive mode,
   // including a single command-line directory operand.
   if (print_current_header) {
