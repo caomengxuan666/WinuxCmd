@@ -60,7 +60,7 @@
 | ls.cpp | 13 bugs (2 CRITICAL, 5 HIGH) | Partial | --sort=type, --group-directories-first fixed |
 | mkdir.cpp | 1 HIGH (UNC path corruption) | ✅ | ✅ |
 | date.cpp | 4 HIGH (month/year/fortnight units) | ✅ | ✅ |
-| stty.cpp | 10 bugs (2 CRITICAL) | Partial | Some fixes applied |
+| stty.cpp | 10 bugs (2 CRITICAL) | Partial | echoe display fixed |
 
 ### Commands Fixed in Current Session (Not in Audit)
 | Command | Fixes Applied |
@@ -78,6 +78,7 @@
 | mkdir.cpp | UNC path handling in progressive_directory_paths |
 | date.cpp | month, year, fortnight units in relative time parsing |
 | ls.cpp | --sort=type support |
+| stty.cpp | echoe display fix |
 
 ## Completed Fixes
 
