@@ -185,11 +185,41 @@ git add -A && git commit -m "fix(command): description"
 - [ ] This plan file deleted after completion
 
 ## GitHub Issues Summary
+
+### unixwin/WinuxCmd
 - **Repository**: https://github.com/unixwin/WinuxCmd
 - **Total Issues/PRs**: 192
-- **Open Issues**: 0
+- **Open Issues**: 0 ✅
 - **Closed Issues**: 192
-- **Status**: All issues resolved ✅
+- **Status**: All issues resolved
+
+### uutils/coreutils (UUTILS)
+- **Repository**: https://github.com/uutils/coreutils
+- **Open Issues**: 800
+- **Data Location**: K:/coreutils-issues/uutils_open/
+- **Key Issues**:
+  - #14388: sort: propagate temporary file write errors
+  - #14157: cp: do not inherit source's mtime from clonefile on macOS
+  - #12715: fix(install): zero umask at startup
+  - #14377: sort aborts on temp-file write failure
+  - #14376: comm: share standard input between both operands
+  - #14368: stty: add omitted path in permission denied error
+  - #14372: tail: don't panic on '-c -N' with huge N
+  - #14378: unexpand: overflow on over-large --tabs value
+
+### GNU coreutils
+- **Repository**: https://www.gnu.org/software/coreutils/
+- **Data Location**: K:/coreutils-issues/gnu/
+- **Recent Bug Fixes** (from NEWS):
+  - chcon/chgrp/chmod/chown/du/ls: no longer fail on parallel file removal
+  - comm - -: no longer closes stdin twice
+  - cp/install/mv: fall back to standard copy on clonefile EDQUOT/ENOMEM/ENOSPC
+  - cut -d: correctly match last delimiter with multiple multi-byte options
+  - date -d: no longer propagates flags like _ and - to year component
+  - du --max-depth=N: exits nonzero if N is negative
+  - factor: avoids buffer over-read (CWE-126)
+  - head/tail: quote names in file headers when needed
+  - mv: warns when copying xattrs fails with ENOTSUP
 
 ## I18N Update Summary
 - **dd.cpp**: 7 error messages with I18N keys
