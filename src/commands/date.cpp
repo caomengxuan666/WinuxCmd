@@ -607,8 +607,61 @@ auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
       seconds = 31557600;  // Average year length (365.25 days)
     return relative(amount, seconds);
   }
+  // [GNU] Natural language date support
+  if (lower == "now" || lower == "today") return now;
   if (lower == "tomorrow") return relative(1, 86400);
   if (lower == "yesterday") return relative(-1, 86400);
+  
+  // "next monday", "next week", etc.
+  std::smatch next_match;
+  const std::regex next_re(R"(^next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|year)$)");
+  if (std::regex_match(lower, next_match, next_re)) {
+    std::string unit = next_match[1].str();
+    if (unit == "week") return relative(1, 604800);
+    if (unit == "month") return relative(1, 2629746);
+    if (unit == "year") return relative(1, 31557600);
+    // For days of the week, calculate next occurrence
+    SYSTEMTIME st{};
+    FileTimeToSystemTime(&now, &st);
+    int current_dow = st.wDayOfWeek;  // 0=Sunday, 1=Monday, ...
+    int target_dow = 0;
+    if (unit == "monday") target_dow = 1;
+    else if (unit == "tuesday") target_dow = 2;
+    else if (unit == "wednesday") target_dow = 3;
+    else if (unit == "thursday") target_dow = 4;
+    else if (unit == "friday") target_dow = 5;
+    else if (unit == "saturday") target_dow = 6;
+    else if (unit == "sunday") target_dow = 0;
+    int days_ahead = (target_dow - current_dow + 7) % 7;
+    if (days_ahead == 0) days_ahead = 7;
+    return relative(days_ahead, 86400);
+  }
+  
+  // "last monday", "last week", etc.
+  std::smatch last_match;
+  const std::regex last_re(R"(^last\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|year)$)");
+  if (std::regex_match(lower, last_match, last_re)) {
+    std::string unit = last_match[1].str();
+    if (unit == "week") return relative(-1, 604800);
+    if (unit == "month") return relative(-1, 2629746);
+    if (unit == "year") return relative(-1, 31557600);
+    // For days of the week, calculate last occurrence
+    SYSTEMTIME st{};
+    FileTimeToSystemTime(&now, &st);
+    int current_dow = st.wDayOfWeek;
+    int target_dow = 0;
+    if (unit == "monday") target_dow = 1;
+    else if (unit == "tuesday") target_dow = 2;
+    else if (unit == "wednesday") target_dow = 3;
+    else if (unit == "thursday") target_dow = 4;
+    else if (unit == "friday") target_dow = 5;
+    else if (unit == "saturday") target_dow = 6;
+    else if (unit == "sunday") target_dow = 0;
+    int days_back = (current_dow - target_dow + 7) % 7;
+    if (days_back == 0) days_back = 7;
+    return relative(-days_back, 86400);
+  }
+  
   return parse_fixed_date_time(arg);
 }
 
