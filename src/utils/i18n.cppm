@@ -232,7 +232,7 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 32>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 34>
       quoted{
           {{"cannot open '", "common.error.cannot_open"},
            {"cannot access '", "common.error.cannot_access"},
@@ -255,6 +255,8 @@ export std::string translate_error(std::string_view error) {
            {"invalid number of bytes: '", "common.error.invalid_num_bytes"},
            {"invalid number of columns: '", "common.error.invalid_num_columns"},
            {"invalid number of lines: '", "common.error.invalid_num_lines"},
+           {"invalid number of chunks: '", "common.error.invalid_num_chunks"},
+           {"invalid chunk number: '", "common.error.invalid_chunk_number"},
            {"tab size contains invalid character(s): '",
             "common.error.tab_invalid_chars"},
            {"tab stop is too large '", "common.error.tab_too_large"},
@@ -284,7 +286,7 @@ export std::string translate_error(std::string_view error) {
       return ::winux::i18n::format(key, "error writing '{}'", value);
     if (key == "common.error.invalid_mode")
       return ::winux::i18n::format(key, "invalid mode: '{}'", value);
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 26>
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 28>
         fallbacks{
             {{"common.error.invalid_group", "invalid group: '{}'"},
              {"common.error.invalid_user", "invalid user: '{}'"},
@@ -308,6 +310,10 @@ export std::string translate_error(std::string_view error) {
               "invalid number of columns: '{}'"},
              {"common.error.invalid_num_lines",
               "invalid number of lines: '{}'"},
+             {"common.error.invalid_num_chunks",
+              "invalid number of chunks: '{}'"},
+             {"common.error.invalid_chunk_number",
+              "invalid chunk number: '{}'"},
              {"common.error.tab_invalid_chars",
               "tab size contains invalid character(s): '{}'"},
              {"common.error.tab_too_large", "tab stop is too large '{}'"},

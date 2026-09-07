@@ -193,6 +193,8 @@ MANUAL_MESSAGES = {
     "common.error.invalid_num_bytes": "invalid number of bytes: '{}'",
     "common.error.invalid_num_columns": "invalid number of columns: '{}'",
     "common.error.invalid_num_lines": "invalid number of lines: '{}'",
+    "common.error.invalid_num_chunks": "invalid number of chunks: '{}'",
+    "common.error.invalid_chunk_number": "invalid chunk number: '{}'",
     "common.error.numerical_range": "Numerical result out of range",
     "common.error.tab_invalid_chars": "tab size contains invalid character(s): '{}'",
     "common.error.tab_too_large": "tab stop is too large '{}'",

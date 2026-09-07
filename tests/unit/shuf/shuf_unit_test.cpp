@@ -387,6 +387,31 @@ TEST(shuf, shuf_input_range_error_message_matches_gnu) {
       o.stderr_text,
       "shuf: invalid input range: '99999999999999999999': Value too large "
       "for defined data type\n");
+
+  // GNU quotes the whole range argument, not just the offending half.
+  Pipeline missing_hi;
+  missing_hi.add(L"shuf.exe", {L"-i", L"1-"});
+  EXPECT_EQ_TEXT(missing_hi.run().stderr_text,
+                 "shuf: invalid input range: '1-'\n");
+
+  Pipeline hi_overflow;
+  hi_overflow.add(L"shuf.exe", {L"-i", L"99999999999999999999999-1"});
+  EXPECT_EQ_TEXT(
+      hi_overflow.run().stderr_text,
+      "shuf: invalid input range: '99999999999999999999999-1': Value too "
+      "large for defined data type\n");
+
+  Pipeline lo_overflow;
+  lo_overflow.add(L"shuf.exe", {L"-i", L"1-99999999999999999999999"});
+  EXPECT_EQ_TEXT(
+      lo_overflow.run().stderr_text,
+      "shuf: invalid input range: '1-99999999999999999999999': Value too "
+      "large for defined data type\n");
+
+  Pipeline double_dash;
+  double_dash.add(L"shuf.exe", {L"-i", L"1-2-3"});
+  EXPECT_EQ_TEXT(double_dash.run().stderr_text,
+                 "shuf: invalid input range: '1-2-3'\n");
 }
 
 TEST(shuf, shuf_head_count_error_message_and_overflow_clamp) {

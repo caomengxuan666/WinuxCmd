@@ -462,8 +462,8 @@ auto make_range_error(const std::string_view value, const bool overflow)
 }
 
 // Mirrors GNU shuf: the range splits on the first '-', both endpoints must
-// be non-negative decimals, and diagnostics quote the offending half (the
-// whole argument for the lo>hi case).
+// be non-negative decimals, and every diagnostic quotes the whole argument
+// (GNU shuf.c: error(..., "%s: %s", _("invalid input range"), quote(optarg))).
 auto split_range(std::string_view range)
     -> cp::Result<std::pair<int64_t, int64_t>> {
   const auto dash_pos = range.find('-');
@@ -479,12 +479,12 @@ auto split_range(std::string_view range)
 
   const auto lo = parse_unsigned_number(lo_text);
   if (!lo.ok) {
-    return std::unexpected(make_range_error(lo_text, lo.overflow));
+    return std::unexpected(make_range_error(range, lo.overflow));
   }
 
   const auto hi = parse_unsigned_number(hi_text);
   if (!hi.ok) {
-    return std::unexpected(make_range_error(hi_text, hi.overflow));
+    return std::unexpected(make_range_error(range, hi.overflow));
   }
 
   if (lo.value > hi.value) {
