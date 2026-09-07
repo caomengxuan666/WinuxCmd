@@ -149,11 +149,31 @@ git add -A && git commit -m "fix(command): description"
 
 | Phase | Bugs | Fixed | Remaining |
 |-------|------|-------|-----------|
-| CRITICAL | 5 | 1 | 4 |
-| HIGH | 25 | 8 | 17 |
+| CRITICAL | 5 | 3 | 2 (date --set, stty negative - may be outdated) |
+| HIGH | 25 | 9 | 16 |
 | MEDIUM | 37 | 0 | 37 |
 | LOW | 28 | 0 | 28 |
-| **Total** | **95** | **9** | **86** |
+| **Total** | **95** | **12** | **83** |
+
+## Fixed Bugs (This Session)
+1. ✅ ls.cpp - Empty directory error
+2. ✅ ls.cpp - Symlink loop detection (normalize path)
+3. ✅ stty.cpp - -F/--file device ignored (open device handle)
+4. ✅ mv.cpp - -I never prompts on recursive
+5. ✅ ls.cpp - --sort=type support (previous)
+6. ✅ date.cpp - month/year/fortnight units (previous)
+7. ✅ mkdir.cpp - UNC path handling (previous)
+8. ✅ dd.cpp - conv=sync padding + iflag/oflag (previous)
+9. ✅ mv.cpp - build_dest_path overflow (previous)
+10. ✅ stty.cpp - echoe display (previous)
+11. ✅ ls.cpp - --group-directories-first (previous)
+12. ✅ expr.cpp - is_null treats 0 as null (previous)
+
+## Notes
+- Some audit items may be outdated (e.g., stty negative settings, comm unknown options)
+- Cross-device reparse point handling requires Windows symlink API (complex)
+- I18N updates for dd.cpp pending
+- ISSUE data fetching pending
 
 ## Completion Criteria
 - [ ] All CRITICAL bugs fixed
