@@ -417,15 +417,32 @@ auto run(const Config& cfg) -> int {
     return 1;
   }
 
+  HANDLE hCon;
+  bool close_handle = false;
+
   if (!cfg.device.empty()) {
     std::error_code ec;
     if (!std::filesystem::exists(cfg.device, ec)) {
       return report_missing_device(cfg.device);
     }
+    std::wstring wdevice = utf8_to_wstring(cfg.device);
+    hCon = CreateFileW(wdevice.c_str(), GENERIC_READ | GENERIC_WRITE,
+                       FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                       OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hCon == INVALID_HANDLE_VALUE) {
+      safeErrorPrint("stty: ");
+      safeErrorPrint(cfg.device);
+      safeErrorPrintLn(": ");
+      safeErrorPrintLn(win32_posix_error_text(GetLastError()));
+      return 1;
+    }
+    close_handle = true;
+  } else {
+    hCon = GetStdHandle(STD_INPUT_HANDLE);
   }
 
-  HANDLE hCon = GetStdHandle(STD_INPUT_HANDLE);
   if (!stdin_is_console(hCon)) {
+    if (close_handle) CloseHandle(hCon);
     return report_inappropriate_ioctl(cfg);
   }
 
@@ -447,15 +464,19 @@ auto run(const Config& cfg) -> int {
         ok = false;
       }
     }
-    return ok ? 0 : 1;
+    int result = ok ? 0 : 1;
+    if (close_handle) CloseHandle(hCon);
+    return result;
   }
 
   if (cfg.save) {
     print_machine_readable(hCon);
+    if (close_handle) CloseHandle(hCon);
     return 0;
   }
 
   print_console_settings(hCon);
+  if (close_handle) CloseHandle(hCon);
   return 0;
 }
 
