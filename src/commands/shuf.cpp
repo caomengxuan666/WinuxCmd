@@ -419,78 +419,77 @@ class CompatRandomSource {
   uint64_t entropy_ = 0;
 };
 
-auto parse_unsigned_decimal(std::string_view text, std::string_view diagnostic)
-    -> cp::Result<uint64_t> {
-  if (text.empty()) {
-    return std::unexpected<cp::Error>(std::string(diagnostic));
+// A non-negative decimal parsed the way GNU's xdectoumax does.
+struct UnsignedNumber {
+  uint64_t value = 0;
+  bool ok = false;
+  bool overflow = false;
+};
+
+auto parse_unsigned_number(std::string_view text) -> UnsignedNumber {
+  // GNU xstrtoumax accepts a single leading '+' sign.
+  if (!text.empty() && text[0] == '+') {
+    text.remove_prefix(1);
   }
-  for (char ch : text) {
+  if (text.empty()) {
+    return {};
+  }
+  for (const char ch : text) {
     if (!std::isdigit(static_cast<unsigned char>(ch))) {
-      return std::unexpected<cp::Error>(std::string(diagnostic));
+      return {};
     }
   }
 
   uint64_t value = 0;
   auto [ptr, ec] =
       std::from_chars(text.data(), text.data() + text.size(), value);
-  if (ec != std::errc() || ptr != text.data() + text.size()) {
-    return std::unexpected<cp::Error>(std::string(diagnostic));
+  if (ec == std::errc::result_out_of_range) {
+    return {.value = 0, .ok = false, .overflow = true};
   }
-  return value;
+  if (ec != std::errc() || ptr != text.data() + text.size()) {
+    return {};
+  }
+  return {.value = value, .ok = true, .overflow = false};
 }
 
-auto parse_signed_decimal(std::string_view text, std::string_view diagnostic)
-    -> cp::Result<int64_t> {
-  if (text.empty()) {
-    return std::unexpected<cp::Error>(std::string(diagnostic));
+auto make_range_error(const std::string_view value, const bool overflow)
+    -> cp::Error {
+  auto message = "invalid input range: '" + std::string(value) + "'";
+  if (overflow) {
+    message += ": Value too large for defined data type";
   }
-
-  // Validate format: optional leading '-', then digits only.
-  size_t start = 0;
-  if (text[0] == '-') {
-    start = 1;
-    if (text.size() == 1) {
-      return std::unexpected<cp::Error>(std::string(diagnostic));
-    }
-  }
-  for (size_t i = start; i < text.size(); ++i) {
-    if (!std::isdigit(static_cast<unsigned char>(text[i]))) {
-      return std::unexpected<cp::Error>(std::string(diagnostic));
-    }
-  }
-
-  // Use int64_t directly so INT64_MIN parses correctly.
-  int64_t value = 0;
-  auto [ptr, ec] =
-      std::from_chars(text.data(), text.data() + text.size(), value);
-  if (ec != std::errc() || ptr != text.data() + text.size()) {
-    return std::unexpected<cp::Error>(std::string(diagnostic));
-  }
-  return value;
+  return cp::Error(std::move(message));
 }
 
+// Mirrors GNU shuf: the range splits on the first '-', both endpoints must
+// be non-negative decimals, and diagnostics quote the offending half (the
+// whole argument for the lo>hi case).
 auto split_range(std::string_view range)
     -> cp::Result<std::pair<int64_t, int64_t>> {
-  // Split on the last '-' so a leading sign is handled correctly.
-  const auto dash_pos = range.rfind('-');
-  if (dash_pos == std::string_view::npos || dash_pos == 0 ||
-      dash_pos == range.size() - 1) {
-    return std::unexpected("invalid input range");
+  const auto dash_pos = range.find('-');
+  if (dash_pos == std::string_view::npos) {
+    return std::unexpected(make_range_error(range, false));
   }
 
-  auto lo =
-      parse_signed_decimal(range.substr(0, dash_pos), "invalid input range");
-  if (!lo) return std::unexpected(lo.error());
+  const auto lo_text = range.substr(0, dash_pos);
+  const auto hi_text = range.substr(dash_pos + 1);
 
-  auto hi =
-      parse_signed_decimal(range.substr(dash_pos + 1), "invalid input range");
-  if (!hi) return std::unexpected(hi.error());
-
-  if (*lo > *hi) {
-    return std::unexpected("invalid input range");
+  const auto lo = parse_unsigned_number(lo_text);
+  if (!lo.ok) {
+    return std::unexpected(make_range_error(lo_text, lo.overflow));
   }
 
-  return std::pair<int64_t, int64_t>{*lo, *hi};
+  const auto hi = parse_unsigned_number(hi_text);
+  if (!hi.ok) {
+    return std::unexpected(make_range_error(hi_text, hi.overflow));
+  }
+
+  if (lo.value > hi.value) {
+    return std::unexpected(make_range_error(range, false));
+  }
+
+  return std::pair<int64_t, int64_t>{static_cast<int64_t>(lo.value),
+                                     static_cast<int64_t>(hi.value)};
 }
 
 void append_record(SmallVector<std::string, 1024>& records,
@@ -581,12 +580,15 @@ auto build_config(const CommandContext<SHUF_OPTIONS.size()>& ctx)
                            short_head_count_values.begin(),
                            short_head_count_values.end());
   for (const auto& count_opt : head_count_values) {
-    auto count = parse_unsigned_decimal(count_opt, "invalid line count");
-    if (!count) return std::unexpected(count.error());
-    if (*count > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
-      return std::unexpected("invalid line count");
+    const auto count = parse_unsigned_number(count_opt);
+    if (!count.ok && !count.overflow) {
+      return std::unexpected("invalid line count: '" + count_opt + "'");
     }
-    const size_t parsed = static_cast<size_t>(*count);
+    if (count.overflow) {
+      // GNU treats an overflowing head count as "no limit".
+      continue;
+    }
+    const size_t parsed = static_cast<size_t>(count.value);
     min_count = min_count ? std::min(*min_count, parsed) : parsed;
   }
   if (min_count.has_value()) {

@@ -367,3 +367,39 @@ TEST(shuf, shuf_directory_input_reports_is_a_directory) {
                   "shuf: cannot open 'indir' for reading: Is a directory") !=
               std::string::npos);
 }
+
+TEST(shuf, shuf_input_range_error_message_matches_gnu) {
+  Pipeline descending;
+  descending.add(L"shuf.exe", {L"-i", L"5-1"});
+  auto r = descending.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text, "shuf: invalid input range: '5-1'\n");
+
+  Pipeline bad;
+  bad.add(L"shuf.exe", {L"-i", L"abc"});
+  EXPECT_EQ_TEXT(bad.run().stderr_text, "shuf: invalid input range: 'abc'\n");
+
+  Pipeline overflow;
+  overflow.add(L"shuf.exe", {L"-i", L"99999999999999999999"});
+  auto o = overflow.run();
+  EXPECT_EQ(o.exit_code, 1);
+  EXPECT_EQ_TEXT(
+      o.stderr_text,
+      "shuf: invalid input range: '99999999999999999999': Value too large "
+      "for defined data type\n");
+}
+
+TEST(shuf, shuf_head_count_error_message_and_overflow_clamp) {
+  Pipeline bad;
+  bad.add(L"shuf.exe", {L"-n", L"x", L"-i", L"1-3"});
+  auto r = bad.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text, "shuf: invalid line count: 'x'\n");
+
+  // GNU treats an overflowing head count as "no limit".
+  Pipeline huge;
+  huge.add(L"shuf.exe", {L"-n", L"99999999999999999999", L"-i", L"1-3"});
+  auto h = huge.run();
+  EXPECT_EQ(h.exit_code, 0);
+  EXPECT_EQ(h.stdout_text.size(), 6);
+}

@@ -222,27 +222,57 @@ auto apply_suffix_multiplier(std::uintmax_t value, std::string_view suffix)
   return std::nullopt;
 }
 
-auto parse_numeric_with_suffix(std::string_view text)
-    -> std::optional<std::uintmax_t> {
-  if (text.empty()) return std::nullopt;
+// Distinguishes malformed input from an overflowing value so the GNU
+// EOVERFLOW diagnostic can be reproduced.
+struct NumericParse {
+  std::uintmax_t value = 0;
+  bool ok = false;
+  bool overflow = false;
+};
+
+auto parse_numeric_with_suffix_status(std::string_view text)
+    -> NumericParse {
+  if (text.empty()) return {};
 
   size_t i = 0;
   while (i < text.size() && std::isdigit(static_cast<unsigned char>(text[i]))) {
     ++i;
   }
-  if (i == 0) return std::nullopt;
+  if (i == 0) return {};
 
   std::uintmax_t base = 0;
   auto [ptr, ec] = std::from_chars(text.data(), text.data() + i, base);
-  if (ec != std::errc() || ptr != text.data() + i) return std::nullopt;
+  if (ec == std::errc::result_out_of_range) {
+    return {.value = 0, .ok = false, .overflow = true};
+  }
+  if (ec != std::errc() || ptr != text.data() + i) return {};
 
-  return apply_suffix_multiplier(base, text.substr(i));
+  auto scaled = apply_suffix_multiplier(base, text.substr(i));
+  if (!scaled.has_value()) {
+    return {.value = 0, .ok = false, .overflow = true};
+  }
+  return {.value = *scaled, .ok = true, .overflow = false};
 }
 
 auto parse_count_spec(std::string spec_text, std::string_view opt_name)
     -> cp::Result<CountSpec> {
+  // GNU strips a leading '-' before parsing but keeps '+' in the
+  // diagnostic string, and appends the EOVERFLOW message on overflow.
+  std::string_view quoted = spec_text;
+  if (!quoted.empty() && quoted[0] == '-') {
+    quoted.remove_prefix(1);
+  }
+  auto make_error = [&](const bool overflow) -> cp::Error {
+    auto message = "invalid number of " + std::string(opt_name) + ": '" +
+                   std::string(quoted) + "'";
+    if (overflow) {
+      message += ": Value too large for defined data type";
+    }
+    return cp::Error(std::move(message));
+  };
+
   if (spec_text.empty()) {
-    return std::unexpected("invalid number of " + std::string(opt_name));
+    return std::unexpected(make_error(false));
   }
 
   CountSpec spec;
@@ -254,15 +284,15 @@ auto parse_count_spec(std::string spec_text, std::string_view opt_name)
   }
 
   if (spec_text.empty()) {
-    return std::unexpected("invalid number of " + std::string(opt_name));
+    return std::unexpected(make_error(false));
   }
 
-  auto parsed = parse_numeric_with_suffix(spec_text);
-  if (!parsed.has_value()) {
-    return std::unexpected("invalid number of " + std::string(opt_name));
+  auto parsed = parse_numeric_with_suffix_status(spec_text);
+  if (!parsed.ok) {
+    return std::unexpected(make_error(parsed.overflow));
   }
 
-  spec.value = *parsed;
+  spec.value = parsed.value;
   return spec;
 }
 

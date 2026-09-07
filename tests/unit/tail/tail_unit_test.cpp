@@ -878,3 +878,25 @@ TEST(tail, tail_zero_terminated_multi_file_headers) {
   EXPECT_EQ(r.stdout_text,
             std::string("==> a.bin <==\0b\0\0==> b.bin <==\0d\0", 33));
 }
+
+TEST(tail, tail_invalid_count_message_matches_gnu) {
+  Pipeline lines;
+  lines.add(L"tail.exe", {L"-n", L"xx"});
+  auto r = lines.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text, "tail: invalid number of lines: 'xx'\n");
+
+  Pipeline bytes;
+  bytes.add(L"tail.exe", {L"-c", L"x"});
+  EXPECT_EQ_TEXT(bytes.run().stderr_text,
+                 "tail: invalid number of bytes: 'x'\n");
+
+  Pipeline overflow;
+  overflow.add(L"tail.exe", {L"-c", L"-99999999999999999999"});
+  auto o = overflow.run();
+  EXPECT_EQ(o.exit_code, 1);
+  EXPECT_EQ_TEXT(
+      o.stderr_text,
+      "tail: invalid number of bytes: '99999999999999999999': Value too "
+      "large for defined data type\n");
+}

@@ -186,3 +186,17 @@ TEST(unexpand, unexpand_no_utf8_preserves_utf8_bom_bytes) {
   EXPECT_EQ(ascii_result.exit_code, 0);
   EXPECT_EQ(ascii_result.stdout_text, std::string("\xEF\xBB\xBF\t   x\n", 9));
 }
+
+TEST(unexpand, unexpand_tab_stop_error_messages_match_gnu) {
+  Pipeline invalid;
+  invalid.add(L"unexpand.exe", {L"-t", L"x"});
+  auto r = invalid.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "unexpand: tab size contains invalid character(s): 'x'\n");
+
+  Pipeline ascending;
+  ascending.add(L"unexpand.exe", {L"-t", L"4,2"});
+  EXPECT_EQ_TEXT(ascending.run().stderr_text,
+                 "unexpand: tab sizes must be ascending\n");
+}

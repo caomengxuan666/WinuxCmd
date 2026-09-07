@@ -264,7 +264,8 @@ int evaluate_unary(const std::string& op, const std::string& arg) {
 }
 
 int evaluate_binary(const std::string& a, const std::string& op,
-                    const std::string& b) {
+                    const std::string& b,
+                    std::string* error_message = nullptr) {
   if (op == "=" || op == "==" || op == "!=" || op == "<" || op == "<=" ||
       op == ">" || op == ">=") {
     return compare_strings(op, a, b) ? 0 : 1;
@@ -274,7 +275,16 @@ int evaluate_binary(const std::string& a, const std::string& op,
       op == "-ge") {
     long long va = 0;
     long long vb = 0;
-    if (!string_to_int(a, va) || !string_to_int(b, vb)) {
+    if (!string_to_int(a, va)) {
+      if (error_message != nullptr) {
+        *error_message = "invalid integer '" + a + "'";
+      }
+      return 2;
+    }
+    if (!string_to_int(b, vb)) {
+      if (error_message != nullptr) {
+        *error_message = "invalid integer '" + b + "'";
+      }
       return 2;
     }
     return compare_integers(op, va, vb) ? 0 : 1;
@@ -323,13 +333,82 @@ class TestExpressionParser {
  public:
   explicit TestExpressionParser(std::span<const std::string> args)
       : args_(args) {}
+
+  // Mirrors GNU test: up to four arguments use the POSIX special-case
+  // forms; longer expressions go through the recursive grammar. Syntax
+  // errors record a GNU-style message and yield status 2.
   int parse() {
     if (args_.empty()) return 1;
-    int result = parse_or();
-    return error_ || pos_ != args_.size() ? 2 : result;
+    switch (args_.size()) {
+      case 1:
+        return one_arg(0);
+      case 2:
+        return two_args(0, 1);
+      case 3:
+        return three_args(0, 1, 2);
+      case 4:
+        return four_args(0, 1, 2, 3);
+      default:
+        break;
+    }
+    const int result = parse_or();
+    if (!error_ && pos_ != args_.size()) {
+      syntax_error("'" + std::string(args_[pos_]) +
+                   "': binary operator expected");
+      return 2;
+    }
+    return error_ ? 2 : result;
   }
 
+  const std::string& error_message() const { return error_message_; }
+
  private:
+  void syntax_error(std::string message) {
+    error_ = true;
+    error_message_ = std::move(message);
+  }
+
+  int one_arg(const size_t a) { return args_[a].empty() ? 1 : 0; }
+
+  int two_args(const size_t a, const size_t b) {
+    if (args_[a] == "!") return invert_test_status(one_arg(b));
+    if (args_[a] == "(" && args_[b] == ")") return 1;
+    if (is_unary_operator(std::string(args_[a]))) {
+      return evaluate_unary(std::string(args_[a]), std::string(args_[b]));
+    }
+    if (is_binary_operator(std::string(args_[a]))) {
+      syntax_error("'" + std::string(args_[a]) + "': unary operator expected");
+      return 2;
+    }
+    syntax_error("missing argument after '" + std::string(args_[b]) + "'");
+    return 2;
+  }
+
+  int three_args(const size_t a, const size_t b, const size_t c) {
+    if (is_binary_operator(std::string(args_[b]))) {
+      return evaluate_binary(std::string(args_[a]), std::string(args_[b]),
+                             std::string(args_[c]), &error_message_);
+    }
+    if (args_[a] == "!") return invert_test_status(two_args(b, c));
+    if (args_[a] == "(" && args_[c] == ")") return one_arg(b);
+    syntax_error("'" + std::string(args_[b]) + "': binary operator expected");
+    return 2;
+  }
+
+  int four_args(const size_t a, const size_t b, const size_t c,
+                const size_t d) {
+    if (args_[a] == "!") return invert_test_status(three_args(b, c, d));
+    if (args_[a] == "(" && args_[d] == ")") return two_args(b, c);
+    if (is_binary_operator(std::string(args_[b]))) {
+      evaluate_binary(std::string(args_[a]), std::string(args_[b]),
+                      std::string(args_[c]), &error_message_);
+      syntax_error("extra argument '" + std::string(args_[d]) + "'");
+      return 2;
+    }
+    syntax_error("'" + std::string(args_[b]) + "': binary operator expected");
+    return 2;
+  }
+
   int parse_or() {
     int result = parse_and();
     while (peek("-o") || peek("-or")) {
@@ -357,7 +436,8 @@ class TestExpressionParser {
       ++pos_;
       int result = parse_or();
       if (!peek(")")) {
-        error_ = true;
+        syntax_error("missing argument after '" +
+                     std::string(args_[pos_ - 1]) + "'");
         return 2;
       }
       ++pos_;
@@ -367,7 +447,9 @@ class TestExpressionParser {
   }
   int parse_primary() {
     if (pos_ >= args_.size()) {
-      error_ = true;
+      syntax_error(pos_ > 0 ? "missing argument after '" +
+                                  std::string(args_[pos_ - 1]) + "'"
+                            : std::string("missing operand"));
       return 2;
     }
     if (pos_ + 1 < args_.size() &&
@@ -380,7 +462,7 @@ class TestExpressionParser {
       auto left = std::string(args_[pos_++]);
       auto op = std::string(args_[pos_++]);
       auto right = std::string(args_[pos_++]);
-      return evaluate_binary(left, op, right);
+      return evaluate_binary(left, op, right, &error_message_);
     }
     return args_[pos_++].empty() ? 1 : 0;
   }
@@ -396,10 +478,17 @@ class TestExpressionParser {
   std::span<const std::string> args_;
   size_t pos_ = 0;
   bool error_ = false;
+  std::string error_message_;
 };
 
-int evaluate_test_expression(std::span<const std::string> args) {
-  return TestExpressionParser(args).parse();
+int evaluate_test_expression(std::span<const std::string> args,
+                             std::string* error_message = nullptr) {
+  TestExpressionParser parser(args);
+  const int status = parser.parse();
+  if (error_message != nullptr) {
+    *error_message = parser.error_message();
+  }
+  return status;
 }
 }  // namespace
 
@@ -426,5 +515,10 @@ REGISTER_COMMAND(
     /* copyright */ "Copyright © 2026 WinuxCmd",
     /* options */ TEST_OPTIONS) {
   auto args = materialize_test_args(ctx.raw_args);
-  return evaluate_test_expression(args);
+  std::string error_message;
+  const int status = evaluate_test_expression(args, &error_message);
+  if (!error_message.empty()) {
+    safeErrorPrintLn("test: " + winux::i18n::translate_error(error_message));
+  }
+  return status;
 }
