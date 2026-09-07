@@ -206,9 +206,39 @@ auto set_operand(Config& cfg, std::string_view name, std::string_view value)
     } else if (value == "noxfer") {
       cfg.status_noxfer = true;
     } else if (!value.empty() && value != "progress") {
-      safeErrorPrint("dd: unsupported status value '");
+      safeErrorPrint("dd: invalid status value '");
       safeErrorPrint(std::string(value));
       safeErrorPrint("'\n");
+      return false;
+    }
+  } else if (name == "iflag") {
+    std::stringstream ss{std::string(value)};
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+      if (token == "fullblock" || token == "direct" || token == "directory" ||
+          token == "dsync" || token == "sync" || token == "nonblock" ||
+          token == "noatime" || token == "nocache" || token == "noctty" ||
+          token == "nofollow" || token.empty()) {
+        continue;
+      }
+      safeErrorPrint("dd: unsupported iflag flag '");
+      safeErrorPrint(token);
+      safeErrorPrint("' [DIFFERS: not supported on Windows]\n");
+      return false;
+    }
+  } else if (name == "oflag") {
+    std::stringstream ss{std::string(value)};
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+      if (token == "append" || token == "direct" || token == "directory" ||
+          token == "dsync" || token == "sync" || token == "nonblock" ||
+          token == "noatime" || token == "nocache" || token == "noctty" ||
+          token == "nofollow" || token.empty()) {
+        continue;
+      }
+      safeErrorPrint("dd: unsupported oflag flag '");
+      safeErrorPrint(token);
+      safeErrorPrint("' [DIFFERS: not supported on Windows]\n");
       return false;
     }
   } else {
@@ -337,7 +367,7 @@ auto parse_config(const CommandContext<DD_OPTIONS.size()>& ctx, Config& cfg)
   } else if (status == "noxfer") {
     cfg.status_noxfer = true;
   } else if (!status.empty() && status != "progress") {
-    safeErrorPrint("dd: unsupported status value '");
+    safeErrorPrint("dd: invalid status value '");
     safeErrorPrint(status);
     safeErrorPrint("'\n");
     return false;
@@ -565,7 +595,14 @@ REGISTER_COMMAND(dd,
     output_buffer.insert(output_buffer.end(), input_buffer.begin(),
                          input_buffer.begin() + bytes_read);
     if (cfg.sync_blocks && bytes_read < request) {
-      output_buffer.insert(output_buffer.end(), request - bytes_read, '\0');
+      // [GNU] conv=sync pads to cbs (conversion block size), not ibs
+      std::uintmax_t pad_target =
+          cfg.cbs > 0 ? cfg.cbs : cfg.ibs;
+      if (bytes_read < pad_target) {
+        output_buffer.insert(output_buffer.end(),
+                             static_cast<size_t>(pad_target - bytes_read),
+                             '\0');
+      }
     }
     if (!flush_output_buffer(hOut, output_buffer, cfg.obs, stats, false)) {
       safeErrorPrintLn("dd: write error");
