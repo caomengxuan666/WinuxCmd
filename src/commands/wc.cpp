@@ -195,7 +195,7 @@ auto read_files0_from(const std::string& path) -> cp::Result<Files0ReadResult> {
     input = &std::cin;
     result.from_stdin = true;
   } else {
-    file.open(path, std::ios::binary);
+    file.open(native_path::normalize_api_operand(path), std::ios::binary);
     if (!file) {
       return std::unexpected(wc_input_open_error(path));
     }
@@ -453,7 +453,8 @@ auto count_file(const std::string& path, const CountRequest& request)
     return count_stdin(true, request);
   }
 
-  std::ifstream file(path, std::ios::binary);
+  std::ifstream file(native_path::normalize_api_operand(path),
+                     std::ios::binary);
   if (!file) {
     return std::unexpected(wc_input_open_error(path));
   }

@@ -135,7 +135,7 @@ TEST(base64, base64_wrap_width_and_wrap_zero) {
   auto unwrapped_result = unwrapped.run();
 
   EXPECT_EQ(unwrapped_result.exit_code, 0);
-  EXPECT_EQ_TEXT(unwrapped_result.stdout_text, "aGVsbG8gd29ybGQ=\n");
+  EXPECT_EQ_TEXT(unwrapped_result.stdout_text, "aGVsbG8gd29ybGQ=");
 }
 
 TEST(base64, base64_empty_input_produces_no_output) {
@@ -217,4 +217,46 @@ TEST(base64, base64_directory_input_reports_is_a_directory) {
   EXPECT_TRUE(r.stderr_text.find(
                   "base64: cannot open 'indir' for reading: Is a directory") !=
               std::string::npos);
+}
+
+// [GNU] any non-numeric or negative -w value dies with the raw token
+// quoted: "invalid wrap size: '<raw>'" (uutils #14084).
+TEST(base64, base64_wrap_rejects_negative_with_quoted_value) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"base64.exe", {L"-w", L"-5", L"input.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("base64: invalid wrap size: '-5'"),
+            std::string::npos);
+}
+
+TEST(base64, base64_wrap_rejects_non_numeric_with_quoted_value) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"base64.exe", {L"-w", L"-d", L"input.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("base64: invalid wrap size: '-d'"),
+            std::string::npos);
+}
+
+TEST(base64, base64_wrap_zero_disables_wrapping) {
+  TempDir tmp;
+  tmp.write("input.txt", "abc");
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"base64.exe", {L"-w", L"0", L"input.txt"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  // [GNU] -w 0 disables wrapping and emits no trailing newline.
+  EXPECT_EQ_TEXT(r.stdout_text, "YWJj");
 }

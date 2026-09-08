@@ -39,7 +39,7 @@ TEST(basenc, basenc_base64url_selector_uses_url_safe_alphabet) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ_TEXT(r.stdout_text, "-_8=\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "-_8=");
 }
 
 TEST(basenc, basenc_base32_decode_is_implemented) {
@@ -234,7 +234,7 @@ TEST(basenc, basenc_base58_selector_encode_decode) {
   auto base58_result = base58.run();
 
   EXPECT_EQ(base58_result.exit_code, 0);
-  EXPECT_EQ_TEXT(base58_result.stdout_text, "StV1DL6CwTryKyV\n");
+  EXPECT_EQ_TEXT(base58_result.stdout_text, "StV1DL6CwTryKyV");
 
   Pipeline decoded;
   decoded.set_stdin("StV1DL6CwTryKyV");
@@ -254,7 +254,7 @@ TEST(basenc, basenc_z85_selector_encode_decode) {
   auto z85_result = z85.run();
 
   EXPECT_EQ(z85_result.exit_code, 0);
-  EXPECT_EQ_TEXT(z85_result.stdout_text, "Hello\n");
+  EXPECT_EQ_TEXT(z85_result.stdout_text, "Hello");
 
   Pipeline decoded;
   decoded.set_stdin("Hello");

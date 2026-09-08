@@ -172,6 +172,68 @@ TEST(fold, fold_rejects_trailing_junk_width) {
   auto r = p.run();
 
   EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find("invalid number of columns: '2x'") !=
+              std::string::npos);
+}
+
+// GNU accepts the obsolete "-WIDTH" form; uutils #14248.
+TEST(fold, fold_obsolete_width_form) {
+  Pipeline p;
+  p.set_stdin("abcdefghij\n");
+  p.add(L"fold.exe", {L"-5"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "abcde\nfghij\n");
+}
+
+TEST(fold, fold_obsolete_width_last_one_wins) {
+  Pipeline p;
+  p.set_stdin("abcdefghij\n");
+  p.add(L"fold.exe", {L"-w", L"3", L"-5"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "abcde\nfghij\n");
+}
+
+TEST(fold, fold_width_after_terminator_is_a_file_name) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"fold.exe", {L"--", L"-3"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_TRUE(r.stderr_text.find("cannot open '-3'") != std::string::npos);
+}
+
+TEST(fold, fold_negative_width_reports_invalid_number_of_columns) {
+  Pipeline p;
+  p.set_stdin("abcd\n");
+  p.add(L"fold.exe", {L"-w", L"-1"});
+
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find("invalid number of columns: '-1'") !=
+              std::string::npos);
+}
+
+TEST(fold, fold_zero_width_reports_numerical_result_out_of_range) {
+  Pipeline p;
+  p.set_stdin("abcd\n");
+  p.add(L"fold.exe", {L"-w", L"0"});
+
+  auto r = p.run();
+
+  EXPECT_NE(r.exit_code, 0);
+  EXPECT_TRUE(r.stderr_text.find("Numerical result out of range") !=
+              std::string::npos);
 }
 
 TEST(fold, fold_spaces_breaks_at_last_blank) {

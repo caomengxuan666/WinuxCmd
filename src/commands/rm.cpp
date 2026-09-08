@@ -153,6 +153,44 @@ auto get_system_error_message(DWORD error) -> std::wstring {
 }
 
 /**
+ * @brief Read a single y/n response from stdin, consuming the entire input
+ * line to prevent leftover characters from polluting subsequent prompts.
+ * @return true if the user answered 'y' or 'Y', false otherwise.
+ */
+auto read_yes_no_response() -> bool {
+  std::string line;
+  if (!std::getline(std::cin, line)) {
+    return false;
+  }
+  return !line.empty() && (line[0] == 'y' || line[0] == 'Y');
+}
+
+/**
+ * @brief Prompt the user to confirm removal of a file or item.
+ * @param path Path to display in the prompt.
+ * @return true if the user confirms, false otherwise.
+ */
+auto prompt_remove_file(std::string_view path) -> bool {
+  safeErrorPrint("rm: remove '");
+  safeErrorPrint(path);
+  safeErrorPrint("'? (y/n) ");
+  return read_yes_no_response();
+}
+
+/**
+ * @brief Prompt the user to confirm descending into a directory.
+ * Matches GNU rm's "descend into directory" prompt for -ri.
+ * @param path Path to display in the prompt.
+ * @return true if the user confirms, false otherwise.
+ */
+auto prompt_descend_directory(std::string_view path) -> bool {
+  safeErrorPrint("rm: descend into directory '");
+  safeErrorPrint(path);
+  safeErrorPrint("'? (y/n) ");
+  return read_yes_no_response();
+}
+
+/**
  * @brief Check if paths are provided
  * @param paths Paths to check
  * @return Result with paths if valid, error otherwise
@@ -196,10 +234,7 @@ auto confirm_bulk_remove(size_t path_count, bool recursive) -> bool {
   safeErrorPrint(std::to_string(path_count));
   safeErrorPrint(recursive ? " arguments recursively? (y/n) "
                            : " arguments? (y/n) ");
-
-  char response = '\0';
-  std::cin >> response;
-  return response == 'y' || response == 'Y';
+  return read_yes_no_response();
 }
 
 auto parse_interactive_mode(std::string_view value)
@@ -413,15 +448,21 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
     return false;
   }
 
+  const bool is_directory = (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  const bool is_reparse_point = (attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+
+  // Interactive prompt before removal
   if (cfg.interactive == InteractiveMode::always) {
-    // OPTIMIZED: Avoid wstring concatenation
-    safeErrorPrint("rm: remove '");
-    safeErrorPrint(path);
-    safeErrorPrint("'? (y/n) ");
-    char response;
-    std::cin.get(response);
-    if (response != 'y' && response != 'Y') {
-      return true;
+    bool response;
+    if (is_directory && cfg.recursive && !is_reparse_point) {
+      // For directories with -r, prompt to descend (GNU-style)
+      response = prompt_descend_directory(path);
+    } else {
+      // For files, symlinks, or non-recursive directories, prompt to remove
+      response = prompt_remove_file(path);
+    }
+    if (!response) {
+      return true;  // user declined, treat as success
     }
   }
 
@@ -485,18 +526,36 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
 
       std::vector<std::wstring> subdirs;
       bool success = true;
+      bool all_removed = true;
 
       do {
         std::wstring itemName(findData.cFileName);
         if (itemName != L"." && itemName != L"..") {
           std::wstring itemPath = dirPath + L"\\" + itemName;
+          std::string itemStr = wstring_to_utf8(itemPath);
 
           if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            // Prompt before descending into subdirectories
+            if (cfg.interactive == InteractiveMode::always &&
+                !(findData.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
+              if (!prompt_descend_directory(itemStr)) {
+                all_removed = false;  // user declined, leave subtree
+                continue;
+              }
+            }
             // Store subdirectory for later recursive deletion
             subdirs.push_back(itemPath);
           } else {
-            if (!remove_file_path(itemPath, wstring_to_utf8(itemPath), cfg)) {
+            // Prompt before removing files
+            if (cfg.interactive == InteractiveMode::always) {
+              if (!prompt_remove_file(itemStr)) {
+                all_removed = false;  // user declined
+                continue;
+              }
+            }
+            if (!remove_file_path(itemPath, itemStr, cfg)) {
               success = false;
+              all_removed = false;
             }
           }
         }
@@ -515,6 +574,13 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
         bool sub_success = false;
         if (sub_attr != INVALID_FILE_ATTRIBUTES &&
             (sub_attr & FILE_ATTRIBUTE_REPARSE_POINT)) {
+          // Prompt before removing reparse points (symlinks/junctions)
+          if (cfg.interactive == InteractiveMode::always) {
+            if (!prompt_remove_file(wstring_to_utf8(subdir))) {
+              all_removed = false;
+              continue;
+            }
+          }
           sub_success =
               remove_empty_directory_path(subdir, wstring_to_utf8(subdir), cfg);
         } else {
@@ -522,11 +588,18 @@ auto remove_path(const std::string& path, const RmConfig& cfg) -> bool {
         }
         if (!sub_success) {
           success = false;
+          all_removed = false;
         }
       }
 
       if (!success) {
         return false;
+      }
+
+      // If the user declined to remove any child, the directory is still
+      // non-empty — leave it alone (matches GNU rm behavior).
+      if (!all_removed) {
+        return true;
       }
 
       // Finally, remove the directory itself

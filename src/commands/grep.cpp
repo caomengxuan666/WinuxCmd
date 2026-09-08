@@ -1821,6 +1821,10 @@ auto scan_text(const std::string& text, std::string_view display_name,
 
   if (!use_context) {
     for (size_t i = 0; i < records.size(); ++i) {
+      // Check max_count before processing to handle -m 0 correctly.
+      if (cfg.max_count >= 0 &&
+          selected_count >= static_cast<size_t>(cfg.max_count))
+        break;
       const auto [b, e] = records[i];
       std::string_view whole(text.data() + b, e - b);
       bool had_delim = !whole.empty() && whole.back() == delim;
@@ -1843,6 +1847,10 @@ auto scan_text(const std::string& text, std::string_view display_name,
 
   std::vector<size_t> selected_indices;
   for (size_t i = 0; i < records.size(); ++i) {
+    // Check max_count before processing to handle -m 0 correctly.
+    if (cfg.max_count >= 0 &&
+        selected_count >= static_cast<size_t>(cfg.max_count))
+      break;
     const auto [b, e] = records[i];
     std::string_view whole(text.data() + b, e - b);
     bool had_delim = !whole.empty() && whole.back() == delim;
@@ -1966,6 +1974,10 @@ auto scan_stream(std::istream& in, std::string_view display_name,
     size_t start = 0;
     for (size_t i = 0; i < pending.size(); ++i) {
       if (pending[i] != delim) continue;
+      // Check max_count before processing to handle -m 0 correctly.
+      if (cfg.max_count >= 0 &&
+          selected_count >= static_cast<size_t>(cfg.max_count))
+        break;
 
       std::string_view line(pending.data() + start, i - start);
       line = trim_text_record(line, delim, cfg);
@@ -1991,6 +2003,11 @@ auto scan_stream(std::istream& in, std::string_view display_name,
   }
 
   if (!pending.empty()) {
+    // Check max_count before processing trailing record to handle -m 0.
+    if (cfg.max_count >= 0 &&
+        selected_count >= static_cast<size_t>(cfg.max_count)) {
+      return {any_selected, selected_count};
+    }
     std::string_view line = trim_text_record(pending, delim, cfg);
     if (process_selected_record(line, false, display_name, show_filename,
                                 line_no, base_offset, cfg, selected_count)) {
@@ -2002,7 +2019,8 @@ auto scan_stream(std::istream& in, std::string_view display_name,
 }
 
 auto read_file_binary(const std::string& path) -> cp::Result<std::string> {
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected("cannot open '" + path + "'");
@@ -2012,7 +2030,8 @@ auto read_file_binary(const std::string& path) -> cp::Result<std::string> {
 }
 
 auto read_file_text(const std::string& path) -> cp::Result<std::string> {
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected("cannot open '" + path + "'");
@@ -2043,7 +2062,8 @@ auto should_stream_file_fast_path(const std::string& path, const Config& cfg)
     -> bool {
   if (cfg.binary_mode == BinaryMode::WithoutMatch) return false;
 
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) return true;
 
@@ -2064,7 +2084,8 @@ auto should_stream_file_fast_path(const std::string& path, const Config& cfg)
 auto scan_file_streaming(const std::string& path, std::string_view display_name,
                          bool show_filename, Config& cfg)
     -> cp::Result<std::pair<bool, size_t>> {
-  std::ifstream in(std::filesystem::path(utf8_to_wstring(path)),
+  std::ifstream in(std::filesystem::path(utf8_to_wstring(
+                       native_path::normalize_api_operand(path))),
                    std::ios::binary);
   if (!in.is_open()) {
     return std::unexpected("cannot open '" + path + "'");
@@ -2113,6 +2134,10 @@ auto scan_fixed_file_fast(const std::string& path,
 
     size_t start = 0;
     while (start < pending.size()) {
+      // Check max_count before processing to handle -m 0 correctly.
+      if (cfg.max_count >= 0 &&
+          selected_count >= static_cast<size_t>(cfg.max_count))
+        break;
       const void* found =
           ::memchr(pending.data() + start, delim, pending.size() - start);
       if (found == nullptr) break;
@@ -2150,6 +2175,11 @@ auto scan_fixed_file_fast(const std::string& path,
   }
 
   if (!pending.empty()) {
+    // Check max_count before processing trailing record to handle -m 0.
+    if (cfg.max_count >= 0 &&
+        selected_count >= static_cast<size_t>(cfg.max_count)) {
+      return {{any_selected, selected_count}};
+    }
     std::string_view line(pending.data(), pending.size());
     line = trim_text_record(line, delim, cfg);
     if (process_fixed_fast_record(line, false, display_name, show_filename,
@@ -2349,6 +2379,7 @@ auto process(Config& cfg) -> int {
   }
 
   bool any_selected_global = false;
+  bool any_file_without_match = false;
 
   if (cfg.only_matching && cfg.context_requested) {
     if (!cfg.no_messages && !cfg.quiet) {
@@ -2474,6 +2505,7 @@ auto process(Config& cfg) -> int {
         safePrint(display_name);
         print_filename_terminator(cfg);
         flush_if_line_buffered(cfg);
+        any_file_without_match = true;
       }
 
       if (cfg.count_only) {
@@ -2491,6 +2523,9 @@ auto process(Config& cfg) -> int {
   }
 
   if (cfg.has_error && !cfg.quiet) return 2;
+  // -L (files-without-match): exit 0 if any file was printed (had no matches),
+  // exit 1 if all files matched (none printed).
+  if (cfg.files_without_match) return any_file_without_match ? 0 : 1;
   return any_selected_global ? 0 : 1;
 }
 

@@ -127,7 +127,69 @@ export std::string translate_error(std::string_view error) {
   if (error == "missing operand") {
     return translate("common.error.missing_operand", error);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 27> exact{
+  // GNU appends strerror(EOVERFLOW) after the quoted value; translate the
+  // quoted part and keep the suffix translatable.
+  constexpr std::string_view kOverflowSuffix =
+      ": Value too large for defined data type";
+  if (error.size() > kOverflowSuffix.size() &&
+      error.ends_with(kOverflowSuffix)) {
+    return translate_error(
+               error.substr(0, error.size() - kOverflowSuffix.size())) +
+           translate("common.error.value_too_large", kOverflowSuffix);
+  }
+  // "invalid repeat count '<digits>' in [c*n] construct" (tr).
+  constexpr std::string_view kRepeatCountPrefix = "invalid repeat count '";
+  constexpr std::string_view kRepeatCountSuffix = "' in [c*n] construct";
+  if (error.size() > kRepeatCountPrefix.size() + kRepeatCountSuffix.size() &&
+      error.starts_with(kRepeatCountPrefix) &&
+      error.ends_with(kRepeatCountSuffix)) {
+    const auto value =
+        error.substr(kRepeatCountPrefix.size(),
+                     error.size() - kRepeatCountPrefix.size() -
+                         kRepeatCountSuffix.size());
+    return ::winux::i18n::format("command.tr.error.invalid_repeat_count",
+                                 "invalid repeat count '{}' in [c*n] construct",
+                                 value);
+  }
+  // Static tr [c*] repeat-construct diagnostics.
+  if (error == "the [c*] repeat construct may not appear in string1") {
+    return translate("command.tr.error.string1_repeat", error);
+  }
+  if (error == "only one [c*] repeat construct may appear in string2") {
+    return translate("command.tr.error.one_repeat_string2", error);
+  }
+  if (error == "the [c*] construct may appear in string2 only when "
+               "translating") {
+    return translate("command.tr.error.repeat_only_translate", error);
+  }
+  // "'<token>': unary operator expected" — the value precedes the quote.
+  constexpr std::string_view kUnarySuffix = "': unary operator expected";
+  if (error.size() > kUnarySuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kUnarySuffix)) {
+    const auto value = error.substr(1, error.size() - 1 - kUnarySuffix.size());
+    return ::winux::i18n::format("common.error.unary_operator",
+                                 "'{}': unary operator expected", value);
+  }
+  // "'<pattern>': line number out of range" (csplit) — the pattern precedes
+  // the quote-suffix.
+  constexpr std::string_view kLineRangeSuffix = "': line number out of range";
+  if (error.size() > kLineRangeSuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kLineRangeSuffix)) {
+    const auto value =
+        error.substr(1, error.size() - 1 - kLineRangeSuffix.size());
+    return ::winux::i18n::format("command.csplit.error.line_out_of_range",
+                                 "'{}': line number out of range", value);
+  }
+  // "'<pattern>': match not found" (csplit).
+  constexpr std::string_view kMatchNotFoundSuffix = "': match not found";
+  if (error.size() > kMatchNotFoundSuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kMatchNotFoundSuffix)) {
+    const auto value =
+        error.substr(1, error.size() - 1 - kMatchNotFoundSuffix.size());
+    return ::winux::i18n::format("command.csplit.error.match_not_found",
+                                 "'{}': match not found", value);
+  }
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 29> exact{
       {{"invalid input", "common.error.invalid_input"},
        {"error reading from file", "common.error.read_file"},
        {"error reading input", "common.error.read_input"},
@@ -139,6 +201,7 @@ export std::string translate_error(std::string_view error) {
        {"invalid input range", "common.error.invalid_input_range"},
        {"invalid wrap size", "common.error.invalid_wrap"},
        {"invalid line count", "common.error.invalid_line_count"},
+       {"Numerical result out of range", "common.error.numerical_range"},
        {"invalid regular expression", "common.error.invalid_regex"},
        {"target is not a directory", "common.error.target_directory"},
        {"cannot create directory", "common.error.create_directory"},
@@ -155,12 +218,15 @@ export std::string translate_error(std::string_view error) {
         "common.error.crypto_context"},
        {"failed to create hash object", "common.error.hash_object"},
        {"failed to get hash value", "common.error.hash_value"},
+       {"tab size cannot be 0", "common.error.tab_zero"},
        {"No such file or directory", "common.error.no_such_file"}}};
   for (const auto [literal, key] : exact) {
     if (error == literal) return translate(key, error);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 6>
       patterns{{{"missing operand after '", "common.error.missing_after"},
+                {"missing argument after '", "common.error.missing_arg_after"},
+                {"invalid integer '", "common.error.invalid_integer"},
                 {"extra operand '", "common.error.extra_operand"},
                 {"invalid argument '", "common.error.invalid_argument"},
                 {"error reading '", "common.error.reading"}}};
@@ -171,6 +237,12 @@ export std::string translate_error(std::string_view error) {
     if (key == "common.error.missing_after") {
       return ::winux::i18n::format(key, "missing operand after '{}'", value);
     }
+    if (key == "common.error.missing_arg_after") {
+      return ::winux::i18n::format(key, "missing argument after '{}'", value);
+    }
+    if (key == "common.error.invalid_integer") {
+      return ::winux::i18n::format(key, "invalid integer '{}'", value);
+    }
     if (key == "common.error.extra_operand") {
       return ::winux::i18n::format(key, "extra operand '{}'", value);
     }
@@ -179,7 +251,7 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 25>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 35>
       quoted{
           {{"cannot open '", "common.error.cannot_open"},
            {"cannot access '", "common.error.cannot_access"},
@@ -197,6 +269,17 @@ export std::string translate_error(std::string_view error) {
            {"invalid time interval '", "common.error.invalid_time_interval"},
            {"invalid character class '", "common.error.invalid_char_class"},
            {"unknown registry root '", "common.error.unknown_registry_root"},
+           {"invalid input range: '", "common.error.invalid_input_range"},
+           {"invalid line count: '", "common.error.invalid_line_count_value"},
+           {"invalid wrap size: '", "common.error.invalid_wrap_value"},
+           {"invalid number of bytes: '", "common.error.invalid_num_bytes"},
+           {"invalid number of columns: '", "common.error.invalid_num_columns"},
+           {"invalid number of lines: '", "common.error.invalid_num_lines"},
+           {"invalid number of chunks: '", "common.error.invalid_num_chunks"},
+           {"invalid chunk number: '", "common.error.invalid_chunk_number"},
+           {"tab size contains invalid character(s): '",
+            "common.error.tab_invalid_chars"},
+           {"tab stop is too large '", "common.error.tab_too_large"},
            {"cannot copy '", "common.error.cannot_copy"},
            {"cannot delete source file '", "common.error.cannot_delete_file"},
            {"cannot copy directory '", "common.error.cannot_copy_directory"},
@@ -223,7 +306,7 @@ export std::string translate_error(std::string_view error) {
       return ::winux::i18n::format(key, "error writing '{}'", value);
     if (key == "common.error.invalid_mode")
       return ::winux::i18n::format(key, "invalid mode: '{}'", value);
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 19>
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 29>
         fallbacks{
             {{"common.error.invalid_group", "invalid group: '{}'"},
              {"common.error.invalid_user", "invalid user: '{}'"},
@@ -238,6 +321,24 @@ export std::string translate_error(std::string_view error) {
               "invalid character class '{}'"},
              {"common.error.unknown_registry_root",
               "unknown registry root '{}'"},
+             {"common.error.invalid_input_range", "invalid input range: '{}'"},
+             {"common.error.invalid_line_count_value",
+              "invalid line count: '{}'"},
+             {"common.error.invalid_wrap_value",
+              "invalid wrap size: '{}'"},
+             {"common.error.invalid_num_bytes",
+              "invalid number of bytes: '{}'"},
+             {"common.error.invalid_num_columns",
+              "invalid number of columns: '{}'"},
+             {"common.error.invalid_num_lines",
+              "invalid number of lines: '{}'"},
+             {"common.error.invalid_num_chunks",
+              "invalid number of chunks: '{}'"},
+             {"common.error.invalid_chunk_number",
+              "invalid chunk number: '{}'"},
+             {"common.error.tab_invalid_chars",
+              "tab size contains invalid character(s): '{}'"},
+             {"common.error.tab_too_large", "tab stop is too large '{}'"},
              {"common.error.cannot_copy", "cannot copy '{}'"},
              {"common.error.cannot_delete_file",
               "cannot delete source file '{}'"},

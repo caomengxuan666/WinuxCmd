@@ -167,7 +167,8 @@ REGISTER_COMMAND(
 
   int exit_code = 0;
   for (const auto& file : files) {
-    std::ifstream input(std::filesystem::path(utf8_to_wstring(file)),
+    std::ifstream input(std::filesystem::path(utf8_to_wstring(
+                            native_path::normalize_api_operand(file))),
                         std::ios::binary);
     if (!input) {
       safeErrorPrintLn("rev: cannot open '" + file +

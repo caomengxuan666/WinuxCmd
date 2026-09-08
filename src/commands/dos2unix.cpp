@@ -73,7 +73,8 @@ REGISTER_COMMAND(dos2unix,
   auto process_file = [&](const std::string& filename,
                           bool modify_in_place) -> bool {
     std::wstring wfilename = utf8_to_wstring(filename);
-    std::ifstream input(wfilename, std::ios::binary);
+    std::ifstream input(native_path::normalize_api_operand_w(wfilename),
+                        std::ios::binary);
     if (!input) {
       safeErrorPrintLn("dos2unix: cannot open '" + filename +
                        "': No such file or directory");

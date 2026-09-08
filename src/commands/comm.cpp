@@ -152,6 +152,8 @@ auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
         cfg.zero_terminated = true;
         continue;
       }
+      // Unknown long option
+      return std::unexpected("invalid option -- '" + arg + "'");
     }
 
     if (!end_of_options && arg.size() >= 2 && arg[0] == '-' && arg[1] != '-') {
@@ -177,6 +179,9 @@ auto build_config(const CommandContext<COMM_OPTIONS.size()>& ctx)
         if (!all_flags) break;
       }
       if (all_flags) continue;
+      // Unknown short option
+      return std::unexpected("invalid option -- '" + std::string(1, arg[1]) +
+                             "'");
     }
 
     add_file_arg(cfg, arg);
@@ -239,7 +244,8 @@ auto read_lines(const std::string& filename, char delimiter)
     };
 
     // Read from file
-    std::ifstream f(filename, std::ios::binary);
+    std::ifstream f(native_path::normalize_api_operand(filename),
+                    std::ios::binary);
     if (!f) {
       return std::unexpected(comm_input_open_error(filename));
     }

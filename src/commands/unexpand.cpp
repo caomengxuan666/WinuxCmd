@@ -91,34 +91,49 @@ auto parse_tab_stops(const std::string& spec) -> cp::Result<Config::TabStops> {
   for (std::string token; input >> token;) {
     tokens.push_back(token);
   }
-  if (tokens.empty()) {
-    return std::unexpected("invalid tab stops");
-  }
 
-  auto parse_positive = [](std::string_view value) -> std::optional<size_t> {
-    if (value.empty()) return std::nullopt;
-    size_t parsed = 0;
-    auto [ptr, ec] =
-        std::from_chars(value.data(), value.data() + value.size(), parsed);
-    if (ec != std::errc() || ptr != value.data() + value.size() ||
-        parsed == 0) {
-      return std::nullopt;
-    }
-    return parsed;
+  // Mirrors GNU expand-common.c: parse errors quote the offending part of
+  // the token; zero/ascending validation runs after the whole list parses.
+  auto invalid_chars_error = [](const std::string_view quoted) {
+    return "tab size contains invalid character(s): '" + std::string(quoted) +
+           "'";
   };
 
   bool repeat_specified = false;
   for (size_t i = 0; i < tokens.size(); ++i) {
     const std::string& token = tokens[i];
-    if (token[0] == '/' || token[0] == '+') {
+    const bool repeat = token[0] == '/' || token[0] == '+';
+    const std::string_view value =
+        repeat ? std::string_view(token).substr(1) : std::string_view(token);
+
+    size_t digits_end = 0;
+    while (digits_end < value.size() &&
+           std::isdigit(static_cast<unsigned char>(value[digits_end]))) {
+      ++digits_end;
+    }
+    if (digits_end < value.size()) {
+      return std::unexpected(invalid_chars_error(value.substr(digits_end)));
+    }
+
+    size_t parsed = 0;
+    const auto [ptr, ec] =
+        std::from_chars(value.data(), value.data() + digits_end, parsed);
+    if (ec == std::errc::result_out_of_range) {
+      return std::unexpected("tab stop is too large '" +
+                             std::string(value.substr(0, digits_end)) + "'");
+    }
+    if (ec != std::errc() || ptr != value.data() + digits_end) {
+      return std::unexpected(invalid_chars_error(value.substr(digits_end)));
+    }
+
+    if (repeat) {
       if (i + 1 != tokens.size()) {
         return std::unexpected("repeat tab stop must be last");
       }
-      auto interval = parse_positive(std::string_view(token).substr(1));
-      if (!interval) {
-        return std::unexpected("invalid tab stop");
+      if (parsed == 0) {
+        return std::unexpected("tab size cannot be 0");
       }
-      tab_stops.interval = *interval;
+      tab_stops.interval = parsed;
       tab_stops.repeat_mode = token[0] == '/'
                                   ? Config::TabStops::RepeatMode::every_multiple
                                   : Config::TabStops::RepeatMode::after_last;
@@ -126,14 +141,19 @@ auto parse_tab_stops(const std::string& spec) -> cp::Result<Config::TabStops> {
       continue;
     }
 
-    auto stop = parse_positive(token);
-    if (!stop) {
-      return std::unexpected("invalid tab stop");
+    tab_stops.stops.push_back(parsed);
+  }
+
+  // GNU validates nonzero and ascending order after parsing everything.
+  size_t prev_stop = 0;
+  for (const size_t stop : tab_stops.stops) {
+    if (stop == 0) {
+      return std::unexpected("tab size cannot be 0");
     }
-    if (!tab_stops.stops.empty() && *stop <= tab_stops.stops.back()) {
-      return std::unexpected("tab stops must be increasing");
+    if (stop <= prev_stop) {
+      return std::unexpected("tab sizes must be ascending");
     }
-    tab_stops.stops.push_back(*stop);
+    prev_stop = stop;
   }
 
   if (tab_stops.stops.size() == 1 && !repeat_specified &&

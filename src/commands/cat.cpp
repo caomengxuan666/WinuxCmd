@@ -130,6 +130,10 @@ REGISTER_COMMAND(cat, "cat",
   using namespace cat_pipeline;
   using namespace core::pipeline;
 
+#ifdef _WIN32
+  _setmode(_fileno(stdin), _O_BINARY);
+#endif
+
   // [GNU] -u: accepted for POSIX compatibility (no-op)
   (void)ctx.get<bool>("-u", false);
 
@@ -162,11 +166,14 @@ REGISTER_COMMAND(cat, "cat",
 
   auto cat_flags = [&](const CommandContext<CAT_OPTIONS.size()> &ctx) {
     CatFlags flags;
-    flags.number_nonblank =
+    // GNU cat: -n/--number and -b/--number-nonblank are mutually exclusive;
+    // the last one specified wins.
+    const bool opt_number =
+        ctx.get<bool>("--number", false) || ctx.get<bool>("-n", false);
+    const bool opt_nonblank =
         ctx.get<bool>("--number-nonblank", false) || ctx.get<bool>("-b", false);
-    flags.number_all =
-        !flags.number_nonblank &&
-        (ctx.get<bool>("--number", false) || ctx.get<bool>("-n", false));
+    flags.number_nonblank = opt_nonblank;
+    flags.number_all = opt_number && !opt_nonblank;
     flags.show_ends =
         ctx.get<bool>("--show-ends", false) || ctx.get<bool>("-E", false) ||
         ctx.get<bool>("--show-all", false) || ctx.get<bool>("-e", false);
@@ -202,7 +209,8 @@ REGISTER_COMMAND(cat, "cat",
 
   auto print_line_number = [&](size_t &line_num, std::string &out) {
     char buf[32];
-    int len = snprintf(buf, sizeof(buf), "%6zu\t", line_num++);
+    int len = snprintf(buf, sizeof(buf), "%6zu\t", (line_num % 1000000));
+    line_num++;
     append_output(out, std::string_view(buf, static_cast<size_t>(len)));
   };
 
@@ -239,8 +247,6 @@ REGISTER_COMMAND(cat, "cat",
 
     if (c == 0x09 && flags.show_tabs) {
       append_output(out, "^I");
-    } else if (c == 0x0D && flags.show_ends && stream.peek() == 0x0A) {
-      append_output(out, "^M");
     } else {
       append_output_char(out, static_cast<char>(c));
     }
@@ -313,6 +319,10 @@ REGISTER_COMMAND(cat, "cat",
                           CatState &state) -> bool {
     if (path == "-") {
       process_stream(std::cin, ctx, state);
+      if (std::cin.bad()) {
+        safeErrorPrint("'-\n");
+        return false;
+      }
       return true;
     }
 
@@ -338,7 +348,12 @@ REGISTER_COMMAND(cat, "cat",
       } else if (native_path::attributes_are_directory(attrs)) {
         safeErrorPrint("Is a directory");
       } else {
-        safeErrorPrint("No such file or directory");
+        DWORD err = GetLastError();
+        if (err == ERROR_ACCESS_DENIED || err == ERROR_SHARING_VIOLATION) {
+          safeErrorPrint("Permission denied");
+        } else {
+          safeErrorPrint("No such file or directory");
+        }
       }
       safeErrorPrint("\n");
       return false;

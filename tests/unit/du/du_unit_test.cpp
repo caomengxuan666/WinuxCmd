@@ -294,6 +294,38 @@ TEST(du, du_megabytes_uses_1M_blocks) {
   EXPECT_EQ(first_usage_value(r.stdout_text), 2);
 }
 
+// GNU appends the unit letter for a bare-suffix block size: "du -BM" prints
+// "2M". uutils #13605.
+TEST(du, du_bare_suffix_block_size_appends_unit) {
+  TempDir tmp;
+  tmp.write("file.txt", std::string(1200000, 'x'));
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"du.exe", {L"-BM", L"file.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "2M\tfile.txt\n");
+}
+
+// An integer-prefixed block size scales silently, without the suffix.
+TEST(du, du_integer_block_size_has_no_suffix) {
+  TempDir tmp;
+  tmp.write("file.txt", std::string(1200000, 'x'));
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"du.exe", {L"-B", L"1M", L"file.txt"});
+
+  auto r = p.run();
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(first_usage_value(r.stdout_text), 2);
+  EXPECT_EQ(r.stdout_text.find("2M"), std::string::npos);
+}
+
 TEST(du, du_default_uses_1024_byte_blocks) {
   TempDir tmp;
   tmp.write("file.txt", std::string(600, 'x'));

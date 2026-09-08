@@ -31,7 +31,7 @@ export auto option_policy_for_command(std::string_view command)
   OptionParsePolicy policy;
   policy.allow_unknown_short_options_as_positionals =
       command == "printf" || command == "expr" || command == "test" ||
-      command == "[";
+      command == "[" || command == "stty";
   if (command == "timeout") {
     policy.stop_options_after_positionals = 2;
   }

@@ -144,10 +144,18 @@ auto build_config(const CommandContext<CHCON_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  (void)cfg;
-  safeErrorPrintLn(winux::i18n::translate(
-      "command.chcon.error.unsupported",
-      "chcon: SELinux file contexts are not supported on Windows"));
+  if (cfg.verbose) {
+    for (const auto& file : cfg.files) {
+      safeErrorPrintLn(winux::i18n::translate(
+          "command.chcon.error.unsupported_verbose",
+          std::string("chcon: ") + file +
+              ": SELinux file contexts are not supported on Windows"));
+    }
+  } else {
+    safeErrorPrintLn(winux::i18n::translate(
+        "command.chcon.error.unsupported",
+        "chcon: SELinux file contexts are not supported on Windows"));
+  }
   return 1;
 }
 

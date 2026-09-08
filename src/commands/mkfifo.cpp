@@ -15,10 +15,10 @@ auto constexpr MKFIFO_OPTIONS = std::array{
     // [DIFFERS]
     OPTION("-m", "--mode", "set file permission bits", STRING_TYPE),
     // [DIFFERS]
-    OPTION("-Z", "", "set the SELinux security context to default type"),
+    OPTION("-Z", "--security-context",
+           "set the SELinux security context to default type"),
     // [DIFFERS]
-    OPTION("", "--context", "set the SELinux security context",
-           OPTIONAL_STRING_TYPE),
+    OPTION("", "--context", "set the SELinux security context"),
 };
 
 namespace mkfifo_pipeline {
@@ -27,23 +27,56 @@ namespace cp = core::pipeline;
 auto is_plausible_mode(std::string_view mode) -> bool {
   if (mode.empty()) return false;
 
+  // Check for valid octal mode (1-4 octal digits)
   bool octal = true;
+  size_t octal_count = 0;
   for (char ch : mode) {
     if (ch < '0' || ch > '7') {
       octal = false;
       break;
     }
+    octal_count++;
   }
-  if (octal) return true;
+  if (octal && octal_count >= 1 && octal_count <= 4) return true;
 
-  for (char ch : mode) {
-    if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '+' ||
-        ch == '-' || ch == '=' || ch == ',' || ch == 'X') {
-      continue;
+  // Check for valid symbolic mode: [ugoa]*[+-=][rwxst]*, comma-separated
+  bool valid_symbolic = true;
+  size_t start = 0;
+  for (size_t i = 0; i <= mode.size(); i++) {
+    if (i == mode.size() || mode[i] == ',') {
+      std::string_view clause(mode.data() + start, i - start);
+      if (clause.empty()) {
+        valid_symbolic = false;
+        break;
+      }
+      // Check clause format: [ugoa]*[+-=][rwxst]*
+      size_t j = 0;
+      // Who part
+      while (j < clause.size() && (clause[j] == 'u' || clause[j] == 'g' ||
+                                   clause[j] == 'o' || clause[j] == 'a')) {
+        j++;
+      }
+      // Op part
+      if (j >= clause.size() ||
+          (clause[j] != '+' && clause[j] != '-' && clause[j] != '=')) {
+        valid_symbolic = false;
+        break;
+      }
+      j++;
+      // What part
+      while (j < clause.size()) {
+        if (clause[j] != 'r' && clause[j] != 'w' && clause[j] != 'x' &&
+            clause[j] != 's' && clause[j] != 't' && clause[j] != 'X') {
+          valid_symbolic = false;
+          break;
+        }
+        j++;
+      }
+      if (!valid_symbolic) break;
+      start = i + 1;
     }
-    return false;
   }
-  return true;
+  return valid_symbolic;
 }
 
 struct Config {
@@ -98,7 +131,17 @@ auto run(const Config& cfg) -> int {
   for (const auto& fifo : cfg.fifos) {
     std::filesystem::path p(fifo);
     std::error_code ec;
-    if (std::filesystem::exists(p, ec)) {
+    bool exists = std::filesystem::exists(p, ec);
+    if (ec) {
+      safeErrorPrint("mkfifo: cannot create fifo '");
+      safeErrorPrint(fifo);
+      safeErrorPrint("': ");
+      safeErrorPrint(ec.message());
+      safeErrorPrint("\n");
+      exit_code = 1;
+      continue;
+    }
+    if (exists) {
       safeErrorPrint("mkfifo: cannot create fifo '");
       safeErrorPrint(fifo);
       safeErrorPrint("': File exists\n");

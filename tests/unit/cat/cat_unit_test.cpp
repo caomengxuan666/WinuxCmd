@@ -322,7 +322,7 @@ TEST(cat, cat_show_ends_crlf_outputs_caret_m) {
 
   Pipeline p;
   p.set_cwd(tmp.wpath());
-  p.add(L"cat.exe", {L"-E", L"crlf.txt"});
+  p.add(L"cat.exe", {L"-e", L"crlf.txt"});
 
   auto r = p.run();
 

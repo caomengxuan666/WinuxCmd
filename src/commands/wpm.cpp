@@ -2062,55 +2062,64 @@ auto create_package_shims(const fs::path& root, const nlohmann::json& pkg,
     }
     ++created;
   }
-  // Aliases for shim-layout packages point directly at the packaged executable,
-  // because the dispatcher would otherwise look for a non-existent alias name.
-  if (pkg.contains("aliases") && pkg["aliases"].is_array()) {
-    for (const auto& alias : pkg["aliases"]) {
-      const auto alias_name =
-          alias.is_string() ? alias.get<std::string>() : alias.value("name", "");
-      auto target_name =
-          alias.is_string() ? std::string{} : alias.value("target", "");
-      if (target_name.empty() && pkg.contains("commands") &&
-          pkg["commands"].is_array() && !pkg["commands"].empty() &&
-          pkg["commands"][0].is_string())
-        target_name = pkg["commands"][0].get<std::string>();
-      if (alias_name.empty() || target_name.empty()) continue;
-      const fs::path source = package_payload_dir(root, package) /
-                              exe_suffix(target_name);
-      const fs::path destination = bin_dir / exe_suffix(alias_name);
-      if (!fs::is_regular_file(source, ec)) {
-        safeErrorPrintLn(wpm_text("command.wpm.error.alias_target",
-                                  "wpm: alias target not found for '{}'",
-                                  alias_name));
-        return false;
-      }
-      ec.clear();
-      if (fs::exists(destination, ec)) {
-        if (same_file(source, destination)) continue;
-        if (!force) {
-          safeErrorPrintLn(wpm_text(
-              "command.wpm.error.alias_exists",
-              "wpm: alias destination exists; use --force: {}",
-              destination.string()));
-          return false;
-        }
-        if (!DeleteFileW(destination.wstring().c_str())) return false;
-      }
-      if (dry_run) continue;
-      if (!CreateHardLinkW(destination.wstring().c_str(), source.wstring().c_str(),
-                           nullptr)) {
-        safeErrorPrintLn(wpm_text(
-            "command.wpm.error.alias_create",
-            "wpm: failed to create alias '{}' -> '{}': {}", destination.string(),
-            source.string(), win32_error_text(GetLastError())));
-        return false;
-      }
+  // Alias creation moved to create_package_aliases() for use with both layouts
+  return true;
+}
+
+auto create_package_aliases(const fs::path& root, const nlohmann::json& pkg,
+                            bool force, bool dry_run) -> bool {
+  const auto package = pkg.value("name", "");
+  if (!pkg.contains("aliases") || !pkg["aliases"].is_array()) return true;
+  const auto bin_dir = canonical_bin_dir(root);
+  std::error_code ec;
+  int created = 0;
+  for (const auto& alias : pkg["aliases"]) {
+    const auto alias_name =
+        alias.is_string() ? alias.get<std::string>() : alias.value("name", "");
+    auto target_name =
+        alias.is_string() ? std::string{} : alias.value("target", "");
+    if (target_name.empty() && pkg.contains("commands") &&
+        pkg["commands"].is_array() && !pkg["commands"].empty() &&
+        pkg["commands"][0].is_string())
+      target_name = pkg["commands"][0].get<std::string>();
+    if (alias_name.empty() || target_name.empty()) continue;
+    // Alias should point to the installed executable, not the payload directory
+    const fs::path source = bin_dir / exe_suffix(target_name);
+    const fs::path destination = bin_dir / exe_suffix(alias_name);
+    if (!fs::is_regular_file(source, ec)) {
+      safeErrorPrintLn(wpm_text("command.wpm.error.alias_target",
+                                "wpm: alias target not found for '{}'",
+                                alias_name));
+      return false;
     }
+    ec.clear();
+    if (fs::exists(destination, ec)) {
+      if (same_file(source, destination)) continue;
+      if (!force) {
+        safeErrorPrintLn(
+            wpm_text("command.wpm.error.alias_exists",
+                     "wpm: alias destination exists; use --force: {}",
+                     destination.string()));
+        return false;
+      }
+      if (!DeleteFileW(destination.wstring().c_str())) return false;
+    }
+    if (dry_run) continue;
+    if (!CreateHardLinkW(destination.wstring().c_str(),
+                         source.wstring().c_str(), nullptr)) {
+      safeErrorPrintLn(wpm_text("command.wpm.error.alias_create",
+                                "wpm: failed to create alias '{}' -> '{}': {}",
+                                destination.string(), source.string(),
+                                win32_error_text(GetLastError())));
+      return false;
+    }
+    ++created;
   }
-  safePrintLn(wpm_text(
-      "command.wpm.status.shims_created",
-      "wpm: created {} shim(s), unchanged {}, for '{}' payload in opt/{}",
-      created, unchanged, package, package));
+  if (created > 0) {
+    safePrintLn(wpm_text("command.wpm.status.aliases_created",
+                         "wpm: created {} alias(es) for '{}'", created,
+                         package));
+  }
   return true;
 }
 
@@ -2249,6 +2258,9 @@ auto install_package(const Options& opts, std::string_view package_name)
     if (!create_package_shims(opts.root, *pkg, opts.force, opts.dry_run)) {
       return 1;
     }
+  }
+  if (!create_package_aliases(opts.root, *pkg, opts.force, opts.dry_run)) {
+    return 1;
   }
   if (opts.dry_run) {
     safePrintLn("wpm: dry-run complete; would install " +
@@ -2921,8 +2933,8 @@ auto uninstall_package(const Options& opts, const nlohmann::json& pkg)
     }
     if (pkg.contains("aliases") && pkg["aliases"].is_array()) {
       for (const auto& alias : pkg["aliases"]) {
-        const auto alias_name =
-            alias.is_string() ? alias.get<std::string>() : alias.value("name", "");
+        const auto alias_name = alias.is_string() ? alias.get<std::string>()
+                                                  : alias.value("name", "");
         auto target_name =
             alias.is_string() ? std::string{} : alias.value("target", "");
         if (target_name.empty() && pkg.contains("commands") &&
@@ -2930,15 +2942,15 @@ auto uninstall_package(const Options& opts, const nlohmann::json& pkg)
             pkg["commands"][0].is_string())
           target_name = pkg["commands"][0].get<std::string>();
         if (alias_name.empty() || target_name.empty()) continue;
-        const auto target = package_payload_dir(opts.root, name) /
-                            exe_suffix(target_name);
-        const auto alias_path = canonical_bin_dir(opts.root) /
-                                exe_suffix(alias_name);
+        const auto target =
+            package_payload_dir(opts.root, name) / exe_suffix(target_name);
+        const auto alias_path =
+            canonical_bin_dir(opts.root) / exe_suffix(alias_name);
         std::error_code ec;
         if (!fs::exists(alias_path, ec)) continue;
         if (same_file(target, alias_path)) {
-          if (!uninstall_remove_destination(opts.root, alias_path, false, removed,
-                                            errors))
+          if (!uninstall_remove_destination(opts.root, alias_path, false,
+                                            removed, errors))
             ok = false;
         } else {
           errors.push_back(wpm_text("command.wpm.error.uninstall_protected",

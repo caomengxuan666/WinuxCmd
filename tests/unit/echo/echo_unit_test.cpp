@@ -183,6 +183,8 @@ TEST(echo, echo_hex_escape_utf8_sequence_forms_multibyte_text) {
 }
 
 TEST(echo, echo_unicode_escape_u_emits_utf8) {
+  // GNU coreutils echo does not interpret \u escapes; they are printed
+  // literally (uutils #14414). Only printf expands them.
   Pipeline p;
   p.add(L"echo.exe", {L"-e", L"\\u4F60\\u597D"});
 
@@ -190,7 +192,7 @@ TEST(echo, echo_unicode_escape_u_emits_utf8) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stderr_text.empty());
-  EXPECT_EQ_TEXT(r.stdout_text, "你好\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "\\u4F60\\u597D\n");
 }
 
 TEST(echo, echo_unicode_escape_U_emits_utf8) {
@@ -201,7 +203,7 @@ TEST(echo, echo_unicode_escape_U_emits_utf8) {
 
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_TRUE(r.stderr_text.empty());
-  EXPECT_EQ_TEXT(r.stdout_text, "😂\n");
+  EXPECT_EQ_TEXT(r.stdout_text, "\\U0001F602\n");
 }
 
 TEST(echo, echo_unicode_escape_without_hex_keeps_backslash) {

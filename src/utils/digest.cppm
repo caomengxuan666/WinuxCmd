@@ -35,6 +35,7 @@ module;
 
 export module utils:digest;
 import std;
+import :native_path;
 
 export namespace portable_digest {
 
@@ -693,7 +694,8 @@ auto hash_file_hex(HashAlgorithm algorithm, const std::string& filename,
   std::istream* input = &std::cin;
   std::ifstream file;
   if (!filename.empty() && filename != "-") {
-    file.open(filename, text_mode ? std::ios::in : std::ios::binary);
+    file.open(native_path::normalize_api_operand(filename),
+              text_mode ? std::ios::in : std::ios::binary);
     if (!file) {
       return std::unexpected(detail::input_open_error(filename));
     }

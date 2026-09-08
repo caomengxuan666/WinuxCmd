@@ -306,6 +306,48 @@ TEST(split, split_rejects_multiple_split_modes) {
                   std::string::npos);
 }
 
+TEST(split, split_invalid_size_messages_quote_argument) {
+  TempDir tmp;
+  tmp.write("input.txt", "line1\nline2\n");
+
+  // GNU strtoint_die quotes the rejected argument for every size option.
+  const wchar_t* flag_sets[][2] = {
+      {L"-l", L"0"},        {L"-l", L"x"},        {L"-l", L"2fb"},
+      {L"-b", L"0"},        {L"-b", L"abc"},      {L"-C", L"0"},
+      {L"-n", L"0"},        {L"-n", L"x"},        {L"-n", L"1/0"},
+      {L"-n", L"0/3"},      {L"-n", L"a/3"},      {L"-n", L"1/2/3"},
+  };
+  const char* expected[] = {
+      "split: invalid number of lines: '0'\n",
+      "split: invalid number of lines: 'x'\n",
+      "split: invalid number of lines: '2fb'\n",
+      "split: invalid number of bytes: '0'\n",
+      "split: invalid number of bytes: 'abc'\n",
+      "split: invalid number of lines: '0'\n",  // GNU -C says "lines"
+      "split: invalid number of chunks: '0'\n",
+      "split: invalid number of chunks: 'x'\n",
+      "split: invalid number of chunks: '0'\n",
+      "split: invalid chunk number: '0'\n",
+      "split: invalid number of chunks: 'a/3'\n",
+      "split: invalid number of chunks: '2/3'\n",
+  };
+  for (size_t i = 0; i < sizeof(flag_sets) / sizeof(flag_sets[0]); ++i) {
+    Pipeline p;
+    p.set_cwd(tmp.wpath());
+    p.add(L"split.exe",
+          {flag_sets[i][0], flag_sets[i][1], L"input.txt", L"part"});
+    auto r = p.run();
+    EXPECT_EQ(r.exit_code, 1);
+    EXPECT_EQ_TEXT(r.stderr_text, expected[i]);
+  }
+
+  // k/N with a valid split still works.
+  Pipeline good;
+  good.set_cwd(tmp.wpath());
+  good.add(L"split.exe", {L"-n", L"1/2", L"input.txt", L"part"});
+  EXPECT_EQ(good.run().exit_code, 0);
+}
+
 TEST(split, split_stdin) {
   Pipeline p;
   p.set_stdin("line1\nline2\nline3\n");

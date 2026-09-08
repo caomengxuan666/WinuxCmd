@@ -407,7 +407,8 @@ auto run(const Config& cfg) -> int {
       }
     } else {
       // Read from file
-      std::ifstream f(file, std::ios::binary);
+      std::ifstream f(native_path::normalize_api_operand(file),
+                      std::ios::binary);
       if (!f) {
         auto err = nl_input_open_error(file);
         cp::Result<int> result = std::unexpected(err);

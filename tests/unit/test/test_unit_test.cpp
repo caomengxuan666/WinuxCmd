@@ -71,3 +71,70 @@ TEST(test, test_logical_precedence_and_parentheses) {
                             L")", L"-a", L"4", L"-eq", L"4"});
   EXPECT_EQ(grouped.run().exit_code, 0);
 }
+
+TEST(test, test_single_arg_is_string_test) {
+  // GNU: a single argument is always a string test, even '!' or '('.
+  Pipeline bang;
+  bang.add(L"test.exe", {L"!"});
+  EXPECT_EQ(bang.run().exit_code, 0);
+
+  Pipeline paren;
+  paren.add(L"test.exe", {L"("});
+  EXPECT_EQ(paren.run().exit_code, 0);
+
+  Pipeline unary;
+  unary.add(L"test.exe", {L"-w"});
+  EXPECT_EQ(unary.run().exit_code, 0);
+}
+
+TEST(test, test_missing_argument_after_binary_operator) {
+  Pipeline p;
+  p.add(L"test.exe", {L"x", L"-a"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stderr_text, "test: missing argument after '-a'\n");
+}
+
+TEST(test, test_unary_operator_expected) {
+  Pipeline p;
+  p.add(L"test.exe", {L"-o", L"x"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stderr_text, "test: '-o': unary operator expected\n");
+}
+
+TEST(test, test_missing_argument_after_integer_operator) {
+  Pipeline p;
+  p.add(L"test.exe", {L"x", L"-eq"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stderr_text, "test: missing argument after '-eq'\n");
+}
+
+TEST(test, test_invalid_integer_message) {
+  Pipeline p;
+  p.add(L"test.exe", {L"x", L"-eq", L"3"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stderr_text, "test: invalid integer 'x'\n");
+
+  Pipeline reversed;
+  reversed.add(L"test.exe", {L"3", L"-eq", L"x"});
+  EXPECT_EQ_TEXT(reversed.run().stderr_text, "test: invalid integer 'x'\n");
+}
+
+TEST(test, test_two_plain_args_missing_argument) {
+  Pipeline p;
+  p.add(L"test.exe", {L"x", L"y"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stderr_text, "test: missing argument after 'y'\n");
+}
+
+TEST(test, test_three_plain_args_binary_operator_expected) {
+  Pipeline p;
+  p.add(L"test.exe", {L"x", L"y", L"z"});
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 2);
+  EXPECT_EQ_TEXT(r.stderr_text, "test: 'y': binary operator expected\n");
+}
