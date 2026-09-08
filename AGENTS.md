@@ -24,6 +24,7 @@ when `WINUX_LANG` selects a catalog under `.wpm/i18n/<locale>/catalog.json`.
 - For small batches, edit `catalogs/zh-CN/catalog.json` directly, preserving stable keys and valid JSON. Add the English fallback in WinuxCmd first, then add or update the Chinese translation in the I18N repository.
 - Validate the catalog against the generated English catalog, commit both repositories separately, and push both before reporting completion.
 - Check the previous WinuxCmd commit and the I18N repository history for missed catalog changes before starting a new sync.
+- Every change under `catalogs/` in the I18N repository MUST bump the `VERSION` file in that repository in the same PR (at least the patch segment). CI blocks the PR otherwise. Merging the bump automatically publishes the `winuxcmd-i18n-zh-cn` release and opens the WPM index update PR; never ship catalog text changes without a version bump, because WPM treats an unchanged version as already installed.
 
 ## Catalog ownership
 
