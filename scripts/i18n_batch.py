@@ -144,7 +144,11 @@ MANUAL_MESSAGES = {
     "command.wpm.error.stage": "wpm: failed to stage exe: {}",
     "command.wpm.status.clean_empty": "wpm: {} is already clean",
     "command.wpm.status.clean_dry_run": "wpm: would remove {} ({} in {} files)",
-    "command.wpm.status.cleaned_detail": "wpm: cleaned {} ({} in {} files)",
+    "command.wpm.status.clean_file": "wpm: - {}",
+    "command.wpm.status.clean_progress":
+        "wpm: removing {}... {}% ({}/{} files, {})",
+    "command.wpm.status.clean_summary":
+        "wpm: removed {} ({} in {} files) in {:.1f}s",
     "command.wpm.status.install_summary": "wpm: install summary: requested={} failed={}",
     "command.wpm.status.keep_running": "wpm: keeping running executable: {}",
     "command.wpm.error.refuse_directory": "wpm: refusing to replace directory: {}",

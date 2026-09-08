@@ -860,6 +860,7 @@ auto human_size(unsigned long long bytes) -> std::string {
 struct CleanupStats {
   unsigned long long bytes = 0;
   size_t files = 0;
+  std::error_code ec;
 };
 
 auto directory_stats(const fs::path& root) -> CleanupStats {
@@ -873,6 +874,64 @@ auto directory_stats(const fs::path& root) -> CleanupStats {
     if (!ec) ++stats.files;
   }
   return stats;
+}
+
+auto collect_cleanup_files(const fs::path& root)
+    -> std::vector<std::pair<fs::path, unsigned long long>> {
+  std::vector<std::pair<fs::path, unsigned long long>> files;
+  std::error_code ec;
+  fs::recursive_directory_iterator it{root, ec};
+  fs::recursive_directory_iterator end;
+  while (!ec && it != end) {
+    std::error_code file_ec;
+    if (it->is_regular_file(file_ec) && !file_ec) {
+      files.emplace_back(it->path(), it->file_size(file_ec));
+    }
+    it.increment(ec);
+  }
+  return files;
+}
+
+auto print_cleanup_progress(std::string_view kind, size_t done, size_t total,
+                            unsigned long long bytes) -> void {
+  const int percent = total == 0 ? 100 : static_cast<int>(done * 100 / total);
+  safePrint(std::string("\r") +
+            wpm_text("command.wpm.status.clean_progress",
+                     "wpm: removing {}... {}% ({}/{} files, {})", kind, percent,
+                     done, total, human_size(bytes)));
+}
+
+auto remove_tree(const fs::path& target, std::string_view kind, bool verbose)
+    -> CleanupStats {
+  CleanupStats removed;
+  const auto files = collect_cleanup_files(target);
+  const size_t total = files.size();
+  size_t done = 0;
+  bool progress_shown = false;
+  for (const auto& [path, size] : files) {
+    if (verbose) {
+      safePrintLn(wpm_text("command.wpm.status.clean_file", "wpm: - {}",
+                           path.string()));
+    }
+    std::error_code ec;
+    fs::remove(path, ec);
+    if (!ec) {
+      removed.bytes += size;
+      ++removed.files;
+    }
+    ++done;
+    if (!verbose && (done % 16 == 0 || done == total)) {
+      print_cleanup_progress(kind, done, total, removed.bytes);
+      progress_shown = true;
+    }
+  }
+  std::error_code ec;
+  fs::remove_all(target, ec);
+  if (ec) removed.ec = ec;
+  if (progress_shown) {
+    safePrint(std::string("\r") + std::string(72, ' ') + "\r");
+  }
+  return removed;
 }
 
 auto clean_state_directory(const fs::path& root, std::string_view kind,
@@ -892,18 +951,20 @@ auto clean_state_directory(const fs::path& root, std::string_view kind,
                          stats.files));
     return 0;
   }
-  fs::remove_all(target, ec);
-  if (ec) {
+  const auto started = std::chrono::steady_clock::now();
+  const auto removed = remove_tree(target, kind, verbose);
+  const std::chrono::duration<double> elapsed =
+      std::chrono::steady_clock::now() - started;
+  if (removed.ec) {
     safeErrorPrintLn(wpm_text("command.wpm.error.clean",
                               "wpm: failed to clean '{}': {}", target.string(),
-                              ec.message()));
+                              removed.ec.message()));
     return 1;
   }
-  if (verbose) {
-    safePrintLn(wpm_text("command.wpm.status.cleaned_detail",
-                         "wpm: cleaned {} ({} in {} files)", target.string(),
-                         human_size(stats.bytes), stats.files));
-  }
+  safePrintLn(wpm_text("command.wpm.status.clean_summary",
+                       "wpm: removed {} ({} in {} files) in {:.1f}s",
+                       target.string(), human_size(removed.bytes),
+                       removed.files, elapsed.count()));
   return 0;
 }
 
@@ -3245,43 +3306,56 @@ auto show_info(const Options& opts, std::string_view name) -> int {
 auto print_usage() -> int {
   const std::string help =
       "Winux Package Manager {}\n"
-      "Usage: wpm <command> [args] [options]\n\n"
+      "Usage: wpm <command> [args] [options]\n"
+      "\n"
       "Commands:\n"
-      "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
-      "  clean [cache|staging|all]     remove transient downloads and staging\n"
-      "  cache clean [cache|staging|all]\n"
-      "                                alias for clean\n"
-      "  index status|update           inspect or refresh local index\n"
-      "  update-index                  alias for index update\n"
-      "  source list|use|add|test      manage and test index sources\n"
-      "  list                          list indexed packages and install "
-      "state\n"
-      "  categories                    list package categories and counts\n"
-      "  search <query>                search names, commands, categories, "
-      "licenses\n"
-      "  info <package>                show package metadata\n"
-      "  install <package>...          install one or more packages\n"
-      "  installed                     list packages present in this root\n"
-      "  export [--plain]              print installed package names for "
-      "profiles\n"
-      "  restore <file>                install packages from a plain list\n"
-      "  outdated                      list installed packages with updates\n"
-      "  uninstall|remove|erase <package>...\n"
-      "                                uninstall one or more packages\n"
-      "  update|upgrade winuxcmd       update WinuxCmd from local index\n\n"
+      "  links list|rebuild|remove             manage WinuxCmd hardlinks\n"
+      "  clean [cache|staging|all]             remove transient downloads and "
+      "staging\n"
+      "  cache clean [cache|staging|all]       alias for clean\n"
+      "  index status|update                   inspect or refresh local index\n"
+      "  update-index                          alias for index update\n"
+      "  source list|use|add|test              manage and test index sources\n"
+      "  list                                  list indexed packages and "
+      "install state\n"
+      "  categories                            list package categories and "
+      "counts\n"
+      "  search <query>                        search names, commands, "
+      "categories, licenses\n"
+      "  info <package>                        show package metadata\n"
+      "  install <package>...                  install one or more packages\n"
+      "  installed                             list packages present in this "
+      "root\n"
+      "  export [--plain]                      print installed package names "
+      "for profiles\n"
+      "  restore <file>                        install packages from a plain "
+      "list\n"
+      "  outdated                              list installed packages with "
+      "updates\n"
+      "  uninstall|remove|erase <package>...   uninstall one or more packages\n"
+      "  update|upgrade winuxcmd               update WinuxCmd from local "
+      "index\n"
+      "\n"
       "Options:\n"
-      "  -r, --root <dir>              manage a specific WinuxCmd root\n"
-      "  -s, --source <name>           use a specific index source\n"
-      "  -a, --all                     show index-only packages in list "
+      "  -r, --root <dir>                      manage a specific WinuxCmd "
+      "root\n"
+      "  -s, --source <name>                   use a specific index source\n"
+      "  -a, --all                             show index-only packages in "
+      "list "
       "output\n"
-      "  -f, --force                   overwrite existing files when safe\n"
-      "  -n, --dry-run                 show planned changes without writing\n"
-      "  -v, --verbose                 print detailed progress\n"
-      "      --category <name>         filter list/search output by category\n"
-      "      --json                    print machine-readable JSON\n"
-      "      --plain                   print only package names for export\n"
-      "      --help                    display this help and exit\n"
-      "  -V, --version                 output version information and exit\n";
+      "  -f, --force                           overwrite existing files when "
+      "safe\n"
+      "  -n, --dry-run                         show planned changes without "
+      "writing\n"
+      "  -v, --verbose                         print detailed progress\n"
+      "      --category <name>                 filter list/search output by "
+      "category\n"
+      "      --json                            print machine-readable JSON\n"
+      "      --plain                           print only package names for "
+      "export\n"
+      "      --help                            display this help and exit\n"
+      "  -V, --version                         output version information and "
+      "exit\n";
   safePrint(cmd::meta::format_custom_help(
       "wpm", wpm_text("command.wpm.custom_help", help, kVersion)));
   return 0;
