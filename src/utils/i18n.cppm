@@ -209,7 +209,57 @@ export std::string translate_error(std::string_view error) {
     return ::winux::i18n::format("command.kill.error.multiple_signals",
                                  "'{}': multiple signals specified", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 30> exact{
+  // sort: "options '-cC' are incompatible" — the flag cluster is quoted in
+  // the middle of the message.
+  constexpr std::string_view kIncompatibleSuffix = "' are incompatible";
+  if (error.starts_with("options '") && error.ends_with(kIncompatibleSuffix)) {
+    const auto value =
+        error.substr(9, error.size() - 9 - kIncompatibleSuffix.size());
+    return ::winux::i18n::format("common.error.options_incompatible",
+                                 "options '{}' are incompatible", value);
+  }
+  // pr: "'-l' invalid number of lines: '0'" — three dynamic parts (option
+  // label, unit, value).
+  {
+    constexpr std::string_view kPrNumberSep = "' invalid number of ";
+    if (error.size() > kPrNumberSep.size() + 2 && error.front() == '\'' &&
+        error.back() == '\'') {
+      const auto sep_pos = error.find(kPrNumberSep, 1);
+      if (sep_pos != std::string_view::npos) {
+        const auto label = error.substr(1, sep_pos - 1);
+        const auto rest = error.substr(sep_pos + kPrNumberSep.size());
+        constexpr std::string_view kPrValueSep = ": '";
+        const auto value_sep = rest.rfind(kPrValueSep);
+        if (value_sep != std::string_view::npos && value_sep > 0) {
+          const auto what = rest.substr(0, value_sep);
+          auto value = rest.substr(value_sep + kPrValueSep.size());
+          value.remove_suffix(1);
+          return ::winux::i18n::format(
+              "command.pr.error.invalid_number",
+              "'{}' invalid number of {}: '{}'", label, what, value);
+        }
+      }
+    }
+  }
+  // pr: "'-e' extra characters or invalid number in the argument: '0'".
+  {
+    constexpr std::string_view kPrExtraSep =
+        "' extra characters or invalid number in the argument: '";
+    if (error.size() > kPrExtraSep.size() && error.front() == '\'' &&
+        error.back() == '\'') {
+      const auto sep_pos = error.find(kPrExtraSep);
+      if (sep_pos != std::string_view::npos && sep_pos > 0) {
+        const auto label = error.substr(1, sep_pos - 1);
+        auto value = error.substr(sep_pos + kPrExtraSep.size());
+        value.remove_suffix(1);
+        return ::winux::i18n::format(
+            "command.pr.error.extra_characters",
+            "'{}' extra characters or invalid number in the argument: '{}'",
+            label, value);
+      }
+    }
+  }
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 32> exact{
       {{"invalid input", "common.error.invalid_input"},
        {"error reading from file", "common.error.read_file"},
        {"error reading input", "common.error.read_input"},
@@ -241,7 +291,11 @@ export std::string translate_error(std::string_view error) {
        {"tab size cannot be 0", "common.error.tab_zero"},
        {"No such file or directory", "common.error.no_such_file"},
        {"you must specify either '--size' or '--reference'",
-        "common.error.size_or_reference"}}};
+        "common.error.size_or_reference"},
+       {"cannot both summarize and show all",
+        "common.error.summarize_and_show_all"},
+       {"multiple output files specified",
+        "common.error.multiple_output_files"}}};
   for (const auto [literal, key] : exact) {
     if (error == literal) return translate(key, error);
   }
@@ -273,7 +327,7 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 39>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 41>
       quoted{
           {{"cannot open '", "common.error.cannot_open"},
            {"cannot access '", "common.error.cannot_access"},
@@ -316,7 +370,9 @@ export std::string translate_error(std::string_view error) {
            {"invalid --parallel argument '",
             "common.error.invalid_parallel_argument"},
            {"Invalid number: '", "common.error.invalid_number"},
-           {"invalid field number: '", "common.error.invalid_field_number"}}};
+           {"invalid field number: '", "common.error.invalid_field_number"},
+           {"invalid tab size: '", "common.error.invalid_tab_size"},
+           {"too few X's in template '", "common.error.too_few_xs"}}};
   for (const auto [prefix, key] : quoted) {
     if (!error.starts_with(prefix) || error.back() != '\'') continue;
     const auto value =
@@ -333,7 +389,7 @@ export std::string translate_error(std::string_view error) {
       return ::winux::i18n::format(key, "error writing '{}'", value);
     if (key == "common.error.invalid_mode")
       return ::winux::i18n::format(key, "invalid mode: '{}'", value);
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 33>
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 35>
         fallbacks{
             {{"common.error.invalid_group", "invalid group: '{}'"},
              {"common.error.invalid_user", "invalid user: '{}'"},
@@ -384,7 +440,9 @@ export std::string translate_error(std::string_view error) {
               "invalid --parallel argument '{}'"},
              {"common.error.invalid_number", "Invalid number: '{}'"},
              {"common.error.invalid_field_number",
-              "invalid field number: '{}'"}}};
+              "invalid field number: '{}'"},
+             {"common.error.invalid_tab_size", "invalid tab size: '{}'"},
+             {"common.error.too_few_xs", "too few X's in template '{}'"}}};
     for (const auto [fallback_key, fallback] : fallbacks) {
       if (key == fallback_key)
         return ::winux::i18n::format(key, fallback, value);

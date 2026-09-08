@@ -52,8 +52,8 @@ auto constexpr PR_OPTIONS = std::array{
     OPTION("-a", "", "produce multi-column output", BOOL_TYPE),
     // [GNU]
     OPTION("-d", "", "double-space the output", BOOL_TYPE),
-    // [GNU]
-    OPTION("-e", "--expand", "expand input TABs", STRING_TYPE),
+    // [GNU] -e takes an optional *attached* [CHAR[WIDTH]] argument only.
+    OPTION("-e", "--expand", "expand input TABs", OPTIONAL_STRING_TYPE),
     // [GNU]
     OPTION("-f", "--form-feed", "use form feeds instead of newlines",
            BOOL_TYPE),
@@ -61,15 +61,16 @@ auto constexpr PR_OPTIONS = std::array{
     OPTION("-h", "--header", "use a centered HEADER", STRING_TYPE),
     // [GNU]
     OPTION("-l", "--length", "set page length", STRING_TYPE),
-    // [GNU]
-    OPTION("-n", "--number-lines", "number lines", STRING_TYPE),
+    // [GNU] -n takes an optional *attached* [SEP[DIGITS]] argument only.
+    OPTION("-n", "--number-lines", "number lines", OPTIONAL_STRING_TYPE),
     // [GNU]
     OPTION("-o", "--indent", "offset each line", STRING_TYPE),
     // [GNU]
     OPTION("-r", "--no-file-warnings",
            "omit warning when a file cannot be opened", BOOL_TYPE),
-    // [GNU]
-    OPTION("-s", "--separator", "separate columns by characters", STRING_TYPE),
+    // [GNU] -s takes an optional *attached* [CHAR] argument only.
+    OPTION("-s", "--separator", "separate columns by characters",
+           OPTIONAL_STRING_TYPE),
     // [GNU]
     OPTION("-t", "--omit-header", "omit page headers and trailers", BOOL_TYPE),
     // [GNU]
@@ -91,9 +92,9 @@ auto constexpr PR_OPTIONS = std::array{
     // [GNU]
     OPTION("-F", "-f", "use form feeds instead of newlines (same as -f)",
            BOOL_TYPE),
-    // [GNU]
+    // [GNU] -i takes an optional *attached* [CHAR[WIDTH]] argument only.
     OPTION("-i", "--output-tabs", "replace spaces with TABs where possible",
-           STRING_TYPE),
+           OPTIONAL_STRING_TYPE),
     // [GNU]
     OPTION("-J", "--join-lines", "merge full lines (ignore --column warnings)",
            BOOL_TYPE),
@@ -116,8 +117,8 @@ auto constexpr PR_OPTIONS = std::array{
     OPTION("", "--columns", "output COLUMN-column output", STRING_TYPE),
     // [GNU]
     OPTION("", "--double-space", "double-space the output", BOOL_TYPE),
-    // [GNU]
-    OPTION("", "--expand-tabs", "expand input TABs", STRING_TYPE),
+    // [GNU] --expand-tabs takes an optional *attached* [=CHAR[WIDTH]] value.
+    OPTION("", "--expand-tabs", "expand input TABs", OPTIONAL_STRING_TYPE),
     // [GNU]
     OPTION("", "--pages", "begin printing with page PAGE", STRING_TYPE)};
 
@@ -128,11 +129,14 @@ struct Config {
   int start_page = 1;
   int columns = 1;
   bool double_space = false;
-  std::string expand_tabs;
+  // [GNU] -e/--expand-tabs: presence flag + validated width (default 8).
+  bool expand_set = false;
+  int expand_width = 8;
   bool form_feed = false;
   std::string header;
   int page_length = 66;
-  std::string number_lines;
+  // [GNU] -n/--number-lines: presence flag (numbering enabled).
+  bool number_lines_set = false;
   int indent = 0;
   bool no_file_warnings = false;
   std::string separator = "\t";
@@ -143,7 +147,9 @@ struct Config {
   bool show_control_chars = false;
   std::string date_format;
   bool form_feed_ff = false;
-  std::string output_tabs;
+  // [GNU] -i/--output-tabs: presence flag + validated width (default 8).
+  bool output_tabs_set = false;
+  int output_tabs_width = 8;
   bool join_lines = false;
   bool merge = false;
   std::string first_line_number;
@@ -151,6 +157,63 @@ struct Config {
   bool show_nonprinting = false;
   SmallVector<std::string, 64> files;
 };
+
+// [GNU] pr.c validates numeric option values via xstrtoui and reports:
+//   pr: '-l PAGE_LENGTH' invalid number of lines: 'abc'
+//   pr: '-l PAGE_LENGTH' invalid number of lines: '0': Numerical result out of range
+//   pr: '-w PAGE_WIDTH' invalid number of characters: '0': Numerical result out of range
+auto parse_positive_number(const std::string& label, const std::string& what,
+                           const std::string& value)
+    -> std::expected<int, std::string> {
+  auto fail = [&](bool out_of_range) {
+    std::string msg = "'" + label + "' invalid number of " + what + ": '" +
+                      value + "'";
+    if (out_of_range) msg += ": Numerical result out of range";
+    return std::unexpected(msg);
+  };
+  int v = 0;
+  try {
+    size_t pos = 0;
+    v = std::stoi(value, &pos);
+    if (pos != value.size()) return fail(false);
+  } catch (std::out_of_range&) {
+    return fail(true);
+  } catch (...) {
+    return fail(false);
+  }
+  if (v <= 0) return fail(true);
+  return v;
+}
+
+// [GNU] -e/-i take an optional attached [CHAR[WIDTH]] argument. The CHAR part
+// (a single non-digit) selects the tab character (TAB is assumed here); the
+// WIDTH part must be a number >= 1. Mirrors pr.c messages:
+//   pr: '-e' extra characters or invalid number in the argument: '0'
+auto parse_tab_spec(const std::string& label, const std::string& raw)
+    -> std::expected<int, std::string> {
+  auto fail = [&](const std::string& quoted) {
+    return std::unexpected("'" + label +
+                           "' extra characters or invalid number in the "
+                           "argument: '" +
+                           quoted + "'");
+  };
+  size_t i = 0;
+  if (i < raw.size() && !std::isdigit(static_cast<unsigned char>(raw[i]))) {
+    ++i;  // CHAR part (tab character; assumed TAB here)
+  }
+  std::string rest = raw.substr(i);
+  if (rest.empty()) return 8;  // [GNU] default width
+  int v = 0;
+  try {
+    size_t pos = 0;
+    v = std::stoi(rest, &pos);
+    if (pos != rest.size()) return fail(rest);
+  } catch (...) {
+    return fail(rest);
+  }
+  if (v < 1) return fail(rest);
+  return v;
+}
 
 auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
@@ -195,14 +258,27 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
   cfg.omit_pagination =
       ctx.get<bool>("--omit-pagination", false) || ctx.get<bool>("-T", false);
 
-  auto expand_opt = ctx.get<std::string>("--expand", "");
-  if (expand_opt.empty()) {
-    expand_opt = ctx.get<std::string>("--expand-tabs", "");
+  // [GNU] -e/--expand-tabs accept an optional attached [CHAR[WIDTH]] value;
+  // the option alone enables expansion with the default width 8.
+  cfg.expand_set = ctx.count({"-e", "--expand", "--expand-tabs"}) > 0;
+  std::string expand_raw;
+  const char* expand_label = "-e";
+  for (auto [name, label] :
+       {std::pair{std::string_view("--expand"), std::string_view("--expand-tabs")},
+        std::pair{std::string_view("--expand-tabs"), std::string_view("--expand-tabs")},
+        std::pair{std::string_view("-e"), std::string_view("-e")}}) {
+    auto v = ctx.get<std::string>(name, "");
+    if (!v.empty()) {
+      expand_raw = v;
+      expand_label = label.data();
+      break;
+    }
   }
-  if (expand_opt.empty()) {
-    expand_opt = ctx.get<std::string>("-e", "");
+  if (!expand_raw.empty()) {
+    auto w = parse_tab_spec(expand_label, expand_raw);
+    if (!w) return std::unexpected(w.error());
+    cfg.expand_width = *w;
   }
-  cfg.expand_tabs = expand_opt;
 
   auto header_opt = ctx.get<std::string>("--header", "");
   if (header_opt.empty()) {
@@ -215,18 +291,31 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     length_opt = ctx.get<std::string>("-l", "");
   }
   if (!length_opt.empty()) {
-    try {
-      cfg.page_length = std::stoi(length_opt);
-    } catch (...) {
-      return std::unexpected("invalid page length");
-    }
+    auto v = parse_positive_number("-l PAGE_LENGTH", "lines", length_opt);
+    if (!v) return std::unexpected(v.error());
+    cfg.page_length = *v;
   }
 
-  auto number_opt = ctx.get<std::string>("--number-lines", "");
-  if (number_opt.empty()) {
-    number_opt = ctx.get<std::string>("-n", "");
+  // [GNU] -n takes an optional attached [SEP[DIGITS]] argument; the option
+  // alone enables numbering with defaults.
+  cfg.number_lines_set = ctx.count({"-n", "--number-lines"}) > 0;
+  std::string number_raw;
+  const char* number_label = "-n";
+  for (auto [name, label] :
+       {std::pair{std::string_view("--number-lines"),
+                  std::string_view("--number-lines")},
+        std::pair{std::string_view("-n"), std::string_view("-n")}}) {
+    auto v = ctx.get<std::string>(name, "");
+    if (!v.empty()) {
+      number_raw = v;
+      number_label = label.data();
+      break;
+    }
   }
-  cfg.number_lines = number_opt;
+  if (!number_raw.empty()) {
+    auto w = parse_tab_spec(number_label, number_raw);
+    if (!w) return std::unexpected(w.error());
+  }
 
   auto indent_opt = ctx.get<std::string>("--indent", "");
   if (indent_opt.empty()) {
@@ -253,11 +342,9 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
     width_opt = ctx.get<std::string>("-w", "");
   }
   if (!width_opt.empty()) {
-    try {
-      cfg.page_width = std::stoi(width_opt);
-    } catch (...) {
-      return std::unexpected("invalid page width");
-    }
+    auto v = parse_positive_number("-w PAGE_WIDTH", "characters", width_opt);
+    if (!v) return std::unexpected(v.error());
+    cfg.page_width = *v;
   }
 
   auto col_opt = ctx.get<std::string>("--columns", "");
@@ -292,11 +379,26 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
   }
   cfg.date_format = date_fmt;
 
-  auto output_tabs_opt = ctx.get<std::string>("--output-tabs", "");
-  if (output_tabs_opt.empty()) {
-    output_tabs_opt = ctx.get<std::string>("-i", "");
+  // [GNU] -i takes an optional attached [CHAR[WIDTH]] argument.
+  cfg.output_tabs_set = ctx.count({"-i", "--output-tabs"}) > 0;
+  std::string output_tabs_raw;
+  const char* output_tabs_label = "-i";
+  for (auto [name, label] :
+       {std::pair{std::string_view("--output-tabs"),
+                  std::string_view("--output-tabs")},
+        std::pair{std::string_view("-i"), std::string_view("-i")}}) {
+    auto v = ctx.get<std::string>(name, "");
+    if (!v.empty()) {
+      output_tabs_raw = v;
+      output_tabs_label = label.data();
+      break;
+    }
   }
-  cfg.output_tabs = output_tabs_opt;
+  if (!output_tabs_raw.empty()) {
+    auto w = parse_tab_spec(output_tabs_label, output_tabs_raw);
+    if (!w) return std::unexpected(w.error());
+    cfg.output_tabs_width = *w;
+  }
 
   auto fln_opt = ctx.get<std::string>("--first-line-number", "");
   if (fln_opt.empty()) {
@@ -330,11 +432,9 @@ auto build_config(const CommandContext<PR_OPTIONS.size()>& ctx)
   auto pwidth_opt = ctx.get<std::string>("--page-width", "");
   if (pwidth_opt.empty()) pwidth_opt = ctx.get<std::string>("-W", "");
   if (!pwidth_opt.empty()) {
-    try {
-      cfg.page_width = std::stoi(pwidth_opt);
-    } catch (...) {
-      return std::unexpected("invalid page width");
-    }
+    auto v = parse_positive_number("-W PAGE_WIDTH", "characters", pwidth_opt);
+    if (!v) return std::unexpected(v.error());
+    cfg.page_width = *v;
   }
 
   return cfg;
@@ -648,13 +748,8 @@ auto run(const Config& cfg) -> int {
           std::string line = all_lines[idx];
 
           // Apply expand_tabs
-          if (!cfg.expand_tabs.empty()) {
-            int tab_width = 8;
-            try {
-              tab_width = std::stoi(cfg.expand_tabs);
-            } catch (...) {
-            }
-            line = expand_tabs(line, tab_width);
+          if (cfg.expand_set) {
+            line = expand_tabs(line, cfg.expand_width);
           }
 
           // Apply show_control_chars
@@ -668,13 +763,8 @@ auto run(const Config& cfg) -> int {
           }
 
           // Apply output_tabs
-          if (!cfg.output_tabs.empty()) {
-            int tab_width = 8;
-            try {
-              tab_width = std::stoi(cfg.output_tabs);
-            } catch (...) {
-            }
-            line = replace_spaces_with_tabs(line, tab_width);
+          if (cfg.output_tabs_set) {
+            line = replace_spaces_with_tabs(line, cfg.output_tabs_width);
           }
 
           output += line;
@@ -682,7 +772,7 @@ auto run(const Config& cfg) -> int {
       }
 
       // Add line numbers
-      if (!cfg.number_lines.empty()) {
+      if (cfg.number_lines_set) {
         char buf[32];
         snprintf(buf, sizeof(buf), "%6d  ", line_num++);
         output = indent_str + buf + output.substr(indent_str.size());
@@ -726,13 +816,8 @@ auto run(const Config& cfg) -> int {
       std::string processed = line;
 
       // Apply expand_tabs
-      if (!cfg.expand_tabs.empty()) {
-        int tab_width = 8;
-        try {
-          tab_width = std::stoi(cfg.expand_tabs);
-        } catch (...) {
-        }
-        processed = expand_tabs(processed, tab_width);
+      if (cfg.expand_set) {
+        processed = expand_tabs(processed, cfg.expand_width);
       }
 
       // Apply show_control_chars
@@ -746,19 +831,14 @@ auto run(const Config& cfg) -> int {
       }
 
       // Apply output_tabs
-      if (!cfg.output_tabs.empty()) {
-        int tab_width = 8;
-        try {
-          tab_width = std::stoi(cfg.output_tabs);
-        } catch (...) {
-        }
-        processed = replace_spaces_with_tabs(processed, tab_width);
+      if (cfg.output_tabs_set) {
+        processed = replace_spaces_with_tabs(processed, cfg.output_tabs_width);
       }
 
       std::string output = indent_str;
 
       // Add line numbers
-      if (!cfg.number_lines.empty()) {
+      if (cfg.number_lines_set) {
         char buf[32];
         snprintf(buf, sizeof(buf), "%6d  ", line_num++);
         output += buf;

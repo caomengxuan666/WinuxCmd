@@ -733,6 +733,14 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
   // Handle list/table options
   if (list || table) {
     if (list && !table) {
+      // [GNU] a -SPEC operand (consumed as the -NUM signal form) cannot be
+      // combined with -l: operand2sig rejects the negative spec, so
+      // "kill -l -9" is an error, not a signal listing (uutils #7066).
+      if (ctx.count({"-NUM"}) > 0) {
+        return std::unexpected("'-" +
+                               std::to_string(ctx.get<int>("-NUM", 0)) +
+                               "': invalid signal");
+      }
       if (auto conversion_arg = list_conversion_argument(ctx)) {
         return convert_and_print_signal(*conversion_arg);
       }

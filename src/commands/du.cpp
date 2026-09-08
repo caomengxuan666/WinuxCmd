@@ -637,6 +637,9 @@ auto configure_du(const CommandContext<DU_OPTIONS.size()>& ctx)
       ctx.get<bool>("--summarize", false) || ctx.get<bool>("-s", false);
 
   cfg.max_depth = ctx.get<int>("--max-depth", -1);
+  if (cfg.count_all && cfg.summarize) {
+    return std::unexpected("cannot both summarize and show all");
+  }
   if (ctx.get<int>("-d", -1) != -1) {
     cfg.max_depth = ctx.get<int>("-d", -1);
   }

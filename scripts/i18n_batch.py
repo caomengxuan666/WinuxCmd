@@ -319,6 +319,13 @@ MANUAL_MESSAGES = {
     "common.error.invalid_number": "Invalid number: '{}'",
     "common.error.invalid_field_number": "invalid field number: '{}'",
     "common.error.size_or_reference": "you must specify either '--size' or '--reference'",
+    "common.error.summarize_and_show_all": "cannot both summarize and show all",
+    "common.error.multiple_output_files": "multiple output files specified",
+    "common.error.options_incompatible": "options '{}' are incompatible",
+    "common.error.invalid_tab_size": "invalid tab size: '{}'",
+    "common.error.too_few_xs": "too few X's in template '{}'",
+    "command.pr.error.invalid_number": "'{}' invalid number of {}: '{}'",
+    "command.pr.error.extra_characters": "'{}' extra characters or invalid number in the argument: '{}'",
 }
 
 

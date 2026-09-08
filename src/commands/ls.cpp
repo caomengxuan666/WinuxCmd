@@ -1793,6 +1793,16 @@ auto validate_arguments(const CommandContext<LS_OPTIONS.size()> &ctx)
     paths.push_back(".");
   }
 
+  // [GNU] rejects a non-positive tab size ("invalid tab size: '-1'").
+  if (ctx.count({"-T", "--tabsize"}) > 0) {
+    int tab_size = ctx.get<int>("-T", 0);
+    if (tab_size == 0) tab_size = ctx.get<int>("--tabsize", 0);
+    if (tab_size <= 0) {
+      return std::unexpected("invalid tab size: '" + std::to_string(tab_size) +
+                             "'");
+    }
+  }
+
   return paths;
 }
 
@@ -3442,6 +3452,12 @@ REGISTER_COMMAND(
     if (error.starts_with(kInvalidTimeStylePrefix)) {
       safeErrorPrint(error);
       safeErrorPrint("\n");
+      return 2;
+    }
+    // [GNU] Bad command-line option values (e.g. "invalid tab size: '-1'")
+    // are serious usage errors: exit 2, not 1 (uutils #12835).
+    if (error.starts_with("invalid tab size")) {
+      report_error(result, L"ls");
       return 2;
     }
     report_error(result, L"ls");
