@@ -135,7 +135,12 @@ auto pow_u64(uint64_t base, int exponent) -> std::optional<uint64_t> {
   return value;
 }
 
-auto parse_block_size(std::string_view text) -> std::optional<uint64_t> {
+// Parses a GNU-style block size spec. When |display_suffix| is non-null and
+// the spec is a bare suffix without a leading integer (e.g. "M"), the suffix
+// text is stored there: GNU appends it to output sizes in that case.
+auto parse_block_size(std::string_view text,
+                      std::string* display_suffix = nullptr)
+    -> std::optional<uint64_t> {
   if (text.empty()) {
     return std::nullopt;
   }
@@ -187,12 +192,14 @@ auto parse_block_size(std::string_view text) -> std::optional<uint64_t> {
   uint64_t multiplier = 1;
   std::string_view number = text;
   bool suffix_matched = false;
+  std::string_view matched_suffix;
   for (const auto& unit : units) {
     if (text.size() >= unit.suffix.size() &&
         text.substr(text.size() - unit.suffix.size()) == unit.suffix) {
       multiplier = unit.multiplier;
       number = text.substr(0, text.size() - unit.suffix.size());
       suffix_matched = true;
+      matched_suffix = unit.suffix;
       break;
     }
   }
@@ -211,6 +218,11 @@ auto parse_block_size(std::string_view text) -> std::optional<uint64_t> {
   if (value == 0 || value > std::numeric_limits<uint64_t>::max() / multiplier) {
     return std::nullopt;
   }
+  if (display_suffix != nullptr) {
+    *display_suffix = (suffix_matched && number.empty())
+                          ? std::string(matched_suffix)
+                          : std::string();
+  }
   return value * multiplier;
 }
 
@@ -228,6 +240,9 @@ struct OutputConfig {
   bool block_size_explicit = false;
   uint64_t block_size = 1;
   std::string block_label = "Total";
+  // Suffix appended to scaled output when --block-size used a bare unit
+  // suffix (e.g. "df -BM" prints sizes as "1M").
+  std::string display_suffix;
 };
 
 enum class OutputField {
@@ -544,11 +559,14 @@ auto print_size_columns(uint64_t total, uint64_t used, uint64_t available,
              format_size(available, output.si).c_str());
     safePrint(buf);
   } else {
-    char buf[128];
-    snprintf(buf, sizeof(buf), "%16ju %12ju %12ju ",
+    char buf[160];
+    snprintf(buf, sizeof(buf), "%16ju%s %12ju%s %12ju%s ",
              static_cast<uintmax_t>(ceil_div(total, output.block_size)),
+             output.display_suffix.c_str(),
              static_cast<uintmax_t>(ceil_div(used, output.block_size)),
-             static_cast<uintmax_t>(ceil_div(available, output.block_size)));
+             output.display_suffix.c_str(),
+             static_cast<uintmax_t>(ceil_div(available, output.block_size)),
+             output.display_suffix.c_str());
     safePrint(buf);
   }
 }
@@ -569,6 +587,7 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       output.block_size = 1024;
       output.block_label = "1K-blocks";
       output.block_size_explicit = true;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -576,6 +595,7 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       output.human = true;
       output.si = false;
       output.block_size_explicit = true;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -583,6 +603,7 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       output.human = false;
       output.si = true;
       output.block_size_explicit = true;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -591,6 +612,7 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
       output.block_size = std::getenv("POSIXLY_CORRECT") ? 512 : 1024;
       output.block_label = std::to_string(output.block_size) + "-blocks";
       output.block_size_explicit = true;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -603,16 +625,18 @@ auto configure_output(const CommandContext<DF_OPTIONS.size()>& ctx)
         output.human = true;
         output.si = false;
         output.block_size_explicit = true;
+        output.display_suffix.clear();
         continue;
       }
       if (*value == "si") {
         output.human = false;
         output.si = true;
         output.block_size_explicit = true;
+        output.display_suffix.clear();
         continue;
       }
 
-      auto parsed = parse_block_size(*value);
+      auto parsed = parse_block_size(*value, &output.display_suffix);
       if (!parsed) {
         return std::unexpected("invalid block size");
       }
@@ -632,7 +656,8 @@ auto format_block_value(uint64_t value, const OutputConfig& output)
   if (output.human || output.si) {
     return format_size(value, output.si);
   }
-  return std::to_string(ceil_div(value, output.block_size));
+  return std::to_string(ceil_div(value, output.block_size)) +
+         output.display_suffix;
 }
 
 auto format_percent(uint64_t used, uint64_t available) -> std::string {

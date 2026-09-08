@@ -272,7 +272,8 @@ auto parse_timezone_suffix(std::string &s) -> std::optional<int> {
   return std::nullopt;
 }
 
-auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
+auto parse_fixed_date_time(std::string input, bool use_utc)
+    -> std::optional<FILETIME> {
   input = trim_copy(input);
   if (auto epoch = parse_epoch_time(input)) return epoch;
 
@@ -342,6 +343,9 @@ auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
     if (!ft) return std::nullopt;
     return add_seconds(*ft, -static_cast<long long>(*tz_offset) * 60);
   }
+  // [GNU] -u/--utc makes zone-less date strings parse as UTC instead of
+  // local time.
+  if (use_utc) return utc_system_time_to_filetime(st);
   return local_system_time_to_filetime(st);
 }
 
@@ -406,6 +410,22 @@ auto append_number(std::string &out, int value, int width, char fill = '0') {
   out += buf;
 }
 
+// [GNU] %^ forces upper case, %# swaps the natural case of textual output
+// (gnulib strftime semantics: to_lowcase wins over to_uppcase).
+auto apply_case(std::string text, bool to_uppcase, bool to_lowcase)
+    -> std::string {
+  if (to_lowcase) {
+    std::ranges::transform(text, text.begin(), [](unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  } else if (to_uppcase) {
+    std::ranges::transform(text, text.begin(), [](unsigned char ch) {
+      return static_cast<char>(std::toupper(ch));
+    });
+  }
+  return text;
+}
+
 auto format_time(const TimeValue &tv, const std::string &format)
     -> std::string {
   const SYSTEMTIME &st = tv.display;
@@ -414,13 +434,35 @@ auto format_time(const TimeValue &tv, const std::string &format)
   result.reserve(format.size() * 2);
 
   for (size_t i = 0; i < format.size(); ++i) {
-    if (format[i] == '%' && i + 1 < format.size()) {
+    if (format[i] == '%') {
+      // [GNU] case modifiers parsed before the specifier; per-spec state
+      // is reset for every '%' (to_uppcase inherits nothing here because
+      // composite expansions re-enter format_time recursively).
+      bool to_uppcase = false;
+      bool to_lowcase = false;
+      bool change_case = false;
       bool colon_zone = false;
-      if (format[i + 1] == ':' && i + 2 < format.size()) {
-        colon_zone = true;
+      const size_t spec_start = i;
+      ++i;
+      while (i < format.size()) {
+        char flag = format[i];
+        if (flag == '^') {
+          to_uppcase = true;
+        } else if (flag == '#') {
+          change_case = true;
+        } else if (flag == ':' && !colon_zone) {
+          colon_zone = true;
+        } else {
+          break;
+        }
         ++i;
       }
-      char spec = format[++i];
+      if (i >= format.size()) {
+        // Dangling '%' (optionally with flags): emit verbatim.
+        result.append(format, spec_start, format.size() - spec_start);
+        break;
+      }
+      char spec = format[i];
 
       switch (spec) {
         case '%':
@@ -465,12 +507,23 @@ auto format_time(const TimeValue &tv, const std::string &format)
         case 'N':
           append_number(result, st.wMilliseconds * 1000000, 9);
           break;
-        case 'p':
-          result += st.wHour < 12 ? "AM" : "PM";
+        case 'p': {
+          std::string text = st.wHour < 12 ? "AM" : "PM";
+          // [GNU] %#p prints the meridiem in lower case.
+          if (change_case) {
+            to_uppcase = false;
+            to_lowcase = true;
+          }
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
-        case 'P':
-          result += st.wHour < 12 ? "am" : "pm";
+        }
+        case 'P': {
+          // [GNU] %P always prints lower case; to_lowcase wins over '^'.
+          std::string text = st.wHour < 12 ? "AM" : "PM";
+          to_lowcase = true;
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
+        }
         case 'a':
         case 'A': {
           static const char *weekday_names[] = {
@@ -479,8 +532,14 @@ auto format_time(const TimeValue &tv, const std::string &format)
           static const char *weekday_abbr[] = {"Sun", "Mon", "Tue", "Wed",
                                                "Thu", "Fri", "Sat"};
           int day_of_week = st.wDayOfWeek;
-          result += (spec == 'a') ? weekday_abbr[day_of_week]
-                                  : weekday_names[day_of_week];
+          // [GNU] %^a/%#a both force upper case.
+          if (change_case) {
+            to_uppcase = true;
+            to_lowcase = false;
+          }
+          std::string text = (spec == 'a') ? weekday_abbr[day_of_week]
+                                           : weekday_names[day_of_week];
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
         }
         case 'b':
@@ -493,36 +552,53 @@ auto format_time(const TimeValue &tv, const std::string &format)
           static const char *month_abbr[] = {"Jan", "Feb", "Mar", "Apr",
                                              "May", "Jun", "Jul", "Aug",
                                              "Sep", "Oct", "Nov", "Dec"};
-          result += (spec == 'b') ? month_abbr[st.wMonth - 1]
-                                  : month_names[st.wMonth - 1];
+          // [GNU] %^b/%#b both force upper case.
+          if (change_case) {
+            to_uppcase = true;
+            to_lowcase = false;
+          }
+          std::string text = (spec == 'b') ? month_abbr[st.wMonth - 1]
+                                           : month_names[st.wMonth - 1];
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
         }
         case 'F':
-          result += format_time(tv, "%Y-%m-%d");
+          result +=
+              apply_case(format_time(tv, "%Y-%m-%d"), to_uppcase, to_lowcase);
           break;
         case 'D':
-          result += format_time(tv, "%m/%d/%y");
+          result +=
+              apply_case(format_time(tv, "%m/%d/%y"), to_uppcase, to_lowcase);
           break;
         case 'T':
-          result += format_time(tv, "%H:%M:%S");
+          result +=
+              apply_case(format_time(tv, "%H:%M:%S"), to_uppcase, to_lowcase);
           break;
         case 'R':
-          result += format_time(tv, "%H:%M");
+          result += apply_case(format_time(tv, "%H:%M"), to_uppcase, to_lowcase);
           break;
         case 'r':
-          result += format_time(tv, "%I:%M:%S %p");
+          result += apply_case(format_time(tv, "%I:%M:%S %p"), to_uppcase,
+                               to_lowcase);
           break;
         case 'c':
-          result += format_time(tv, "%a %b %e %H:%M:%S %Y");
+          result += apply_case(format_time(tv, "%a %b %e %H:%M:%S %Y"),
+                               to_uppcase, to_lowcase);
           break;
         case 'x':
-          result += format_time(tv, "%m/%d/%y");
+          result +=
+              apply_case(format_time(tv, "%m/%d/%y"), to_uppcase, to_lowcase);
           break;
         case 'X':
-          result += format_time(tv, "%H:%M:%S");
+          result +=
+              apply_case(format_time(tv, "%H:%M:%S"), to_uppcase, to_lowcase);
           break;
         case 'j':
           append_number(result, day_of_year(st), 3);
+          break;
+        case 'q':
+          // [GNU] %q: quarter of year (1-4).
+          append_number(result, (st.wMonth - 1) / 3 + 1, 1);
           break;
         case 'u':
           result +=
@@ -537,13 +613,18 @@ auto format_time(const TimeValue &tv, const std::string &format)
         case 'z':
           result += format_zone_offset(zone_minutes, colon_zone);
           break;
-        case 'Z':
-          result += timezone_name(tv.utc, tv.utc_display);
+        case 'Z': {
+          // [GNU] %#Z prints the zone name in lower case.
+          if (change_case) {
+            to_uppcase = false;
+            to_lowcase = true;
+          }
+          result += apply_case(timezone_name(tv.utc, tv.utc_display),
+                               to_uppcase, to_lowcase);
           break;
+        }
         default:
-          result += '%';
-          if (colon_zone) result += ':';
-          result += spec;
+          result.append(format, spec_start, i - spec_start + 1);
           break;
       }
     } else {
@@ -575,7 +656,8 @@ auto read_reference_time(std::string_view path) -> std::optional<FILETIME> {
   return attributes.ftLastWriteTime;
 }
 
-auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
+auto parse_date_argument(const std::string &arg, bool use_utc)
+    -> std::optional<FILETIME> {
   std::string value = trim_copy(arg);
   std::string lower = lower_copy(value);
   FILETIME now{};
@@ -585,7 +667,7 @@ auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
   };
   std::smatch match;
   const std::regex relative_re(
-      R"(^([+-])([0-9]+)\s*(second|seconds|minute|minutes|hour|hours|day|days|week|weeks)$)");
+      R"(^([+-])([0-9]+)\s*(second|seconds|minute|minutes|hour|hours|day|days|week|weeks|fortnight|fortnights|month|months|year|years)$)");
   if (std::regex_match(lower, match, relative_re)) {
     long long amount = std::stoll(match[2].str());
     if (match[1].str() == "-") amount = -amount;
@@ -597,13 +679,88 @@ auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
       seconds = 3600;
     else if (unit.starts_with("day"))
       seconds = 86400;
+    else if (unit.starts_with("fortnight"))
+      seconds = 1209600;  // 2 weeks
     else if (unit.starts_with("week"))
       seconds = 604800;
+    else if (unit.starts_with("month"))
+      seconds = 2629746;  // Average month length (30.44 days)
+    else if (unit.starts_with("year"))
+      seconds = 31557600;  // Average year length (365.25 days)
     return relative(amount, seconds);
   }
+  // [GNU] Natural language date support
+  if (lower == "now" || lower == "today") return now;
   if (lower == "tomorrow") return relative(1, 86400);
   if (lower == "yesterday") return relative(-1, 86400);
-  return parse_fixed_date_time(arg);
+
+  // "next monday", "next week", etc.
+  std::smatch next_match;
+  const std::regex next_re(
+      R"(^next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|year)$)");
+  if (std::regex_match(lower, next_match, next_re)) {
+    std::string unit = next_match[1].str();
+    if (unit == "week") return relative(1, 604800);
+    if (unit == "month") return relative(1, 2629746);
+    if (unit == "year") return relative(1, 31557600);
+    // For days of the week, calculate next occurrence
+    SYSTEMTIME st{};
+    FileTimeToSystemTime(&now, &st);
+    int current_dow = st.wDayOfWeek;  // 0=Sunday, 1=Monday, ...
+    int target_dow = 0;
+    if (unit == "monday")
+      target_dow = 1;
+    else if (unit == "tuesday")
+      target_dow = 2;
+    else if (unit == "wednesday")
+      target_dow = 3;
+    else if (unit == "thursday")
+      target_dow = 4;
+    else if (unit == "friday")
+      target_dow = 5;
+    else if (unit == "saturday")
+      target_dow = 6;
+    else if (unit == "sunday")
+      target_dow = 0;
+    int days_ahead = (target_dow - current_dow + 7) % 7;
+    if (days_ahead == 0) days_ahead = 7;
+    return relative(days_ahead, 86400);
+  }
+
+  // "last monday", "last week", etc.
+  std::smatch last_match;
+  const std::regex last_re(
+      R"(^last\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|week|month|year)$)");
+  if (std::regex_match(lower, last_match, last_re)) {
+    std::string unit = last_match[1].str();
+    if (unit == "week") return relative(-1, 604800);
+    if (unit == "month") return relative(-1, 2629746);
+    if (unit == "year") return relative(-1, 31557600);
+    // For days of the week, calculate last occurrence
+    SYSTEMTIME st{};
+    FileTimeToSystemTime(&now, &st);
+    int current_dow = st.wDayOfWeek;
+    int target_dow = 0;
+    if (unit == "monday")
+      target_dow = 1;
+    else if (unit == "tuesday")
+      target_dow = 2;
+    else if (unit == "wednesday")
+      target_dow = 3;
+    else if (unit == "thursday")
+      target_dow = 4;
+    else if (unit == "friday")
+      target_dow = 5;
+    else if (unit == "saturday")
+      target_dow = 6;
+    else if (unit == "sunday")
+      target_dow = 0;
+    int days_back = (current_dow - target_dow + 7) % 7;
+    if (days_back == 0) days_back = 7;
+    return relative(-days_back, 86400);
+  }
+
+  return parse_fixed_date_time(arg, use_utc);
 }
 
 auto normalize_timespec(std::string spec, bool default_date) -> std::string {
@@ -628,6 +785,61 @@ auto rfc3339_format_for(std::string spec) -> std::optional<std::string> {
   if (spec == "seconds") return "%Y-%m-%d %H:%M:%S%:z";
   if (spec == "ns" || spec == "nanoseconds") return "%Y-%m-%d %H:%M:%S.%N%:z";
   return std::nullopt;
+}
+
+// [GNU] posixtime: parse the POSIX MMDDhhmm[[CC]YY][.ss] set-date syntax
+// (coreutils posixtm.c). Only 8, 10, or 12 digits are accepted; a trailing
+// ".ss" appends seconds. With 8 digits the current year is used, with 10 a
+// 2-digit year maps into the 1969-2068 window, and with 12 a 4-digit year
+// must lie in the 20th or 21st century.
+auto parse_posix_clock(std::string_view arg) -> std::optional<SYSTEMTIME> {
+  std::string digits(arg);
+  int sec = 0;
+  if (auto dot = digits.find('.'); dot != std::string::npos) {
+    std::string ss = digits.substr(dot + 1);
+    if (ss.size() != 2 || !std::ranges::all_of(ss, [](unsigned char ch) {
+          return std::isdigit(ch);
+        }))
+      return std::nullopt;
+    sec = (ss[0] - '0') * 10 + (ss[1] - '0');
+    if (sec > 60) return std::nullopt;
+    digits.resize(dot);
+  }
+  if (digits.size() != 8 && digits.size() != 10 && digits.size() != 12)
+    return std::nullopt;
+  if (!std::ranges::all_of(digits,
+                           [](unsigned char ch) { return std::isdigit(ch); }))
+    return std::nullopt;
+
+  int mon = (digits[0] - '0') * 10 + (digits[1] - '0');
+  int day = (digits[2] - '0') * 10 + (digits[3] - '0');
+  int hour = (digits[4] - '0') * 10 + (digits[5] - '0');
+  int minute = (digits[6] - '0') * 10 + (digits[7] - '0');
+  int year;
+  if (digits.size() == 8) {
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    year = now.wYear;
+  } else if (digits.size() == 10) {
+    int two = (digits[8] - '0') * 10 + (digits[9] - '0');
+    year = two < 69 ? 2000 + two : 1900 + two;
+  } else {
+    year = (digits[8] - '0') * 1000 + (digits[9] - '0') * 100 +
+           (digits[10] - '0') * 10 + (digits[11] - '0');
+    int century = year / 100;
+    if (century != 19 && century != 20) return std::nullopt;
+  }
+  if (mon < 1 || mon > 12 || day < 1 || day > 31 || hour > 23 || minute > 59)
+    return std::nullopt;
+  SYSTEMTIME st{static_cast<WORD>(year),
+                static_cast<WORD>(mon),
+                0,
+                static_cast<WORD>(day),
+                static_cast<WORD>(hour),
+                static_cast<WORD>(minute),
+                static_cast<WORD>(sec),
+                0};
+  return st;
 }
 
 }  // namespace date_pipeline
@@ -663,30 +875,36 @@ REGISTER_COMMAND(
     "cal(1)", "caomengxuan666", "Copyright © 2026 WinuxCmd", DATE_OPTIONS) {
   using namespace date_pipeline;
 
-  if (ctx.has("--set") || ctx.has("-s")) {
-    std::string set_arg = ctx.get<std::string>("--set", "");
+  bool is_set = ctx.has("--set") || ctx.has("-s");
+  std::string set_arg;
+  if (is_set) {
+    set_arg = ctx.get<std::string>("--set", "");
     if (set_arg.empty()) set_arg = ctx.get<std::string>("-s", "");
-    auto parsed = parse_date_argument(set_arg);
-    if (!parsed) {
-      safeErrorPrint("date: invalid date '");
-      safeErrorPrint(set_arg);
-      safeErrorPrintLn("'");
-      return 1;
-    }
-
-    SYSTEMTIME utc{};
-    if (!FileTimeToSystemTime(&*parsed, &utc) || !SetSystemTime(&utc)) {
-      safeErrorPrintLn(
-          "date: cannot set system time (administrator privileges required)");
-      return 1;
-    }
-    return 0;
   }
 
-  if (ctx.has("--resolution")) {
-    // FILETIME timestamps have a fixed 100 ns resolution on Windows.
-    safePrintLn("100ns");
-    return 0;
+  // [GNU] -d/-f/-r/--resolution are mutually exclusive date sources
+  std::string date_arg = ctx.get<std::string>("--date", "");
+  if (date_arg.empty()) date_arg = ctx.get<std::string>("-d", "");
+  std::string date_file = ctx.get<std::string>("--file", "");
+  if (date_file.empty()) date_file = ctx.get<std::string>("-f", "");
+  std::string reference_path = ctx.get<std::string>("--reference", "");
+  if (reference_path.empty()) reference_path = ctx.get<std::string>("-r", "");
+  bool has_resolution = ctx.has("--resolution");
+
+  int specified_date =
+      (!date_arg.empty() ? 1 : 0) + (!date_file.empty() ? 1 : 0) +
+      (!reference_path.empty() ? 1 : 0) + (has_resolution ? 1 : 0);
+  if (specified_date > 1) {
+    safeErrorPrintLn(
+        "date: the options to specify dates for printing are mutually "
+        "exclusive");
+    return 1;
+  }
+  // [GNU] --set may not be combined with any printing date source
+  if (is_set && specified_date) {
+    safeErrorPrintLn(
+        "date: the options to print and set the time may not be used together");
+    return 1;
   }
 
   // [GNU] --universal: alias for --utc
@@ -696,59 +914,9 @@ REGISTER_COMMAND(
                  ctx.get<bool>("--rfc-email", false) ||
                  ctx.get<bool>("--rfc-2822", false);
 
-  FILETIME selected_time{};
-  std::string reference_path = ctx.get<std::string>("--reference", "");
-  if (reference_path.empty()) reference_path = ctx.get<std::string>("-r", "");
-  if (!reference_path.empty()) {
-    auto reference_time = read_reference_time(reference_path);
-    if (!reference_time) {
-      safeErrorPrint("date: failed to get modification time of '");
-      safeErrorPrint(reference_path);
-      safeErrorPrint("'\n");
-      return 1;
-    }
-    selected_time = *reference_time;
-  }
-
-  std::string date_arg = ctx.get<std::string>("--date", "");
-  if (date_arg.empty()) date_arg = ctx.get<std::string>("-d", "");
-  if (!date_arg.empty()) {
-    auto parsed = parse_date_argument(date_arg);
-    if (!parsed) {
-      safeErrorPrint("date: invalid date '");
-      safeErrorPrint(date_arg);
-      safeErrorPrint("'\n");
-      return 1;
-    }
-    selected_time = *parsed;
-    if (ctx.has("--debug")) {
-      safeErrorPrint("date: parsed date ");
-      safeErrorPrintLn(date_arg);
-    }
-  } else if (reference_path.empty()) {
-    GetSystemTimeAsFileTime(&selected_time);
-  }
-
-  auto tv = make_time_value(selected_time, use_utc);
-  if (!tv) {
-    safeErrorPrint("date: failed to convert time\n");
-    return 1;
-  }
-
-  std::string format = "%a %b %e %H:%M:%S %Z %Y";
-
-  for (auto arg : ctx.positionals) {
-    std::string_view arg_sv = arg;
-    if (arg_sv.starts_with("+")) {
-      format = std::string(arg_sv.substr(1));
-      break;
-    }
-  }
-
-  if (rfc2822) {
-    format = "%a, %d %b %Y %H:%M:%S %z";
-  }
-
+  // [GNU] -R/-I/--rfc-3339 all set the output format; a '+' operand may not
+  // override them ("multiple output formats specified").
+  std::string format;
   std::string iso_arg = ctx.get<std::string>("--iso-8601", "");
   if (!ctx.has("--iso-8601")) iso_arg = ctx.get<std::string>("-I", "");
   if (ctx.has("--iso-8601") || ctx.has("-I")) {
@@ -761,7 +929,6 @@ REGISTER_COMMAND(
     }
     format = *iso_format;
   }
-
   std::string rfc3339_arg = ctx.get<std::string>("--rfc-3339", "");
   if (!rfc3339_arg.empty()) {
     auto rfc3339_format = rfc3339_format_for(rfc3339_arg);
@@ -773,39 +940,217 @@ REGISTER_COMMAND(
     }
     format = *rfc3339_format;
   }
+  if (rfc2822) format = "%a, %d %b %Y %H:%M:%S %z";
 
-  // [GNU] -f/--file: display date strings from DATEFILE, one per line
-  std::string date_file = ctx.get<std::string>("--file", "");
-  if (date_file.empty()) date_file = ctx.get<std::string>("-f", "");
-  if (!date_file.empty()) {
-    std::ifstream ifs(date_file);
-    if (!ifs) {
-      safeErrorPrint("date: cannot open '");
-      safeErrorPrint(date_file);
+  // [GNU] positional operand handling
+  std::string posix_date_operand;
+  if (!ctx.positionals.empty()) {
+    if (ctx.positionals.size() > 1) {
+      safeErrorPrint("date: extra operand '");
+      safeErrorPrint(std::string(ctx.positionals[1]));
       safeErrorPrintLn("'");
       return 1;
     }
+    std::string operand{ctx.positionals[0]};
+    if (!operand.empty() && operand[0] == '+') {
+      if (!format.empty()) {
+        safeErrorPrintLn("date: multiple output formats specified");
+        return 1;
+      }
+      format = operand.substr(1);
+    } else if (specified_date || is_set) {
+      safeErrorPrint("date: the argument '");
+      safeErrorPrint(operand);
+      safeErrorPrintLn("' lacks a leading '+';");
+      safeErrorPrintLn(
+          "when using an option to specify date(s), any non-option");
+      safeErrorPrintLn("argument must be a format string beginning with '+'");
+      return 1;
+    } else {
+      posix_date_operand = operand;
+    }
+  }
+
+  if (format.empty()) {
+    // [GNU] --resolution defaults to "%s.%N"
+    format = has_resolution ? "%s.%N" : "%a %b %e %H:%M:%S %Z %Y";
+  }
+
+  if (is_set) {
+    auto parsed = parse_date_argument(set_arg, use_utc);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(set_arg);
+      safeErrorPrintLn("'");
+      return 1;
+    }
+
+    // SetSystemTime expects a UTC SYSTEMTIME; the parsed value is already
+    // an absolute UTC FILETIME, so no local-time conversion is needed here.
+    SYSTEMTIME utc_st{};
+    if (!FileTimeToSystemTime(&*parsed, &utc_st)) {
+      safeErrorPrintLn("date: cannot convert time");
+      return 1;
+    }
+    // [GNU] regardless of the outcome, the (attempted) new date is printed
+    int exit_code = 0;
+    if (!SetSystemTime(&utc_st)) {
+      safeErrorPrintLn("date: cannot set date");
+      exit_code = 1;
+    }
+    auto tv = make_time_value(*parsed, use_utc);
+    if (tv) {
+      safePrintLn(format_time(*tv, format));
+    }
+    return exit_code;
+  }
+
+  FILETIME selected_time{};
+  if (!reference_path.empty()) {
+    auto reference_time = read_reference_time(reference_path);
+    if (!reference_time) {
+      safeErrorPrint("date: failed to get modification time of '");
+      safeErrorPrint(reference_path);
+      safeErrorPrint("'\n");
+      return 1;
+    }
+    selected_time = *reference_time;
+  } else if (!date_arg.empty()) {
+    auto parsed = parse_date_argument(date_arg, use_utc);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(date_arg);
+      safeErrorPrint("'\n");
+      return 1;
+    }
+    selected_time = *parsed;
+    if (ctx.has("--debug")) {
+      safeErrorPrint("date: parsed date ");
+      safeErrorPrintLn(date_arg);
+    }
+  } else if (has_resolution) {
+    // [GNU] date --resolution prints the available timestamp resolution;
+    // FILETIME ticks are 100 ns wide.
+    safePrintLn("0.000000100");
+    return 0;
+  } else if (posix_date_operand.empty()) {
+    GetSystemTimeAsFileTime(&selected_time);
+  }
+
+  // [GNU] a bare positional date argument means: set the system clock to the
+  // POSIX-format date/time MMDDhhmm[[CC]YY][.ss]
+  if (!posix_date_operand.empty()) {
+    auto parsed = parse_posix_clock(posix_date_operand);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(posix_date_operand);
+      safeErrorPrintLn("'");
+      return 1;
+    }
+    // POSIX set-clock operands are local wall-clock time; GNU interprets
+    // them as UTC when -u is active.
+    int exit_code = 0;
+    FILETIME utc_ft{};
+    if (use_utc) {
+      if (!SystemTimeToFileTime(&*parsed, &utc_ft)) {
+        safeErrorPrintLn("date: cannot set date");
+        return 1;
+      }
+      SYSTEMTIME utc_st{};
+      if (!FileTimeToSystemTime(&utc_ft, &utc_st)) {
+        safeErrorPrintLn("date: cannot set date");
+        return 1;
+      }
+      if (!SetSystemTime(&utc_st)) {
+        safeErrorPrintLn("date: cannot set date");
+        exit_code = 1;
+      }
+    } else {
+      // SetLocalTime takes local wall-clock time (SetSystemTime would take
+      // UTC); rebuild the UTC FILETIME for display afterwards.
+      if (!SetLocalTime(&*parsed)) {
+        safeErrorPrintLn("date: cannot set date");
+        exit_code = 1;
+      }
+      SYSTEMTIME utc_st{};
+      if (TzSpecificLocalTimeToSystemTime(nullptr, &*parsed, &utc_st)) {
+        SystemTimeToFileTime(&utc_st, &utc_ft);
+      }
+    }
+    // Print the (attempted) new date like GNU does.
+    auto tv = make_time_value(utc_ft, use_utc);
+    if (tv) safePrintLn(format_time(*tv, format));
+    return exit_code;
+  }
+
+  auto tv = make_time_value(selected_time, use_utc);
+  if (!tv) {
+    safeErrorPrint("date: failed to convert time\n");
+    return 1;
+  }
+
+  // [GNU] -f/--file: display date strings from DATEFILE, one per line
+  if (!date_file.empty()) {
+    // [GNU] "-" reads date strings from standard input.
+    const bool from_stdin = date_file == "-";
+    std::ifstream file_stream;
+    if (!from_stdin) {
+      // [GNU/Linux] fopen on a directory succeeds but the first read fails
+      // with EISDIR, so GNU reports "<file>: read error: Is a directory";
+      // every other open failure reports strerror(errno) after the file.
+      std::error_code ec;
+      const bool is_dir = std::filesystem::is_directory(date_file, ec);
+      file_stream.open(date_file, std::ios::binary);
+      if (!file_stream) {
+        if (is_dir) {
+          safeErrorPrintLn(winux::i18n::format(
+              "command.date.error.read_error",
+              "date: {}: read error: Is a directory", date_file));
+        } else {
+          const int open_errno = errno;
+          const char* reason =
+              open_errno != 0 ? std::strerror(open_errno)
+                              : "No such file or directory";
+          // The common ENOENT case gets a dedicated key so translators can
+          // render the whole message; anything else keeps the raw strerror.
+          if (std::strcmp(reason, "No such file or directory") == 0) {
+            safeErrorPrintLn(winux::i18n::format(
+                "command.date.error.cannot_open",
+                "date: {}: No such file or directory", date_file));
+          } else {
+            safeErrorPrintLn(winux::i18n::format(
+                "command.date.error.cannot_open_generic", "date: {}: {}",
+                date_file, reason));
+          }
+        }
+        return 1;
+      }
+    }
+    std::istream& in = from_stdin ? static_cast<std::istream&>(std::cin)
+                                  : static_cast<std::istream&>(file_stream);
     std::string line;
-    bool first = true;
-    while (std::getline(ifs, line)) {
-      auto parsed = parse_date_argument(line);
+    bool ok = true;
+    while (std::getline(in, line)) {
+      auto parsed = parse_date_argument(line, use_utc);
       if (!parsed) {
+        // [GNU] batch mode reports each invalid line and keeps going; the
+        // exit status is 1 after every line has been processed.
         safeErrorPrint("date: invalid date '");
         safeErrorPrint(line);
         safeErrorPrintLn("'");
-        return 1;
+        ok = false;
+        continue;
       }
       auto file_tv = make_time_value(*parsed, use_utc);
       if (!file_tv) {
         safeErrorPrintLn("date: failed to convert time");
-        return 1;
+        ok = false;
+        continue;
       }
-      if (!first) safePrint("\n");
-      first = false;
       safePrint(format_time(*file_tv, format));
+      safePrint("\n");
     }
-    safePrint("\n");
-    return 0;
+    return ok ? 0 : 1;
   }
 
   std::string output = format_time(*tv, format);

@@ -419,77 +419,114 @@ class CompatRandomSource {
   uint64_t entropy_ = 0;
 };
 
-auto parse_unsigned_decimal(std::string_view text, std::string_view diagnostic)
-    -> cp::Result<uint64_t> {
-  if (text.empty()) {
-    return std::unexpected<cp::Error>(std::string(diagnostic));
+// A non-negative decimal parsed the way GNU's xdectoumax does.
+struct UnsignedNumber {
+  uint64_t value = 0;
+  bool ok = false;
+  bool overflow = false;
+};
+
+auto parse_unsigned_number(std::string_view text) -> UnsignedNumber {
+  // GNU xstrtoumax accepts a single leading '+' sign.
+  if (!text.empty() && text[0] == '+') {
+    text.remove_prefix(1);
   }
-  for (char ch : text) {
+  if (text.empty()) {
+    return {};
+  }
+  for (const char ch : text) {
     if (!std::isdigit(static_cast<unsigned char>(ch))) {
-      return std::unexpected<cp::Error>(std::string(diagnostic));
+      return {};
     }
   }
 
   uint64_t value = 0;
   auto [ptr, ec] =
       std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec == std::errc::result_out_of_range) {
+    return {.value = 0, .ok = false, .overflow = true};
+  }
   if (ec != std::errc() || ptr != text.data() + text.size()) {
-    return std::unexpected<cp::Error>(std::string(diagnostic));
+    return {};
   }
-  return value;
+  return {.value = value, .ok = true, .overflow = false};
 }
 
+auto make_range_error(const std::string_view value, const bool overflow)
+    -> cp::Error {
+  auto message = "invalid input range: '" + std::string(value) + "'";
+  if (overflow) {
+    message += ": Value too large for defined data type";
+  }
+  return cp::Error(std::move(message));
+}
+
+// Mirrors GNU shuf: the range splits on the first '-', both endpoints must
+// be non-negative decimals, and every diagnostic quotes the whole argument
+// (GNU shuf.c: error(..., "%s: %s", _("invalid input range"), quote(optarg))).
 auto split_range(std::string_view range)
-    -> cp::Result<std::pair<uint64_t, uint64_t>> {
+    -> cp::Result<std::pair<int64_t, int64_t>> {
   const auto dash_pos = range.find('-');
-  if (dash_pos == std::string_view::npos ||
-      range.find('-', dash_pos + 1) != std::string_view::npos) {
-    return std::unexpected("invalid input range");
+  if (dash_pos == std::string_view::npos) {
+    // No separator: GNU parses the whole argument as one number, so an
+    // overflowing value still gets the EOVERFLOW diagnostic.
+    const auto whole = parse_unsigned_number(range);
+    return std::unexpected(make_range_error(range, whole.overflow));
   }
 
-  auto lo =
-      parse_unsigned_decimal(range.substr(0, dash_pos), "invalid input range");
-  if (!lo) return std::unexpected(lo.error());
+  const auto lo_text = range.substr(0, dash_pos);
+  const auto hi_text = range.substr(dash_pos + 1);
 
-  auto hi =
-      parse_unsigned_decimal(range.substr(dash_pos + 1), "invalid input range");
-  if (!hi) return std::unexpected(hi.error());
-
-  if (*lo > *hi) {
-    return std::unexpected("invalid input range");
+  const auto lo = parse_unsigned_number(lo_text);
+  if (!lo.ok) {
+    return std::unexpected(make_range_error(range, lo.overflow));
   }
 
-  return std::pair<uint64_t, uint64_t>{*lo, *hi};
+  const auto hi = parse_unsigned_number(hi_text);
+  if (!hi.ok) {
+    return std::unexpected(make_range_error(range, hi.overflow));
+  }
+
+  if (lo.value > hi.value) {
+    return std::unexpected(make_range_error(range, false));
+  }
+
+  return std::pair<int64_t, int64_t>{static_cast<int64_t>(lo.value),
+                                     static_cast<int64_t>(hi.value)};
 }
 
-void append_record(SmallVector<std::string, 1024>& records, std::string record,
-                   bool skip_bom, bool zero_terminated) {
-  if (skip_bom && record.size() >= 3 &&
-      static_cast<unsigned char>(record[0]) == 0xEF &&
-      static_cast<unsigned char>(record[1]) == 0xBB &&
-      static_cast<unsigned char>(record[2]) == 0xBF) {
-    record = record.substr(3);
-  }
-  if (!zero_terminated && !record.empty() && record.back() == '\r') {
-    record.pop_back();
-  }
+void append_record(SmallVector<std::string, 1024>& records,
+                   std::string record) {
+  // GNU shuf does not strip BOMs or CRLF; preserve original content.
   records.push_back(std::move(record));
 }
 
 auto read_records(std::istream& in, bool zero_terminated,
-                  SmallVector<std::string, 1024>& records) -> cp::Result<int> {
+                  SmallVector<std::string, 1024>& records, bool& first_record)
+    -> cp::Result<int> {
   const char delimiter = zero_terminated ? '\0' : '\n';
   std::string record;
-  bool first = records.empty();
 
-  while (std::getline(in, record, delimiter)) {
-    append_record(records, std::move(record), first, zero_terminated);
-    first = false;
-    record.clear();
-  }
-
-  if (in.fail() && !in.eof()) {
-    return std::unexpected("error reading from file");
+  // Read character by character so embedded NUL bytes are preserved.
+  while (true) {
+    const int ch = in.get();
+    if (ch == std::char_traits<char>::eof()) {
+      if (in.fail() && !in.eof()) {
+        return std::unexpected("error reading from file");
+      }
+      if (!record.empty()) {
+        append_record(records, std::move(record));
+        first_record = false;
+      }
+      break;
+    }
+    if (static_cast<char>(ch) == delimiter) {
+      append_record(records, std::move(record));
+      first_record = false;
+      record.clear();
+    } else {
+      record.push_back(static_cast<char>(ch));
+    }
   }
 
   return 0;
@@ -546,12 +583,15 @@ auto build_config(const CommandContext<SHUF_OPTIONS.size()>& ctx)
                            short_head_count_values.begin(),
                            short_head_count_values.end());
   for (const auto& count_opt : head_count_values) {
-    auto count = parse_unsigned_decimal(count_opt, "invalid line count");
-    if (!count) return std::unexpected(count.error());
-    if (*count > static_cast<uint64_t>(std::numeric_limits<size_t>::max())) {
-      return std::unexpected("invalid line count");
+    const auto count = parse_unsigned_number(count_opt);
+    if (!count.ok && !count.overflow) {
+      return std::unexpected("invalid line count: '" + count_opt + "'");
     }
-    const size_t parsed = static_cast<size_t>(*count);
+    if (count.overflow) {
+      // GNU treats an overflowing head count as "no limit".
+      continue;
+    }
+    const size_t parsed = static_cast<size_t>(count.value);
     min_count = min_count ? std::min(*min_count, parsed) : parsed;
   }
   if (min_count.has_value()) {
@@ -594,17 +634,6 @@ auto build_config(const CommandContext<SHUF_OPTIONS.size()>& ctx)
 }
 
 auto run(const Config& cfg) -> int {
-  auto shuf_input_open_error = [](std::string_view path) -> std::string {
-    std::error_code ec;
-    auto status = std::filesystem::status(std::filesystem::u8path(path), ec);
-    if (!ec && status.type() == std::filesystem::file_type::directory) {
-      return std::string("cannot open '") + std::string(path) +
-             "' for reading: Is a directory";
-    }
-    return std::string("cannot open '") + std::string(path) +
-           "' for reading: No such file or directory";
-  };
-
   SmallVector<std::string, 1024> lines;
 
   if (cfg.echo_mode) {
@@ -619,9 +648,9 @@ auto run(const Config& cfg) -> int {
       cp::report_error(range, L"shuf");
       return 1;
     }
-    for (uint64_t i = range->first; i <= range->second; ++i) {
+    for (int64_t i = range->first; i <= range->second; ++i) {
       lines.push_back(std::to_string(i));
-      if (i == std::numeric_limits<uint64_t>::max()) break;
+      if (i == std::numeric_limits<int64_t>::max()) break;
     }
   } else {
     // File mode: read from files
@@ -630,9 +659,11 @@ auto run(const Config& cfg) -> int {
       files.push_back("-");  // Read from stdin
     }
 
+    bool first_record = true;
     for (const auto& file : files) {
       if (file == "-") {
-        auto read_result = read_records(std::cin, cfg.zero_terminated, lines);
+        auto read_result =
+            read_records(std::cin, cfg.zero_terminated, lines, first_record);
         if (!read_result) {
           cp::report_error(read_result, L"shuf");
           return 1;
@@ -646,7 +677,8 @@ auto run(const Config& cfg) -> int {
         }
 
         std::istringstream input(*content);
-        auto read_result = read_records(input, cfg.zero_terminated, lines);
+        auto read_result =
+            read_records(input, cfg.zero_terminated, lines, first_record);
         if (!read_result) {
           cp::report_error(read_result, L"shuf");
           return 1;
@@ -684,9 +716,9 @@ auto run(const Config& cfg) -> int {
         return emit_output(cfg, output);
       }
 
-      while (!is_stdout_pipe_closed()) {
+      while (true) {
         output.clear();
-        for (size_t i = 0; i < 256 && !is_stdout_pipe_closed(); ++i) {
+        for (size_t i = 0; i < 256; ++i) {
           auto record = rng.choose_from_slice(lines);
           if (!record) {
             cp::report_error(record, L"shuf");
@@ -694,7 +726,12 @@ auto run(const Config& cfg) -> int {
           }
           append_output_record(output, *record, cfg.zero_terminated);
         }
-        if (emit_output(cfg, output) != 0) return 1;
+        int emit_result = emit_output(cfg, output);
+        if (emit_result != 0) {
+          if (!cfg.output_file.empty()) return 1;
+          break;
+        }
+        if (is_stdout_pipe_closed()) break;
       }
       return 0;
     }
@@ -725,13 +762,18 @@ auto run(const Config& cfg) -> int {
         return emit_output(cfg, output);
       }
 
-      while (!is_stdout_pipe_closed()) {
+      while (true) {
         output.clear();
-        for (size_t i = 0; i < 256 && !is_stdout_pipe_closed(); ++i) {
+        for (size_t i = 0; i < 256; ++i) {
           append_output_record(output, rng.choose_from_slice(lines),
                                cfg.zero_terminated);
         }
-        if (emit_output(cfg, output) != 0) return 1;
+        int emit_result = emit_output(cfg, output);
+        if (emit_result != 0) {
+          if (!cfg.output_file.empty()) return 1;
+          break;
+        }
+        if (is_stdout_pipe_closed()) break;
       }
       return 0;
     }
@@ -762,12 +804,17 @@ auto run(const Config& cfg) -> int {
       return emit_output(cfg, output);
     }
 
-    while (!is_stdout_pipe_closed()) {
+    while (true) {
       output.clear();
-      for (size_t i = 0; i < 256 && !is_stdout_pipe_closed(); ++i) {
+      for (size_t i = 0; i < 256; ++i) {
         append_output_record(output, lines[dist(g)], cfg.zero_terminated);
       }
-      if (emit_output(cfg, output) != 0) return 1;
+      int emit_result = emit_output(cfg, output);
+      if (emit_result != 0) {
+        if (!cfg.output_file.empty()) return 1;
+        break;
+      }
+      if (is_stdout_pipe_closed()) break;
     }
     return 0;
   }

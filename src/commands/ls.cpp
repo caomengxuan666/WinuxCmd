@@ -236,7 +236,7 @@ bool ls_is_terminal(FILE *stream) {
 namespace ls_pipeline {
 namespace cp = core::pipeline;
 
-enum class SortMode { Name, Size, Time, Version, Extension, None };
+enum class SortMode { Name, Size, Time, Version, Extension, Type, None };
 enum class IndicatorStyle { None, Slash, FileType, Classify };
 enum class TimeMode { Modification, Access, Status, Birth };
 enum class TimeStyle { Default, Locale, FullIso, LongIso, Iso, CustomFormat };
@@ -1027,6 +1027,7 @@ auto parse_sort_mode(std::string_view value) -> std::optional<SortMode> {
   if (value == "time") return SortMode::Time;
   if (value == "version") return SortMode::Version;
   if (value == "extension") return SortMode::Extension;
+  if (value == "type") return SortMode::Type;
   if (value == "none") return SortMode::None;
   return std::nullopt;
 }
@@ -2149,6 +2150,7 @@ auto get_file_index_string(const std::wstring &path,
                            static_cast<ULONGLONG>(info.nFileIndexLow);
     result = std::to_string(file_index);
   }
+  CloseHandle(handle);
   return result;
 }
 
@@ -2594,8 +2596,23 @@ auto list_directory(const std::string &path,
   HANDLE hFind = FindFirstFileW(search_path.c_str(), &find_data);
 
   if (hFind == INVALID_HANDLE_VALUE) {
-    return std::unexpected("cannot access '" + path +
-                           "': No such file or directory");
+    DWORD error_code = GetLastError();
+    // [GNU] Empty directory should succeed with no output
+    if (error_code == ERROR_FILE_NOT_FOUND) {
+      // Check if path exists as directory
+      std::error_code ec;
+      std::filesystem::path fs_path(utf8_to_wstring(path));
+      if (std::filesystem::is_directory(fs_path, ec)) {
+        return true;  // Empty directory, no entries
+      }
+    }
+    std::string error_msg;
+    if (error_code == ERROR_ACCESS_DENIED) {
+      error_msg = "Permission denied";
+    } else {
+      error_msg = "No such file or directory";
+    }
+    return std::unexpected("cannot access '" + path + "': " + error_msg);
   }
 
   std::vector<EntryInfo> entries;
@@ -2673,6 +2690,16 @@ auto list_directory(const std::string &path,
       case SortMode::Extension:
         std::sort(entries.begin(), entries.end(), compare_extensions);
         break;
+      case SortMode::Type:
+        // [GNU] --sort=type: directories first, then files, alphabetical within
+        std::sort(entries.begin(), entries.end(),
+                  [](const EntryInfo &a, const EntryInfo &b) {
+                    bool a_dir = is_directory_entry(a);
+                    bool b_dir = is_directory_entry(b);
+                    if (a_dir != b_dir) return a_dir;  // dirs first
+                    return a.name < b.name;
+                  });
+        break;
       case SortMode::Name:
         std::sort(entries.begin(), entries.end(),
                   [](const EntryInfo &a, const EntryInfo &b) {
@@ -2683,14 +2710,16 @@ auto list_directory(const std::string &path,
         break;
     }
 
+    // Apply --reverse first, then --group-directories-first to match GNU ls
+    // behavior GNU ls reverses the sort order, then partitions directories
+    // before files while preserving the reversed order within each group.
     if (ctx.get<bool>("-r", false) || ctx.get<bool>("--reverse", false)) {
       std::reverse(entries.begin(), entries.end());
     }
-  }
 
-  if (sort_mode != SortMode::None &&
-      ctx.get<bool>("--group-directories-first", false)) {
-    std::stable_partition(entries.begin(), entries.end(), is_directory_entry);
+    if (ctx.get<bool>("--group-directories-first", false)) {
+      std::stable_partition(entries.begin(), entries.end(), is_directory_entry);
+    }
   }
 
   bool long_format = format_mode == FormatMode::Long;
@@ -3074,16 +3103,24 @@ auto list_file(const std::string &path,
 }
 
 /**
- * @brief List directory recursively
+ * @brief List directory recursively with symlink loop detection
  * @param path Path to directory
  * @param ctx Command context
- * @param depth Current recursion depth
+ * @param print_current_header Whether to print directory header
+ * @param visited Set of already-visited directory paths (for loop detection)
  * @return Result with success status
  */
 auto list_directory_recursive(const std::string &path,
                               const CommandContext<LS_OPTIONS.size()> &ctx,
-                              bool print_current_header = true)
+                              bool print_current_header,
+                              std::set<std::string> &visited)
     -> cp::Result<bool> {
+  // Check for symlink loops - normalize path for consistent comparison
+  std::string normalized_path = make_generic_display_path(path);
+  if (visited.count(normalized_path) > 0) {
+    return true;  // Already visited - skip to prevent infinite recursion
+  }
+  visited.insert(normalized_path);
   // GNU ls prints a directory header for every directory in recursive mode,
   // including a single command-line directory operand.
   if (print_current_header) {
@@ -3136,7 +3173,13 @@ auto list_directory_recursive(const std::string &path,
     }
 
     std::wstring full_path = wpath + L"\\" + filename;
-    subdirs.push_back(make_generic_display_path(wstring_to_utf8(full_path)));
+    std::string subdir_path =
+        make_generic_display_path(wstring_to_utf8(full_path));
+    // Skip if already visited (symlink loop detection)
+    if (visited.count(subdir_path) > 0) {
+      continue;
+    }
+    subdirs.push_back(subdir_path);
   } while (FindNextFileW(hFind, &find_data) != 0);
 
   FindClose(hFind);
@@ -3145,7 +3188,7 @@ auto list_directory_recursive(const std::string &path,
   // section with a blank line before the next header.
   for (const auto &subdir : subdirs) {
     safePrintLn(L"");
-    auto subdir_result = list_directory_recursive(subdir, ctx, true);
+    auto subdir_result = list_directory_recursive(subdir, ctx, true, visited);
     if (!subdir_result) {
       return subdir_result;
     }
@@ -3289,7 +3332,8 @@ auto process_paths(const std::vector<std::string> &paths,
       }
 
       if (recursive_requested(ctx)) {
-        auto result = list_directory_recursive(path, ctx, true);
+        std::set<std::string> visited;
+        auto result = list_directory_recursive(path, ctx, true, visited);
         if (!result) {
           print_ls_error(std::string(result.error()));
           success = false;

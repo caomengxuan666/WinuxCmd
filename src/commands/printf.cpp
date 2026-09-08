@@ -55,6 +55,9 @@ namespace {
 struct EscapeResult {
   std::string text;
   bool stop_output = false;
+  // Set when a \u/\U escape lacks its required hex digits (GNU parity:
+  // "missing hexadecimal number in escape", exit 1; uutils #14404/#14406).
+  bool bad_unicode = false;
 };
 
 struct FormatSpec {
@@ -198,6 +201,9 @@ EscapeResult interpret_escape_at(std::string_view input, size_t& i,
     }
     case 'u':
     case 'U': {
+      // GNU requires exactly 4 hex digits for \u and 8 for \U; anything
+      // else is a fatal "missing hexadecimal number in escape" error that
+      // discards the escape and all remaining input.
       int wanted = esc == 'u' ? 4 : 8;
       unsigned int value = 0;
       int digits = 0;
@@ -206,7 +212,11 @@ EscapeResult interpret_escape_at(std::string_view input, size_t& i,
         value = (value * 16) + static_cast<unsigned int>(hex_value(input[++i]));
         ++digits;
       }
-      if (digits == wanted && !(value >= 0xD800 && value <= 0xDFFF)) {
+      if (digits < wanted) {
+        result.bad_unicode = true;
+        return result;
+      }
+      if (!(value >= 0xD800 && value <= 0xDFFF)) {
         append_utf8(result.text, value);
       } else {
         result.text += '\\';
@@ -245,6 +255,10 @@ EscapeResult interpret_escapes(std::string_view input, bool percent_b_mode) {
 
     auto escaped = interpret_escape_at(input, i, percent_b_mode);
     result.text += escaped.text;
+    if (escaped.bad_unicode) {
+      result.bad_unicode = true;
+      return result;  // GNU discards everything after the malformed escape.
+    }
     if (escaped.stop_output) {
       result.stop_output = true;
       return result;
@@ -487,7 +501,13 @@ std::string render_directive(const FormatSpec& spec,
     case 'b': {
       auto escaped =
           interpret_escapes(consume_string_argument(args, arg_index), true);
-      stop_output = escaped.stop_output;
+      if (escaped.bad_unicode) {
+        had_error = true;
+        stop_output = true;
+        safeErrorPrintLn("printf: missing hexadecimal number in escape");
+      } else {
+        stop_output = escaped.stop_output;
+      }
       return format_string_bytes(std::move(escaped.text), spec);
     }
     case 'q': {
@@ -536,6 +556,12 @@ RenderResult render_once(std::string_view format,
     if (format[i] == '\\') {
       auto escaped = interpret_escape_at(format, i, false);
       result.text += escaped.text;
+      if (escaped.bad_unicode) {
+        had_error = true;
+        result.stop_output = true;
+        safeErrorPrintLn("printf: missing hexadecimal number in escape");
+        return result;
+      }
       if (escaped.stop_output) {
         result.stop_output = true;
         return result;

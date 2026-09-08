@@ -190,7 +190,14 @@ auto pow_u64(uint64_t base, int exponent) -> std::optional<uint64_t> {
   return value;
 }
 
-auto parse_block_size(std::string_view text) -> std::optional<uint64_t> {
+// Parses a GNU-style block size spec. When |display_suffix| is non-null and
+// the spec is a bare suffix without a leading integer (e.g. "M", "kB", "MiB"),
+// the suffix text is stored there: GNU appends it to output sizes in that case
+// ("--block-size=kB" displays 3000 as "3kB"), while an integer-prefixed spec
+// ("1M") scales silently.
+auto parse_block_size(std::string_view text,
+                      std::string* display_suffix = nullptr)
+    -> std::optional<uint64_t> {
   if (text.empty()) {
     return std::nullopt;
   }
@@ -242,12 +249,14 @@ auto parse_block_size(std::string_view text) -> std::optional<uint64_t> {
   uint64_t multiplier = 1;
   std::string_view number = text;
   bool suffix_matched = false;
+  std::string_view matched_suffix;
   for (const auto& unit : units) {
     if (text.size() >= unit.suffix.size() &&
         text.substr(text.size() - unit.suffix.size()) == unit.suffix) {
       multiplier = unit.multiplier;
       number = text.substr(0, text.size() - unit.suffix.size());
       suffix_matched = true;
+      matched_suffix = unit.suffix;
       break;
     }
   }
@@ -265,6 +274,11 @@ auto parse_block_size(std::string_view text) -> std::optional<uint64_t> {
 
   if (value == 0 || value > std::numeric_limits<uint64_t>::max() / multiplier) {
     return std::nullopt;
+  }
+  if (display_suffix != nullptr) {
+    *display_suffix = (suffix_matched && number.empty())
+                          ? std::string(matched_suffix)
+                          : std::string();
   }
   return value * multiplier;
 }
@@ -362,6 +376,9 @@ struct OutputConfig {
   bool human = false;
   bool si = false;
   uint64_t block_size = 1024;
+  // Suffix appended to scaled output (set when --block-size used a bare
+  // unit suffix such as "M", e.g. "du -BM" prints "1M").
+  std::string display_suffix;
 };
 
 enum class ThresholdMode { None, Minimum, Maximum };
@@ -410,7 +427,8 @@ auto print_scaled_size(uint64_t size, const OutputConfig& cfg) -> void {
     return;
   }
 
-  safePrint(std::to_string(ceil_div(size, cfg.block_size)));
+  safePrint(std::to_string(ceil_div(size, cfg.block_size)) +
+            cfg.display_suffix);
 }
 
 auto parse_du_time_mode(std::string_view value) -> std::optional<DuTimeMode> {
@@ -544,6 +562,7 @@ auto configure_output(const CommandContext<DU_OPTIONS.size()>& ctx)
       output.human = false;
       output.si = false;
       output.block_size = 1;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -551,6 +570,7 @@ auto configure_output(const CommandContext<DU_OPTIONS.size()>& ctx)
       output.human = false;
       output.si = false;
       output.block_size = 1024;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -558,18 +578,21 @@ auto configure_output(const CommandContext<DU_OPTIONS.size()>& ctx)
       output.human = false;
       output.si = false;
       output.block_size = 1024 * 1024;
+      output.display_suffix.clear();
       continue;
     }
 
     if (meta.short_name == "-h" || meta.long_name == "--human-readable") {
       output.human = true;
       output.si = false;
+      output.display_suffix.clear();
       continue;
     }
 
     if (meta.long_name == "--si") {
       output.human = false;
       output.si = true;
+      output.display_suffix.clear();
       continue;
     }
 
@@ -581,15 +604,17 @@ auto configure_output(const CommandContext<DU_OPTIONS.size()>& ctx)
       if (*value == "human-readable") {
         output.human = true;
         output.si = false;
+        output.display_suffix.clear();
         continue;
       }
       if (*value == "si") {
         output.human = false;
         output.si = true;
+        output.display_suffix.clear();
         continue;
       }
 
-      auto parsed = parse_block_size(*value);
+      auto parsed = parse_block_size(*value, &output.display_suffix);
       if (!parsed) {
         return std::unexpected("invalid block size");
       }

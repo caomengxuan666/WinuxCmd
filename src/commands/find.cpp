@@ -2199,8 +2199,18 @@ auto evaluate_expression(const ExprNode& expr, const std::filesystem::path& p,
     case ExprKind::NoUser:
       return win32_ownership_info(p).owner_name.empty();
 
-    case ExprKind::NoGroup:
-      return win32_ownership_info(p).group_name.empty();
+    case ExprKind::NoGroup: {
+      // On Windows every file carries a primary group SID; the default one
+      // resolves to the well-known "None" group, which corresponds to no
+      // real POSIX group. Treat it (and unresolved SIDs) as -nogroup hits.
+      const auto& group = win32_ownership_info(p).group_name;
+      bool is_none_group = group.size() == 4;
+      for (size_t idx = 0; is_none_group && idx < 4; ++idx) {
+        is_none_group =
+            std::tolower(static_cast<unsigned char>(group[idx])) == "none"[idx];
+      }
+      return group.empty() || is_none_group;
+    }
 
     case ExprKind::Group:
       return group_matches(p, expr.text);

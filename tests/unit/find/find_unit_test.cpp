@@ -24,6 +24,7 @@
  *  - CopyrightYear: 2026
  */
 #include <AclAPI.h>
+#include <sys/utime.h>
 
 #include "framework/winuxtest.h"
 
@@ -2551,6 +2552,12 @@ TEST(find, find_new_file_predicates_and_listing_actions) {
   TempDir tmp;
   tmp.write("ref", "r");
   tmp.write("file.txt", "x");
+  // Backdate ref so -anewer stays deterministic: files written back to
+  // back can share an NTFS timestamp tick.
+  struct __utimbuf64 old_times {};
+  old_times.actime = 1000000000;
+  old_times.modtime = 1000000000;
+  ASSERT_EQ(_wutime64((tmp.path / "ref").c_str(), &old_times), 0);
   Pipeline p;
   p.set_cwd(tmp.wpath());
   p.add(L"find.exe",

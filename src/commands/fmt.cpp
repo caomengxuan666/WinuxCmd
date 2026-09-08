@@ -215,7 +215,8 @@ auto read_input(const std::string& filename) -> cp::Result<std::string> {
                    std::istreambuf_iterator<char>());
   } else {
     // Read from file
-    std::ifstream f(filename, std::ios::binary);
+    std::ifstream f(native_path::normalize_api_operand(filename),
+                    std::ios::binary);
     if (!f) {
       return std::unexpected(input_open_error(filename));
     }

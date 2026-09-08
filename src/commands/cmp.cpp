@@ -357,7 +357,8 @@ auto run(const Config& cfg) -> int {
   std::istream* in2 = &std::cin;
 
   if (file1 != "-") {
-    stream1.open(std::filesystem::path(utf8_to_wstring(file1)),
+    stream1.open(std::filesystem::path(utf8_to_wstring(
+                     native_path::normalize_api_operand(file1))),
                  std::ios::binary);
     if (!stream1) {
       report_open_error(cfg, file1);
@@ -367,7 +368,8 @@ auto run(const Config& cfg) -> int {
   }
 
   if (file2 != "-") {
-    stream2.open(std::filesystem::path(utf8_to_wstring(file2)),
+    stream2.open(std::filesystem::path(utf8_to_wstring(
+                     native_path::normalize_api_operand(file2))),
                  std::ios::binary);
     if (!stream2) {
       report_open_error(cfg, file2);
@@ -380,8 +382,11 @@ auto run(const Config& cfg) -> int {
       cfg.skip_bytes_file1 == cfg.skip_bytes_file2) {
     std::error_code ec;
     if (std::filesystem::equivalent(
-            std::filesystem::path(utf8_to_wstring(file1)),
-            std::filesystem::path(utf8_to_wstring(file2)), ec) &&
+            std::filesystem::path(
+                utf8_to_wstring(native_path::normalize_api_operand(file1))),
+            std::filesystem::path(
+                utf8_to_wstring(native_path::normalize_api_operand(file2))),
+            ec) &&
         !ec) {
       return 0;
     }

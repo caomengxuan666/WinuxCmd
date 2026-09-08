@@ -30,6 +30,8 @@
 /// @License: MIT
 /// @Copyright: Copyright © 2026 WinuxCmd
 
+#include <clocale>
+
 #include "pch/pch.h"
 // include other header after pch.h
 #include "core/command_macros.h"
@@ -110,6 +112,21 @@ auto error_result(std::string message) -> cp::Result<T> {
 
 auto parse_number(std::string_view text) -> cp::Result<double> {
   std::string value(text);
+
+  // Detect inf/infinity before strtod: on Windows/MSVC strtod may set errno
+  // to ERANGE for infinity strings, which would otherwise reject valid
+  // operands.
+  {
+    std::string lower;
+    lower.reserve(value.size());
+    for (char c : value) {
+      lower.push_back(
+          static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    if (lower == "inf" || lower == "infinity") return INFINITY;
+    if (lower == "-inf" || lower == "-infinity") return -INFINITY;
+  }
+
   char* end = nullptr;
   errno = 0;
   double parsed = std::strtod(value.c_str(), &end);
@@ -126,8 +143,38 @@ auto parse_number(std::string_view text) -> cp::Result<double> {
 auto decimal_precision(std::string_view text) -> std::optional<int> {
   if (text.empty()) return std::nullopt;
 
-  if (text.find_first_of("eE") != std::string_view::npos) {
-    return std::nullopt;
+  // [GNU] scientific-notation operands still yield a fixed-point default
+  // format: precision is the mantissa's fractional digit count adjusted by
+  // the exponent (8.0e-1 -> 2, 8e-1 -> 1, 1.0e5 -> 0).
+  if (auto e_pos = text.find_first_of("eE");
+      e_pos != std::string_view::npos) {
+    std::string_view mantissa = text.substr(0, e_pos);
+    std::string_view exp_part = text.substr(e_pos + 1);
+    long exponent = 0;
+    if (!exp_part.empty()) {
+      // from_chars does not accept a leading '+'; GNU seq does (1.0e+5).
+      if (!exp_part.empty() && exp_part.front() == '+') {
+        exp_part.remove_prefix(1);
+      }
+      if (exp_part.empty()) {
+        return std::nullopt;
+      }
+      auto [ptr, ec] = std::from_chars(
+          exp_part.data(), exp_part.data() + exp_part.size(), exponent);
+      if (ec != std::errc() || ptr != exp_part.data() + exp_part.size()) {
+        return std::nullopt;
+      }
+    } else {
+      return std::nullopt;
+    }
+    auto dot = mantissa.find('.');
+    int frac = dot == std::string_view::npos
+                   ? 0
+                   : static_cast<int>(mantissa.size() - dot - 1);
+    long long adjusted = static_cast<long long>(frac) - exponent;
+    if (adjusted < 0) adjusted = 0;
+    if (adjusted > 400) adjusted = 400;
+    return static_cast<int>(adjusted);
   }
 
   auto first_digit = text.find_first_of("0123456789");
@@ -256,7 +303,9 @@ auto build_config(const CommandContext<SEQ_OPTIONS.size()>& ctx)
       }
 
       if (arg.starts_with("-s") && arg.size() > 2) {
-        cfg.separator = std::string(arg.substr(2));
+        // Handle both -sVALUE and -s=VALUE forms.
+        cfg.separator =
+            std::string(arg[2] == '=' ? arg.substr(3) : arg.substr(2));
         continue;
       }
 
@@ -273,7 +322,9 @@ auto build_config(const CommandContext<SEQ_OPTIONS.size()>& ctx)
       }
 
       if (arg.starts_with("-t") && arg.size() > 2) {
-        cfg.terminator = std::string(arg.substr(2));
+        // Handle both -tVALUE and -t=VALUE forms.
+        cfg.terminator =
+            std::string(arg[2] == '=' ? arg.substr(3) : arg.substr(2));
         continue;
       }
 
@@ -290,7 +341,8 @@ auto build_config(const CommandContext<SEQ_OPTIONS.size()>& ctx)
       }
 
       if (arg.starts_with("-f") && arg.size() > 2) {
-        cfg.format = std::string(arg.substr(2));
+        // Handle both -fVALUE and -f=VALUE forms.
+        cfg.format = std::string(arg[2] == '=' ? arg.substr(3) : arg.substr(2));
         continue;
       }
 
@@ -302,7 +354,6 @@ auto build_config(const CommandContext<SEQ_OPTIONS.size()>& ctx)
       return error_result<Config>("invalid option '" + std::string(arg) + "'");
     }
 
-    parsing_options = false;
     operands.push_back(arg);
   }
 
@@ -345,6 +396,16 @@ auto build_config(const CommandContext<SEQ_OPTIONS.size()>& ctx)
     return error_result<Config>("invalid Zero increment value: '" +
                                 std::string(operands[num_args == 3 ? 1 : 0]) +
                                 "'");
+  }
+
+  // Pre-compute the iteration count to guard against infinite loops caused by
+  // extremely small increments (e.g. seq 0 1e-20 1 would otherwise loop ~10^20
+  // times). Reject sequences with more than ~10^9 iterations.
+  {
+    const double count = (cfg.last - cfg.first) / cfg.increment + 1.0;
+    if (count > 1e9) {
+      return error_result<Config>("too many iterations");
+    }
   }
 
   if (!cfg.format.empty()) {
@@ -406,6 +467,9 @@ auto zero_pad(std::string value, size_t width) -> std::string {
 }
 
 auto run(const Config& cfg) -> int {
+  // Ensure C locale for consistent numeric formatting (decimal point '.')
+  setlocale(LC_NUMERIC, "C");
+
   // Determine direction
   bool increasing = (cfg.increment > 0);
 
@@ -421,16 +485,39 @@ auto run(const Config& cfg) -> int {
     return 0;
   }
 
-  // Generate sequence
-  SmallVector<std::string, 1024> results;
-  double current = cfg.first;
+  // For equal-width mode, first pass to find max width (no storage)
   size_t max_width = 0;
+  if (cfg.equal_width && cfg.format.empty()) {
+    double current = cfg.first;
+    while ((increasing && current <= cfg.last) ||
+           (!increasing && current >= cfg.last)) {
+      auto formatted = format_number(current, cfg);
+      max_width = std::max(max_width, formatted.size());
+      const double next = current + cfg.increment;
+      if (!std::isfinite(next) || next == current) {
+        break;
+      }
+      current = next;
+    }
+  }
+
+  // Second pass: generate and output incrementally (streaming, no memory
+  // blowup)
+  bool first_item = true;
+  double current = cfg.first;
 
   while ((increasing && current <= cfg.last) ||
          (!increasing && current >= cfg.last)) {
-    auto formatted = format_number(current, cfg);
-    max_width = std::max(max_width, formatted.size());
-    results.push_back(std::move(formatted));
+    std::string formatted = format_number(current, cfg);
+    if (cfg.equal_width && cfg.format.empty()) {
+      formatted = zero_pad(std::move(formatted), max_width);
+    }
+    if (!first_item) {
+      safePrint(cfg.separator);
+    }
+    safePrint(formatted);
+    first_item = false;
+
     const double next = current + cfg.increment;
     if (!std::isfinite(next) || next == current) {
       break;
@@ -438,21 +525,7 @@ auto run(const Config& cfg) -> int {
     current = next;
   }
 
-  if (cfg.equal_width && cfg.format.empty()) {
-    for (auto& result : results) {
-      result = zero_pad(std::move(result), max_width);
-    }
-  }
-
-  // Output results
-  for (size_t i = 0; i < results.size(); ++i) {
-    safePrint(results[i]);
-    if (i < results.size() - 1) {
-      safePrint(cfg.separator);
-    }
-  }
-
-  if (!results.empty()) {
+  if (!first_item) {
     safePrint(cfg.terminator);
   }
 

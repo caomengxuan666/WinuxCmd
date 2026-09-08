@@ -215,7 +215,8 @@ auto read_file(const std::string& filename) -> cp::Result<FileData> {
       return std::unexpected("error reading from standard input");
     }
   } else {
-    std::ifstream f(filename, std::ios::binary);
+    std::ifstream f(native_path::normalize_api_operand(filename),
+                    std::ios::binary);
     if (!f) {
       return std::unexpected(input_open_error(filename));
     }
@@ -235,7 +236,9 @@ auto read_crc_file(const std::string& filename)
   std::istream* input = &std::cin;
   std::ifstream file;
   if (filename != "-" && !filename.empty()) {
-    file.open(std::filesystem::u8path(filename), std::ios::binary);
+    file.open(
+        std::filesystem::u8path(native_path::normalize_api_operand(filename)),
+        std::ios::binary);
     if (!file) {
       return std::unexpected(input_open_error(filename));
     }
@@ -375,16 +378,24 @@ auto output_digest(const Config& cfg, const std::string& digest_hex,
     return;
   }
 
-  // GNU 9.4 cksum --tag is a no-op for CRC (it aliases the default form):
-  //   "--tag create a BSD-style checksum (the default for compatibility)"
-  // So keep CRC output in traditional untagged form: "<checksum> <bytes> [<file>]".
   if (algo == Algorithm::CRC) {
-    safePrint(std::to_string(checksum_or_crc));
-    safePrint(" ");
-    safePrint(std::to_string(byte_count));
-    if (filename != "-") {
+    if (cfg.tag_mode) {
+      safePrint("CRC32");
+      if (filename != "-") {
+        safePrint(" (");
+        safePrint(filename);
+        safePrint(")");
+      }
+      safePrint(" = ");
+      safePrint(digest_hex);
+    } else {
+      safePrint(std::to_string(checksum_or_crc));
       safePrint(" ");
-      safePrint(filename);
+      safePrint(std::to_string(byte_count));
+      if (filename != "-") {
+        safePrint(" ");
+        safePrint(filename);
+      }
     }
   } else if (algo == Algorithm::SYSV) {
     if (cfg.tag_mode) {
@@ -434,7 +445,7 @@ auto run_check_mode(const Config& cfg) -> int {
   std::ifstream file;
   std::string input_name = "standard input";
   if (!cfg.check_file.empty() && cfg.check_file != "-") {
-    file.open(cfg.check_file);
+    file.open(native_path::normalize_api_operand(cfg.check_file));
     if (!file) {
       safeErrorPrint("cksum: " + input_open_error(cfg.check_file) + "\n");
       return 1;

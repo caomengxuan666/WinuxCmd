@@ -62,7 +62,7 @@ TEST(base32, base32_wrap_width_and_wrap_zero) {
   auto unwrapped_result = unwrapped.run();
 
   EXPECT_EQ(unwrapped_result.exit_code, 0);
-  EXPECT_EQ_TEXT(unwrapped_result.stdout_text, "NBSWY3DPEB3W64TMMQ======\n");
+  EXPECT_EQ_TEXT(unwrapped_result.stdout_text, "NBSWY3DPEB3W64TMMQ======");
 }
 
 TEST(base32, base32_empty_input_produces_no_output) {

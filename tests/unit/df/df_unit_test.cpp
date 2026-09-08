@@ -176,6 +176,28 @@ TEST(df, df_block_size_human_readable_alias) {
   EXPECT_NE(r.stdout_text.find("Capacity"), std::string::npos);
 }
 
+// GNU appends the unit letter to values for a bare-suffix block size
+// ("df -BM" prints "1M" values and a "1M-blocks" header).
+TEST(df, df_bare_suffix_block_size_appends_unit) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"df.exe", {L"-BM"});
+
+  TEST_LOG_CMD_LIST("df.exe", L"-BM");
+
+  auto r = p.run();
+
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("df.exe -BM output", r.stdout_text);
+
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_NE(r.stdout_text.find("1M-blocks"), std::string::npos);
+  // Every size cell ends with the unit letter (e.g. "12M").
+  EXPECT_NE(r.stdout_text.find("M "), std::string::npos);
+}
+
 TEST(df, df_output_field_list) {
   TempDir tmp;
 

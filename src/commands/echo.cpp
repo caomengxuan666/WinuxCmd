@@ -197,24 +197,6 @@ struct EscapeResult {
   bool suppress_newline = false;
 };
 
-auto append_utf8(std::string& out, unsigned int codepoint) -> void {
-  if (codepoint <= 0x7F) {
-    out += static_cast<char>(codepoint);
-  } else if (codepoint <= 0x7FF) {
-    out += static_cast<char>(0xC0 | (codepoint >> 6));
-    out += static_cast<char>(0x80 | (codepoint & 0x3F));
-  } else if (codepoint <= 0xFFFF) {
-    out += static_cast<char>(0xE0 | (codepoint >> 12));
-    out += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-    out += static_cast<char>(0x80 | (codepoint & 0x3F));
-  } else if (codepoint <= 0x10FFFF) {
-    out += static_cast<char>(0xF0 | (codepoint >> 18));
-    out += static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F));
-    out += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
-    out += static_cast<char>(0x80 | (codepoint & 0x3F));
-  }
-}
-
 auto process_escapes(std::string text, bool enabled)
     -> cp::Result<EscapeResult> {
   if (!enabled) return EscapeResult{std::move(text), false};
@@ -298,41 +280,9 @@ auto process_escapes(std::string text, bool enabled)
           }
           break;
         }
-        case 'u':
-        case 'U': {
-          const bool short_form = text[i] == 'u';
-          const size_t max_digits = short_form ? 4 : 8;
-          unsigned int value = 0;
-          size_t j = i + 1;
-          for (; j < i + 1 + max_digits && j < text.size(); ++j) {
-            unsigned char ch = static_cast<unsigned char>(text[j]);
-            if (!std::isxdigit(ch)) {
-              break;
-            }
-            char hex = static_cast<char>(std::tolower(ch));
-            value = value * 16 +
-                    (hex >= '0' && hex <= '9' ? hex - '0' : hex - 'a' + 10);
-          }
-
-          if (j == i + 1) {
-            result += '\\';
-            result += text[i];
-            break;
-          }
-
-          if (value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF)) {
-            result += '\\';
-            result += text[i];
-            result.append(text.begin() + static_cast<std::ptrdiff_t>(i + 1),
-                          text.begin() + static_cast<std::ptrdiff_t>(j));
-            i = j - 1;
-            break;
-          }
-
-          append_utf8(result, value);
-          i = j - 1;
-          break;
-        }
+        // GNU coreutils echo does not interpret \u/\U unicode escapes;
+        // they are printed literally (uutils #14414). Only printf %b and
+        // the printf format string handle them.
         default:
           result += '\\';
           result += text[i];

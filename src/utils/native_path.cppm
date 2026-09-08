@@ -126,7 +126,10 @@ export auto normalize_api_operand_w(std::wstring_view path) -> std::wstring {
 }
 
 export auto normalize_api_operand(std::string_view path) -> std::string {
-  return std::string(strip_trailing_separators(path));
+  // Delegate to the wide implementation so MSYS/Git-Bash style operands such
+  // as "/d/repo/file" are converted to "D:\repo\file" exactly like
+  // make_api_path_operand does; otherwise return the stripped path unchanged.
+  return to_utf8(normalize_api_operand_w(from_utf8(path)));
 }
 
 export auto to_extended_path(std::wstring_view path) -> std::wstring {

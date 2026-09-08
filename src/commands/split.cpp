@@ -148,6 +148,13 @@ auto strip_leading_plus(std::string_view value) -> std::string_view {
   return value;
 }
 
+// Mirrors GNU split's strtoint_die: every rejected NUMBER is diagnosed as
+// "<msgid>: '<arg>'" with the offending argument quoted as a whole.
+auto quoted_number_error(std::string_view msgid, std::string_view arg)
+    -> std::string {
+  return std::string(msgid) + ": '" + std::string(arg) + "'";
+}
+
 auto parse_i64_full(std::string_view value) -> cp::Result<int64_t> {
   value = strip_leading_plus(value);
   int64_t parsed = 0;
@@ -229,18 +236,6 @@ auto parse_size(const std::string& size_str) -> cp::Result<int64_t> {
   return checked_mul(value, multiplier);
 }
 
-auto parse_positive_i64(const std::string& value, std::string_view name)
-    -> cp::Result<int64_t> {
-  auto parsed = parse_i64_full(value);
-  if (!parsed) {
-    return std::unexpected(std::string("invalid ") + std::string(name));
-  }
-  if (*parsed <= 0) {
-    return std::unexpected(std::string(name) + " must be positive");
-  }
-  return *parsed;
-}
-
 auto parse_suffix_start(const std::string& value, int base)
     -> cp::Result<uint64_t> {
   if (value.empty()) return 0;
@@ -285,8 +280,11 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
 
   if (!bytes_opt.empty()) {
     auto size_result = parse_size(bytes_opt);
-    if (!size_result) {
-      return std::unexpected(size_result.error());
+    if (!size_result || *size_result <= 0) {
+      // GNU parse_n_units(msgid="invalid number of bytes"): parse failures,
+      // bad suffixes, overflow, and non-positive values all quote the arg.
+      return std::unexpected(
+          quoted_number_error("invalid number of bytes", bytes_opt));
     }
     cfg.chunk_size = *size_result;
     cfg.mode = Config::Mode::Bytes;
@@ -294,22 +292,31 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
 
   if (!line_bytes_opt.empty()) {
     auto size_result = parse_size(line_bytes_opt);
-    if (!size_result) {
-      return std::unexpected(size_result.error());
+    if (!size_result || *size_result <= 0) {
+      // GNU -C reuses the "invalid number of lines" message for line bytes.
+      return std::unexpected(
+          quoted_number_error("invalid number of lines", line_bytes_opt));
     }
     cfg.chunk_size = *size_result;
     cfg.mode = Config::Mode::LineBytes;
   }
 
   if (!lines_opt.empty()) {
-    auto lines_result = parse_positive_i64(lines_opt, "line count");
-    if (!lines_result) return std::unexpected(lines_result.error());
+    auto lines_result = parse_i64_full(lines_opt);
+    if (!lines_result || *lines_result <= 0) {
+      return std::unexpected(
+          quoted_number_error("invalid number of lines", lines_opt));
+    }
     cfg.chunk_lines = *lines_result;
     cfg.mode = Config::Mode::Lines;
   }
 
   if (!number_opt.empty()) {
-    // GNU -n supports: N, k/N, l/N, l/k/N, r/N, and r/k/N.
+    // GNU -n supports: N, k/N, l/N, l/k/N, r/N, and r/k/N. Mirrors GNU
+    // parse_chunk: a pure number is k = n; in k/N form the k part must be
+    // pure digits (otherwise the whole argument is rejected as an invalid
+    // number of chunks), the N part must parse fully, and k must satisfy
+    // 0 < k <= n ("invalid chunk number" quotes only the k part).
     bool line_mode = false;
     bool round_robin = false;
     std::string val = number_opt;
@@ -324,40 +331,34 @@ auto build_config(const CommandContext<SPLIT_OPTIONS.size()>& ctx)
       if (!val.empty() && val[0] == '/') val = val.substr(1);
     }
 
-    std::vector<std::string_view> parts;
-    size_t start = 0;
-    while (start <= val.size()) {
-      size_t slash = val.find('/', start);
-      if (slash == std::string::npos) {
-        parts.push_back(std::string_view(val).substr(start));
-        break;
-      }
-      parts.push_back(std::string_view(val).substr(start, slash - start));
-      start = slash + 1;
-    }
-    if (parts.empty() || parts.size() > 2 ||
-        std::ranges::any_of(
-            parts, [](std::string_view part) { return part.empty(); })) {
-      return std::unexpected("invalid number of chunks");
-    }
-
-    auto parse_number_part = [](std::string_view part,
-                                std::string_view name) -> cp::Result<int64_t> {
-      return parse_positive_i64(std::string(part), name);
+    auto fail_chunks = [&](std::string_view arg) {
+      return quoted_number_error("invalid number of chunks", arg);
     };
 
-    if (parts.size() == 2) {
-      auto chunk_result = parse_number_part(parts[0], "chunk number");
-      if (!chunk_result) return std::unexpected(chunk_result.error());
-      cfg.selected_chunk = *chunk_result;
-    }
-
-    auto num_result = parse_number_part(parts.back(), "number of chunks");
-    if (!num_result) return std::unexpected(num_result.error());
-    cfg.num_chunks = *num_result;
-    if (cfg.selected_chunk.has_value() &&
-        *cfg.selected_chunk > cfg.num_chunks) {
-      return std::unexpected("chunk number out of range");
+    const size_t slash = val.find('/');
+    if (slash == std::string::npos) {
+      auto num_result = parse_i64_full(val);
+      if (!num_result || *num_result <= 0) {
+        return std::unexpected(fail_chunks(val));
+      }
+      cfg.num_chunks = *num_result;
+    } else {
+      const std::string k_text(val.substr(0, slash));
+      const std::string n_text(val.substr(slash + 1));
+      auto k_result = parse_i64_full(k_text);
+      if (!k_result) {
+        return std::unexpected(fail_chunks(val));
+      }
+      auto n_result = parse_i64_full(n_text);
+      if (!n_result || *n_result <= 0) {
+        return std::unexpected(fail_chunks(n_text));
+      }
+      if (*k_result <= 0 || *k_result > *n_result) {
+        return std::unexpected(
+            quoted_number_error("invalid chunk number", k_text));
+      }
+      cfg.selected_chunk = *k_result;
+      cfg.num_chunks = *n_result;
     }
     cfg.mode = Config::Mode::Number;
     cfg.number_mode = round_robin ? Config::NumberMode::RoundRobin

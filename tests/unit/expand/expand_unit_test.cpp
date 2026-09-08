@@ -181,3 +181,26 @@ TEST(expand, expand_newline_mode_trims_trailing_cr_from_crlf_records) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ_TEXT(r.stdout_text, "a   b\nc   d\n");
 }
+
+TEST(expand, expand_tab_stop_error_messages_match_gnu) {
+  Pipeline invalid;
+  invalid.add(L"expand.exe", {L"-t", L"x"});
+  auto r = invalid.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text,
+                 "expand: tab size contains invalid character(s): 'x'\n");
+
+  Pipeline zero;
+  zero.add(L"expand.exe", {L"-t", L"0"});
+  EXPECT_EQ_TEXT(zero.run().stderr_text, "expand: tab size cannot be 0\n");
+
+  Pipeline ascending;
+  ascending.add(L"expand.exe", {L"-t", L"4,2"});
+  EXPECT_EQ_TEXT(ascending.run().stderr_text,
+                 "expand: tab sizes must be ascending\n");
+
+  Pipeline large;
+  large.add(L"expand.exe", {L"-t", L"99999999999999999999"});
+  EXPECT_EQ_TEXT(large.run().stderr_text,
+                 "expand: tab stop is too large '99999999999999999999'\n");
+}

@@ -548,7 +548,8 @@ auto read_file_bytes(const std::string& filename,
                      std::optional<size_t> max_bytes) -> bool {
   if (max_bytes && data.size() >= *max_bytes) return true;
 
-  std::ifstream input(filename, std::ios::binary);
+  std::ifstream input(native_path::normalize_api_operand(filename),
+                      std::ios::binary);
   if (!input) {
     safeErrorPrintLn("od: cannot open '" + filename + "'");
     return false;

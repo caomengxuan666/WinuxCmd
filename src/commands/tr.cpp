@@ -184,26 +184,67 @@ auto parse_atomic_token(std::string_view& str) -> cp::Result<std::string> {
   return std::string(1, c);
 }
 
-auto parse_repeat_count(std::string_view& str) -> std::optional<size_t> {
-  if (str.empty() || str[0] != '*') return std::nullopt;
-
-  str = str.substr(1);
-  if (str.empty() || str[0] < '0' || str[0] > '9') return std::nullopt;
-
+// GNU tr treats [c*n] with the count omitted or zero as an "indefinite"
+// repeat: it contributes nothing during parsing and only expands in string2
+// to fill up to string1's effective length.
+struct RepeatSpec {
   size_t count = 0;
-  while (!str.empty() && str[0] >= '0' && str[0] <= '9') {
-    size_t digit = static_cast<size_t>(str[0] - '0');
-    if (count > (std::numeric_limits<size_t>::max() - digit) / 10) {
-      return std::nullopt;
-    }
-    count = count * 10 + digit;
-    str = str.substr(1);
+  bool indefinite = false;
+};
+
+// The translator only needs a 256-entry table, and GNU expands repeats
+// per-character with "last occurrence wins" (verified: tr '[a*10]x' 'yz'
+// maps a->z, x->z). Any run longer than the longest possible operand maps
+// exactly like an unbounded run would, so clamping keeps huge counts like
+// [a*1000000000000] cheap and semantically identical (GNU itself stalls on
+// such counts).
+constexpr size_t kMaxMaterializedRepeat = 65536;
+
+// Parse the digit segment of a [c*n] construct (everything between '*' and
+// the closing bracket). An empty segment means an indefinite repeat; a
+// malformed or overflowing count is a GNU error.
+auto parse_repeat_spec(std::string_view digits) -> cp::Result<RepeatSpec> {
+  RepeatSpec spec;
+  if (digits.empty()) {
+    spec.indefinite = true;  // [c*]
+    return spec;
+  }
+  if (digits[0] < '0' || digits[0] > '9') {
+    return std::unexpected(make_dynamic_error(
+        "invalid repeat count '" + std::string(digits) + "' in [c*n] construct"));
   }
 
-  return count;
+  // GNU parses the count in octal when the first digit is '0' (xstrtoumax).
+  size_t base = (digits[0] == '0') ? 8 : 10;
+  size_t count = 0;
+  bool overflow = false;
+  for (char ch : digits) {
+    if (ch < '0' || ch >= static_cast<char>('0' + base)) {
+      return std::unexpected(make_dynamic_error(
+          "invalid repeat count '" + std::string(digits) +
+          "' in [c*n] construct"));
+    }
+    size_t digit = static_cast<size_t>(ch - '0');
+    if (count > (std::numeric_limits<size_t>::max() - digit) / base) {
+      overflow = true;
+      break;
+    }
+    count = count * base + digit;
+  }
+  if (overflow) {
+    return std::unexpected(make_dynamic_error(
+        "invalid repeat count '" + std::string(digits) + "' in [c*n] construct"));
+  }
+  if (count == 0) {
+    spec.indefinite = true;  // [c*0] behaves like [c*]
+    return spec;
+  }
+  spec.count = count;
+  return spec;
 }
 
-auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
+auto parse_set_atom(std::string_view& str, RepeatSpec* repeat_out)
+    -> cp::Result<std::string> {
   if (str.empty()) return std::unexpected("missing character");
 
   if (str[0] == '[') {
@@ -223,17 +264,23 @@ auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
       if (body.find('*') != std::string_view::npos) {
         std::string_view repeated = body;
         auto atom = parse_atomic_token(repeated);
-        if (atom && atom->size() == 1) {
-          auto count = parse_repeat_count(repeated);
-          if (count && repeated.empty()) {
-            std::string result;
-            result.reserve(*count);
-            for (size_t i = 0; i < *count; ++i) {
-              result += *atom;
-            }
-            str = str.substr(close + 1);
-            return result;
+        if (atom && atom->size() == 1 && !repeated.empty() &&
+            repeated[0] == '*') {
+          // repeated now holds everything between '*' and the closing
+          // bracket: the repeat-count digit segment.
+          auto spec = parse_repeat_spec(repeated.substr(1));
+          if (!spec) return std::unexpected(spec.error());
+          str = str.substr(close + 1);
+          if (repeat_out) {
+            // Caller expands the repeat; hand back the bare character.
+            *repeat_out = *spec;
+            return *atom;
           }
+          // No repeat context (e.g. a range endpoint): expand here.
+          size_t n = spec->indefinite ? 0
+                                      : std::min(spec->count,
+                                                 kMaxMaterializedRepeat);
+          return std::string(n, (*atom)[0]);
         }
       }
     }
@@ -242,18 +289,41 @@ auto parse_set_atom(std::string_view& str) -> cp::Result<std::string> {
   return parse_atomic_token(str);
 }
 
-// Parse a character set string
-auto parse_set(std::string_view str) -> cp::Result<std::string> {
-  std::string result;
-  result.reserve(str.size());
+// Parse a character set string, tracking [c*] indefinite repeats so the
+// caller can apply GNU validation and string2 fill semantics.
+struct SetParseResult {
+  std::string chars;
+  size_t indefinite_count = 0;
+  char indefinite_char = 0;
+  // Index within `chars` where the indefinite repeat appeared; the fill
+  // character must be inserted at this position, not appended.
+  size_t indefinite_pos = 0;
+};
+
+auto parse_set(std::string_view str) -> cp::Result<SetParseResult> {
+  SetParseResult out;
+  std::string& result = out.chars;
 
   while (!str.empty()) {
-    auto atom = parse_set_atom(str);
+    RepeatSpec spec;
+    auto atom = parse_set_atom(str, &spec);
     if (!atom) return std::unexpected(atom.error());
+
+    if (spec.indefinite) {
+      ++out.indefinite_count;
+      out.indefinite_char = (*atom)[0];
+      out.indefinite_pos = result.size();
+      continue;  // contributes nothing until the fill phase
+    }
+    if (spec.count > 0) {
+      result += std::string(std::min(spec.count, kMaxMaterializedRepeat),
+                            (*atom)[0]);
+      continue;
+    }
 
     if (atom->size() == 1 && str.size() >= 2 && str[0] == '-') {
       std::string_view range_tail = str.substr(1);
-      auto end_atom = parse_set_atom(range_tail);
+      auto end_atom = parse_set_atom(range_tail, nullptr);
       if (!end_atom) return std::unexpected(end_atom.error());
 
       if (end_atom->size() == 1) {
@@ -282,12 +352,13 @@ auto parse_set(std::string_view str) -> cp::Result<std::string> {
     }
   }
 
-  return result;
+  return out;
 }
 
 // Build translation table
 void build_translation_table(const std::string& set1, const std::string& set2,
                              bool complement, bool truncate_set1,
+                             char fill_char, size_t fill_pos,
                              std::array<char, 256>& table) {
   // Initialize table to no change
   for (int i = 0; i < 256; ++i) {
@@ -312,6 +383,14 @@ void build_translation_table(const std::string& set1, const std::string& set2,
   // Handle truncate
   if (truncate_set1 && effective_set1.size() > effective_set2.size()) {
     effective_set1 = effective_set1.substr(0, effective_set2.size());
+  }
+
+  // GNU: an indefinite repeat [c*] in string2 expands to bring string2 up
+  // to string1's effective length, inserted at the repeat's own position.
+  if (fill_char != '\0' && effective_set2.size() < effective_set1.size()) {
+    size_t count = effective_set1.size() - effective_set2.size();
+    if (fill_pos > effective_set2.size()) fill_pos = effective_set2.size();
+    effective_set2.insert(fill_pos, count, fill_char);
   }
 
   // Build translation
@@ -380,6 +459,9 @@ struct Config {
   bool truncate_set1 = false;
   std::string set1;
   std::string set2;
+  // GNU [c*] fill state for string2 (only meaningful when translating).
+  char fill_char = 0;
+  size_t fill_pos = 0;
 };
 
 auto build_config(const CommandContext<TR_OPTIONS.size()>& ctx)
@@ -413,14 +495,31 @@ auto build_config(const CommandContext<TR_OPTIONS.size()>& ctx)
 
   auto set1 = parse_set(ctx.positionals[0]);
   if (!set1) return std::unexpected(set1.error());
-  cfg.set1 = *set1;
+  if (set1->indefinite_count > 0) {
+    return std::unexpected(make_dynamic_error(
+        "the [c*] repeat construct may not appear in string1"));
+  }
+  cfg.set1 = set1->chars;
 
   // In -ds mode, the second argument is SET2 (set to squeeze), not SET2
   // (translation)
   if (ctx.positionals.size() > 1) {
     auto set2 = parse_set(ctx.positionals[1]);
     if (!set2) return std::unexpected(set2.error());
-    cfg.set2 = *set2;
+    if (set2->indefinite_count > 1) {
+      return std::unexpected(make_dynamic_error(
+          "only one [c*] repeat construct may appear in string2"));
+    }
+    bool translating = !cfg.delete_mode;
+    if (set2->indefinite_count > 0) {
+      if (!translating) {
+        return std::unexpected(make_dynamic_error(
+            "the [c*] construct may appear in string2 only when translating"));
+      }
+      cfg.fill_char = set2->indefinite_char;
+      cfg.fill_pos = set2->indefinite_pos;
+    }
+    cfg.set2 = set2->chars;
   } else {
     cfg.set2 = "";  // Default empty set
   }
@@ -447,7 +546,8 @@ auto run(const Config& cfg) -> int {
     delete_set = build_delete_set(cfg.set1, cfg.complement);
   } else {
     build_translation_table(cfg.set1, cfg.set2, cfg.complement,
-                            cfg.truncate_set1, trans_table);
+                            cfg.truncate_set1, cfg.fill_char, cfg.fill_pos,
+                            trans_table);
   }
 
   if (cfg.squeeze) {
@@ -455,6 +555,10 @@ auto run(const Config& cfg) -> int {
     // deletion or translation has been applied.
     if (!cfg.set2.empty()) {
       squeeze_set = build_squeeze_set(cfg.set2, false);
+      // An indefinite [c*] in string2 is part of the squeeze set too.
+      if (cfg.fill_char != '\0' && cfg.set2.size() < cfg.set1.size()) {
+        squeeze_set[static_cast<unsigned char>(cfg.fill_char)] = true;
+      }
     } else {
       squeeze_set = build_squeeze_set(cfg.set1, cfg.complement);
     }

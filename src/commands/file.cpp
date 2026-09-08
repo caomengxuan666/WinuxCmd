@@ -221,7 +221,9 @@ auto has_prefix(const std::vector<unsigned char>& data,
 }
 
 auto read_file_header(const std::wstring& path) -> std::vector<unsigned char> {
-  std::ifstream file(std::filesystem::path(path), std::ios::binary);
+  std::ifstream file(
+      std::filesystem::path(native_path::normalize_api_operand_w(path)),
+      std::ios::binary);
   if (!file) {
     return {};
   }
@@ -309,7 +311,8 @@ auto classify_by_extension(const std::wstring& filename) -> FileClassification {
  */
 auto process_file(const std::string& path, bool brief, bool symlink, bool mime)
     -> std::optional<std::string> {
-  std::wstring wpath = utf8_to_wstring(path);
+  std::wstring wpath =
+      utf8_to_wstring(native_path::normalize_api_operand(path));
 
   DWORD attrs = GetFileAttributesW(wpath.c_str());
   if (attrs == INVALID_FILE_ATTRIBUTES) {
@@ -361,7 +364,8 @@ auto process_files(const CommandContext<FILE_OPTIONS.size()>& ctx)
 
   if (!files_from.empty()) {
     // Read paths from the specified file, one per line
-    std::ifstream fin(utf8_to_wstring(files_from));
+    std::ifstream fin(
+        utf8_to_wstring(native_path::normalize_api_operand(files_from)));
     if (!fin) {
       safeErrorPrint("file: cannot open '");
       safeErrorPrint(files_from);

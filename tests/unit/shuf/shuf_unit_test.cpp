@@ -134,7 +134,7 @@ TEST(shuf, shuf_zero_terminated_reads_and_writes_nul_records) {
   EXPECT_TRUE(r.stdout_text.find("c") != std::string::npos);
 }
 
-TEST(shuf, shuf_trims_cr_from_crlf_records_in_newline_mode) {
+TEST(shuf, shuf_preserves_crlf_records_in_newline_mode) {
   TempDir tmp;
   tmp.write_bytes("crlf.txt",
                   {'l', 'i',  'n',  'e', '1', '\r', '\n', 'l', 'i',  'n', 'e',
@@ -148,11 +148,12 @@ TEST(shuf, shuf_trims_cr_from_crlf_records_in_newline_mode) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 0);
-  EXPECT_EQ(r.stdout_text.find('\r'), std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("line1\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("line2\n") != std::string::npos);
-  EXPECT_TRUE(r.stdout_text.find("line3\n") != std::string::npos);
+  // GNU shuf preserves original line endings; CR is not stripped.
   EXPECT_EQ(count_char(r.stdout_text, '\n'), 3);
+  EXPECT_EQ(count_char(r.stdout_text, '\r'), 3);
+  EXPECT_TRUE(r.stdout_text.find("line1\r\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line2\r\n") != std::string::npos);
+  EXPECT_TRUE(r.stdout_text.find("line3\r\n") != std::string::npos);
 }
 
 TEST(shuf, shuf_output_file_is_written_after_input_is_read) {
@@ -365,4 +366,65 @@ TEST(shuf, shuf_directory_input_reports_is_a_directory) {
   EXPECT_TRUE(r.stderr_text.find(
                   "shuf: cannot open 'indir' for reading: Is a directory") !=
               std::string::npos);
+}
+
+TEST(shuf, shuf_input_range_error_message_matches_gnu) {
+  Pipeline descending;
+  descending.add(L"shuf.exe", {L"-i", L"5-1"});
+  auto r = descending.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text, "shuf: invalid input range: '5-1'\n");
+
+  Pipeline bad;
+  bad.add(L"shuf.exe", {L"-i", L"abc"});
+  EXPECT_EQ_TEXT(bad.run().stderr_text, "shuf: invalid input range: 'abc'\n");
+
+  Pipeline overflow;
+  overflow.add(L"shuf.exe", {L"-i", L"99999999999999999999"});
+  auto o = overflow.run();
+  EXPECT_EQ(o.exit_code, 1);
+  EXPECT_EQ_TEXT(
+      o.stderr_text,
+      "shuf: invalid input range: '99999999999999999999': Value too large "
+      "for defined data type\n");
+
+  // GNU quotes the whole range argument, not just the offending half.
+  Pipeline missing_hi;
+  missing_hi.add(L"shuf.exe", {L"-i", L"1-"});
+  EXPECT_EQ_TEXT(missing_hi.run().stderr_text,
+                 "shuf: invalid input range: '1-'\n");
+
+  Pipeline hi_overflow;
+  hi_overflow.add(L"shuf.exe", {L"-i", L"99999999999999999999999-1"});
+  EXPECT_EQ_TEXT(
+      hi_overflow.run().stderr_text,
+      "shuf: invalid input range: '99999999999999999999999-1': Value too "
+      "large for defined data type\n");
+
+  Pipeline lo_overflow;
+  lo_overflow.add(L"shuf.exe", {L"-i", L"1-99999999999999999999999"});
+  EXPECT_EQ_TEXT(
+      lo_overflow.run().stderr_text,
+      "shuf: invalid input range: '1-99999999999999999999999': Value too "
+      "large for defined data type\n");
+
+  Pipeline double_dash;
+  double_dash.add(L"shuf.exe", {L"-i", L"1-2-3"});
+  EXPECT_EQ_TEXT(double_dash.run().stderr_text,
+                 "shuf: invalid input range: '1-2-3'\n");
+}
+
+TEST(shuf, shuf_head_count_error_message_and_overflow_clamp) {
+  Pipeline bad;
+  bad.add(L"shuf.exe", {L"-n", L"x", L"-i", L"1-3"});
+  auto r = bad.run();
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_EQ_TEXT(r.stderr_text, "shuf: invalid line count: 'x'\n");
+
+  // GNU treats an overflowing head count as "no limit".
+  Pipeline huge;
+  huge.add(L"shuf.exe", {L"-n", L"99999999999999999999", L"-i", L"1-3"});
+  auto h = huge.run();
+  EXPECT_EQ(h.exit_code, 0);
+  EXPECT_EQ(h.stdout_text.size(), 6);
 }

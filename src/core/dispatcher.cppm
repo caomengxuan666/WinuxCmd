@@ -656,6 +656,61 @@ auto rewrite_pr_args(std::span<std::string_view> args)
   return rewrite_pr_legacy_column_args("pr", args);
 }
 
+// GNU fold accepts the obsolete "-WIDTH" form (e.g. "fold -5"). The rewrite
+// happens in place so a later "-WIDTH" overrides an earlier "-w WIDTH", the
+// same last-one-wins rule GNU gets from processing options in sequence.
+// An argument is only eligible when it is not the value of a preceding
+// "-w"/"--width" and does not appear after a "--" terminator.
+auto rewrite_fold_obsolete_args(std::span<std::string_view> args)
+    -> std::optional<std::vector<std::string>> {
+  if (args.empty()) {
+    return std::nullopt;
+  }
+
+  std::vector<std::string> rewritten;
+  rewritten.reserve(args.size());
+  bool changed = false;
+  bool stop_option_parsing = false;
+  bool expect_width_value = false;
+
+  for (auto arg : args) {
+    if (!stop_option_parsing && arg == "--") {
+      stop_option_parsing = true;
+      rewritten.emplace_back(arg);
+      expect_width_value = false;
+      continue;
+    }
+
+    if (!stop_option_parsing && expect_width_value) {
+      // This token is the value of -w/--width; leave it alone.
+      rewritten.emplace_back(arg);
+      expect_width_value = false;
+      continue;
+    }
+
+    if (!stop_option_parsing && arg.size() >= 2 && arg[0] == '-' &&
+        arg[1] != '-') {
+      size_t suffix_pos = parse_decimal_prefix(arg, 1);
+      if (suffix_pos == arg.size()) {
+        rewritten.emplace_back("--width=" + std::string(arg.substr(1)));
+        changed = true;
+        continue;
+      }
+    }
+
+    if (!stop_option_parsing && (arg == "-w" || arg == "--width")) {
+      expect_width_value = true;
+    }
+
+    rewritten.emplace_back(arg);
+  }
+
+  if (!changed) {
+    return std::nullopt;
+  }
+  return rewritten;
+}
+
 auto echo_posixly_correct_literal_mode(std::string_view cmdName,
                                        std::span<std::string_view> args)
     -> bool {
@@ -795,6 +850,8 @@ auto behavior_for(std::string_view name) -> CommandBehavior {
     append_rewrite_hook(behavior, rewrite_nice_args);
   } else if (name == "pr") {
     append_rewrite_hook(behavior, rewrite_pr_args);
+  } else if (name == "fold") {
+    append_rewrite_hook(behavior, rewrite_fold_obsolete_args);
   } else if (name == "echo") {
     append_rewrite_hook(behavior, rewrite_echo_args);
     behavior.standard_interception_enabled = echo_standard_interception_enabled;
