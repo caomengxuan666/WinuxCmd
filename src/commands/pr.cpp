@@ -596,6 +596,21 @@ auto run(const Config& cfg) -> int {
   // Apply start_page: skip lines before the start page
   int lines_per_page = std::max(1, cfg.page_length);
 
+  // [GNU] a start page beyond the total page count is reported and nothing
+  // is printed (uutils #13557)
+  if (cfg.start_page > 1) {
+    const size_t total_lines = all_lines.size();
+    const int total_pages =
+        static_cast<int>((total_lines + lines_per_page - 1) / lines_per_page);
+    if (cfg.start_page > total_pages) {
+      safeErrorPrintLn(winux::i18n::format(
+          "command.pr.error.page_exceeds",
+          "pr: starting page number {} exceeds page count {}", cfg.start_page,
+          total_pages));
+      return 0;
+    }
+  }
+
   // Process lines with all options
   std::string indent_str(cfg.indent, ' ');
   std::string sep = get_separator(cfg);

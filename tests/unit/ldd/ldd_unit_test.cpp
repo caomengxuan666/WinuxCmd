@@ -2,7 +2,7 @@
 
 TEST(ldd, lists_imports_for_winuxcmd_exe) {
   Pipeline p;
-  p.add(L"ldd.exe", {std::wstring(WINUXCMD_BIN_DIR) + L"/../winuxcmd.exe"});
+  p.add(L"ldd.exe", {std::wstring(WINUXCMD_BIN_DIR) + L"/winuxcmd.exe"});
 
   auto r = p.run();
 
@@ -15,7 +15,7 @@ TEST(ldd, lists_imports_for_winuxcmd_exe) {
 TEST(ldd, name_mode_prints_only_dll_names) {
   Pipeline p;
   p.add(L"ldd.exe",
-        {L"--name", std::wstring(WINUXCMD_BIN_DIR) + L"/../winuxcmd.exe"});
+        {L"--name", std::wstring(WINUXCMD_BIN_DIR) + L"/winuxcmd.exe"});
 
   auto r = p.run();
 
@@ -27,8 +27,7 @@ TEST(ldd, name_mode_prints_only_dll_names) {
 
 TEST(ldd, short_name_option_lists_imports) {
   Pipeline p;
-  p.add(L"ldd.exe",
-        {L"-n", std::wstring(WINUXCMD_BIN_DIR) + L"/../winuxcmd.exe"});
+  p.add(L"ldd.exe", {L"-n", std::wstring(WINUXCMD_BIN_DIR) + L"/winuxcmd.exe"});
 
   auto r = p.run();
 
@@ -41,7 +40,7 @@ TEST(ldd, short_name_option_lists_imports) {
 TEST(ldd, unused_option_lists_direct_dependencies) {
   Pipeline p;
   p.add(L"ldd.exe",
-        {L"--unused", std::wstring(WINUXCMD_BIN_DIR) + L"/../winuxcmd.exe"});
+        {L"--unused", std::wstring(WINUXCMD_BIN_DIR) + L"/winuxcmd.exe"});
 
   auto r = p.run();
 
@@ -54,7 +53,7 @@ TEST(ldd, unused_option_lists_direct_dependencies) {
 TEST(ldd, verbose_option_prints_version_heading) {
   Pipeline p;
   p.add(L"ldd.exe",
-        {L"--verbose", std::wstring(WINUXCMD_BIN_DIR) + L"/../winuxcmd.exe"});
+        {L"--verbose", std::wstring(WINUXCMD_BIN_DIR) + L"/winuxcmd.exe"});
 
   auto r = p.run();
 

@@ -1329,7 +1329,9 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
   }
 
   if (ctx.has("--parallel") && !parse_parallel_hint(cfg.parallel_hint)) {
-    return std::unexpected("invalid parallel count");
+    // [GNU] reports the rejected operand (uutils #13016)
+    return std::unexpected("invalid --parallel argument '" + cfg.parallel_hint +
+                           "'");
   }
 
   if (ctx.has("--batch-size") && !parse_batch_size_hint(cfg.batch_size_hint)) {

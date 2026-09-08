@@ -143,10 +143,9 @@ export std::string translate_error(std::string_view error) {
   if (error.size() > kRepeatCountPrefix.size() + kRepeatCountSuffix.size() &&
       error.starts_with(kRepeatCountPrefix) &&
       error.ends_with(kRepeatCountSuffix)) {
-    const auto value =
-        error.substr(kRepeatCountPrefix.size(),
-                     error.size() - kRepeatCountPrefix.size() -
-                         kRepeatCountSuffix.size());
+    const auto value = error.substr(
+        kRepeatCountPrefix.size(),
+        error.size() - kRepeatCountPrefix.size() - kRepeatCountSuffix.size());
     return ::winux::i18n::format("command.tr.error.invalid_repeat_count",
                                  "invalid repeat count '{}' in [c*n] construct",
                                  value);
@@ -158,8 +157,9 @@ export std::string translate_error(std::string_view error) {
   if (error == "only one [c*] repeat construct may appear in string2") {
     return translate("command.tr.error.one_repeat_string2", error);
   }
-  if (error == "the [c*] construct may appear in string2 only when "
-               "translating") {
+  if (error ==
+      "the [c*] construct may appear in string2 only when "
+      "translating") {
     return translate("command.tr.error.repeat_only_translate", error);
   }
   // "'<token>': unary operator expected" — the value precedes the quote.
@@ -189,7 +189,27 @@ export std::string translate_error(std::string_view error) {
     return ::winux::i18n::format("command.csplit.error.match_not_found",
                                  "'{}': match not found", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 29> exact{
+  // "'<spec>': invalid signal" / "'<spec>': multiple signals specified"
+  // (kill; [GNU] operand2sig wording, uutils #14177) — the spec precedes
+  // the quote-suffix.
+  constexpr std::string_view kInvalidSignalSuffix = "': invalid signal";
+  if (error.size() > kInvalidSignalSuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kInvalidSignalSuffix)) {
+    const auto value =
+        error.substr(1, error.size() - 1 - kInvalidSignalSuffix.size());
+    return ::winux::i18n::format("command.kill.error.invalid_signal",
+                                 "'{}': invalid signal", value);
+  }
+  constexpr std::string_view kMultipleSignalsSuffix =
+      "': multiple signals specified";
+  if (error.size() > kMultipleSignalsSuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kMultipleSignalsSuffix)) {
+    const auto value =
+        error.substr(1, error.size() - 1 - kMultipleSignalsSuffix.size());
+    return ::winux::i18n::format("command.kill.error.multiple_signals",
+                                 "'{}': multiple signals specified", value);
+  }
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 30> exact{
       {{"invalid input", "common.error.invalid_input"},
        {"error reading from file", "common.error.read_file"},
        {"error reading input", "common.error.read_input"},
@@ -219,7 +239,9 @@ export std::string translate_error(std::string_view error) {
        {"failed to create hash object", "common.error.hash_object"},
        {"failed to get hash value", "common.error.hash_value"},
        {"tab size cannot be 0", "common.error.tab_zero"},
-       {"No such file or directory", "common.error.no_such_file"}}};
+       {"No such file or directory", "common.error.no_such_file"},
+       {"you must specify either '--size' or '--reference'",
+        "common.error.size_or_reference"}}};
   for (const auto [literal, key] : exact) {
     if (error == literal) return translate(key, error);
   }
@@ -251,7 +273,7 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 35>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 39>
       quoted{
           {{"cannot open '", "common.error.cannot_open"},
            {"cannot access '", "common.error.cannot_access"},
@@ -289,7 +311,12 @@ export std::string translate_error(std::string_view error) {
            {"failed to access '", "common.error.failed_access"},
            {"failed to create symbolic link '", "common.error.create_symlink"},
            {"failed to remove '", "common.error.failed_remove"},
-           {"cannot open script file '", "common.error.open_script"}}};
+           {"cannot open script file '", "common.error.open_script"},
+           {"invalid gap width: '", "common.error.invalid_gap_width"},
+           {"invalid --parallel argument '",
+            "common.error.invalid_parallel_argument"},
+           {"Invalid number: '", "common.error.invalid_number"},
+           {"invalid field number: '", "common.error.invalid_field_number"}}};
   for (const auto [prefix, key] : quoted) {
     if (!error.starts_with(prefix) || error.back() != '\'') continue;
     const auto value =
@@ -306,7 +333,7 @@ export std::string translate_error(std::string_view error) {
       return ::winux::i18n::format(key, "error writing '{}'", value);
     if (key == "common.error.invalid_mode")
       return ::winux::i18n::format(key, "invalid mode: '{}'", value);
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 29>
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 33>
         fallbacks{
             {{"common.error.invalid_group", "invalid group: '{}'"},
              {"common.error.invalid_user", "invalid user: '{}'"},
@@ -324,8 +351,7 @@ export std::string translate_error(std::string_view error) {
              {"common.error.invalid_input_range", "invalid input range: '{}'"},
              {"common.error.invalid_line_count_value",
               "invalid line count: '{}'"},
-             {"common.error.invalid_wrap_value",
-              "invalid wrap size: '{}'"},
+             {"common.error.invalid_wrap_value", "invalid wrap size: '{}'"},
              {"common.error.invalid_num_bytes",
               "invalid number of bytes: '{}'"},
              {"common.error.invalid_num_columns",
@@ -352,7 +378,13 @@ export std::string translate_error(std::string_view error) {
              {"common.error.create_symlink",
               "failed to create symbolic link '{}'"},
              {"common.error.failed_remove", "failed to remove '{}'"},
-             {"common.error.open_script", "cannot open script file '{}'"}}};
+             {"common.error.open_script", "cannot open script file '{}'"},
+             {"common.error.invalid_gap_width", "invalid gap width: '{}'"},
+             {"common.error.invalid_parallel_argument",
+              "invalid --parallel argument '{}'"},
+             {"common.error.invalid_number", "Invalid number: '{}'"},
+             {"common.error.invalid_field_number",
+              "invalid field number: '{}'"}}};
     for (const auto [fallback_key, fallback] : fallbacks) {
       if (key == fallback_key)
         return ::winux::i18n::format(key, fallback, value);

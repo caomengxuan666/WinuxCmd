@@ -551,7 +551,18 @@ auto read_file_bytes(const std::string& filename,
   std::ifstream input(native_path::normalize_api_operand(filename),
                       std::ios::binary);
   if (!input) {
-    safeErrorPrintLn("od: cannot open '" + filename + "'");
+    // [GNU] od reports "<name>: <reason>"; a directory operand reads as
+    // "Is a directory" on GNU (uutils #12993)
+    std::error_code ec;
+    const std::filesystem::path p(
+        native_path::normalize_api_operand(filename));
+    if (std::filesystem::is_directory(p, ec)) {
+      safeErrorPrintLn("od: " + filename + ": Is a directory");
+    } else if (std::filesystem::exists(p, ec)) {
+      safeErrorPrintLn("od: " + filename + ": Permission denied");
+    } else {
+      safeErrorPrintLn("od: " + filename + ": No such file or directory");
+    }
     return false;
   }
 

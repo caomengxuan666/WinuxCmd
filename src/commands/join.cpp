@@ -114,13 +114,17 @@ struct Config {
   SmallVector<std::string, 64> files;
 };
 
-auto parse_positive_field(const std::string& text, std::string_view option)
-    -> cp::Result<int> {
+auto parse_positive_field(const std::string& text) -> cp::Result<int> {
   int value = 0;
   auto [ptr, ec] =
       std::from_chars(text.data(), text.data() + text.size(), value);
+  if (ec == std::errc::result_out_of_range) {
+    // [GNU] out-of-range field numbers are silently clamped, matching
+    // xstrtoimax's PTRDIFF_MAX clamp (uutils #13376)
+    return std::numeric_limits<int>::max();
+  }
   if (ec != std::errc() || ptr != text.data() + text.size() || value <= 0) {
-    return std::unexpected("invalid field number for " + std::string(option));
+    return std::unexpected("invalid field number: '" + text + "'");
   }
   return value;
 }
@@ -244,7 +248,7 @@ auto parse_output_format(const std::string& format)
       return std::unexpected("invalid output file number");
     }
 
-    auto field = parse_positive_field(field_part, "-o");
+    auto field = parse_positive_field(field_part);
     if (!field) {
       return std::unexpected(field.error());
     }
@@ -289,21 +293,21 @@ auto build_config(const CommandContext<JOIN_OPTIONS.size()>& ctx)
 
   auto field1_opt = ctx.get<std::string>("-1", "");
   if (!field1_opt.empty()) {
-    auto field = parse_positive_field(field1_opt, "-1");
+    auto field = parse_positive_field(field1_opt);
     if (!field) return std::unexpected(field.error());
     cfg.field1 = *field;
   }
 
   auto field2_opt = ctx.get<std::string>("-2", "");
   if (!field2_opt.empty()) {
-    auto field = parse_positive_field(field2_opt, "-2");
+    auto field = parse_positive_field(field2_opt);
     if (!field) return std::unexpected(field.error());
     cfg.field2 = *field;
   }
 
   auto j_opt = ctx.get<std::string>("-j", "");
   if (!j_opt.empty()) {
-    auto field = parse_positive_field(j_opt, "-j");
+    auto field = parse_positive_field(j_opt);
     if (!field) return std::unexpected(field.error());
     cfg.field1 = *field;
     cfg.field2 = cfg.field1;

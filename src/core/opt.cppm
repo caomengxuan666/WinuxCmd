@@ -409,8 +409,27 @@ export ParseResultRuntime parse_command_runtime(
           }
         }
         if (!has_registered_short_name) {
-          result.positionals.push_back(arg);
-          continue;
+          // A token glued to a registered short option that takes a value
+          // (e.g. kill -lHUP) is an option with an attached value, not a
+          // positional operand (uutils #14177 regression guard).
+          bool glued_to_value_option = false;
+          if (arg.size() > 2) {
+            for (const auto& m : metas) {
+              if (m.short_name.size() == 2 && arg.starts_with(m.short_name)) {
+                if ((m.type == OptionType::String &&
+                     policy.allow_short_attached_values) ||
+                    (m.type == OptionType::OptionalString &&
+                     policy.allow_optional_short_attached_values)) {
+                  glued_to_value_option = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (!glued_to_value_option) {
+            result.positionals.push_back(arg);
+            continue;
+          }
         }
       }
 

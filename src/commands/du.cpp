@@ -544,7 +544,8 @@ auto print_time_if_requested(const UsageSummary& summary, const DuConfig& cfg)
   if (!cfg.show_time || !summary.has_time) {
     return;
   }
-  safePrint("  ");
+  // [GNU] size and time are tab-separated (uutils #13267)
+  safePrint("\t");
   safePrint(format_time_long_iso(summary.latest_time, cfg.time_style));
 }
 

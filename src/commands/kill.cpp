@@ -462,7 +462,8 @@ auto list_signals(bool table_format) -> cp::Result<bool> {
 auto convert_and_print_signal(std::string_view signal_arg) -> cp::Result<bool> {
   auto converted = kill_constants::convert_signal_token(signal_arg);
   if (!converted) {
-    return std::unexpected("unknown signal: " + std::string(signal_arg));
+    // [GNU] operand2sig wording (uutils #14177)
+    return std::unexpected("'" + std::string(signal_arg) + "': invalid signal");
   }
   safePrint(*converted);
   safePrint("\n");
@@ -475,14 +476,15 @@ auto convert_and_print_signal(std::string_view signal_arg) -> cp::Result<bool> {
 auto parse_signal(const std::string& signal_arg) -> cp::Result<int> {
   if (auto signal_num = kill_constants::parse_decimal(signal_arg)) {
     if (*signal_num < 0 || *signal_num > kill_constants::kMaxSignal) {
-      return std::unexpected("invalid signal number");
+      // [GNU] operand2sig wording (uutils #14177)
+      return std::unexpected("'" + signal_arg + "': invalid signal");
     }
     return *signal_num;
   }
 
   auto signal_num = kill_constants::get_signal_by_name(signal_arg);
   if (!signal_num) {
-    return std::unexpected("unknown signal: " + signal_arg);
+    return std::unexpected("'" + signal_arg + "': invalid signal");
   }
   return *signal_num;
 }
@@ -519,6 +521,11 @@ auto signal_from_option_occurrences(const CommandContext<N>& ctx)
       auto value = std::get_if<std::string>(&occurrence.value);
       if (!value) continue;
 
+      // [GNU] a second signal spec is rejected, not silently overridden
+      // (uutils #14177)
+      if (signal) {
+        return std::unexpected("'" + *value + "': multiple signals specified");
+      }
       auto parsed = parse_signal(*value);
       if (!parsed) return std::unexpected(parsed.error());
       signal = *parsed;
@@ -527,14 +534,26 @@ auto signal_from_option_occurrences(const CommandContext<N>& ctx)
 
     if (meta.short_name == "-NUM") {
       auto value = std::get_if<int>(&occurrence.value);
-      if (value && *value >= 0 && *value <= kill_constants::kMaxSignal) {
-        signal = *value;
-        continue;
+      if (value) {
+        if (*value >= 0 && *value <= kill_constants::kMaxSignal) {
+          signal = *value;
+          continue;
+        }
+        // [GNU] operand2sig wording; the leading dash is stripped
+        // (uutils #14177)
+        return std::unexpected("'" + std::to_string(*value) +
+                               "': invalid signal");
       }
       return std::unexpected("invalid signal number");
     }
 
     if (auto parsed = parse_signal_option_name(meta.short_name)) {
+      // [GNU] a second signal spec is rejected, not silently overridden
+      // (uutils #14177)
+      if (signal) {
+        return std::unexpected("'" + std::string(meta.short_name.substr(1)) +
+                               "': multiple signals specified");
+      }
       signal = *parsed;
     }
   }
@@ -733,6 +752,7 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
   if (!signal_result) {
     return std::unexpected(signal_result.error());
   }
+  bool signal_explicit = signal_result->has_value();
   if (*signal_result) {
     signal = **signal_result;
   }
@@ -740,6 +760,32 @@ auto process_command(const CommandContext<N>& ctx) -> cp::Result<bool> {
   // Parse PIDs from positional arguments
   std::vector<std::string> pid_args;
   for (auto arg : ctx.positionals) {
+    std::string text(arg);
+    // [GNU] an unregistered -SPEC operand is a signal specification, so
+    // -SIGSIGTERM is rejected as invalid instead of being parsed as an
+    // option cluster (uutils #14177)
+    if (text.size() > 1 && text[0] == '-' &&
+        !kill_constants::parse_decimal(text.substr(1))) {
+      std::string spec = text.substr(1);
+      if (signal_explicit) {
+        return std::unexpected("'" + spec + "': multiple signals specified");
+      }
+      auto parsed = kill_constants::get_signal_by_name(spec);
+      if (!parsed) {
+        return std::unexpected("'" + spec + "': invalid signal");
+      }
+      signal = *parsed;
+      signal_explicit = true;
+      continue;
+    }
+    // [GNU] operand2sig rejects a numeric -SPEC above the signal bound as a
+    // signal, so -99 is not parsed as a PID (uutils #14177)
+    if (text.size() > 1 && text[0] == '-') {
+      auto numeric = kill_constants::parse_decimal(text.substr(1));
+      if (numeric && (*numeric < 0 || *numeric > kill_constants::kMaxSignal)) {
+        return std::unexpected("'" + text.substr(1) + "': invalid signal");
+      }
+    }
     pid_args.push_back(std::string(arg));
   }
 

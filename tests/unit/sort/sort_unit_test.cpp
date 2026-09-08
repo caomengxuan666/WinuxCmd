@@ -324,7 +324,7 @@ TEST(sort, sort_rejects_invalid_parallel_hint) {
   auto r = p.run();
 
   EXPECT_EQ(r.exit_code, 2);
-  EXPECT_TRUE(r.stderr_text.find("invalid parallel count") !=
+  EXPECT_TRUE(r.stderr_text.find("invalid --parallel argument '0'") !=
               std::string::npos);
 }
 

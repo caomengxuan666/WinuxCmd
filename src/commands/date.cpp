@@ -760,6 +760,67 @@ auto parse_date_argument(const std::string &arg, bool use_utc)
     return relative(-days_back, 86400);
   }
 
+  // [GNU] military timezone specs: <digits><letter>, e.g. 9j, 1230z.
+  // J = local time, Z = UTC, A-M (except J) = UTC+1..+12, N-Y = UTC-1..-12
+  // (uutils #12684)
+  {
+    static const std::regex military_re(R"(^([0-9]{1,4})([A-Za-z])$)");
+    std::smatch mil;
+    if (std::regex_match(value, mil, military_re)) {
+      const std::string digits = mil[1].str();
+      const char letter = static_cast<char>(std::tolower(
+          static_cast<unsigned char>(mil[2].str()[0])));
+      int hour = 0;
+      int minute = 0;
+      if (digits.size() <= 2) {
+        hour = std::stoi(digits);
+      } else {
+        hour = std::stoi(digits.substr(0, digits.size() - 2));
+        minute = std::stoi(digits.substr(digits.size() - 2));
+      }
+      bool ok = hour <= 23 && minute <= 59;
+      int zone_offset_minutes = 0;
+      if (letter != 'j') {
+        if (letter >= 'a' && letter <= 'm') {
+          zone_offset_minutes = (letter - 'a' + 1) * 60;
+        } else if (letter == 'z') {
+          zone_offset_minutes = 0;
+        } else if (letter >= 'n' && letter <= 'y') {
+          zone_offset_minutes = -(letter - 'n' + 1) * 60;
+        } else {
+          ok = false;
+        }
+      }
+      if (!ok) return std::nullopt;
+
+      FILETIME now_ft{};
+      GetSystemTimeAsFileTime(&now_ft);
+      FILETIME local_now_ft{};
+      if (!FileTimeToLocalFileTime(&now_ft, &local_now_ft)) return std::nullopt;
+      SYSTEMTIME local_now{};
+      if (!FileTimeToSystemTime(&local_now_ft, &local_now)) return std::nullopt;
+
+      SYSTEMTIME target{};
+      target.wYear = local_now.wYear;
+      target.wMonth = local_now.wMonth;
+      target.wDay = local_now.wDay;
+      target.wHour = static_cast<WORD>(hour);
+      target.wMinute = static_cast<WORD>(minute);
+
+      if (letter == 'j') {
+        // J is the local military zone: wall time is local
+        return local_system_time_to_filetime(target);
+      }
+      auto as_local = local_system_time_to_filetime(target);
+      if (!as_local) return std::nullopt;
+      // Shift from "wall time as local" to "wall time in the target zone"
+      const int local_offset = timezone_offset_minutes(now_ft, false);
+      return add_seconds(*as_local, static_cast<long long>(
+                                        local_offset - zone_offset_minutes) *
+                                        60);
+    }
+  }
+
   return parse_fixed_date_time(arg, use_utc);
 }
 

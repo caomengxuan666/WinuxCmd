@@ -180,6 +180,10 @@ auto scale_size(int64_t value, long double multiplier) -> cp::Result<int64_t> {
 auto parse_size(const std::string& size_str) -> cp::Result<SizeSpec> {
   std::string s = size_str;
   SizeSpec spec;
+  // [GNU] every rejected size reports the raw operand (uutils #13576)
+  const auto invalid_number = [&size_str]() -> std::string {
+    return "Invalid number: '" + size_str + "'";
+  };
 
   if (!s.empty()) {
     switch (s[0]) {
@@ -213,18 +217,18 @@ auto parse_size(const std::string& size_str) -> cp::Result<SizeSpec> {
   }
 
   if (s.empty()) {
-    return std::unexpected("invalid size");
+    return std::unexpected(invalid_number());
   }
 
   long double multiplier = match_suffix(s);
   if (s.empty()) {
-    return std::unexpected("invalid size");
+    return std::unexpected(invalid_number());
   }
 
   int64_t base_value = 0;
   auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), base_value);
   if (ec != std::errc() || ptr != s.data() + s.size() || base_value < 0) {
-    return std::unexpected("invalid size format");
+    return std::unexpected(invalid_number());
   }
 
   auto scaled = scale_size(base_value, multiplier);
@@ -253,7 +257,15 @@ auto build_config(const CommandContext<TRUNCATE_OPTIONS.size()>& ctx)
     size_opt = ctx.get<std::string>("-s", "");
   }
 
-  if (size_opt.empty()) {
+  if (ctx.has("--size") || ctx.has("-s")) {
+    // [GNU] an explicitly empty -s value is a parse error, not a missing
+    // operand (uutils #13576)
+    auto size_result = parse_size(size_opt);
+    if (!size_result) {
+      return std::unexpected(size_result.error());
+    }
+    cfg.size = *size_result;
+  } else {
     auto ref_opt = ctx.get<std::string>("--reference", "");
     if (ref_opt.empty()) {
       ref_opt = ctx.get<std::string>("-r", "");
@@ -262,14 +274,8 @@ auto build_config(const CommandContext<TRUNCATE_OPTIONS.size()>& ctx)
     if (!ref_opt.empty()) {
       cfg.reference_file = ref_opt;
     } else {
-      return std::unexpected("specify --size or --reference");
+      return std::unexpected("you must specify either '--size' or '--reference'");
     }
-  } else {
-    auto size_result = parse_size(size_opt);
-    if (!size_result) {
-      return std::unexpected(size_result.error());
-    }
-    cfg.size = *size_result;
   }
 
   for (auto arg : ctx.positionals) {

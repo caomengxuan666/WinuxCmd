@@ -65,9 +65,10 @@ auto constexpr NUMFMT_OPTIONS = std::array{
     // [GNU]
     OPTION("-f", "--format", "use printf style floating-point FORMAT",
            STRING_TYPE),
-    // [GNU]
+    // [GNU] --header[=N]: optional value; a bare --header means N=1 and the
+    // next argument stays an input operand (uutils #13272)
     OPTION("", "--header", "print the first N header lines unchanged",
-           INT_TYPE),
+           OPTIONAL_INT_TYPE),
     // [GNU]
     OPTION("", "--grouping", "group digits with locale thousands separator",
            BOOL_TYPE),
@@ -316,6 +317,10 @@ REGISTER_COMMAND(
   }
   int header = 0;
   header = ctx.get<int>("--header", 0);
+  if (header < 0) {
+    // bare --header (no =N): GNU defaults to one header line
+    header = 1;
+  }
   bool grouping = ctx.get<bool>("--grouping", false);
   const bool locale_grouping = grouping || ctx.get<bool>("-l", false);
   std::string invalid_policy = ctx.get<std::string>("--invalid", "abort");

@@ -632,7 +632,8 @@ auto print_stat(const std::string& filename, const Config& cfg) -> int {
   std::filesystem::path p(filename);
 
   if (!std::filesystem::exists(p, ec)) {
-    safePrint("stat: cannot stat '");
+    // [GNU] modern GNU stat uses the statx verb (uutils #13012)
+    safePrint("stat: cannot statx '");
     safePrint(filename);
     safePrint("': No such file or directory\n");
     return 1;
@@ -662,9 +663,9 @@ auto print_stat(const std::string& filename, const Config& cfg) -> int {
 
   auto stat_result = load_file_stat(p);
   if (!stat_result) {
-    safePrint("stat: cannot stat '");
+    safePrint("stat: cannot statx '");
     safePrint(filename);
-    safePrint("': Access denied\n");
+    safePrint("': Permission denied\n");
     return 1;
   }
   const auto& stat = *stat_result;
