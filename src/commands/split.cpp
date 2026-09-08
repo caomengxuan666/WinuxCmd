@@ -663,6 +663,33 @@ auto run(const Config& cfg) -> int {
     } else {
       std::string record;
       char c = 0;
+      auto add_record = [&](const std::string& rec) -> bool {
+        const auto limit = static_cast<size_t>(cfg.chunk_size);
+        if (!chunk.empty() && chunk.size() + rec.size() > limit && !flush()) {
+          return false;
+        }
+        if (rec.size() <= limit) {
+          chunk += rec;
+          return true;
+        }
+        // [GNU] -C never emits a piece larger than LIMIT: a single line
+        // longer than LIMIT is split at exact LIMIT boundaries
+        // (uutils #7262).
+        size_t pos = 0;
+        if (!chunk.empty()) {
+          const size_t take = limit - chunk.size();
+          chunk.append(rec, 0, take);
+          pos = take;
+          if (!flush()) return false;
+        }
+        while (rec.size() - pos >= limit) {
+          chunk.append(rec, pos, limit);
+          pos += limit;
+          if (!flush()) return false;
+        }
+        chunk.append(rec, pos, rec.size() - pos);
+        return true;
+      };
       while (source.get(c)) {
         record.push_back(c);
         if (c != cfg.separator) continue;
@@ -673,23 +700,16 @@ auto run(const Config& cfg) -> int {
           ++records;
           if (records >= cfg.chunk_lines && !flush()) return 1;
         } else {
-          const auto limit = static_cast<size_t>(cfg.chunk_size);
-          if (!chunk.empty() && chunk.size() + record.size() > limit &&
-              !flush()) {
-            return 1;
-          }
-          chunk += record;
+          if (!add_record(record)) return 1;
           record.clear();
         }
       }
       if (!record.empty()) {
-        if (cfg.mode == Config::Mode::LineBytes && !chunk.empty() &&
-            chunk.size() + record.size() >
-                static_cast<size_t>(cfg.chunk_size) &&
-            !flush()) {
-          return 1;
+        if (cfg.mode == Config::Mode::LineBytes) {
+          if (!add_record(record)) return 1;
+        } else {
+          chunk += record;
         }
-        chunk += record;
       }
       if (!chunk.empty() && !flush()) return 1;
     }

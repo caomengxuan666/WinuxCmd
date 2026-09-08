@@ -410,6 +410,13 @@ auto append_number(std::string &out, int value, int width, char fill = '0') {
   out += buf;
 }
 
+// Left-pad s with fill until it is at least width chars long.
+auto pad_left(std::string s, size_t width, char fill) -> std::string {
+  if (s.size() >= width) return s;
+  s.insert(0, width - s.size(), fill);
+  return s;
+}
+
 // [GNU] %^ forces upper case, %# swaps the natural case of textual output
 // (gnulib strftime semantics: to_lowcase wins over to_uppcase).
 auto apply_case(std::string text, bool to_uppcase, bool to_lowcase)
@@ -442,6 +449,13 @@ auto format_time(const TimeValue &tv, const std::string &format)
       bool to_lowcase = false;
       bool change_case = false;
       bool colon_zone = false;
+      // [GNU] numeric width/padding flags: '-' (no pad), '_' (space pad),
+      // '0' (zero pad, default) and a decimal width that overrides the
+      // per-specifier default precision (%02j -> "01", %3N -> milliseconds).
+      char pad_char = '0';
+      bool no_pad = false;
+      int width = 0;
+      bool has_width = false;
       const size_t spec_start = i;
       ++i;
       while (i < format.size()) {
@@ -452,6 +466,13 @@ auto format_time(const TimeValue &tv, const std::string &format)
           change_case = true;
         } else if (flag == ':' && !colon_zone) {
           colon_zone = true;
+        } else if (flag == '-') {
+          no_pad = true;
+        } else if (flag == '_') {
+          pad_char = ' ';
+        } else if (flag >= '0' && flag <= '9') {
+          has_width = true;
+          width = width * 10 + (flag - '0');
         } else {
           break;
         }
@@ -504,9 +525,28 @@ auto format_time(const TimeValue &tv, const std::string &format)
         case 'S':
           append_number(result, st.wSecond, 2);
           break;
-        case 'N':
-          append_number(result, st.wMilliseconds * 1000000, 9);
+        case 'N': {
+          // [GNU] %N prints 9-digit nanoseconds. An explicit width smaller
+          // than 9 truncates (%3N -> "123"), a larger width left-pads
+          // (%12N), '-' keeps the first digit only.
+          std::string nanos = pad_left(std::to_string(
+                                           static_cast<long long>(
+                                               st.wMilliseconds) *
+                                           1000000),
+                                       9, '0');
+          if (no_pad) {
+            result += nanos.substr(0, 1);
+          } else if (has_width) {
+            if (width < static_cast<int>(nanos.size())) {
+              result += nanos.substr(0, width);
+            } else {
+              result += pad_left(nanos, width, '0');
+            }
+          } else {
+            result += nanos;
+          }
           break;
+        }
         case 'p': {
           std::string text = st.wHour < 12 ? "AM" : "PM";
           // [GNU] %#p prints the meridiem in lower case.
@@ -593,9 +633,21 @@ auto format_time(const TimeValue &tv, const std::string &format)
           result +=
               apply_case(format_time(tv, "%H:%M:%S"), to_uppcase, to_lowcase);
           break;
-        case 'j':
-          append_number(result, day_of_year(st), 3);
+        case 'j': {
+          const int doy = day_of_year(st);
+          if (has_width) {
+            std::string digits = std::to_string(doy);
+            if (no_pad) {
+              result += digits;
+            } else if (static_cast<int>(digits.size()) < width) {
+              result.append(width - digits.size(), pad_char);
+            }
+            result += digits;
+          } else {
+            append_number(result, doy, 3);
+          }
           break;
+        }
         case 'q':
           // [GNU] %q: quarter of year (1-4).
           append_number(result, (st.wMonth - 1) / 3 + 1, 1);
@@ -693,6 +745,82 @@ auto parse_date_argument(const std::string &arg, bool use_utc)
   if (lower == "now" || lower == "today") return now;
   if (lower == "tomorrow") return relative(1, 86400);
   if (lower == "yesterday") return relative(-1, 86400);
+
+  // [GNU] "yesterday 10:00 GMT" / "tomorrow 09:30" / "today 08:00" — a
+  // relative day word followed by a wall-clock time and an optional
+  // UTC-ish zone name (uutils #10788). Parsed manually to keep the
+  // hot path free of regex machinery.
+  {
+    const std::string_view day_words[] = {"yesterday", "today", "tomorrow"};
+    for (const auto& word : day_words) {
+      if (!lower.starts_with(word)) continue;
+      std::string rest = trim_copy(lower.substr(word.size()));
+      if (rest.empty()) continue;  // bare day word handled above
+
+      // rest: "HH:MM[:SS]" optionally followed by a UTC-ish zone name.
+      std::string time_part = rest;
+      bool utc_zone = false;
+      if (auto space = rest.find(' '); space != std::string::npos) {
+        time_part = trim_copy(rest.substr(0, space));
+        std::string zone = trim_copy(rest.substr(space + 1));
+        utc_zone = zone == "gmt" || zone == "utc" || zone == "ut" ||
+                   zone == "z";
+        if (!utc_zone) return std::nullopt;
+      }
+      int hour = -1;
+      int minute = -1;
+      int second = 0;
+      {
+        const auto colon1 = time_part.find(':');
+        if (colon1 == std::string::npos) return std::nullopt;
+        const auto colon2 = time_part.find(':', colon1 + 1);
+        auto parse_field = [](const std::string& text) -> int {
+          if (text.empty() || text.size() > 2) return -1;
+          for (const char ch : text) {
+            if (!std::isdigit(static_cast<unsigned char>(ch))) return -1;
+          }
+          return (text[0] - '0') * 10 +
+                 (text.size() > 1 ? text[1] - '0' : 0);
+        };
+        hour = parse_field(time_part.substr(0, colon1));
+        if (colon2 == std::string::npos) {
+          minute = parse_field(time_part.substr(colon1 + 1));
+        } else {
+          minute = parse_field(time_part.substr(colon1 + 1, colon2 - colon1 - 1));
+          second = parse_field(time_part.substr(colon2 + 1));
+        }
+      }
+      if (hour < 0 || minute < 0 || second < 0 || hour > 23 || minute > 59 ||
+          second > 59) {
+        return std::nullopt;
+      }
+      long long day_shift = 0;
+      if (word == "yesterday") day_shift = -86400;
+      else if (word == "tomorrow") day_shift = 86400;
+      const FILETIME shifted = add_seconds(now, day_shift);
+      SYSTEMTIME base{};
+      if (utc_zone) {
+        if (!FileTimeToSystemTime(&shifted, &base)) return std::nullopt;
+        base.wHour = static_cast<WORD>(hour);
+        base.wMinute = static_cast<WORD>(minute);
+        base.wSecond = static_cast<WORD>(second);
+        base.wMilliseconds = 0;
+        FILETIME out{};
+        if (!SystemTimeToFileTime(&base, &out)) return std::nullopt;
+        return out;
+      }
+      FILETIME local_shifted{};
+      if (!FileTimeToLocalFileTime(&shifted, &local_shifted)) {
+        return std::nullopt;
+      }
+      if (!FileTimeToSystemTime(&local_shifted, &base)) return std::nullopt;
+      base.wHour = static_cast<WORD>(hour);
+      base.wMinute = static_cast<WORD>(minute);
+      base.wSecond = static_cast<WORD>(second);
+      base.wMilliseconds = 0;
+      return local_system_time_to_filetime(base);
+    }
+  }
 
   // "next monday", "next week", etc.
   std::smatch next_match;

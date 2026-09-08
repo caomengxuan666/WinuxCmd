@@ -43,7 +43,7 @@ using cmd::meta::OptionType;
 
 auto constexpr TRUE_OPTIONS =
     // [GNU] option
-    std::array{OPTION("", "", "do nothing, successfully", STRING_TYPE)};
+    std::array{OPTION("--help", "", "display this help and exit", BOOL_TYPE)};
 
 REGISTER_COMMAND(
     true_cmd,
@@ -62,6 +62,17 @@ REGISTER_COMMAND(
 
     /* see also */
     "false(1)", "WinuxCmd", "Copyright © 2026 WinuxCmd", TRUE_OPTIONS) {
+  // [GNU] true --help prints a usage summary and exits successfully
+  // (uutils #10279, #9117).
+  if (ctx.has("--help")) {
+    safePrint("Usage: true [ignored command line arguments]\n"
+              "  or:  true OPTION\n"
+              "Exit with a status code indicating success.\n"
+              "\n"
+              "      --help     display this help and exit\n"
+              "      --version  output version information and exit\n");
+    return 0;
+  }
   // Do nothing, just return 0 (success)
   return 0;
 }

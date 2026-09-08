@@ -33,6 +33,8 @@
 
 #include "pch/pch.h"
 // include other header after pch.h
+#include <winioctl.h>
+
 #include "core/command_macros.h"
 
 import std;
@@ -42,6 +44,44 @@ import container;
 
 using cmd::meta::OptionMeta;
 using cmd::meta::OptionType;
+
+#ifndef IO_REPARSE_TAG_SYMLINK
+#define IO_REPARSE_TAG_SYMLINK (0xA000000CL)
+#endif
+
+#ifndef IO_REPARSE_TAG_MOUNT_POINT
+#define IO_REPARSE_TAG_MOUNT_POINT (0xA0000003L)
+#endif
+
+namespace stat_win32_compat {
+#pragma pack(push, 1)
+struct ReparseDataBuffer {
+  ULONG ReparseTag;
+  USHORT ReparseDataLength;
+  USHORT Reserved;
+  union {
+    struct {
+      USHORT SubstituteNameOffset;
+      USHORT SubstituteNameLength;
+      USHORT PrintNameOffset;
+      USHORT PrintNameLength;
+      ULONG Flags;
+      WCHAR PathBuffer[1];
+    } SymbolicLinkReparseBuffer;
+    struct {
+      USHORT SubstituteNameOffset;
+      USHORT SubstituteNameLength;
+      USHORT PrintNameOffset;
+      USHORT PrintNameLength;
+      WCHAR PathBuffer[1];
+    } MountPointReparseBuffer;
+    struct {
+      UCHAR DataBuffer[1];
+    } GenericReparseBuffer;
+  };
+};
+#pragma pack(pop)
+}  // namespace stat_win32_compat
 
 // [GNU] -L, --dereference: follow symbolic links
 // [GNU] -f, --file-system: display file system status
@@ -421,11 +461,55 @@ auto render_format(std::string_view format, const std::string& filename,
       case 'n':
         out += filename;
         break;
-      case 'N':
+      case 'N': {
         out += "'";
         out += filename;
         out += "'";
+        // [GNU] %N dereferences symlinks in the output: 'l' -> 'target'
+        // (uutils #8789).
+        const std::wstring wname = utf8_to_wstring(filename);
+        const DWORD link_attrs = GetFileAttributesW(wname.c_str());
+        if (link_attrs != INVALID_FILE_ATTRIBUTES &&
+            (link_attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+          HANDLE handle = CreateFileW(
+              wname.c_str(), 0,
+              FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+              OPEN_EXISTING,
+              FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+              nullptr);
+          if (handle != INVALID_HANDLE_VALUE) {
+            std::array<std::byte, 16 * 1024> reparse_buffer{};
+            DWORD returned = 0;
+            if (DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+                                reparse_buffer.data(),
+                                static_cast<DWORD>(reparse_buffer.size()),
+                                &returned, nullptr)) {
+              auto* reparse = reinterpret_cast<
+                  stat_win32_compat::ReparseDataBuffer*>(
+                  reparse_buffer.data());
+              std::wstring target;
+              if (reparse->ReparseTag == IO_REPARSE_TAG_SYMLINK) {
+                const auto& sl = reparse->SymbolicLinkReparseBuffer;
+                target.assign(
+                    sl.PathBuffer + sl.PrintNameOffset / sizeof(wchar_t),
+                    sl.PrintNameLength / sizeof(wchar_t));
+              } else if (reparse->ReparseTag == IO_REPARSE_TAG_MOUNT_POINT) {
+                const auto& mp = reparse->MountPointReparseBuffer;
+                target.assign(
+                    mp.PathBuffer + mp.PrintNameOffset / sizeof(wchar_t),
+                    mp.PrintNameLength / sizeof(wchar_t));
+              }
+              if (!target.empty()) {
+                out += " -> '";
+                out += wstring_to_utf8(target);
+                out += "'";
+              }
+            }
+            CloseHandle(handle);
+          }
+        }
         break;
+      }
       case 's':
         out += std::to_string(stat.size);
         break;

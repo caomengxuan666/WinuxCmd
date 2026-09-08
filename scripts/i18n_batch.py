@@ -326,6 +326,9 @@ MANUAL_MESSAGES = {
     "common.error.too_few_xs": "too few X's in template '{}'",
     "command.pr.error.invalid_number": "'{}' invalid number of {}: '{}'",
     "command.pr.error.extra_characters": "'{}' extra characters or invalid number in the argument: '{}'",
+    "command.readlink.error.too_many_symlinks": "Too many levels of symbolic links",
+    "command.tsort.error.odd_tokens": "tsort: input contains an odd number of tokens",
+    "command.numfmt.error.valid_to_args": "Valid arguments are:\n  - 'none'\n  - 'si'\n  - 'iec'\n  - 'iec-i'\n",
 }
 
 

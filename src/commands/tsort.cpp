@@ -55,39 +55,109 @@ REGISTER_COMMAND(tsort,
     return 1;
   }
 
-  std::istringstream iss(input);
-  std::string line;
+  // [GNU] tsort reads whitespace-separated pairs; an odd token count is
+  // an error (uutils #7077).
+  std::vector<std::string> tokens;
+  std::istringstream tok_ss(input);
+  std::string tok;
+  while (tok_ss >> tok) tokens.push_back(tok);
+  if (tokens.size() % 2 != 0) {
+    safeErrorPrintLn(::winux::i18n::format(
+        "command.tsort.error.odd_tokens",
+        "tsort: input contains an odd number of tokens"));
+    return 1;
+  }
+
   std::set<std::string> nodes;
   std::map<std::string, std::vector<std::string>> graph;
+  std::set<std::pair<std::string, std::string>> seen_pairs;
+  const std::string input_name = ctx.positionals.empty()
+                                     ? "-"
+                                     : std::string(ctx.positionals[0]);
 
-  while (std::getline(iss, line)) {
-    std::istringstream line_ss(line);
-    std::string node, dep;
-    if (line_ss >> node >> dep) {
-      graph[node].push_back(dep);
-      nodes.insert(node);
-      nodes.insert(dep);
+  for (size_t i = 0; i + 1 < tokens.size(); i += 2) {
+    const std::string& node = tokens[i];
+    const std::string& dep = tokens[i + 1];
+    // [GNU] Duplicate pairs are ignored with a warning on stderr.
+    if (!seen_pairs.insert({node, dep}).second) {
+      safeErrorPrintLn("tsort: " + input_name + ": duplicate input pair");
+      continue;
     }
+    graph[node].push_back(dep);
+    nodes.insert(node);
+    nodes.insert(dep);
   }
 
   std::map<std::string, int> remaining;
-  for (const auto& n : nodes) remaining[n] = 0;
+  std::map<std::string, size_t> order_index;
+  size_t order = 0;
+  for (const auto& n : nodes) {
+    remaining[n] = 0;
+    order_index[n] = order++;
+  }
   for (const auto& [node, deps] : graph)
     for (const auto& dependency : deps) ++remaining[dependency];
   std::set<std::string> ready;
   for (const auto& [node, degree] : remaining)
     if (degree == 0) ready.insert(node);
   size_t emitted = 0;
-  while (!ready.empty()) {
+  bool had_loop = false;
+  while (emitted < nodes.size()) {
+    if (ready.empty()) {
+      // [GNU] Break the cycle: emit the earliest-mentioned remaining node
+      // and report the loop on stderr. Output continues with the partial
+      // order, but the exit status is 1 (uutils #7074).
+      had_loop = true;
+      std::string start;
+      size_t best = SIZE_MAX;
+      for (const auto& n : nodes) {
+        if (remaining[n] >= 0 && order_index[n] < best) {
+          best = order_index[n];
+          start = n;
+        }
+      }
+      if (start.empty()) break;
+      // Find the loop path from start (DFS) for the stderr report.
+      std::vector<std::string> loop{start};
+      std::set<std::string> visited{start};
+      std::string current = start;
+      while (true) {
+        const auto it = graph.find(current);
+        if (it == graph.end()) break;
+        bool advanced = false;
+        for (const auto& dependency : it->second) {
+          if (dependency == start) {
+            current = start;
+            advanced = true;
+            break;
+          }
+          if (nodes.contains(dependency) && !visited.contains(dependency)) {
+            visited.insert(dependency);
+            loop.push_back(dependency);
+            current = dependency;
+            advanced = true;
+            break;
+          }
+        }
+        if (!advanced || current == start) break;
+      }
+      safeErrorPrintLn("tsort: " + input_name + ": input contains a loop:");
+      for (const auto& member : loop) {
+        safeErrorPrintLn("tsort: " + member);
+      }
+      // Break the loop at the start node.
+      ready.insert(start);
+      remaining[start] = 0;
+    }
     auto node = *ready.begin();
     ready.erase(ready.begin());
     safePrintLn(node);
     ++emitted;
+    remaining[node] = -1;  // mark emitted
     for (const auto& dependency : graph[node])
       if (--remaining[dependency] == 0) ready.insert(dependency);
   }
-  if (emitted != nodes.size()) {
-    safeErrorPrintLn("tsort: input contains a loop");
+  if (had_loop) {
     return 1;
   }
 

@@ -118,55 +118,82 @@ double apply_rounding(double value, const std::string& mode) {
 }
 
 // Parse number with SI suffixes (K, M, G, T, P)
-bool parse_number(const std::string& s, long long& result,
-                  const std::string& round_mode = "", std::string from = "") {
-  std::string num_str;
-  char suffix = 0;
+enum class NumParseStatus { Ok, InvalidNumber, InvalidSuffix };
 
-  // Extract numeric part and suffix
-  for (size_t i = 0; i < s.size(); ++i) {
-    if (std::isdigit(s[i]) || s[i] == '.' || s[i] == '-') {
-      num_str += s[i];
-    } else {
-      suffix = std::toupper(s[i]);
-      break;
+NumParseStatus parse_number_ex(const std::string& s, long long& result,
+                               const std::string& round_mode = "",
+                               std::string from = "",
+                               double* raw_value = nullptr) {
+  size_t i = 0;
+  if (i < s.size() && (s[i] == '-' || s[i] == '+')) ++i;
+  const size_t num_start = i;
+  while (i < s.size() &&
+         (std::isdigit(static_cast<unsigned char>(s[i])) || s[i] == '.')) {
+    ++i;
+  }
+  const std::string num_str = s.substr(0, i);
+  const std::string suffix_text = s.substr(i);
+  if (num_str.empty() ||
+      num_str.find_first_of("0123456789") == std::string::npos) {
+    return NumParseStatus::InvalidNumber;
+  }
+
+  // Multiplier lookup; anything that is not exactly one recognized suffix
+  // character (or empty) is rejected the way GNU reports it.
+  double multiplier = 1.0;
+  if (!suffix_text.empty()) {
+    if (suffix_text.size() != 1) return NumParseStatus::InvalidSuffix;
+    const char suffix = static_cast<char>(std::toupper(
+        static_cast<unsigned char>(suffix_text[0])));
+    const bool si = from == "si" || from == "auto";
+    const double base = si ? 1000.0 : 1024.0;
+    switch (suffix) {
+      case 'K':
+        multiplier = base;
+        break;
+      case 'M':
+        multiplier = base * base;
+        break;
+      case 'G':
+        multiplier = base * base * base;
+        break;
+      case 'T':
+        multiplier = std::pow(base, 4);
+        break;
+      case 'P':
+        multiplier = std::pow(base, 5);
+        break;
+      case 'E':
+        multiplier = std::pow(base, 6);
+        break;
+      default:
+        return NumParseStatus::InvalidSuffix;
     }
   }
 
   try {
     double num = std::stod(num_str);
-
-    // Apply suffix multiplier
-    const bool si = from == "si" || from == "auto";
-    const double base = si ? 1000.0 : 1024.0;
-    switch (suffix) {
-      case 'K':
-        num *= base;
-        break;
-      case 'M':
-        num *= base * base;
-        break;
-      case 'G':
-        num *= base * base * base;
-        break;
-      case 'T':
-        num *= std::pow(base, 4);
-        break;
-      case 'P':
-        num *= std::pow(base, 5);
-        break;
-      case 0:
-        break;
-      default:
-        return false;
+    if (raw_value != nullptr) *raw_value = num * multiplier;
+    if (suffix_text.empty() &&
+        (num > 9.2233720368547748e18 || num < -9.2233720368547748e18)) {
+      // Keep the exact value for the "value too large to be printed"
+      // diagnostic; callers that scale (--to) can still use the double.
+      result = 0;
+      return NumParseStatus::Ok;
     }
-
+    num *= multiplier;
     // Apply rounding mode when converting from human-readable
     result = static_cast<long long>(apply_rounding(num, round_mode));
-    return true;
+    return NumParseStatus::Ok;
   } catch (...) {
-    return false;
+    return NumParseStatus::InvalidNumber;
   }
+}
+
+bool parse_number(const std::string& s, long long& result,
+                  const std::string& round_mode = "", std::string from = "") {
+  return parse_number_ex(s, result, round_mode, std::move(from)) ==
+         NumParseStatus::Ok;
 }
 
 bool parse_number_value(const std::string& s, double& result,
@@ -213,52 +240,11 @@ bool parse_number_value(const std::string& s, double& result,
   }
 }
 
-// Format number with SI suffix
-std::string format_number(long long num, const std::string& unit = "") {
-  const char* suffixes[] = {"", "K", "M", "G", "T", "P"};
-  int suffix_index = 0;
-  double value = static_cast<double>(num);
-
-  while (value >= 1024 && suffix_index < 5) {
-    value /= 1024;
-    suffix_index++;
-  }
-
-  char buffer[64];
-  if (suffix_index == 0) {
-    sprintf_s(buffer, sizeof(buffer), "%lld", num);
-  } else {
-    sprintf_s(buffer, sizeof(buffer), "%.1f", value);
-  }
-
-  std::string result = buffer;
-  result += suffixes[suffix_index];
-  if (!unit.empty()) {
-    result += unit;
-  }
-
-  return result;
-}
-
-std::string format_iec_i(long long num) {
-  static constexpr const char* suffixes[] = {"", "Ki", "Mi", "Gi", "Ti", "Pi"};
-  double value = static_cast<double>(num);
-  size_t index = 0;
-  while (value >= 1024.0 && index < 5) {
-    value /= 1024.0;
-    ++index;
-  }
-  char buffer[64];
-  if (index == 0)
-    sprintf_s(buffer, sizeof(buffer), "%lld", num);
-  else
-    sprintf_s(buffer, sizeof(buffer), "%.1f", value);
-  return std::string(buffer) + suffixes[index];
-}
-
-std::string format_scaled(long long num, double base,
-                          std::string_view suffixes) {
-  double value = static_cast<double>(num);
+// Scale value by base repeatedly and format the magnitude; returns the
+// numeric text and the selected suffix separately so a caller can reformat
+// the number with a user --format.
+std::pair<std::string, std::string> scale_to(double value, double base,
+                                             std::string_view suffixes) {
   size_t index = 0;
   while (std::abs(value) >= base && index < suffixes.size()) {
     value /= base;
@@ -266,12 +252,12 @@ std::string format_scaled(long long num, double base,
   }
   char buffer[64];
   if (index == 0) {
-    sprintf_s(buffer, sizeof(buffer), "%lld", num);
+    // [GNU] Unscaled values print without a fractional part ("500").
+    snprintf(buffer, sizeof(buffer), "%.0f", value);
   } else {
-    sprintf_s(buffer, sizeof(buffer), "%.1f", value);
+    snprintf(buffer, sizeof(buffer), "%.1f", value);
   }
-  return std::string(buffer) +
-         (index == 0 ? "" : std::string(1, suffixes[index - 1]));
+  return {buffer, index == 0 ? std::string() : std::string(1, suffixes[index - 1])};
 }
 }  // namespace
 
@@ -303,6 +289,16 @@ REGISTER_COMMAND(
   const bool zero_terminated =
       ctx.get<bool>("--zero-terminated", false) || ctx.get<bool>("-z", false);
   const bool iec_short = ctx.get<bool>("-M", false);
+  // [GNU] --to accepts only none/si/iec/iec-i ("auto" is --from-only);
+  // uutils #11662.
+  if (!to_unit.empty() && to_unit != "none" && to_unit != "si" &&
+      to_unit != "iec" && to_unit != "iec-i") {
+    safeErrorPrint("numfmt: invalid argument '" + to_unit + "' for '--to'\n");
+    safeErrorPrint(::winux::i18n::format(
+        "command.numfmt.error.valid_to_args",
+        "Valid arguments are:\n  - 'none'\n  - 'si'\n  - 'iec'\n  - 'iec-i'\n"));
+    return 1;
+  }
   bool to_si = to_unit == "si";
   bool to_iec = to_unit == "iec";
   bool to_iec_i = to_unit == "iec-i";
@@ -409,21 +405,62 @@ REGISTER_COMMAND(
   };
 
   bool had_invalid = false;
-  auto process_number = [&](const std::string& s) -> std::string {
-    long long num;
-    if (!parse_number(s, num, round_mode, from_unit)) {
+  // [GNU] numfmt.c keeps formatted numbers in a 128-byte buffer; anything
+  // longer fails with "failed to prepare value '%f' for printing"
+  // (uutils #12596).
+  constexpr size_t kMaxNumericLength = 126;
+  bool had_prepare_error = false;
+  auto prepare_padded = [&](double value, const std::string& formatted)
+      -> std::optional<std::string> {
+    if (formatted.size() > kMaxNumericLength) {
+      char value_text[64];
+      snprintf(value_text, sizeof(value_text), "%f", value);
+      safeErrorPrint(std::string("numfmt: failed to prepare value '") +
+                     value_text + "' for printing\n");
+      had_prepare_error = true;
+      return std::nullopt;
+    }
+    return formatted;
+  };
+
+  auto process_number = [&](const std::string& s) -> std::optional<std::string> {
+    long long num = 0;
+    double raw_value = 0.0;
+    const auto status =
+        parse_number_ex(s, num, round_mode, from_unit, &raw_value);
+    if (status != NumParseStatus::Ok) {
       if (debug) {
         debug_log("failed to parse input '" + s + "'");
       }
+      const bool suffix_issue = status == NumParseStatus::InvalidSuffix;
+      const char* problem = suffix_issue ? "invalid suffix in input"
+                                         : "invalid number";
       if (invalid_policy == "warn") {
-        safeErrorPrint("numfmt: invalid number: '" + s + "'\n");
-      } else if (invalid_policy == "abort") {
-        safeErrorPrint("numfmt: invalid number: '" + s + "'\n");
+        safeErrorPrint(std::string("numfmt: ") + problem + ": '" + s + "'\n");
         had_invalid = true;
         return s;
       }
+      if (invalid_policy == "abort") {
+        safeErrorPrint(std::string("numfmt: ") + problem + ": '" + s + "'\n");
+        had_invalid = true;
+        return std::nullopt;
+      }
       // "ignore" - return as-is
       return s;
+    }
+
+    // [GNU] Raw (no --to, no --format) printing requires the value to fit
+    // in intmax_t; larger values error out (uutils #11654).
+    const bool raw_print = !to_si && !to_iec && !to_iec_i && format_str.empty();
+    if (raw_print &&
+        (raw_value > 9223372036854775807.0 ||
+         raw_value < -9223372036854775808.0)) {
+      char printed[64];
+      snprintf(printed, sizeof(printed), "%g", raw_value);
+      safeErrorPrint(std::string("numfmt: value too large to be printed: '") +
+                     printed + "' (consider using --to)\n");
+      had_invalid = true;
+      return std::nullopt;
     }
 
     if (from_scale != 1.0 || to_scale != 1.0) {
@@ -441,30 +478,52 @@ REGISTER_COMMAND(
     }
 
     if (to_si || to_iec || to_iec_i) {
+      // With --to, GNU computes in floating point even for values that do
+      // not fit intmax_t ("12345678901234567890 --to=si" -> "12.3E").
+      const bool out_of_intmax =
+          raw_value > 9223372036854775807.0 ||
+          raw_value < -9223372036854775808.0;
+      double scaled = out_of_intmax ? raw_value : static_cast<double>(num);
       std::string formatted;
+      std::string unit_suffix;
       if (to_iec_i) {
-        formatted = format_iec_i(num);
+        std::tie(formatted, unit_suffix) = scale_to(scaled, 1024.0, "KiMiGiTiPi");
       } else if (to_si) {
-        formatted = format_scaled(num, 1000.0, "kMGTPE");
+        // [GNU] SI suffixes are upper case (5.0K, 123.5M); uutils #7221.
+        std::tie(formatted, unit_suffix) = scale_to(scaled, 1000.0, "KMGTPE");
       } else {
-        formatted = format_number(num);
+        std::tie(formatted, unit_suffix) = scale_to(scaled, 1024.0, "KMGTPE");
+      }
+      std::optional<std::string> prepared;
+      if (!format_str.empty()) {
+        char buf[512];
+        snprintf(buf, sizeof(buf), format_str.c_str(), scaled);
+        prepared = prepare_padded(scaled, buf);
+      } else {
+        prepared = prepare_padded(scaled, formatted);
+      }
+      if (!prepared) {
+        return std::nullopt;
       }
       if (debug) {
-        debug_log("converted '" + s + "' -> '" + formatted + suffix + "'");
+        debug_log("converted '" + s + "' -> '" + *prepared + suffix + "'");
       }
-      return formatted + (unit_separator.empty() ? "" : unit_separator) +
-             suffix;
+      return *prepared + (unit_separator.empty() ? "" : unit_separator) +
+             unit_suffix + suffix;
     }
     if (!format_str.empty()) {
       double value = 0.0;
       if (parse_number_value(s, value, from_unit)) {
-        char buf[256];
+        char buf[512];
         snprintf(buf, sizeof(buf), format_str.c_str(), value);
-        if (debug) {
-          debug_log("formatted '" + s + "' -> '" + std::string(buf) + suffix +
-                    "'");
+        auto prepared = prepare_padded(value, buf);
+        if (!prepared) {
+          return std::nullopt;
         }
-        return std::string(buf) + suffix;
+        if (debug) {
+          debug_log("formatted '" + s + "' -> '" + *prepared + suffix + "'");
+        }
+        return *prepared + suffix;
       }
     }
     auto applied = apply_format(num) +
@@ -476,12 +535,12 @@ REGISTER_COMMAND(
   };
 
   int line_num = 0;
-  auto process_line = [&](const std::string& line) {
+  auto process_line = [&](const std::string& line) -> bool {
     if (line_num < header) {
       safePrint(line);
       safePrint(zero_terminated ? std::string(1, '\0') : std::string("\n"));
       ++line_num;
-      return;
+      return true;
     }
     if (!delimiter.empty()) {
       // Split by delimiter, process each field
@@ -492,7 +551,9 @@ REGISTER_COMMAND(
       while (std::getline(ss, field_text, delimiter[0])) {
         if (!first) safePrint(delimiter);
         if (selected_field == 0 || selected_field == field_number) {
-          safePrint(process_number(field_text));
+          auto processed = process_number(field_text);
+          if (!processed) return false;
+          safePrint(*processed);
         } else {
           safePrint(field_text);
         }
@@ -501,15 +562,21 @@ REGISTER_COMMAND(
       }
       safePrint(zero_terminated ? std::string(1, '\0') : std::string("\n"));
     } else {
-      safePrint(process_number(line));
+      auto processed = process_number(line);
+      if (!processed) return false;
+      safePrint(*processed);
       safePrint(zero_terminated ? std::string(1, '\0') : std::string("\n"));
     }
     ++line_num;
+    return true;
   };
 
+  // [GNU] Aborting on invalid input exits 2; a prepare failure exits 1.
+  // NOTE: evaluated at return time — had_prepare_error is set during
+  // processing, so it must not be captured before the processing loop.
   if (!ctx.positionals.empty()) {
     for (const auto& arg : ctx.positionals) {
-      process_line(std::string(arg));
+      if (!process_line(std::string(arg))) return had_prepare_error ? 1 : 2;
     }
   } else {
     std::string input;
@@ -519,7 +586,7 @@ REGISTER_COMMAND(
     std::string line;
     const char delimiter_char = zero_terminated ? '\0' : '\n';
     while (std::getline(iss, line, delimiter_char)) {
-      process_line(line);
+      if (!process_line(line)) return had_prepare_error ? 1 : 2;
     }
   }
 

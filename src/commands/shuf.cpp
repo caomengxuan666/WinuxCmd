@@ -635,6 +635,8 @@ auto build_config(const CommandContext<SHUF_OPTIONS.size()>& ctx)
 
 auto run(const Config& cfg) -> int {
   SmallVector<std::string, 1024> lines;
+  // Set when -n defers sampling from a huge -i range.
+  std::optional<std::pair<int64_t, int64_t>> deferred_range;
 
   if (cfg.echo_mode) {
     // Echo mode: treat each ARG as an input line
@@ -648,9 +650,17 @@ auto run(const Config& cfg) -> int {
       cp::report_error(range, L"shuf");
       return 1;
     }
-    for (int64_t i = range->first; i <= range->second; ++i) {
-      lines.push_back(std::to_string(i));
-      if (i == std::numeric_limits<int64_t>::max()) break;
+    // [GNU] With -n, huge ranges are sampled without materializing every
+    // number in between (uutils #11167). Only the default RNG path defers;
+    // the --random-source/--random-seed paths keep the eager behavior.
+    if (cfg.head_count && !cfg.repeat && cfg.random_source.empty() &&
+        cfg.random_seed.empty()) {
+      deferred_range = *range;
+    } else {
+      for (int64_t i = range->first; i <= range->second; ++i) {
+        lines.push_back(std::to_string(i));
+        if (i == std::numeric_limits<int64_t>::max()) break;
+      }
     }
   } else {
     // File mode: read from files
@@ -687,7 +697,7 @@ auto run(const Config& cfg) -> int {
     }
   }
 
-  if (lines.empty()) {
+  if (lines.empty() && !deferred_range) {
     return emit_output(cfg, std::string_view{});
   }
 
@@ -820,6 +830,26 @@ auto run(const Config& cfg) -> int {
   }
 
   // Shuffle using Fisher-Yates algorithm
+  // [GNU] Deferred -i range sampling with -n: pick COUNT distinct values
+  // from [LO, HI] without enumerating the range (uutils #11167).
+  if (deferred_range) {
+    const auto [lo, hi] = *deferred_range;
+    const uint64_t population =
+        static_cast<uint64_t>(hi - lo) + 1;
+    const size_t count = static_cast<size_t>(
+        std::min<uint64_t>(*cfg.head_count, population));
+    std::unordered_set<int64_t> picked;
+    std::uniform_int_distribution<uint64_t> sample_dist(0, population - 1);
+    while (picked.size() < count) {
+      picked.insert(static_cast<int64_t>(
+          lo + static_cast<int64_t>(sample_dist(g))));
+    }
+    for (const auto& value : picked) {
+      append_output_record(output, std::to_string(value), cfg.zero_terminated);
+    }
+    return emit_output(cfg, output);
+  }
+
   for (size_t i = lines.size(); i > 1; --i) {
     std::uniform_int_distribution<size_t> dist(0, i - 1);
     size_t j = dist(g);
