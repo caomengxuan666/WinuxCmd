@@ -272,7 +272,8 @@ auto parse_timezone_suffix(std::string &s) -> std::optional<int> {
   return std::nullopt;
 }
 
-auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
+auto parse_fixed_date_time(std::string input, bool use_utc)
+    -> std::optional<FILETIME> {
   input = trim_copy(input);
   if (auto epoch = parse_epoch_time(input)) return epoch;
 
@@ -342,6 +343,9 @@ auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
     if (!ft) return std::nullopt;
     return add_seconds(*ft, -static_cast<long long>(*tz_offset) * 60);
   }
+  // [GNU] -u/--utc makes zone-less date strings parse as UTC instead of
+  // local time.
+  if (use_utc) return utc_system_time_to_filetime(st);
   return local_system_time_to_filetime(st);
 }
 
@@ -575,7 +579,8 @@ auto read_reference_time(std::string_view path) -> std::optional<FILETIME> {
   return attributes.ftLastWriteTime;
 }
 
-auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
+auto parse_date_argument(const std::string &arg, bool use_utc)
+    -> std::optional<FILETIME> {
   std::string value = trim_copy(arg);
   std::string lower = lower_copy(value);
   FILETIME now{};
@@ -678,7 +683,7 @@ auto parse_date_argument(const std::string &arg) -> std::optional<FILETIME> {
     return relative(-days_back, 86400);
   }
 
-  return parse_fixed_date_time(arg);
+  return parse_fixed_date_time(arg, use_utc);
 }
 
 auto normalize_timespec(std::string spec, bool default_date) -> std::string {
@@ -895,7 +900,7 @@ REGISTER_COMMAND(
   }
 
   if (is_set) {
-    auto parsed = parse_date_argument(set_arg);
+    auto parsed = parse_date_argument(set_arg, use_utc);
     if (!parsed) {
       safeErrorPrint("date: invalid date '");
       safeErrorPrint(set_arg);
@@ -903,33 +908,20 @@ REGISTER_COMMAND(
       return 1;
     }
 
-    // Convert FILETIME (UTC) to SYSTEMTIME (UTC), then to local time
-    // because SetSystemTime expects local time
+    // SetSystemTime expects a UTC SYSTEMTIME; the parsed value is already
+    // an absolute UTC FILETIME, so no local-time conversion is needed here.
     SYSTEMTIME utc_st{};
     if (!FileTimeToSystemTime(&*parsed, &utc_st)) {
       safeErrorPrintLn("date: cannot convert time");
       return 1;
     }
-    FILETIME utc_ft = *parsed;
-    // Convert UTC SYSTEMTIME to FILETIME, then to local FILETIME, then to
-    // SYSTEMTIME
-    FILETIME local_ft{};
-    if (!FileTimeToLocalFileTime(&utc_ft, &local_ft)) {
-      safeErrorPrintLn("date: cannot convert to local time");
-      return 1;
-    }
-    SYSTEMTIME local_st2{};
-    if (!FileTimeToSystemTime(&local_ft, &local_st2)) {
-      safeErrorPrintLn("date: cannot convert time");
-      return 1;
-    }
     // [GNU] regardless of the outcome, the (attempted) new date is printed
     int exit_code = 0;
-    if (!SetSystemTime(&local_st2)) {
+    if (!SetSystemTime(&utc_st)) {
       safeErrorPrintLn("date: cannot set date");
       exit_code = 1;
     }
-    auto tv = make_time_value(utc_ft, use_utc);
+    auto tv = make_time_value(*parsed, use_utc);
     if (tv) {
       safePrintLn(format_time(*tv, format));
     }
@@ -947,7 +939,7 @@ REGISTER_COMMAND(
     }
     selected_time = *reference_time;
   } else if (!date_arg.empty()) {
-    auto parsed = parse_date_argument(date_arg);
+    auto parsed = parse_date_argument(date_arg, use_utc);
     if (!parsed) {
       safeErrorPrint("date: invalid date '");
       safeErrorPrint(date_arg);
@@ -978,21 +970,39 @@ REGISTER_COMMAND(
       safeErrorPrintLn("'");
       return 1;
     }
+    // POSIX set-clock operands are local wall-clock time; GNU interprets
+    // them as UTC when -u is active.
     int exit_code = 0;
-    if (!SetSystemTime(&*parsed)) {
-      safeErrorPrintLn("date: cannot set date");
-      exit_code = 1;
-    }
-    // Print the (attempted) new date like GNU does. SetSystemTime takes
-    // local time; rebuild the UTC FILETIME for display.
-    SYSTEMTIME utc_st{};
-    if (TzSpecificLocalTimeToSystemTime(nullptr, &*parsed, &utc_st)) {
-      FILETIME utc_ft{};
-      if (SystemTimeToFileTime(&utc_st, &utc_ft)) {
-        auto tv = make_time_value(utc_ft, use_utc);
-        if (tv) safePrintLn(format_time(*tv, format));
+    FILETIME utc_ft{};
+    if (use_utc) {
+      if (!SystemTimeToFileTime(&*parsed, &utc_ft)) {
+        safeErrorPrintLn("date: cannot set date");
+        return 1;
+      }
+      SYSTEMTIME utc_st{};
+      if (!FileTimeToSystemTime(&utc_ft, &utc_st)) {
+        safeErrorPrintLn("date: cannot set date");
+        return 1;
+      }
+      if (!SetSystemTime(&utc_st)) {
+        safeErrorPrintLn("date: cannot set date");
+        exit_code = 1;
+      }
+    } else {
+      // SetLocalTime takes local wall-clock time (SetSystemTime would take
+      // UTC); rebuild the UTC FILETIME for display afterwards.
+      if (!SetLocalTime(&*parsed)) {
+        safeErrorPrintLn("date: cannot set date");
+        exit_code = 1;
+      }
+      SYSTEMTIME utc_st{};
+      if (TzSpecificLocalTimeToSystemTime(nullptr, &*parsed, &utc_st)) {
+        SystemTimeToFileTime(&utc_st, &utc_ft);
       }
     }
+    // Print the (attempted) new date like GNU does.
+    auto tv = make_time_value(utc_ft, use_utc);
+    if (tv) safePrintLn(format_time(*tv, format));
     return exit_code;
   }
 
@@ -1004,34 +1014,66 @@ REGISTER_COMMAND(
 
   // [GNU] -f/--file: display date strings from DATEFILE, one per line
   if (!date_file.empty()) {
-    std::ifstream ifs(date_file);
-    if (!ifs) {
-      safeErrorPrint("date: cannot open '");
-      safeErrorPrint(date_file);
-      safeErrorPrintLn("'");
-      return 1;
+    // [GNU] "-" reads date strings from standard input.
+    const bool from_stdin = date_file == "-";
+    std::ifstream file_stream;
+    if (!from_stdin) {
+      // [GNU/Linux] fopen on a directory succeeds but the first read fails
+      // with EISDIR, so GNU reports "<file>: read error: Is a directory";
+      // every other open failure reports strerror(errno) after the file.
+      std::error_code ec;
+      const bool is_dir = std::filesystem::is_directory(date_file, ec);
+      file_stream.open(date_file, std::ios::binary);
+      if (!file_stream) {
+        if (is_dir) {
+          safeErrorPrintLn(winux::i18n::format(
+              "command.date.error.read_error",
+              "date: {}: read error: Is a directory", date_file));
+        } else {
+          const int open_errno = errno;
+          const char* reason =
+              open_errno != 0 ? std::strerror(open_errno)
+                              : "No such file or directory";
+          // The common ENOENT case gets a dedicated key so translators can
+          // render the whole message; anything else keeps the raw strerror.
+          if (std::strcmp(reason, "No such file or directory") == 0) {
+            safeErrorPrintLn(winux::i18n::format(
+                "command.date.error.cannot_open",
+                "date: {}: No such file or directory", date_file));
+          } else {
+            safeErrorPrintLn(winux::i18n::format(
+                "command.date.error.cannot_open_generic", "date: {}: {}",
+                date_file, reason));
+          }
+        }
+        return 1;
+      }
     }
+    std::istream& in = from_stdin ? static_cast<std::istream&>(std::cin)
+                                  : static_cast<std::istream&>(file_stream);
     std::string line;
-    bool first = true;
-    while (std::getline(ifs, line)) {
-      auto parsed = parse_date_argument(line);
+    bool ok = true;
+    while (std::getline(in, line)) {
+      auto parsed = parse_date_argument(line, use_utc);
       if (!parsed) {
+        // [GNU] batch mode reports each invalid line and keeps going; the
+        // exit status is 1 after every line has been processed.
         safeErrorPrint("date: invalid date '");
         safeErrorPrint(line);
         safeErrorPrintLn("'");
-        return 1;
+        ok = false;
+        continue;
       }
       auto file_tv = make_time_value(*parsed, use_utc);
       if (!file_tv) {
         safeErrorPrintLn("date: failed to convert time");
-        return 1;
+        ok = false;
+        continue;
       }
-      if (!first) safePrint("\n");
-      first = false;
       safePrint(format_time(*file_tv, format));
+      safePrint("\n");
     }
-    safePrint("\n");
-    return 0;
+    return ok ? 0 : 1;
   }
 
   std::string output = format_time(*tv, format);

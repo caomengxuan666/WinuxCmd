@@ -327,7 +327,8 @@ struct PatternApplication {
 };
 
 auto apply_pattern(const std::vector<std::string>& lines,
-                   const ParsedPattern& pattern, size_t current, bool repeated)
+                   const ParsedPattern& pattern, const std::string& pattern_text,
+                   size_t current, bool repeated)
     -> cp::Result<PatternApplication> {
   PatternApplication result;
   result.skip = pattern.skip;
@@ -337,7 +338,8 @@ auto apply_pattern(const std::vector<std::string>& lines,
     size_t boundary =
         repeated ? current + pattern.line_number : pattern.line_number - 1;
     if (boundary > lines.size() || boundary < current) {
-      return std::unexpected("line number out of range");
+      return std::unexpected("'" + pattern_text +
+                             "': line number out of range");
     }
     result.found = true;
     result.matched_line = boundary;
@@ -358,7 +360,8 @@ auto apply_pattern(const std::vector<std::string>& lines,
         static_cast<int64_t>(i) + static_cast<int64_t>(pattern.offset);
     if (boundary_signed < static_cast<int64_t>(current) ||
         boundary_signed > static_cast<int64_t>(lines.size())) {
-      return std::unexpected("pattern offset out of range");
+      return std::unexpected("'" + pattern_text +
+                             "': line number out of range");
     }
 
     size_t boundary = static_cast<size_t>(boundary_signed);
@@ -424,58 +427,84 @@ auto make_filename(const Config& cfg, int file_number)
   return cfg.prefix + std::string(suffix_buf);
 }
 
-auto write_outputs(const Config& cfg, const std::vector<std::string>& lines,
-                   const std::vector<Segment>& segments,
-                   const std::vector<bool>& suppress) -> cp::Result<int> {
-  std::vector<std::string> created_files;
-  auto cleanup = [&] {
-    if (cfg.keep_files) return;
-    for (const auto& file : created_files) {
-      std::error_code ec;
-      std::filesystem::remove(file, ec);
-    }
-  };
-  int file_count = 0;
+// GNU csplit streams each finalized segment into its own output file as
+// soon as the pattern that ends it has been applied. Mirroring that (instead
+// of batching all segments up front) preserves GNU's observable behavior on
+// error paths: sizes of already-written files are printed, and files created
+// before the failure are deleted unless -k/--keep-files is given.
+class OutputWriter {
+ public:
+  OutputWriter(const Config& cfg, const std::vector<std::string>& lines,
+               const std::vector<bool>& suppress)
+      : cfg_(cfg), lines_(lines), suppress_(suppress) {}
 
-  for (const auto& segment : segments) {
+  // Write one finalized segment. Returns false-worthy errors via Result; a
+  // return of true means the segment was either written or elided.
+  auto write_segment(Segment segment) -> cp::Result<bool> {
     size_t bytes = 0;
-    for (size_t i = segment.begin; i < segment.end; ++i) {
-      if (i < suppress.size() && suppress[i]) continue;
-      bytes += lines[i].size();
+    for (size_t i = segment.begin; i < segment.end && i < suppress_.size();
+         ++i) {
+      if (suppress_[i]) continue;
+      bytes += lines_[i].size();
     }
-    if (bytes == 0 && cfg.elide_empty) continue;
+    if (bytes == 0 && cfg_.elide_empty) return true;
 
-    auto filename_result = make_filename(cfg, file_count);
+    auto filename_result = make_filename(cfg_, file_count_);
     if (!filename_result) {
-      cleanup();
       return std::unexpected(filename_result.error());
     }
     std::string filename = *filename_result;
 
     std::ofstream out(filename, std::ios::binary);
     if (!out) {
-      cleanup();
       return std::unexpected(std::string("cannot create '") + filename + "'");
     }
-    for (size_t i = segment.begin; i < segment.end; ++i) {
-      if (i < suppress.size() && suppress[i]) continue;
-      out.write(lines[i].data(), static_cast<std::streamsize>(lines[i].size()));
+    for (size_t i = segment.begin; i < segment.end && i < suppress_.size();
+         ++i) {
+      if (suppress_[i]) continue;
+      out.write(lines_[i].data(),
+                static_cast<std::streamsize>(lines_[i].size()));
     }
     if (!out) {
-      cleanup();
       return std::unexpected(std::string("error writing '") + filename + "'");
     }
-    created_files.push_back(filename);
+    created_files_.push_back(filename);
 
-    if (!cfg.quiet) {
+    if (!cfg_.quiet) {
       safePrint(std::to_string(bytes));
       safePrint("\n");
     }
-    ++file_count;
+    ++file_count_;
+    return true;
   }
 
-  return 0;
-}
+  // GNU keeps files created before a fatal error only with -k/--keep-files.
+  void cleanup() {
+    if (cfg_.keep_files) return;
+    for (const auto& file : created_files_) {
+      std::error_code ec;
+      std::filesystem::remove(file, ec);
+    }
+  }
+
+  // GNU's in-progress output file is materialized when a pattern fails:
+  //  - regex "match not found" and line-number overflow flush everything
+  //    after the previous boundary (GNU streams lines out as it scans);
+  //  - a regex offset that crosses a split start flushes nothing (GNU keeps
+  //    the lines buffered while looking for the match boundary).
+  auto materialize_in_progress(Segment segment, bool flush_all)
+      -> cp::Result<bool> {
+    if (!flush_all) segment.end = segment.begin;
+    return write_segment(segment);
+  }
+
+ private:
+  const Config& cfg_;
+  const std::vector<std::string>& lines_;
+  const std::vector<bool>& suppress_;
+  std::vector<std::string> created_files_;
+  int file_count_ = 0;
+};
 
 auto run(const Config& cfg) -> int {
   auto lines_result = read_records(cfg.input_file);
@@ -485,9 +514,16 @@ auto run(const Config& cfg) -> int {
   }
 
   const auto& lines = *lines_result;
-  std::vector<Segment> segments;
   std::vector<bool> suppress(lines.size(), false);
   size_t current = 0;
+
+  OutputWriter writer(cfg, lines, suppress);
+  auto finish_with_error = [&](const std::string& message) {
+    writer.cleanup();
+    cp::Result<int> error = std::unexpected(message);
+    cp::report_error(error, L"csplit");
+    return 1;
+  };
 
   for (size_t i = 0; i < cfg.patterns.size(); ++i) {
     std::string pattern_text = cfg.patterns[i];
@@ -515,18 +551,36 @@ auto run(const Config& cfg) -> int {
         repeat.has_repeat && !repeat.until_exhausted ? repeat.count + 1 : 1;
     bool repeated = false;
     for (size_t application = 0;; ++application) {
-      auto applied = apply_pattern(lines, pattern, current, repeated);
+      auto applied =
+          apply_pattern(lines, pattern, pattern_text, current, repeated);
       if (!applied) {
-        cp::Result<int> error = std::unexpected(applied.error());
-        cp::report_error(error, L"csplit");
-        return 1;
+        // GNU flushes its in-progress output file before dying: line-number
+        // patterns stream lines out as they scan, so everything after the
+        // previous boundary is already written; a regex with a bad offset
+        // keeps the lines buffered, so nothing is flushed.
+        if (!pattern.skip) {
+          auto in_progress = writer.materialize_in_progress(
+              Segment{current, lines.size()},
+              pattern.kind == ParsedPattern::Kind::LineNumber);
+          if (!in_progress) {
+            return finish_with_error(in_progress.error());
+          }
+        }
+        return finish_with_error(applied.error());
       }
       if (!applied->found) {
         if (repeat.until_exhausted && repeated) break;
-        cp::Result<int> error = std::unexpected(std::string("pattern '") +
-                                                pattern_text + "' not found");
-        cp::report_error(error, L"csplit");
-        return 1;
+        // GNU streams everything scanned so far into the in-progress file
+        // before reporting that the pattern never matched.
+        if (!pattern.skip) {
+          auto in_progress =
+              writer.materialize_in_progress(Segment{current, lines.size()},
+                                             true);
+          if (!in_progress) {
+            return finish_with_error(in_progress.error());
+          }
+        }
+        return finish_with_error("'" + pattern_text + "': match not found");
       }
 
       if (cfg.suppress_matched && applied->matched_line < suppress.size()) {
@@ -535,7 +589,10 @@ auto run(const Config& cfg) -> int {
 
       size_t old_current = current;
       if (!applied->skip) {
-        segments.push_back(applied->output);
+        auto written = writer.write_segment(applied->output);
+        if (!written) {
+          return finish_with_error(written.error());
+        }
       }
       current = applied->next_start;
       repeated = true;
@@ -545,12 +602,11 @@ auto run(const Config& cfg) -> int {
     }
   }
 
-  segments.push_back(Segment{current, lines.size()});
-
-  auto write_result = write_outputs(cfg, lines, segments, suppress);
-  if (!write_result) {
-    cp::report_error(write_result, L"csplit");
-    return 1;
+  // GNU always flushes a final output file with the remaining lines, even
+  // when that remainder is empty.
+  auto written = writer.write_segment(Segment{current, lines.size()});
+  if (!written) {
+    return finish_with_error(written.error());
   }
 
   return 0;

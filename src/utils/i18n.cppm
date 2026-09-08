@@ -170,6 +170,25 @@ export std::string translate_error(std::string_view error) {
     return ::winux::i18n::format("common.error.unary_operator",
                                  "'{}': unary operator expected", value);
   }
+  // "'<pattern>': line number out of range" (csplit) — the pattern precedes
+  // the quote-suffix.
+  constexpr std::string_view kLineRangeSuffix = "': line number out of range";
+  if (error.size() > kLineRangeSuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kLineRangeSuffix)) {
+    const auto value =
+        error.substr(1, error.size() - 1 - kLineRangeSuffix.size());
+    return ::winux::i18n::format("command.csplit.error.line_out_of_range",
+                                 "'{}': line number out of range", value);
+  }
+  // "'<pattern>': match not found" (csplit).
+  constexpr std::string_view kMatchNotFoundSuffix = "': match not found";
+  if (error.size() > kMatchNotFoundSuffix.size() && error.starts_with('\'') &&
+      error.ends_with(kMatchNotFoundSuffix)) {
+    const auto value =
+        error.substr(1, error.size() - 1 - kMatchNotFoundSuffix.size());
+    return ::winux::i18n::format("command.csplit.error.match_not_found",
+                                 "'{}': match not found", value);
+  }
   constexpr std::array<std::pair<std::string_view, std::string_view>, 29> exact{
       {{"invalid input", "common.error.invalid_input"},
        {"error reading from file", "common.error.read_file"},
