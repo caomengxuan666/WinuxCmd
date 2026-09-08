@@ -316,3 +316,41 @@ TEST(seq, seq_rejects_format_with_equal_width) {
       "seq: format string may not be specified when printing equal width "
       "strings\n");
 }
+
+// [GNU] scientific-notation operands keep a fixed-point default format:
+// precision = mantissa decimals - exponent (uutils #14153 family).
+TEST(seq, seq_scientific_notation_precision) {
+  Pipeline p;
+  p.add(L"seq.exe", {L"8.0e-1", L"1.0e0"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "0.80\n");
+}
+
+TEST(seq, seq_scientific_notation_negative_exponent) {
+  Pipeline p;
+  p.add(L"seq.exe", {L"1e-20", L"1e-20", L"1e-20"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "0.00000000000000000001\n");
+}
+
+TEST(seq, seq_scientific_notation_positive_exponent) {
+  Pipeline p;
+  p.add(L"seq.exe", {L"1.0e+5", L"2", L"1.0e+5"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "100000\n");
+}
+
+TEST(seq, seq_equal_width_scientific_notation) {
+  Pipeline p;
+  p.add(L"seq.exe", {L"-w", L"8.0e-1", L"0.1", L"1.0e0"});
+
+  auto r = p.run();
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ_TEXT(r.stdout_text, "0.80\n0.90\n1.00\n");
+}

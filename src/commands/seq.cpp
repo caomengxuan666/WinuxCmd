@@ -143,8 +143,38 @@ auto parse_number(std::string_view text) -> cp::Result<double> {
 auto decimal_precision(std::string_view text) -> std::optional<int> {
   if (text.empty()) return std::nullopt;
 
-  if (text.find_first_of("eE") != std::string_view::npos) {
-    return std::nullopt;
+  // [GNU] scientific-notation operands still yield a fixed-point default
+  // format: precision is the mantissa's fractional digit count adjusted by
+  // the exponent (8.0e-1 -> 2, 8e-1 -> 1, 1.0e5 -> 0).
+  if (auto e_pos = text.find_first_of("eE");
+      e_pos != std::string_view::npos) {
+    std::string_view mantissa = text.substr(0, e_pos);
+    std::string_view exp_part = text.substr(e_pos + 1);
+    long exponent = 0;
+    if (!exp_part.empty()) {
+      // from_chars does not accept a leading '+'; GNU seq does (1.0e+5).
+      if (!exp_part.empty() && exp_part.front() == '+') {
+        exp_part.remove_prefix(1);
+      }
+      if (exp_part.empty()) {
+        return std::nullopt;
+      }
+      auto [ptr, ec] = std::from_chars(
+          exp_part.data(), exp_part.data() + exp_part.size(), exponent);
+      if (ec != std::errc() || ptr != exp_part.data() + exp_part.size()) {
+        return std::nullopt;
+      }
+    } else {
+      return std::nullopt;
+    }
+    auto dot = mantissa.find('.');
+    int frac = dot == std::string_view::npos
+                   ? 0
+                   : static_cast<int>(mantissa.size() - dot - 1);
+    long long adjusted = static_cast<long long>(frac) - exponent;
+    if (adjusted < 0) adjusted = 0;
+    if (adjusted > 400) adjusted = 400;
+    return static_cast<int>(adjusted);
   }
 
   auto first_digit = text.find_first_of("0123456789");

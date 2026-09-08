@@ -251,7 +251,7 @@ export std::string translate_error(std::string_view error) {
     }
     return ::winux::i18n::format(key, "error reading '{}'", value);
   }
-  constexpr std::array<std::pair<std::string_view, std::string_view>, 34>
+  constexpr std::array<std::pair<std::string_view, std::string_view>, 35>
       quoted{
           {{"cannot open '", "common.error.cannot_open"},
            {"cannot access '", "common.error.cannot_access"},
@@ -271,6 +271,7 @@ export std::string translate_error(std::string_view error) {
            {"unknown registry root '", "common.error.unknown_registry_root"},
            {"invalid input range: '", "common.error.invalid_input_range"},
            {"invalid line count: '", "common.error.invalid_line_count_value"},
+           {"invalid wrap size: '", "common.error.invalid_wrap_value"},
            {"invalid number of bytes: '", "common.error.invalid_num_bytes"},
            {"invalid number of columns: '", "common.error.invalid_num_columns"},
            {"invalid number of lines: '", "common.error.invalid_num_lines"},
@@ -305,7 +306,7 @@ export std::string translate_error(std::string_view error) {
       return ::winux::i18n::format(key, "error writing '{}'", value);
     if (key == "common.error.invalid_mode")
       return ::winux::i18n::format(key, "invalid mode: '{}'", value);
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 28>
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 29>
         fallbacks{
             {{"common.error.invalid_group", "invalid group: '{}'"},
              {"common.error.invalid_user", "invalid user: '{}'"},
@@ -323,6 +324,8 @@ export std::string translate_error(std::string_view error) {
              {"common.error.invalid_input_range", "invalid input range: '{}'"},
              {"common.error.invalid_line_count_value",
               "invalid line count: '{}'"},
+             {"common.error.invalid_wrap_value",
+              "invalid wrap size: '{}'"},
              {"common.error.invalid_num_bytes",
               "invalid number of bytes: '{}'"},
              {"common.error.invalid_num_columns",
