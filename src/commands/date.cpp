@@ -410,6 +410,22 @@ auto append_number(std::string &out, int value, int width, char fill = '0') {
   out += buf;
 }
 
+// [GNU] %^ forces upper case, %# swaps the natural case of textual output
+// (gnulib strftime semantics: to_lowcase wins over to_uppcase).
+auto apply_case(std::string text, bool to_uppcase, bool to_lowcase)
+    -> std::string {
+  if (to_lowcase) {
+    std::ranges::transform(text, text.begin(), [](unsigned char ch) {
+      return static_cast<char>(std::tolower(ch));
+    });
+  } else if (to_uppcase) {
+    std::ranges::transform(text, text.begin(), [](unsigned char ch) {
+      return static_cast<char>(std::toupper(ch));
+    });
+  }
+  return text;
+}
+
 auto format_time(const TimeValue &tv, const std::string &format)
     -> std::string {
   const SYSTEMTIME &st = tv.display;
@@ -418,13 +434,35 @@ auto format_time(const TimeValue &tv, const std::string &format)
   result.reserve(format.size() * 2);
 
   for (size_t i = 0; i < format.size(); ++i) {
-    if (format[i] == '%' && i + 1 < format.size()) {
+    if (format[i] == '%') {
+      // [GNU] case modifiers parsed before the specifier; per-spec state
+      // is reset for every '%' (to_uppcase inherits nothing here because
+      // composite expansions re-enter format_time recursively).
+      bool to_uppcase = false;
+      bool to_lowcase = false;
+      bool change_case = false;
       bool colon_zone = false;
-      if (format[i + 1] == ':' && i + 2 < format.size()) {
-        colon_zone = true;
+      const size_t spec_start = i;
+      ++i;
+      while (i < format.size()) {
+        char flag = format[i];
+        if (flag == '^') {
+          to_uppcase = true;
+        } else if (flag == '#') {
+          change_case = true;
+        } else if (flag == ':' && !colon_zone) {
+          colon_zone = true;
+        } else {
+          break;
+        }
         ++i;
       }
-      char spec = format[++i];
+      if (i >= format.size()) {
+        // Dangling '%' (optionally with flags): emit verbatim.
+        result.append(format, spec_start, format.size() - spec_start);
+        break;
+      }
+      char spec = format[i];
 
       switch (spec) {
         case '%':
@@ -469,12 +507,23 @@ auto format_time(const TimeValue &tv, const std::string &format)
         case 'N':
           append_number(result, st.wMilliseconds * 1000000, 9);
           break;
-        case 'p':
-          result += st.wHour < 12 ? "AM" : "PM";
+        case 'p': {
+          std::string text = st.wHour < 12 ? "AM" : "PM";
+          // [GNU] %#p prints the meridiem in lower case.
+          if (change_case) {
+            to_uppcase = false;
+            to_lowcase = true;
+          }
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
-        case 'P':
-          result += st.wHour < 12 ? "am" : "pm";
+        }
+        case 'P': {
+          // [GNU] %P always prints lower case; to_lowcase wins over '^'.
+          std::string text = st.wHour < 12 ? "AM" : "PM";
+          to_lowcase = true;
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
+        }
         case 'a':
         case 'A': {
           static const char *weekday_names[] = {
@@ -483,8 +532,14 @@ auto format_time(const TimeValue &tv, const std::string &format)
           static const char *weekday_abbr[] = {"Sun", "Mon", "Tue", "Wed",
                                                "Thu", "Fri", "Sat"};
           int day_of_week = st.wDayOfWeek;
-          result += (spec == 'a') ? weekday_abbr[day_of_week]
-                                  : weekday_names[day_of_week];
+          // [GNU] %^a/%#a both force upper case.
+          if (change_case) {
+            to_uppcase = true;
+            to_lowcase = false;
+          }
+          std::string text = (spec == 'a') ? weekday_abbr[day_of_week]
+                                           : weekday_names[day_of_week];
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
         }
         case 'b':
@@ -497,36 +552,53 @@ auto format_time(const TimeValue &tv, const std::string &format)
           static const char *month_abbr[] = {"Jan", "Feb", "Mar", "Apr",
                                              "May", "Jun", "Jul", "Aug",
                                              "Sep", "Oct", "Nov", "Dec"};
-          result += (spec == 'b') ? month_abbr[st.wMonth - 1]
-                                  : month_names[st.wMonth - 1];
+          // [GNU] %^b/%#b both force upper case.
+          if (change_case) {
+            to_uppcase = true;
+            to_lowcase = false;
+          }
+          std::string text = (spec == 'b') ? month_abbr[st.wMonth - 1]
+                                           : month_names[st.wMonth - 1];
+          result += apply_case(std::move(text), to_uppcase, to_lowcase);
           break;
         }
         case 'F':
-          result += format_time(tv, "%Y-%m-%d");
+          result +=
+              apply_case(format_time(tv, "%Y-%m-%d"), to_uppcase, to_lowcase);
           break;
         case 'D':
-          result += format_time(tv, "%m/%d/%y");
+          result +=
+              apply_case(format_time(tv, "%m/%d/%y"), to_uppcase, to_lowcase);
           break;
         case 'T':
-          result += format_time(tv, "%H:%M:%S");
+          result +=
+              apply_case(format_time(tv, "%H:%M:%S"), to_uppcase, to_lowcase);
           break;
         case 'R':
-          result += format_time(tv, "%H:%M");
+          result += apply_case(format_time(tv, "%H:%M"), to_uppcase, to_lowcase);
           break;
         case 'r':
-          result += format_time(tv, "%I:%M:%S %p");
+          result += apply_case(format_time(tv, "%I:%M:%S %p"), to_uppcase,
+                               to_lowcase);
           break;
         case 'c':
-          result += format_time(tv, "%a %b %e %H:%M:%S %Y");
+          result += apply_case(format_time(tv, "%a %b %e %H:%M:%S %Y"),
+                               to_uppcase, to_lowcase);
           break;
         case 'x':
-          result += format_time(tv, "%m/%d/%y");
+          result +=
+              apply_case(format_time(tv, "%m/%d/%y"), to_uppcase, to_lowcase);
           break;
         case 'X':
-          result += format_time(tv, "%H:%M:%S");
+          result +=
+              apply_case(format_time(tv, "%H:%M:%S"), to_uppcase, to_lowcase);
           break;
         case 'j':
           append_number(result, day_of_year(st), 3);
+          break;
+        case 'q':
+          // [GNU] %q: quarter of year (1-4).
+          append_number(result, (st.wMonth - 1) / 3 + 1, 1);
           break;
         case 'u':
           result +=
@@ -541,13 +613,18 @@ auto format_time(const TimeValue &tv, const std::string &format)
         case 'z':
           result += format_zone_offset(zone_minutes, colon_zone);
           break;
-        case 'Z':
-          result += timezone_name(tv.utc, tv.utc_display);
+        case 'Z': {
+          // [GNU] %#Z prints the zone name in lower case.
+          if (change_case) {
+            to_uppcase = false;
+            to_lowcase = true;
+          }
+          result += apply_case(timezone_name(tv.utc, tv.utc_display),
+                               to_uppcase, to_lowcase);
           break;
+        }
         default:
-          result += '%';
-          if (colon_zone) result += ':';
-          result += spec;
+          result.append(format, spec_start, i - spec_start + 1);
           break;
       }
     } else {

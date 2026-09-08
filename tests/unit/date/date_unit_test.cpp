@@ -409,3 +409,61 @@ TEST(date, date_file_valid_file_prints_every_line) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(r.stdout_text, "2024-01-02T03:04:05\n2025-06-07T08:09:10\n");
 }
+
+// [GNU] %^ forces upper case; %# swaps the natural case per specifier
+// (upper for weekday/month names, lower for meridiem and zone name),
+// matching gnulib strftime semantics (uutils #14351).
+TEST(date, date_case_flags_match_gnu) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe",
+        {L"-u", L"--date", L"@0",
+         L"+%a|%#a|%^a|%A|%#A|%b|%#b|%B|%#B|%p|%#p|%^p|%P|%#P|%^P|%Z|%#Z|%^Z"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date case flags stdout", r.stdout_text);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text,
+            "Thu|THU|THU|Thursday|THURSDAY|Jan|JAN|January|JANUARY|"
+            "AM|am|AM|am|am|am|UTC|utc|UTC\n");
+}
+
+// [GNU] %# leaves %c and numeric/time-only composites unchanged while
+// %^ uppercases their full expansion (uutils #14351).
+TEST(date, date_case_flags_composites) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"-u", L"--date", L"@0",
+                      L"+%c|%#c|%^c|%r|%#r|%^r|%x|%#x|%^x"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date case flags composites stdout", r.stdout_text);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text,
+            "Thu Jan  1 00:00:00 1970|Thu Jan  1 00:00:00 1970|"
+            "THU JAN  1 00:00:00 1970|"
+            "12:00:00 AM|12:00:00 AM|12:00:00 AM|"
+            "01/01/70|01/01/70|01/01/70\n");
+}
+
+// [GNU] a dangling '%' with flags is emitted verbatim, and unknown
+// specifiers keep their raw text; %q is the quarter of year.
+TEST(date, date_case_flags_dangling_percent) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"-u", L"--date", L"@0", L"+%^|100%%|%^q|%q"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date case flags dangling stdout", r.stdout_text);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "%^|100%|1|1\n");
+}
