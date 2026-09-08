@@ -59,6 +59,8 @@ auto constexpr WPM_OPTIONS = std::array{
     // [EXT] option
     OPTION("-v", "--verbose", "print detailed progress"),
     // [EXT] option
+    OPTION("-y", "--yes", "assume yes for interactive prompts"),
+    // [EXT] option
     OPTION("", "--category", "filter list/search output by category",
            STRING_TYPE),
     // [EXT] option
@@ -145,6 +147,7 @@ struct Options {
   bool verbose = false;
   bool json = false;
   bool plain = false;
+  bool yes = false;
 };
 
 struct FileId {
@@ -892,17 +895,19 @@ auto collect_cleanup_files(const fs::path& root)
   return files;
 }
 
-auto print_cleanup_progress(std::string_view kind, size_t done, size_t total,
-                            unsigned long long bytes) -> void {
+auto print_cleanup_progress(std::string_view key, std::string_view kind,
+                            size_t done, size_t total, unsigned long long bytes)
+    -> void {
   const int percent = total == 0 ? 100 : static_cast<int>(done * 100 / total);
   safePrint(std::string("\r") +
-            wpm_text("command.wpm.status.clean_progress",
-                     "wpm: removing {}... {}% ({}/{} files, {})", kind, percent,
-                     done, total, human_size(bytes)));
+            wpm_text(key, "wpm: removing {}... {}% ({}/{} files, {})", kind,
+                     percent, done, total, human_size(bytes)));
 }
 
-auto remove_tree(const fs::path& target, std::string_view kind, bool verbose)
-    -> CleanupStats {
+auto remove_tree(const fs::path& target, std::string_view kind, bool verbose,
+                 bool show_progress = true,
+                 std::string_view progress_key =
+                     "command.wpm.status.clean_progress") -> CleanupStats {
   CleanupStats removed;
   const auto files = collect_cleanup_files(target);
   const size_t total = files.size();
@@ -920,8 +925,8 @@ auto remove_tree(const fs::path& target, std::string_view kind, bool verbose)
       ++removed.files;
     }
     ++done;
-    if (!verbose && (done % 16 == 0 || done == total)) {
-      print_cleanup_progress(kind, done, total, removed.bytes);
+    if (!verbose && show_progress && (done % 16 == 0 || done == total)) {
+      print_cleanup_progress(progress_key, kind, done, total, removed.bytes);
       progress_shown = true;
     }
   }
@@ -1565,13 +1570,16 @@ auto extract_archive(const fs::path& archive, const fs::path& dest,
                      std::string_view type) -> bool {
   std::error_code ec;
   fs::create_directories(dest, ec);
+  safePrintLn(wpm_text("command.wpm.status.extracting", "wpm: extracting {}",
+                       archive.filename().string()));
   std::wstring command =
       L"tar.exe -xf " + quote(archive) + L" -C " + quote(dest);
   int code = run_process(command);
   if (code != 0) {
-    safeErrorPrintLn("wpm: " + std::string(type) +
-                     " extraction failed; Windows tar.exe returned " +
-                     std::to_string(code));
+    safeErrorPrintLn(wpm_text("command.wpm.error.extract_failed",
+                              "wpm: {} extraction failed; Windows tar.exe "
+                              "returned {}",
+                              type, code));
     return false;
   }
   return true;
@@ -1839,9 +1847,13 @@ auto download_artifact(const fs::path& root, const std::string& package,
     -> std::optional<fs::path> {
   auto urls = artifact_urls(artifact);
   if (urls.empty()) {
-    safeErrorPrintLn("wpm: package '" + package +
-                     "' has no URLs in the local index");
-    safeErrorPrintLn("wpm: run 'wpm index update' or choose another source");
+    safeErrorPrintLn(wpm_text("command.wpm.error.no_urls",
+                              "wpm: package '{}' has no URLs in the local "
+                              "index",
+                              package));
+    safeErrorPrintLn(wpm_text("command.wpm.error.run_index_update_hint",
+                              "wpm: run 'wpm index update' or choose another "
+                              "source"));
     return std::nullopt;
   }
 
@@ -1850,7 +1862,9 @@ auto download_artifact(const fs::path& root, const std::string& package,
       cache_dir(root) / (package + "." + artifact_cache_extension(type));
   std::string expected_sha = artifact.value("sha256", "");
   if (cached_artifact_is_valid(out, expected_sha)) {
-    if (verbose) safePrintLn("wpm: using cached " + out.string());
+    if (verbose)
+      safePrintLn(wpm_text("command.wpm.status.using_cache",
+                           "wpm: using cached {}", out.string()));
     return out;
   }
   if (fs::exists(out)) {
@@ -1859,14 +1873,18 @@ auto download_artifact(const fs::path& root, const std::string& package,
   }
   for (const auto& url : urls) {
     if (verbose) safePrintLn("wpm: downloading " + url);
-    auto result = http_get(url, "wpm: downloading " + package);
+    auto result = http_get(url, wpm_text("command.wpm.status.downloading",
+                                         "wpm: downloading {}", package));
     if (!result.ok) {
-      safeErrorPrintLn("wpm: download failed from " + url + ": " +
-                       result.error);
+      safeErrorPrintLn(wpm_text("command.wpm.error.download_failed",
+                                "wpm: download failed from {}: {}", url,
+                                result.error));
       continue;
     }
     if (!write_bytes(out, result.data)) {
-      safeErrorPrintLn("wpm: failed to write cache file " + out.string());
+      safeErrorPrintLn(wpm_text("command.wpm.error.write_cache",
+                                "wpm: failed to write cache file {}",
+                                out.string()));
       continue;
     }
     if (!verify_sha256(out, expected_sha)) {
@@ -2229,13 +2247,16 @@ auto cleanup_legacy_flat_artifacts(const fs::path& root,
 auto update_index(const Options& opts) -> int;
 
 auto refresh_index_once(const Options& opts, std::string_view reason) -> bool {
-  safePrintLn("wpm: " + std::string(reason) +
-              "; updating index from configured sources");
+  safePrintLn(wpm_text("command.wpm.status.auto_index_update",
+                       "wpm: {}; updating index from configured sources",
+                       reason));
   if (update_index(opts) == 0) return true;
-  safeErrorPrintLn("wpm: automatic index update failed");
+  safeErrorPrintLn(wpm_text("command.wpm.error.auto_index_failed",
+                            "wpm: automatic index update failed"));
   safeErrorPrintLn(
-      "wpm: run 'wpm index update' to retry or 'wpm source list' "
-      "to inspect sources");
+      wpm_text("command.wpm.error.auto_index_hint",
+               "wpm: run 'wpm index update' to retry or 'wpm source list' "
+               "to inspect sources"));
   return false;
 }
 
@@ -2252,8 +2273,9 @@ auto install_package(const Options& opts, std::string_view package_name)
     }
   }
   if (!pkg) {
-    safeErrorPrintLn("wpm: package not found after index update: " +
-                     std::string(package_name));
+    safeErrorPrintLn(wpm_text("command.wpm.error.install_not_found",
+                              "wpm: package not found after index update: {}",
+                              package_name));
     return 1;
   }
 
@@ -2267,11 +2289,13 @@ auto install_package(const Options& opts, std::string_view package_name)
     }
   }
   if (state != "ready") {
-    safeErrorPrintLn("wpm: package is not installable for " +
-                     detect_arch_key() + ": " + state);
+    safeErrorPrintLn(wpm_text("command.wpm.error.not_installable",
+                              "wpm: package is not installable for {}: {}",
+                              detect_arch_key(), state));
     safeErrorPrintLn(
-        "wpm: update the source index artifact urls, sha256, and "
-        "files mapping");
+        wpm_text("command.wpm.error.fix_index_hint",
+                 "wpm: update the source index artifact urls, sha256, and "
+                 "files mapping"));
     return 1;
   }
 
@@ -2302,11 +2326,14 @@ auto install_package(const Options& opts, std::string_view package_name)
       return 1;
     }
   } else {
-    safeErrorPrintLn("wpm: unsupported artifact type: " + type);
+    safeErrorPrintLn(wpm_text("command.wpm.error.unsupported_type",
+                              "wpm: unsupported artifact type: {}", type));
     return 1;
   }
 
   const bool shim_layout = artifact_layout(*artifact) == "shim";
+  safePrintLn(wpm_text("command.wpm.status.installing_files",
+                       "wpm: installing files..."));
   if (!copy_artifact_files(extracted, opts.root, *artifact, opts.force,
                            opts.dry_run,
                            pkg->value("name", std::string(package_name)))) {
@@ -2324,11 +2351,12 @@ auto install_package(const Options& opts, std::string_view package_name)
     return 1;
   }
   if (opts.dry_run) {
-    safePrintLn("wpm: dry-run complete; would install " +
-                pkg->value("name", std::string(package_name)));
+    safePrintLn(wpm_text("command.wpm.status.install_dry_run",
+                         "wpm: dry-run complete; would install {}",
+                         pkg->value("name", std::string(package_name))));
   } else {
-    safePrintLn("wpm: installed " +
-                pkg->value("name", std::string(package_name)));
+    safePrintLn(wpm_text("command.wpm.status.installed", "wpm: installed {}",
+                         pkg->value("name", std::string(package_name))));
   }
   return 0;
 }
@@ -2377,14 +2405,17 @@ auto update_winuxcmd(const Options& opts) -> int {
   auto index = load_index(opts.root);
   auto pkg = find_package(index, "winuxcmd");
   if (!pkg) {
-    safeErrorPrintLn("wpm: winuxcmd package missing after index update");
+    safeErrorPrintLn(wpm_text("command.wpm.error.core_missing",
+                              "wpm: winuxcmd package missing after index "
+                              "update"));
     return 1;
   }
 
   auto state = artifact_install_state(*pkg);
   if (state != "ready") {
-    safeErrorPrintLn("wpm: winuxcmd is not installable for " +
-                     detect_arch_key() + ": " + state);
+    safeErrorPrintLn(wpm_text("command.wpm.error.not_installable",
+                              "wpm: package is not installable for {}: {}",
+                              detect_arch_key(), state));
     return 1;
   }
 
@@ -2406,29 +2437,37 @@ auto update_winuxcmd(const Options& opts) -> int {
     fs::copy_file(*downloaded, extracted / "winuxcmd.exe",
                   fs::copy_options::overwrite_existing, ec);
     if (ec) {
-      safeErrorPrintLn("wpm: failed to stage winuxcmd.exe: " + ec.message());
+      safeErrorPrintLn(wpm_text("command.wpm.error.stage_core",
+                                "wpm: failed to stage winuxcmd.exe: {}",
+                                ec.message()));
       return 1;
     }
   } else {
-    safeErrorPrintLn("wpm: unsupported artifact type: " + type);
+    safeErrorPrintLn(wpm_text("command.wpm.error.unsupported_type",
+                              "wpm: unsupported artifact type: {}", type));
     return 1;
   }
 
   auto staged_exe = find_file_recursive(extracted, "winuxcmd.exe");
   if (!staged_exe) {
-    safeErrorPrintLn("wpm: staged winuxcmd.exe not found");
+    safeErrorPrintLn(wpm_text("command.wpm.error.staged_missing",
+                              "wpm: staged winuxcmd.exe not found"));
     return 1;
   }
 
   if (opts.dry_run) {
-    safePrintLn("would apply update from " + staged_exe->string());
+    safePrintLn(wpm_text("command.wpm.status.update_dry_run",
+                         "wpm: dry-run: would apply update from {}",
+                         staged_exe->string()));
     return 0;
   }
 
   if (!launch_apply_update(*staged_exe, opts.root, GetCurrentProcessId())) {
     return 1;
   }
-  safePrintLn("wpm: update staged; helper will replace winuxcmd after exit");
+  safePrintLn(wpm_text("command.wpm.status.update_staged",
+                       "wpm: update staged; helper will replace winuxcmd "
+                       "after exit"));
   return 0;
 }
 
@@ -2517,7 +2556,9 @@ auto try_fetch_index(const Options& opts, std::string& used_source)
       if (!url_json.is_string()) continue;
       std::string url = url_json.get<std::string>();
       if (opts.verbose) safePrintLn("wpm: fetching index " + url);
-      auto result = http_get(url);
+      auto result =
+          http_get(url, wpm_text("command.wpm.status.fetching_index",
+                                 "wpm: fetching index from {}", name));
       if (!result.ok) {
         safeErrorPrintLn("wpm: index fetch failed from " + name + ": " +
                          result.error);
@@ -2541,17 +2582,20 @@ auto update_index(const Options& opts) -> int {
   std::string used_source;
   auto fetched = try_fetch_index(opts, used_source);
   if (!fetched) {
-    safeErrorPrintLn("wpm: no reachable index source");
+    safeErrorPrintLn(wpm_text("command.wpm.error.no_source",
+                              "wpm: no reachable index source"));
     return 1;
   }
   if (!write_text(local_index_path(opts.root), fetched->dump(2))) {
-    safeErrorPrintLn("wpm: failed to save index");
+    safeErrorPrintLn(
+        wpm_text("command.wpm.error.save_index", "wpm: failed to save index"));
     return 1;
   }
   auto config = load_config(opts.root);
   config["last_success_source"] = used_source;
   save_config(opts.root, config);
-  safePrintLn("wpm: index updated from " + used_source);
+  safePrintLn(wpm_text("command.wpm.status.index_updated",
+                       "wpm: index updated from {}", used_source));
   return 0;
 }
 
@@ -2879,11 +2923,11 @@ auto export_installed_packages_plain(const Options& opts) -> int {
 // Installation state is derived (no manifest), so removal targets are exactly
 // the destinations `package_is_installed` checks. Protected files — the
 // canonical winuxcmd.exe and the running executable — are never deleted.
-auto uninstall_remove_destination(const fs::path& root, const fs::path& dest,
+auto uninstall_remove_destination(const Options& opts, const fs::path& dest,
                                   bool directory,
                                   std::vector<std::string>& removed,
                                   std::vector<std::string>& errors) -> bool {
-  const fs::path core = canonical_winuxcmd_path(root);
+  const fs::path core = canonical_winuxcmd_path(opts.root);
   std::error_code ec;
   if (same_file(core, dest) || same_file(current_exe_path(), dest)) {
     errors.push_back(wpm_text("command.wpm.error.uninstall_protected",
@@ -2893,21 +2937,33 @@ auto uninstall_remove_destination(const fs::path& root, const fs::path& dest,
   }
   if (!fs::exists(dest, ec)) return true;
   if (directory) {
-    fs::remove_all(dest, ec);
+    // Trailing separators make filename() empty; fall back to the last
+    // non-empty component so the progress label names the package folder.
+    std::string kind = dest.filename().string();
+    if (kind.empty()) kind = dest.parent_path().filename().string();
+    if (kind.empty()) kind = "package files";
+    const auto stats = remove_tree(dest, kind, opts.verbose, !opts.json,
+                                   "command.wpm.status.uninstall_progress");
+    if (stats.ec) {
+      errors.push_back(wpm_text("command.wpm.error.uninstall_failed",
+                                "wpm: failed to remove '{}': {}", dest.string(),
+                                stats.ec.message()));
+      return false;
+    }
   } else {
     fs::remove(dest, ec);
-  }
-  if (ec) {
-    errors.push_back(wpm_text("command.wpm.error.uninstall_failed",
-                              "wpm: failed to remove '{}': {}", dest.string(),
-                              ec.message()));
-    return false;
+    if (ec) {
+      errors.push_back(wpm_text("command.wpm.error.uninstall_failed",
+                                "wpm: failed to remove '{}': {}", dest.string(),
+                                ec.message()));
+      return false;
+    }
   }
   removed.push_back(dest.string());
   // Prune now-empty parent directories up to usr/bin (never above root).
   fs::path parent = dest.parent_path();
-  const fs::path bin_dir = canonical_bin_dir(root);
-  while (parent != bin_dir && parent != root && !parent.empty()) {
+  const fs::path bin_dir = canonical_bin_dir(opts.root);
+  while (parent != bin_dir && parent != opts.root && !parent.empty()) {
     std::error_code empty_ec;
     if (!fs::is_empty(parent, empty_ec) || empty_ec) break;
     std::error_code rm_ec;
@@ -2965,7 +3021,7 @@ auto uninstall_package(const Options& opts, const nlohmann::json& pkg)
       if (fs::exists(*dest, ec)) removed.push_back(dest->string());
       continue;
     }
-    if (!uninstall_remove_destination(opts.root, *dest, directory, removed,
+    if (!uninstall_remove_destination(opts, *dest, directory, removed,
                                       errors)) {
       ok = false;
     }
@@ -2982,8 +3038,7 @@ auto uninstall_package(const Options& opts, const nlohmann::json& pkg)
       std::error_code ec;
       if (!fs::exists(shim, ec)) continue;
       if (same_file(self_exe, shim) || files_equal(self_exe, shim)) {
-        if (!uninstall_remove_destination(opts.root, shim, false, removed,
-                                          errors)) {
+        if (!uninstall_remove_destination(opts, shim, false, removed, errors)) {
           ok = false;
         }
       } else {
@@ -3010,8 +3065,8 @@ auto uninstall_package(const Options& opts, const nlohmann::json& pkg)
         std::error_code ec;
         if (!fs::exists(alias_path, ec)) continue;
         if (same_file(target, alias_path)) {
-          if (!uninstall_remove_destination(opts.root, alias_path, false,
-                                            removed, errors))
+          if (!uninstall_remove_destination(opts, alias_path, false, removed,
+                                            errors))
             ok = false;
         } else {
           errors.push_back(wpm_text("command.wpm.error.uninstall_protected",
@@ -3050,6 +3105,44 @@ auto uninstall_packages(const Options& opts,
   nlohmann::json results = nlohmann::json::array();
   int failed = 0;
   int removed_count = 0;
+
+  // Interactive confirmation. Skipped for --yes, --dry-run, and --json
+  // (non-interactive consumers). Only packages that are actually installed
+  // and removable are listed.
+  if (!opts.yes && !opts.dry_run && !opts.json) {
+    std::vector<std::string> targets;
+    for (const auto& name_view : names) {
+      const std::string name(name_view);
+      auto pkg = find_package(index, name);
+      if (!pkg || name == "winuxcmd") continue;
+      auto artifact = artifact_for_current_arch(*pkg);
+      if (!artifact || artifact_install_state(*pkg) != "ready") continue;
+      auto destinations =
+          artifact_destination_paths(opts.root, *artifact, name);
+      if (!destinations || destinations->empty()) continue;
+      targets.push_back(name);
+    }
+    if (!targets.empty()) {
+      std::string joined;
+      for (size_t i = 0; i < targets.size(); ++i) {
+        if (i > 0) joined += ", ";
+        joined += targets[i];
+      }
+      safePrintLn(wpm_text("command.wpm.status.uninstall_confirm",
+                           "wpm: the following packages will be removed: {}",
+                           joined));
+      safePrint(wpm_text("command.wpm.status.uninstall_prompt",
+                         "wpm: continue? [y/N] "));
+      std::string line;
+      std::getline(std::cin, line);
+      line = lower_ascii(trim_ascii(std::move(line)));
+      if (line != "y" && line != "yes") {
+        safePrintLn(wpm_text("command.wpm.status.uninstall_aborted",
+                             "wpm: aborted; nothing was removed"));
+        return 0;
+      }
+    }
+  }
 
   for (const auto& name_view : names) {
     const std::string name(name_view);
@@ -3348,6 +3441,8 @@ auto print_usage() -> int {
       "  -n, --dry-run                         show planned changes without "
       "writing\n"
       "  -v, --verbose                         print detailed progress\n"
+      "  -y, --yes                             assume yes for interactive "
+      "prompts\n"
       "      --category <name>                 filter list/search output by "
       "category\n"
       "      --json                            print machine-readable JSON\n"
@@ -3374,6 +3469,7 @@ auto build_options(const CommandContext<WPM_OPTIONS.size()>& ctx) -> Options {
       ctx.get<bool>("--dry-run", false) || ctx.get<bool>("-n", false);
   opts.verbose =
       ctx.get<bool>("--verbose", false) || ctx.get<bool>("-v", false);
+  opts.yes = ctx.get<bool>("--yes", false) || ctx.get<bool>("-y", false);
   opts.category = ctx.get<std::string>("--category", "");
   opts.json = ctx.get<bool>("--json", false);
   opts.plain = ctx.has("--plain");
