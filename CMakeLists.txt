@@ -553,6 +553,7 @@ macro(create_command_executable CMD)
             src/utils/encoding.cppm
             src/utils/regex.cppm
             src/utils/digest.cppm
+            src/utils/pager.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm
@@ -648,6 +649,7 @@ if(BUILD_STANDALONE)
         src/utils/encoding.cppm
         src/utils/regex.cppm
         src/utils/digest.cppm
+        src/utils/pager.cppm
         src/container/container.cppm
         src/container/small_vector.cppm
         src/container/constexpr_map.cppm
@@ -740,6 +742,7 @@ if(BUILD_STANDALONE)
             src/utils/encoding.cppm
             src/utils/regex.cppm
             src/utils/digest.cppm
+            src/utils/pager.cppm
             src/container/container.cppm
             src/container/small_vector.cppm
             src/container/constexpr_map.cppm

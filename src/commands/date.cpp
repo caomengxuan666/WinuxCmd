@@ -705,6 +705,61 @@ auto rfc3339_format_for(std::string spec) -> std::optional<std::string> {
   return std::nullopt;
 }
 
+// [GNU] posixtime: parse the POSIX MMDDhhmm[[CC]YY][.ss] set-date syntax
+// (coreutils posixtm.c). Only 8, 10, or 12 digits are accepted; a trailing
+// ".ss" appends seconds. With 8 digits the current year is used, with 10 a
+// 2-digit year maps into the 1969-2068 window, and with 12 a 4-digit year
+// must lie in the 20th or 21st century.
+auto parse_posix_clock(std::string_view arg) -> std::optional<SYSTEMTIME> {
+  std::string digits(arg);
+  int sec = 0;
+  if (auto dot = digits.find('.'); dot != std::string::npos) {
+    std::string ss = digits.substr(dot + 1);
+    if (ss.size() != 2 || !std::ranges::all_of(ss, [](unsigned char ch) {
+          return std::isdigit(ch);
+        }))
+      return std::nullopt;
+    sec = (ss[0] - '0') * 10 + (ss[1] - '0');
+    if (sec > 60) return std::nullopt;
+    digits.resize(dot);
+  }
+  if (digits.size() != 8 && digits.size() != 10 && digits.size() != 12)
+    return std::nullopt;
+  if (!std::ranges::all_of(digits,
+                           [](unsigned char ch) { return std::isdigit(ch); }))
+    return std::nullopt;
+
+  int mon = (digits[0] - '0') * 10 + (digits[1] - '0');
+  int day = (digits[2] - '0') * 10 + (digits[3] - '0');
+  int hour = (digits[4] - '0') * 10 + (digits[5] - '0');
+  int minute = (digits[6] - '0') * 10 + (digits[7] - '0');
+  int year;
+  if (digits.size() == 8) {
+    SYSTEMTIME now{};
+    GetLocalTime(&now);
+    year = now.wYear;
+  } else if (digits.size() == 10) {
+    int two = (digits[8] - '0') * 10 + (digits[9] - '0');
+    year = two < 69 ? 2000 + two : 1900 + two;
+  } else {
+    year = (digits[8] - '0') * 1000 + (digits[9] - '0') * 100 +
+           (digits[10] - '0') * 10 + (digits[11] - '0');
+    int century = year / 100;
+    if (century != 19 && century != 20) return std::nullopt;
+  }
+  if (mon < 1 || mon > 12 || day < 1 || day > 31 || hour > 23 || minute > 59)
+    return std::nullopt;
+  SYSTEMTIME st{static_cast<WORD>(year),
+                static_cast<WORD>(mon),
+                0,
+                static_cast<WORD>(day),
+                static_cast<WORD>(hour),
+                static_cast<WORD>(minute),
+                static_cast<WORD>(sec),
+                0};
+  return st;
+}
+
 }  // namespace date_pipeline
 
 REGISTER_COMMAND(
@@ -738,53 +793,36 @@ REGISTER_COMMAND(
     "cal(1)", "caomengxuan666", "Copyright © 2026 WinuxCmd", DATE_OPTIONS) {
   using namespace date_pipeline;
 
-  if (ctx.has("--set") || ctx.has("-s")) {
-    std::string set_arg = ctx.get<std::string>("--set", "");
+  bool is_set = ctx.has("--set") || ctx.has("-s");
+  std::string set_arg;
+  if (is_set) {
+    set_arg = ctx.get<std::string>("--set", "");
     if (set_arg.empty()) set_arg = ctx.get<std::string>("-s", "");
-    auto parsed = parse_date_argument(set_arg);
-    if (!parsed) {
-      safeErrorPrint("date: invalid date '");
-      safeErrorPrint(set_arg);
-      safeErrorPrintLn("'");
-      return 1;
-    }
-
-    // Convert FILETIME (UTC) to SYSTEMTIME (UTC), then to local time
-    // because SetSystemTime expects local time
-    SYSTEMTIME utc_st{};
-    if (!FileTimeToSystemTime(&*parsed, &utc_st)) {
-      safeErrorPrintLn("date: cannot convert date");
-      return 1;
-    }
-    // Convert UTC SYSTEMTIME to FILETIME, then to local FILETIME, then to
-    // SYSTEMTIME
-    FILETIME utc_ft{};
-    if (!SystemTimeToFileTime(&utc_st, &utc_ft)) {
-      safeErrorPrintLn("date: cannot convert time");
-      return 1;
-    }
-    FILETIME local_ft{};
-    if (!FileTimeToLocalFileTime(&utc_ft, &local_ft)) {
-      safeErrorPrintLn("date: cannot convert to local time");
-      return 1;
-    }
-    SYSTEMTIME local_st2{};
-    if (!FileTimeToSystemTime(&local_ft, &local_st2)) {
-      safeErrorPrintLn("date: cannot convert time");
-      return 1;
-    }
-    if (!SetSystemTime(&local_st2)) {
-      safeErrorPrintLn(
-          "date: cannot set system time (administrator privileges required)");
-      return 1;
-    }
-    return 0;
   }
 
-  if (ctx.has("--resolution")) {
-    // FILETIME timestamps have a fixed 100 ns resolution on Windows.
-    safePrintLn("100ns");
-    return 0;
+  // [GNU] -d/-f/-r/--resolution are mutually exclusive date sources
+  std::string date_arg = ctx.get<std::string>("--date", "");
+  if (date_arg.empty()) date_arg = ctx.get<std::string>("-d", "");
+  std::string date_file = ctx.get<std::string>("--file", "");
+  if (date_file.empty()) date_file = ctx.get<std::string>("-f", "");
+  std::string reference_path = ctx.get<std::string>("--reference", "");
+  if (reference_path.empty()) reference_path = ctx.get<std::string>("-r", "");
+  bool has_resolution = ctx.has("--resolution");
+
+  int specified_date =
+      (!date_arg.empty() ? 1 : 0) + (!date_file.empty() ? 1 : 0) +
+      (!reference_path.empty() ? 1 : 0) + (has_resolution ? 1 : 0);
+  if (specified_date > 1) {
+    safeErrorPrintLn(
+        "date: the options to specify dates for printing are mutually "
+        "exclusive");
+    return 1;
+  }
+  // [GNU] --set may not be combined with any printing date source
+  if (is_set && specified_date) {
+    safeErrorPrintLn(
+        "date: the options to print and set the time may not be used together");
+    return 1;
   }
 
   // [GNU] --universal: alias for --utc
@@ -794,59 +832,9 @@ REGISTER_COMMAND(
                  ctx.get<bool>("--rfc-email", false) ||
                  ctx.get<bool>("--rfc-2822", false);
 
-  FILETIME selected_time{};
-  std::string reference_path = ctx.get<std::string>("--reference", "");
-  if (reference_path.empty()) reference_path = ctx.get<std::string>("-r", "");
-  if (!reference_path.empty()) {
-    auto reference_time = read_reference_time(reference_path);
-    if (!reference_time) {
-      safeErrorPrint("date: failed to get modification time of '");
-      safeErrorPrint(reference_path);
-      safeErrorPrint("'\n");
-      return 1;
-    }
-    selected_time = *reference_time;
-  }
-
-  std::string date_arg = ctx.get<std::string>("--date", "");
-  if (date_arg.empty()) date_arg = ctx.get<std::string>("-d", "");
-  if (!date_arg.empty()) {
-    auto parsed = parse_date_argument(date_arg);
-    if (!parsed) {
-      safeErrorPrint("date: invalid date '");
-      safeErrorPrint(date_arg);
-      safeErrorPrint("'\n");
-      return 1;
-    }
-    selected_time = *parsed;
-    if (ctx.has("--debug")) {
-      safeErrorPrint("date: parsed date ");
-      safeErrorPrintLn(date_arg);
-    }
-  } else if (reference_path.empty()) {
-    GetSystemTimeAsFileTime(&selected_time);
-  }
-
-  auto tv = make_time_value(selected_time, use_utc);
-  if (!tv) {
-    safeErrorPrint("date: failed to convert time\n");
-    return 1;
-  }
-
-  std::string format = "%a %b %e %H:%M:%S %Z %Y";
-
-  for (auto arg : ctx.positionals) {
-    std::string_view arg_sv = arg;
-    if (arg_sv.starts_with("+")) {
-      format = std::string(arg_sv.substr(1));
-      break;
-    }
-  }
-
-  if (rfc2822) {
-    format = "%a, %d %b %Y %H:%M:%S %z";
-  }
-
+  // [GNU] -R/-I/--rfc-3339 all set the output format; a '+' operand may not
+  // override them ("multiple output formats specified").
+  std::string format;
   std::string iso_arg = ctx.get<std::string>("--iso-8601", "");
   if (!ctx.has("--iso-8601")) iso_arg = ctx.get<std::string>("-I", "");
   if (ctx.has("--iso-8601") || ctx.has("-I")) {
@@ -859,7 +847,6 @@ REGISTER_COMMAND(
     }
     format = *iso_format;
   }
-
   std::string rfc3339_arg = ctx.get<std::string>("--rfc-3339", "");
   if (!rfc3339_arg.empty()) {
     auto rfc3339_format = rfc3339_format_for(rfc3339_arg);
@@ -871,10 +858,151 @@ REGISTER_COMMAND(
     }
     format = *rfc3339_format;
   }
+  if (rfc2822) format = "%a, %d %b %Y %H:%M:%S %z";
+
+  // [GNU] positional operand handling
+  std::string posix_date_operand;
+  if (!ctx.positionals.empty()) {
+    if (ctx.positionals.size() > 1) {
+      safeErrorPrint("date: extra operand '");
+      safeErrorPrint(std::string(ctx.positionals[1]));
+      safeErrorPrintLn("'");
+      return 1;
+    }
+    std::string operand{ctx.positionals[0]};
+    if (!operand.empty() && operand[0] == '+') {
+      if (!format.empty()) {
+        safeErrorPrintLn("date: multiple output formats specified");
+        return 1;
+      }
+      format = operand.substr(1);
+    } else if (specified_date || is_set) {
+      safeErrorPrint("date: the argument '");
+      safeErrorPrint(operand);
+      safeErrorPrintLn("' lacks a leading '+';");
+      safeErrorPrintLn(
+          "when using an option to specify date(s), any non-option");
+      safeErrorPrintLn("argument must be a format string beginning with '+'");
+      return 1;
+    } else {
+      posix_date_operand = operand;
+    }
+  }
+
+  if (format.empty()) {
+    // [GNU] --resolution defaults to "%s.%N"
+    format = has_resolution ? "%s.%N" : "%a %b %e %H:%M:%S %Z %Y";
+  }
+
+  if (is_set) {
+    auto parsed = parse_date_argument(set_arg);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(set_arg);
+      safeErrorPrintLn("'");
+      return 1;
+    }
+
+    // Convert FILETIME (UTC) to SYSTEMTIME (UTC), then to local time
+    // because SetSystemTime expects local time
+    SYSTEMTIME utc_st{};
+    if (!FileTimeToSystemTime(&*parsed, &utc_st)) {
+      safeErrorPrintLn("date: cannot convert time");
+      return 1;
+    }
+    FILETIME utc_ft = *parsed;
+    // Convert UTC SYSTEMTIME to FILETIME, then to local FILETIME, then to
+    // SYSTEMTIME
+    FILETIME local_ft{};
+    if (!FileTimeToLocalFileTime(&utc_ft, &local_ft)) {
+      safeErrorPrintLn("date: cannot convert to local time");
+      return 1;
+    }
+    SYSTEMTIME local_st2{};
+    if (!FileTimeToSystemTime(&local_ft, &local_st2)) {
+      safeErrorPrintLn("date: cannot convert time");
+      return 1;
+    }
+    // [GNU] regardless of the outcome, the (attempted) new date is printed
+    int exit_code = 0;
+    if (!SetSystemTime(&local_st2)) {
+      safeErrorPrintLn("date: cannot set date");
+      exit_code = 1;
+    }
+    auto tv = make_time_value(utc_ft, use_utc);
+    if (tv) {
+      safePrintLn(format_time(*tv, format));
+    }
+    return exit_code;
+  }
+
+  FILETIME selected_time{};
+  if (!reference_path.empty()) {
+    auto reference_time = read_reference_time(reference_path);
+    if (!reference_time) {
+      safeErrorPrint("date: failed to get modification time of '");
+      safeErrorPrint(reference_path);
+      safeErrorPrint("'\n");
+      return 1;
+    }
+    selected_time = *reference_time;
+  } else if (!date_arg.empty()) {
+    auto parsed = parse_date_argument(date_arg);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(date_arg);
+      safeErrorPrint("'\n");
+      return 1;
+    }
+    selected_time = *parsed;
+    if (ctx.has("--debug")) {
+      safeErrorPrint("date: parsed date ");
+      safeErrorPrintLn(date_arg);
+    }
+  } else if (has_resolution) {
+    // [GNU] date --resolution prints the available timestamp resolution;
+    // FILETIME ticks are 100 ns wide.
+    safePrintLn("0.000000100");
+    return 0;
+  } else if (posix_date_operand.empty()) {
+    GetSystemTimeAsFileTime(&selected_time);
+  }
+
+  // [GNU] a bare positional date argument means: set the system clock to the
+  // POSIX-format date/time MMDDhhmm[[CC]YY][.ss]
+  if (!posix_date_operand.empty()) {
+    auto parsed = parse_posix_clock(posix_date_operand);
+    if (!parsed) {
+      safeErrorPrint("date: invalid date '");
+      safeErrorPrint(posix_date_operand);
+      safeErrorPrintLn("'");
+      return 1;
+    }
+    int exit_code = 0;
+    if (!SetSystemTime(&*parsed)) {
+      safeErrorPrintLn("date: cannot set date");
+      exit_code = 1;
+    }
+    // Print the (attempted) new date like GNU does. SetSystemTime takes
+    // local time; rebuild the UTC FILETIME for display.
+    SYSTEMTIME utc_st{};
+    if (TzSpecificLocalTimeToSystemTime(nullptr, &*parsed, &utc_st)) {
+      FILETIME utc_ft{};
+      if (SystemTimeToFileTime(&utc_st, &utc_ft)) {
+        auto tv = make_time_value(utc_ft, use_utc);
+        if (tv) safePrintLn(format_time(*tv, format));
+      }
+    }
+    return exit_code;
+  }
+
+  auto tv = make_time_value(selected_time, use_utc);
+  if (!tv) {
+    safeErrorPrint("date: failed to convert time\n");
+    return 1;
+  }
 
   // [GNU] -f/--file: display date strings from DATEFILE, one per line
-  std::string date_file = ctx.get<std::string>("--file", "");
-  if (date_file.empty()) date_file = ctx.get<std::string>("-f", "");
   if (!date_file.empty()) {
     std::ifstream ifs(date_file);
     if (!ifs) {

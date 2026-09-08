@@ -196,3 +196,120 @@ TEST(date, date_rfc_email_fixed_utc_time) {
   EXPECT_EQ(r.exit_code, 0);
   EXPECT_EQ(r.stdout_text, "Tue, 02 Jan 2024 03:04:05 +0000\n");
 }
+
+TEST(date, date_invalid_positional_operand_is_rejected) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"notadate"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date invalid positional stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("invalid date"), std::string::npos);
+  EXPECT_NE(r.stderr_text.find("notadate"), std::string::npos);
+}
+
+TEST(date, date_extra_operand_is_rejected) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  // Invalid POSIX date so no system clock mutation can occur even if the
+  // operand parsing ever changed.
+  p.add(L"date.exe", {L"99999999999999", L"99999999999999"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date extra operand stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("extra operand"), std::string::npos);
+}
+
+TEST(date, date_operand_without_plus_with_date_option) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"-d", L"now", L"xyz"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date lacks plus stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("lacks a leading '+'"), std::string::npos);
+}
+
+TEST(date, date_multiple_output_formats_are_rejected) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"-R", L"+%Y"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date multiple formats stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("multiple output formats specified"),
+            std::string::npos);
+}
+
+TEST(date, date_mutually_exclusive_date_sources) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"-d", L"now", L"-r", L"somefile"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date exclusive stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("mutually exclusive"), std::string::npos);
+}
+
+TEST(date, date_set_and_print_options_conflict) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"-s", L"now", L"-d", L"now"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date set/print conflict stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("may not be used together"), std::string::npos);
+}
+
+TEST(date, date_resolution_prints_nanosecond_tick) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  p.add(L"date.exe", {L"--resolution"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date resolution output", r.stdout_text);
+  EXPECT_EQ(r.exit_code, 0);
+  EXPECT_EQ(r.stdout_text, "0.000000100\n");
+}
+
+TEST(date, date_invalid_posix_clock_operand) {
+  TempDir tmp;
+
+  Pipeline p;
+  p.set_cwd(tmp.wpath());
+  // Month 13 -> invalid MMDDhhmm[[CC]YY][.ss] POSIX set-date syntax.
+  p.add(L"date.exe", {L"130203042026"});
+
+  auto r = p.run();
+  TEST_LOG_EXIT_CODE(r);
+  TEST_LOG("date invalid posix stderr", r.stderr_text);
+  EXPECT_EQ(r.exit_code, 1);
+  EXPECT_NE(r.stderr_text.find("invalid date"), std::string::npos);
+}
