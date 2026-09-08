@@ -46,7 +46,11 @@ $buildPath = Join-Path $rootPath $BuildDir
 $cmdExe = Join-Path $env:SystemRoot "System32\cmd.exe"
 
 if ([string]::IsNullOrWhiteSpace($VsEnvScript)) {
-    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    $pfX86 = ${env:ProgramFiles(x86)}
+    if ([string]::IsNullOrWhiteSpace($pfX86)) {
+        $pfX86 = $env:ProgramFiles
+    }
+    $vswhere = Join-Path $pfX86 "Microsoft Visual Studio\Installer\vswhere.exe"
     if (Test-Path -LiteralPath $vswhere -PathType Leaf) {
         $VsEnvScript = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find "VC\Auxiliary\Build\vcvars64.bat" |
             Select-Object -First 1

@@ -88,6 +88,29 @@ auto format_uptime(std::chrono::seconds uptime) -> std::string {
   return result;
 }
 
+// [GNU] the default uptime line renders the duration as a clock, e.g.
+// "up 22:03" / "up 2 days,  4:13", not "up 22 hours, 3 minutes"
+// (uutils #13027, #13453)
+auto format_uptime_clock(std::chrono::seconds uptime) -> std::string {
+  auto days = std::chrono::duration_cast<std::chrono::hours>(uptime) / 24;
+  auto hours = std::chrono::duration_cast<std::chrono::hours>(uptime) % 24;
+  auto minutes = std::chrono::duration_cast<std::chrono::minutes>(uptime) % 60;
+
+  char buf[64];
+  if (days.count() > 0) {
+    std::string day_part = std::to_string(days.count()) +
+                           (days.count() == 1 ? " day" : " days");
+    snprintf(buf, sizeof(buf), "%s, %2d:%02d", day_part.c_str(),
+             static_cast<int>(hours.count()),
+             static_cast<int>(minutes.count()));
+  } else {
+    snprintf(buf, sizeof(buf), "%2d:%02d",
+             static_cast<int>(hours.count()),
+             static_cast<int>(minutes.count()));
+  }
+  return std::string(buf);
+}
+
 auto run(const Config& cfg) -> int {
   // Get system uptime
   auto uptime = std::chrono::seconds(GetTickCount64() / 1000);
@@ -116,7 +139,7 @@ auto run(const Config& cfg) -> int {
     safePrint(" ");
     safePrint(time_ss.str());
     safePrint(" up ");
-    safePrint(format_uptime(uptime));
+    safePrint(format_uptime_clock(uptime));
     safePrint(",  ");
     safePrintLn("load average: N/A, N/A, N/A");
   }

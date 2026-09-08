@@ -92,33 +92,38 @@ struct Config {
 auto build_config(const CommandContext<HOSTNAME_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
-  cfg.show_ip =
-      ctx.get<bool>("--ip-address", false) || ctx.get<bool>("-i", false);
-  cfg.show_all_ips =
-      ctx.get<bool>("--all-ip-addresses", false) || ctx.get<bool>("-I", false);
-  cfg.short_name =
-      ctx.get<bool>("--short", false) || ctx.get<bool>("-s", false);
-  cfg.fqdn = ctx.get<bool>("--fqdn", false) || ctx.get<bool>("-f", false);
-  cfg.domain = ctx.get<bool>("--domain", false) || ctx.get<bool>("-d", false);
-  cfg.node = ctx.get<bool>("--node", false) || ctx.get<bool>("-n", false);
-  auto file_opt = ctx.get<std::string>("--file", "");
-  if (!file_opt.empty()) {
-    cfg.file = file_opt;
+  // [GNU] coreutils hostname only prints/sets the system name; the
+  // net-tools option set (-i/-s/-f/-d/...) is rejected with an
+  // "unknown option" error (uutils #8656).
+  struct UnsupportedOption {
+    std::string_view short_name;
+    std::string_view long_name;
+  };
+  static constexpr UnsupportedOption unsupported[] = {
+      {"-b", "--boot"},         {"-i", "--ip-address"},
+      {"-I", "--all-ip-addresses"}, {"-s", "--short"},
+      {"-f", "--fqdn"},         {"-a", "--alias"},
+      {"-A", "--all-fqdns"},    {"-d", "--domain"},
+      {"-F", "--file"},         {"-y", "--yp"},
+      {"-n", "--node"}};
+  for (const auto& opt : unsupported) {
+    if (!opt.short_name.empty() && ctx.has(std::string(opt.short_name))) {
+      return std::unexpected(
+          "unknown option -- " + std::string(opt.short_name.substr(1)) +
+          "\nTry 'hostname --help' for more information.");
+    }
+    if (ctx.has(std::string(opt.long_name))) {
+      return std::unexpected(
+          "unrecognized option '" + std::string(opt.long_name) +
+          "'\nTry 'hostname --help' for more information.");
+    }
   }
-
-  // [DIFFERS] -a/--alias: host alias names not supported on Windows
-  if (ctx.get<bool>("--alias", false) || ctx.get<bool>("-a", false)) {
-    return std::unexpected("host alias names are not supported on Windows");
-  }
-  // [DIFFERS] -A/--all-fqdns: all FQDNs not supported on Windows
-  if (ctx.get<bool>("--all-fqdns", false) || ctx.get<bool>("-A", false)) {
-    return std::unexpected(
-        "all FQDNs of the host are not supported on Windows");
-  }
-  // [DIFFERS] -y/--yp: NIS/YP domain name not supported on Windows
-  if (ctx.get<bool>("--yp", false) || ctx.get<bool>("-y", false)) {
-    return std::unexpected("NIS/YP domain name is not supported on Windows");
-  }
+  (void)cfg.show_ip;
+  (void)cfg.show_all_ips;
+  (void)cfg.short_name;
+  (void)cfg.fqdn;
+  (void)cfg.domain;
+  (void)cfg.node;
 
   return cfg;
 }

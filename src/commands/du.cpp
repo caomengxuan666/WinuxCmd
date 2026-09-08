@@ -544,7 +544,8 @@ auto print_time_if_requested(const UsageSummary& summary, const DuConfig& cfg)
   if (!cfg.show_time || !summary.has_time) {
     return;
   }
-  safePrint("  ");
+  // [GNU] size and time are tab-separated (uutils #13267)
+  safePrint("\t");
   safePrint(format_time_long_iso(summary.latest_time, cfg.time_style));
 }
 
@@ -636,6 +637,9 @@ auto configure_du(const CommandContext<DU_OPTIONS.size()>& ctx)
       ctx.get<bool>("--summarize", false) || ctx.get<bool>("-s", false);
 
   cfg.max_depth = ctx.get<int>("--max-depth", -1);
+  if (cfg.count_all && cfg.summarize) {
+    return std::unexpected("cannot both summarize and show all");
+  }
   if (ctx.get<int>("-d", -1) != -1) {
     cfg.max_depth = ctx.get<int>("-d", -1);
   }
@@ -804,6 +808,31 @@ auto get_hard_link_count(const std::wstring& path) -> DWORD {
 }
 
 /**
+ * @brief Get a stable per-inode key (volume serial + file index)
+ * @param path File path
+ * @return L"<volume>:<index>" or empty if unavailable
+ */
+auto get_inode_key(const std::wstring& path) -> std::wstring {
+  HANDLE hFile = CreateFileW(
+      path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (hFile == INVALID_HANDLE_VALUE) {
+    return L"";
+  }
+  BY_HANDLE_FILE_INFORMATION info{};
+  std::wstring key;
+  if (GetFileInformationByHandle(hFile, &info)) {
+    const uint64_t index =
+        (static_cast<uint64_t>(info.nFileIndexHigh) << 32) |
+        info.nFileIndexLow;
+    key = std::to_wstring(info.dwVolumeSerialNumber) + L":" +
+          std::to_wstring(index);
+  }
+  CloseHandle(hFile);
+  return key;
+}
+
+/**
  * @brief Get file size
  * @param path File path
  * @return File size or 0 if error
@@ -831,6 +860,7 @@ auto calculate_dir_size(const std::wstring& path,
                         std::unordered_map<std::wstring, uint64_t>& sizes,
                         std::unordered_map<std::wstring, FILETIME>& times,
                         int current_depth, const DuConfig& cfg,
+                        std::unordered_set<std::wstring>& seen_inodes,
                         const std::wstring& root_drive = L"") -> UsageSummary {
   WIN32_FIND_DATAW find_data;
   std::wstring search_path = path + L"\\*";
@@ -883,7 +913,8 @@ auto calculate_dir_size(const std::wstring& path,
 
       // Recursively calculate subdirectory size
       UsageSummary child_summary =
-          calculate_dir_size(full_path, sizes, times, child_depth, cfg, drive);
+          calculate_dir_size(full_path, sizes, times, child_depth, cfg,
+                             seen_inodes, drive);
       if (!cfg.separate_dirs) {
         summary.size += child_summary.size;
       }
@@ -893,9 +924,23 @@ auto calculate_dir_size(const std::wstring& path,
     } else {
       // It's a file
       uint64_t file_size = get_file_size(full_path);
-      // --count-links: multiply by hard link count [DIFFERS]
-      if (cfg.count_links) {
-        DWORD nlinks = get_hard_link_count(full_path);
+      // [GNU] Hard-linked files are counted once per invocation; later
+      // occurrences of the same inode contribute nothing (uutils #9202
+      // #10241 #10312 #9871). --count-links opts out.
+      bool counted = true;
+      if (!cfg.count_links) {
+        const DWORD nlinks = get_hard_link_count(full_path);
+        if (nlinks > 1) {
+          const std::wstring inode_key = get_inode_key(full_path);
+          if (!inode_key.empty()) {
+            if (!seen_inodes.insert(inode_key).second) {
+              counted = false;
+              file_size = 0;
+            }
+          }
+        }
+      } else {
+        const DWORD nlinks = get_hard_link_count(full_path);
         if (nlinks > 1) {
           file_size *= nlinks;
         }
@@ -907,7 +952,7 @@ auto calculate_dir_size(const std::wstring& path,
                                  &file_data)) {
           FILETIME file_time = get_selected_time(file_data, cfg.time_mode);
           update_latest_time(summary, file_time);
-          if (cfg.count_all &&
+          if (cfg.count_all && counted &&
               (cfg.max_depth < 0 || child_depth <= cfg.max_depth)) {
             times[full_path] = file_time;
           }
@@ -915,7 +960,7 @@ auto calculate_dir_size(const std::wstring& path,
       }
 
       // Count individual files if requested
-      if (cfg.count_all &&
+      if (counted && cfg.count_all &&
           (cfg.max_depth < 0 || child_depth <= cfg.max_depth)) {
         sizes[full_path] = file_size;
       }
@@ -990,6 +1035,8 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
 
   bool all_ok = true;
   uint64_t grand_total = 0;
+  // [GNU] Hard-link dedup spans all arguments of one invocation.
+  std::unordered_set<std::wstring> seen_inodes;
 
   for (size_t i = 0; i < paths.size(); ++i) {
     const auto& path = paths[i];
@@ -1016,7 +1063,7 @@ auto print_disk_usage(const CommandContext<DU_OPTIONS.size()>& ctx)
     if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
       // Calculate directory size
       UsageSummary dir_summary =
-          calculate_dir_size(wpath, sizes, times, 0, cfg);
+          calculate_dir_size(wpath, sizes, times, 0, cfg, seen_inodes);
 
       // Print directory size
       uint64_t dir_size = sizes[wpath];

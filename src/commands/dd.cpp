@@ -524,7 +524,25 @@ REGISTER_COMMAND(dd,
   auto skip_bytes = checked_product(cfg.skip, cfg.ibs);
   auto seek_bytes = checked_product(cfg.seek, cfg.obs);
   if (!skip_bytes || !seek_bytes) {
-    safeErrorPrintLn("dd: skip/seek offset overflow");
+    // [GNU] an offset that overflows reports EOVERFLOW wording
+    // (uutils #14199)
+    if (!skip_bytes) {
+      const std::string& in_name =
+          cfg.input_file.empty() ? std::string("standard input")
+                                 : cfg.input_file;
+      safeErrorPrintLn(winux::i18n::format(
+          "command.dd.error.cannot_skip",
+          "dd: {}: cannot skip: Value too large for defined data type",
+          in_name));
+    } else {
+      const std::string& out_name =
+          cfg.output_file.empty() ? std::string("standard output")
+                                  : cfg.output_file;
+      safeErrorPrintLn(winux::i18n::format(
+          "command.dd.error.cannot_seek",
+          "dd: {}: cannot seek: Value too large for defined data type",
+          out_name));
+    }
     if (hIn != INVALID_HANDLE_VALUE && hIn != stdin_handle) CloseHandle(hIn);
     if (hOut != INVALID_HANDLE_VALUE && hOut != stdout_handle)
       CloseHandle(hOut);

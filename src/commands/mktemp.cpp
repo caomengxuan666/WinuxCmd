@@ -257,6 +257,21 @@ auto default_temporary_directory() -> cp::Result<std::string> {
   return native_display_path(std::filesystem::path(buffer));
 }
 
+// [GNU] the template (plus suffix) must contain a run of at least 3
+// consecutive X's in its final path component.
+auto has_x_run_of_three(std::string_view templ) -> bool {
+  size_t run = 0;
+  for (char c : templ) {
+    if (c == 'X') {
+      ++run;
+      if (run >= 3) return true;
+    } else {
+      run = 0;
+    }
+  }
+  return false;
+}
+
 auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
     -> cp::Result<Config> {
   Config cfg;
@@ -268,6 +283,15 @@ auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
   auto tmpdir_opt = ctx.get<std::string>("--tmpdir", "");
   if (tmpdir_opt.empty()) {
     tmpdir_opt = ctx.get<std::string>("-p", "");
+  }
+  if (tmpdir_opt.empty() && ctx.count({"--tmpdir", "-p"}) > 0) {
+    // [GNU] an explicitly empty --tmpdir falls back to the default
+    // temporary directory (uutils #8445/#10189).
+    auto default_tmpdir = default_temporary_directory();
+    if (!default_tmpdir) {
+      return std::unexpected(default_tmpdir.error());
+    }
+    tmpdir_opt = *default_tmpdir;
   }
   if (!tmpdir_opt.empty()) {
     cfg.tmpdir = tmpdir_opt;
@@ -312,6 +336,22 @@ auto build_config(const CommandContext<MKTEMP_OPTIONS.size()>& ctx)
         return std::unexpected(default_tmpdir.error());
       }
       cfg.tmpdir = *default_tmpdir;
+    }
+  }
+
+  // [GNU] reject templates without a run of >= 3 consecutive X's:
+  // "too few X's in template '...'" (uutils #10187).
+  {
+    std::string full = cfg.template_str + cfg.suffix;
+    std::string component =
+        std::filesystem::path(normalize_win_shell_path(full))
+            .filename()
+            .string();
+    if (component.empty()) {
+      component = full;
+    }
+    if (!has_x_run_of_three(component)) {
+      return std::unexpected("too few X's in template '" + full + "'");
     }
   }
 

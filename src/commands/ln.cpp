@@ -185,13 +185,11 @@ auto create_symlink(const std::string &source, const std::string &target,
 
   // Check if source is a directory
   DWORD attrs = GetFileAttributesW(wsource.c_str());
-  if (attrs == INVALID_FILE_ATTRIBUTES) {
-    return std::unexpected("failed to access '" + source +
-                           "': No such file or directory");
-  }
-
-  bool is_directory = (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+  bool is_directory = attrs != INVALID_FILE_ATTRIBUTES &&
+                      (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
   DWORD flags = is_directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
+  // [GNU] a symlink source may be dangling; creation must not fail when the
+  // source does not exist (uutils #13667)
 
   if (CreateSymbolicLinkW(wtarget.c_str(), wsource.c_str(), flags)) {
     if (verbose) {

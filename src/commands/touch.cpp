@@ -256,6 +256,97 @@ auto parse_timezone_suffix(std::string& s) -> std::optional<int> {
   return std::nullopt;
 }
 
+// [GNU] touch honors the TZ environment variable when interpreting wall
+// clock times given via -t or -d (no explicit offset in the string).
+// Supported POSIX forms: "UTC", "GMT" and "NAME[+|-]hh[:mm[:ss]]" where the
+// offset counts WEST of the prime meridian (POSIX sign convention).
+// Named IANA zones (e.g. "Asia/Shanghai") are not resolvable without a
+// tz database, so they fall back to the system local zone. Returns the
+// offset EAST of UTC in minutes, or nullopt to use the system local zone.
+auto env_tz_offset_east() -> std::optional<int> {
+  const char* tz = std::getenv("TZ");
+  if (tz == nullptr || *tz == '\0') return std::nullopt;
+  std::string s = tz;
+  if (!s.empty() && s.front() == ':') s = s.substr(1);
+
+  size_t pos = 0;
+  if (!s.empty() && s.front() == '<') {
+    auto close = s.find('>');
+    if (close == std::string::npos) return std::nullopt;
+    pos = close + 1;
+  } else {
+    while (pos < s.size() &&
+           std::isalpha(static_cast<unsigned char>(s[pos]))) {
+      ++pos;
+    }
+  }
+  if (pos == s.size()) {
+    // Bare zone name: only UTC/GMT/UT/Z are unambiguous; anything else
+    // (IANA names) falls back to the system local zone.
+    std::string name = s;
+    for (auto& c : name) {
+      c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    }
+    if (name == "UTC" || name == "GMT" || name == "UT" || name == "Z") {
+      return 0;
+    }
+    return std::nullopt;
+  }
+
+  int sign = 1;
+  if (s[pos] == '+' || s[pos] == '-') {
+    sign = s[pos] == '-' ? -1 : 1;
+    ++pos;
+  }
+
+  auto read_num = [&](int& out, size_t& i) -> bool {
+    size_t start = i;
+    while (i < s.size() && std::isdigit(static_cast<unsigned char>(s[i]))) {
+      ++i;
+    }
+    if (i == start) return false;
+    out = *parse_int(std::string_view(s).substr(start, i - start));
+    return true;
+  };
+
+  int hours = 0;
+  int minutes = 0;
+  int seconds = 0;
+  if (!read_num(hours, pos)) return std::nullopt;
+  if (pos < s.size() && s[pos] == ':') {
+    ++pos;
+    if (!read_num(minutes, pos)) return std::nullopt;
+    if (pos < s.size() && s[pos] == ':') {
+      ++pos;
+      if (!read_num(seconds, pos)) return std::nullopt;
+    }
+  }
+  if (pos != s.size() || hours > 24 || minutes > 59 || seconds > 59) {
+    return std::nullopt;
+  }
+
+  // POSIX: positive offset = west of UTC, so east offset negates it.
+  long long east_seconds =
+      -sign * (hours * 3600LL + minutes * 60LL + seconds);
+  return static_cast<int>((east_seconds + 30) / 60);
+}
+
+// Interpret a wall clock SYSTEMTIME in the zone selected by an explicit
+// UTC offset (from a "+hh:mm" suffix in the string), else the TZ
+// environment variable, else the system local zone.
+auto zone_time_to_filetime(const SYSTEMTIME& st,
+                           std::optional<int> explicit_east_offset)
+    -> std::optional<FILETIME> {
+  std::optional<int> east = explicit_east_offset;
+  if (!east) east = env_tz_offset_east();
+  if (east) {
+    auto ft = utc_system_time_to_filetime(st);
+    if (!ft) return std::nullopt;
+    return add_seconds(*ft, -static_cast<long long>(*east) * 60);
+  }
+  return local_system_time_to_filetime(st);
+}
+
 auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
   input = trim_copy(input);
   if (auto epoch = parse_epoch_time(input)) return epoch;
@@ -300,7 +391,31 @@ auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
       second = *parse_int(std::string_view(date_part).substr(12, 2));
     }
   } else {
-    return std::nullopt;
+    // [GNU] Loose ISO dates with single-digit fields are accepted
+    // ("2026-6-27"), so also try splitting on '-' with variable widths
+    // (uutils #13134).
+    if (date_part.size() >= 6 && date_part.find('-') != std::string::npos) {
+      auto first = date_part.find('-');
+      auto second = date_part.find('-', first + 1);
+      if (second != std::string::npos &&
+          date_part.find('-', second + 1) == std::string::npos) {
+        auto y = parse_int(std::string_view(date_part).substr(0, first));
+        auto m = parse_int(std::string_view(date_part).substr(
+            first + 1, second - first - 1));
+        auto d = parse_int(std::string_view(date_part).substr(second + 1));
+        if (y && m && d) {
+          year = *y;
+          month = *m;
+          day = *d;
+        } else {
+          return std::nullopt;
+        }
+      } else {
+        return std::nullopt;
+      }
+    } else {
+      return std::nullopt;
+    }
   }
 
   if (!time_part.empty()) {
@@ -336,7 +451,7 @@ auto parse_fixed_date_time(std::string input) -> std::optional<FILETIME> {
     if (!ft) return std::nullopt;
     return add_seconds(*ft, -static_cast<long long>(*tz_offset) * 60);
   }
-  return local_system_time_to_filetime(st);
+  return zone_time_to_filetime(st, std::nullopt);
 }
 
 auto parse_relative_date(std::string input, const FILETIME& base)
@@ -449,7 +564,7 @@ auto parse_touch_timestamp(const std::string& input)
   st.wHour = static_cast<WORD>(hour);
   st.wMinute = static_cast<WORD>(minute);
   st.wSecond = static_cast<WORD>(second);
-  return local_system_time_to_filetime(st);
+  return zone_time_to_filetime(st, std::nullopt);
 }
 
 auto file_open_flags(bool no_dereference) -> DWORD {

@@ -105,37 +105,42 @@ MANUAL_MESSAGES = {
         "      setenv TZ `tzset`\n"
     ),
     "command.wpm.custom_help": (
-        "Winux Package Manager {}\n"
-        "Usage: wpm <command> [args] [options]\n\n"
-        "Commands:\n"
-        "  links list|rebuild|remove     manage WinuxCmd hardlinks\n"
-        "  clean [cache|staging|all]     remove transient downloads and staging\n"
-        "  cache clean [cache|staging|all]\n"
-        "                                alias for clean\n"
-        "  index status|update           inspect or refresh local index\n"
-        "  update-index                  alias for index update\n"
-        "  source list|use|add|test      manage and test index sources\n"
-        "  list                          list indexed packages and install state\n"
-        "  categories                    list package categories and counts\n"
-        "  search <query>                search names, commands, categories, licenses\n"
-        "  info <package>                show package metadata\n"
-        "  install <package>...          install one or more packages\n"
-        "  installed                     list packages present in this root\n"
-        "  export [--plain]              print installed package names for profiles\n"
-        "  restore <file>                install packages from a plain list\n"
-        "  update|upgrade winuxcmd       update WinuxCmd from local index\n\n"
-        "Options:\n"
-        "  -r, --root <dir>              manage a specific WinuxCmd root\n"
-        "  -s, --source <name>           use a specific index source\n"
-        "  -a, --all                     show index-only packages in list output\n"
-        "  -f, --force                   overwrite existing files when safe\n"
-        "  -n, --dry-run                 show planned changes without writing\n"
-        "  -v, --verbose                 print detailed progress\n"
-        "      --category <name>         filter list/search output by category\n"
-        "      --json                    print machine-readable JSON\n"
-        "      --plain                   print only package names for export\n"
-        "      --help                    display this help and exit\n"
-        "  -V, --version                 output version information and exit\n"
+        'Winux Package Manager {}\\n'
+        'Usage: wpm <command> [args] [options]\\n'
+        '\\n'
+        'Commands:\\n'
+        '  links list|rebuild|remove             manage WinuxCmd hardlinks\\n'
+        '  clean [cache|staging|all]             remove transient downloads and staging\\n'
+        '  cache clean [cache|staging|all]       alias for clean\\n'
+        '  index status|update                   inspect or refresh local index\\n'
+        '  update-index                          alias for index update\\n'
+        '  source list|use|add|test              manage and test index sources\\n'
+        '  list                                  list indexed packages and install state\\n'
+        '  categories                            list package categories and counts\\n'
+        '  search <query>                        search names, commands, categories, licenses\\n'
+        '  info <package>                        show package metadata\\n'
+        '  install <package>...                  install one or more packages\\n'
+        '  installed                             list packages present in this root\\n'
+        '  export [--plain]                      print installed package names for profiles\\n'
+        '  restore <file>                        install packages from a plain list\\n'
+        '  outdated                              list installed packages with updates\\n'
+        '  uninstall|remove|erase <package>...   uninstall one or more packages\\n'
+        '  update|upgrade winuxcmd               update WinuxCmd from local index\\n'
+        '\\n'
+        'Options:\\n'
+        '  -r, --root <dir>                      manage a specific WinuxCmd root\\n'
+        '  -s, --source <name>                   use a specific index source\\n'
+        '  -a, --all                             show index-only packages in list output\\n'
+        '  -f, --force                           overwrite existing files when safe\\n'
+        '  -n, --dry-run                         show planned changes without writing\\n'
+        '  -v, --verbose                         print detailed progress\\n'
+        '  -y, --yes                             assume yes for interactive prompts\\n'
+        '      --category <name>                 filter list/search output by category\\n'
+        '      --json                            print machine-readable JSON\\n'
+        '      --plain                           print only package names for export\\n'
+        '      --help                            display this help and exit\\n'
+        '  -V, --version                         output version information and exit\\n'
+        ''
     ),
     "command.chown.error.unsupported_ownership": "chown: changing ownership is not supported on Windows",
     "command.wpm.error.invalid_json": "wpm: invalid JSON: {}",
@@ -144,8 +149,54 @@ MANUAL_MESSAGES = {
     "command.wpm.error.stage": "wpm: failed to stage exe: {}",
     "command.wpm.status.clean_empty": "wpm: {} is already clean",
     "command.wpm.status.clean_dry_run": "wpm: would remove {} ({} in {} files)",
-    "command.wpm.status.cleaned_detail": "wpm: cleaned {} ({} in {} files)",
+    "command.wpm.status.clean_file": "wpm: - {}",
+    "command.wpm.status.clean_progress":
+        "wpm: removing {}... {}% ({}/{} files, {})",
+    "command.wpm.status.clean_summary":
+        "wpm: removed {} ({} in {} files) in {:.1f}s",
     "command.wpm.status.install_summary": "wpm: install summary: requested={} failed={}",
+    "command.wpm.status.uninstall_confirm": "wpm: the following packages will be removed: {}",
+    "command.wpm.status.uninstall_prompt": "wpm: continue? [y/N] ",
+    "command.wpm.status.uninstall_aborted": "wpm: aborted; nothing was removed",
+    "command.wpm.status.uninstall_progress":
+        "wpm: removing {}... {}% ({}/{} files, {})",
+    "command.wpm.status.installing_files": "wpm: installing files...",
+    "command.wpm.status.installed": "wpm: installed {}",
+    "command.wpm.status.install_dry_run": "wpm: dry-run complete; would install {}",
+    "command.wpm.status.extracting": "wpm: extracting {}",
+    "command.wpm.status.downloading": "wpm: downloading {}",
+    "command.wpm.status.using_cache": "wpm: using cached {}",
+    "command.wpm.status.fetching_index": "wpm: fetching index from {}",
+    "command.wpm.status.index_updated": "wpm: index updated from {}",
+    "command.wpm.status.auto_index_update":
+        "wpm: {}; updating index from configured sources",
+    "command.wpm.status.update_dry_run":
+        "wpm: dry-run: would apply update from {}",
+    "command.wpm.status.update_staged":
+        "wpm: update staged; helper will replace winuxcmd after exit",
+    "command.wpm.error.install_not_found":
+        "wpm: package not found after index update: {}",
+    "command.wpm.error.not_installable":
+        "wpm: package is not installable for {}: {}",
+    "command.wpm.error.fix_index_hint":
+        "wpm: update the source index artifact urls, sha256, and files mapping",
+    "command.wpm.error.unsupported_type": "wpm: unsupported artifact type: {}",
+    "command.wpm.error.no_urls": "wpm: package '{}' has no URLs in the local index",
+    "command.wpm.error.run_index_update_hint":
+        "wpm: run 'wpm index update' or choose another source",
+    "command.wpm.error.download_failed": "wpm: download failed from {}: {}",
+    "command.wpm.error.write_cache": "wpm: failed to write cache file {}",
+    "command.wpm.error.no_source": "wpm: no reachable index source",
+    "command.wpm.error.save_index": "wpm: failed to save index",
+    "command.wpm.error.auto_index_failed": "wpm: automatic index update failed",
+    "command.wpm.error.auto_index_hint":
+        "wpm: run 'wpm index update' to retry or 'wpm source list' to inspect sources",
+    "command.wpm.error.core_missing":
+        "wpm: winuxcmd package missing after index update",
+    "command.wpm.error.stage_core": "wpm: failed to stage winuxcmd.exe: {}",
+    "command.wpm.error.staged_missing": "wpm: staged winuxcmd.exe not found",
+    "command.wpm.error.extract_failed":
+        "wpm: {} extraction failed; Windows tar.exe returned {}",
     "command.wpm.status.keep_running": "wpm: keeping running executable: {}",
     "command.wpm.error.refuse_directory": "wpm: refusing to replace directory: {}",
     "command.wpm.error.remove": "wpm: failed to remove '{}': {}",
@@ -258,6 +309,26 @@ MANUAL_MESSAGES = {
     "common.error.open_script": "cannot open script file '{}'",
     "command.dd.error.open_input": "dd: failed to open '{}': {}",
     "command.dd.error.read": "dd: read error",
+    "command.dd.error.cannot_skip": "dd: {}: cannot skip: Value too large for defined data type",
+    "command.dd.error.cannot_seek": "dd: {}: cannot seek: Value too large for defined data type",
+    "command.pr.error.page_exceeds": "pr: starting page number {} exceeds page count {}",
+    "command.kill.error.invalid_signal": "'{}': invalid signal",
+    "command.kill.error.multiple_signals": "'{}': multiple signals specified",
+    "common.error.invalid_gap_width": "invalid gap width: '{}'",
+    "common.error.invalid_parallel_argument": "invalid --parallel argument '{}'",
+    "common.error.invalid_number": "Invalid number: '{}'",
+    "common.error.invalid_field_number": "invalid field number: '{}'",
+    "common.error.size_or_reference": "you must specify either '--size' or '--reference'",
+    "common.error.summarize_and_show_all": "cannot both summarize and show all",
+    "common.error.multiple_output_files": "multiple output files specified",
+    "common.error.options_incompatible": "options '{}' are incompatible",
+    "common.error.invalid_tab_size": "invalid tab size: '{}'",
+    "common.error.too_few_xs": "too few X's in template '{}'",
+    "command.pr.error.invalid_number": "'{}' invalid number of {}: '{}'",
+    "command.pr.error.extra_characters": "'{}' extra characters or invalid number in the argument: '{}'",
+    "command.readlink.error.too_many_symlinks": "Too many levels of symbolic links",
+    "command.tsort.error.odd_tokens": "tsort: input contains an odd number of tokens",
+    "command.numfmt.error.valid_to_args": "Valid arguments are:\n  - 'none'\n  - 'si'\n  - 'iec'\n  - 'iec-i'\n",
 }
 
 

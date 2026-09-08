@@ -241,6 +241,38 @@ auto canonicalize_existing(const std::filesystem::path& absolute)
   return path_from_handle(handle.get());
 }
 
+// [GNU] -f/-m still follow links for every component of the non-existing
+// suffix; a symlink loop must fail with exit 1 and no output
+// (uutils #10249).
+auto check_suffix_resolvable(const std::filesystem::path& prefix,
+                             const std::filesystem::path& suffix)
+    -> std::expected<void, std::string> {
+  if (suffix.empty()) {
+    return {};
+  }
+  std::filesystem::path current = prefix;
+  for (const auto& part : suffix) {
+    current /= part;
+    const DWORD attrs = GetFileAttributesW(current.c_str());
+    if (attrs != INVALID_FILE_ATTRIBUTES &&
+        (attrs & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+      auto handle = open_path_handle(current.wstring(), true);
+      if (!handle) {
+        return std::unexpected(winux::i18n::format(
+            "command.readlink.error.too_many_symlinks",
+            "Too many levels of symbolic links"));
+      }
+      auto final_path = path_from_handle(handle.get());
+      if (!final_path) {
+        return std::unexpected(winux::i18n::format(
+            "command.readlink.error.too_many_symlinks",
+            "Too many levels of symbolic links"));
+      }
+    }
+  }
+  return {};
+}
+
 auto canonicalize_path(const std::wstring& original, Mode mode)
     -> std::expected<std::wstring, std::string> {
   auto full_path_result = get_full_path(original);
@@ -278,6 +310,9 @@ auto canonicalize_path(const std::wstring& original, Mode mode)
     }
 
     auto suffix = path_suffix(absolute, parent);
+    if (auto check = check_suffix_resolvable(parent, suffix); !check) {
+      return std::unexpected(check.error());
+    }
     return (std::filesystem::path(*parent_resolved) / suffix).wstring();
   }
 
@@ -301,6 +336,10 @@ auto canonicalize_path(const std::wstring& original, Mode mode)
   auto prefix_resolved = canonicalize_existing(prefix);
   if (!prefix_resolved) {
     return prefix_resolved;
+  }
+
+  if (auto check = check_suffix_resolvable(prefix, suffix); !check) {
+    return std::unexpected(check.error());
   }
 
   return absolute.wstring();

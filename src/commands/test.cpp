@@ -194,14 +194,64 @@ bool compare_strings(const std::string& op, const std::string& a,
   return false;
 }
 
-// Compare integers
-bool compare_integers(const std::string& op, long long a, long long b) {
-  if (op == "-eq") return a == b;
-  if (op == "-ne") return a != b;
-  if (op == "-lt") return a < b;
-  if (op == "-le") return a <= b;
-  if (op == "-gt") return a > b;
-  if (op == "-ge") return a >= b;
+// [GNU] test/compare.c accepts arbitrarily large decimal integers (the MSYS2
+// build compares them exactly instead of erroring on overflow), so parse
+// operands as sign + magnitude digit strings and compare bignum-style.
+// Returns false on any non-decimal operand ("invalid integer", exit 2).
+bool parse_decimal_bignum(const std::string& s, bool& negative,
+                          std::string& magnitude) {
+  size_t i = 0;
+  negative = false;
+  if (i < s.size() && (s[i] == '+' || s[i] == '-')) {
+    negative = (s[i] == '-');
+    ++i;
+  }
+  if (i >= s.size()) return false;
+  for (size_t j = i; j < s.size(); ++j) {
+    if (!std::isdigit(static_cast<unsigned char>(s[j]))) return false;
+  }
+  magnitude = s.substr(i);
+  // Normalize: strip leading zeros.
+  size_t nz = magnitude.find_first_not_of('0');
+  if (nz == std::string::npos) {
+    magnitude = "0";
+    negative = false;
+  } else {
+    magnitude = magnitude.substr(nz);
+  }
+  return true;
+}
+
+int compare_bignum(bool negative_a, const std::string& mag_a,
+                   bool negative_b, const std::string& mag_b) {
+  const bool zero_a = mag_a == "0";
+  const bool zero_b = mag_b == "0";
+  const bool neg_a = negative_a && !zero_a;
+  const bool neg_b = negative_b && !zero_b;
+  if (neg_a != neg_b) return neg_a ? -1 : 1;
+  int mag_cmp = 0;
+  if (mag_a.size() != mag_b.size()) {
+    mag_cmp = mag_a.size() < mag_b.size() ? -1 : 1;
+  } else if (mag_a != mag_b) {
+    mag_cmp = mag_a < mag_b ? -1 : 1;
+  }
+  if (neg_a) return -mag_cmp;
+  return mag_cmp;
+}
+
+bool compare_integer_strings(const std::string& op, const std::string& a,
+                             const std::string& b) {
+  bool neg_a = false, neg_b = false;
+  std::string mag_a, mag_b;
+  if (!parse_decimal_bignum(a, neg_a, mag_a)) return false;
+  if (!parse_decimal_bignum(b, neg_b, mag_b)) return false;
+  const int cmp = compare_bignum(neg_a, mag_a, neg_b, mag_b);
+  if (op == "-eq") return cmp == 0;
+  if (op == "-ne") return cmp != 0;
+  if (op == "-lt") return cmp < 0;
+  if (op == "-le") return cmp <= 0;
+  if (op == "-gt") return cmp > 0;
+  if (op == "-ge") return cmp >= 0;
   return false;
 }
 
@@ -273,21 +323,23 @@ int evaluate_binary(const std::string& a, const std::string& op,
 
   if (op == "-eq" || op == "-ne" || op == "-lt" || op == "-le" || op == "-gt" ||
       op == "-ge") {
-    long long va = 0;
-    long long vb = 0;
-    if (!string_to_int(a, va)) {
+    // [GNU] Operands are validated as decimal integers first; the comparison
+    // itself is exact even for values beyond 64-bit (uutils #12874).
+    bool neg_a = false, neg_b = false;
+    std::string mag_a, mag_b;
+    if (!parse_decimal_bignum(a, neg_a, mag_a)) {
       if (error_message != nullptr) {
         *error_message = "invalid integer '" + a + "'";
       }
       return 2;
     }
-    if (!string_to_int(b, vb)) {
+    if (!parse_decimal_bignum(b, neg_b, mag_b)) {
       if (error_message != nullptr) {
         *error_message = "invalid integer '" + b + "'";
       }
       return 2;
     }
-    return compare_integers(op, va, vb) ? 0 : 1;
+    return compare_integer_strings(op, a, b) ? 0 : 1;
   }
 
   if (op == "-nt" || op == "-ot" || op == "-ef") {

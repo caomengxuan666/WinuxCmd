@@ -463,10 +463,20 @@ auto parse_key_position(std::string_view text)
   }
 
   auto field_text = text.substr(0, i);
-  auto [ptr, ec] = std::from_chars(
-      field_text.data(), field_text.data() + field_text.size(), pos.field);
-  if (ec != std::errc() || ptr != field_text.data() + field_text.size() ||
-      pos.field == 0) {
+  // [GNU] overflowing field/char numbers are accepted and clamp (the field is
+  // beyond every line, so the key is empty; uutils #7185).
+  unsigned long long field_big = 0;
+  auto [ptr, ec] = std::from_chars(field_text.data(),
+                                   field_text.data() + field_text.size(),
+                                   field_big);
+  if ((ec != std::errc() && ec != std::errc::result_out_of_range) ||
+      ptr != field_text.data() + field_text.size()) {
+    return std::unexpected("invalid key spec");
+  }
+  pos.field = ec == std::errc::result_out_of_range
+                  ? std::numeric_limits<size_t>::max()
+                  : static_cast<size_t>(field_big);
+  if (pos.field == 0) {
     return std::unexpected("invalid key spec");
   }
 
@@ -484,8 +494,11 @@ auto parse_key_position(std::string_view text)
     auto char_text = text.substr(char_start, i - char_start);
     auto [char_ptr, char_ec] = std::from_chars(
         char_text.data(), char_text.data() + char_text.size(), value);
-    if (char_ec != std::errc() ||
-        char_ptr != char_text.data() + char_text.size()) {
+    if (char_ec == std::errc::result_out_of_range) {
+      // [GNU] clamp overflowing character offsets like field numbers.
+      value = std::numeric_limits<size_t>::max();
+    } else if (char_ec != std::errc() ||
+               char_ptr != char_text.data() + char_text.size()) {
       return std::unexpected("invalid key spec");
     }
     pos.character = value;
@@ -1292,6 +1305,11 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
     cfg.mode = OperationMode::Check;
   }
   if (ctx.get<bool>("-C", false) || ctx.get<bool>("--check-silent", false)) {
+    // [GNU] -c and -C are mutually exclusive (GNU: options '-cC' are
+    // incompatible).
+    if (cfg.mode == OperationMode::Check) {
+      return std::unexpected("options '-cC' are incompatible");
+    }
     cfg.mode = OperationMode::CheckQuiet;
   }
   cfg.delimiter =
@@ -1299,6 +1317,11 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
           ? '\0'
           : '\n';
 
+  // [GNU] only the last -o would matter, but more than one output file is
+  // rejected outright ("multiple output files specified").
+  if (ctx.count({"-o", "--output"}) > 1) {
+    return std::unexpected("multiple output files specified");
+  }
   cfg.output_file = ctx.get<std::string>("--output", "");
   if (cfg.output_file.empty()) cfg.output_file = ctx.get<std::string>("-o", "");
   if (cfg.mode != OperationMode::Sort && !cfg.output_file.empty()) {
@@ -1329,7 +1352,9 @@ auto build_config(const CommandContext<SORT_OPTIONS.size()>& ctx)
   }
 
   if (ctx.has("--parallel") && !parse_parallel_hint(cfg.parallel_hint)) {
-    return std::unexpected("invalid parallel count");
+    // [GNU] reports the rejected operand (uutils #13016)
+    return std::unexpected("invalid --parallel argument '" + cfg.parallel_hint +
+                           "'");
   }
 
   if (ctx.has("--batch-size") && !parse_batch_size_hint(cfg.batch_size_hint)) {

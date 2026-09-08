@@ -169,6 +169,12 @@ auto build_config(const CommandContext<PTX_OPTIONS.size()>& ctx)
   cfg.only_file = option_value(ctx, "--only-file", "-o");
 
   cfg.gap_size = std::max(0, ctx.get<int>("--gap-size", ctx.get<int>("-g", 3)));
+  if (cfg.gap_size < 1) {
+    // [GNU] ptx rejects a gap size below 1 (uutils #13794)
+    std::string raw = option_value(ctx, "--gap-size", "-g");
+    if (raw.empty()) raw = std::to_string(cfg.gap_size);
+    return std::unexpected(make_error("invalid gap width: '" + raw + "'"));
+  }
 
   cfg.width = std::max(1, ctx.get<int>("--width", ctx.get<int>("-w", 78)));
 
